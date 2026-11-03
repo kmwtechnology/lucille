@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.function.Supplier;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveException;
@@ -336,6 +337,20 @@ public abstract class BaseStorageClient implements StorageClient {
         log.error("Error occurred while performing error operations on file '{}'", fullPath, ex);
       }
       log.error("Unable to publish document '{}', SKIPPING", fullPath, e);
+    }
+  }
+
+  /**
+   * Builds the FileReference for one listed object, or returns null, logging the error, if it can't be built (e.g. the
+   * object's name can't form a URI). The caller skips that object, so one bad object doesn't fail the whole traversal.
+   * It is never published or recorded in state, because it has no full path to record it under.
+   */
+  static FileReference buildReferenceOrSkip(String objectName, Supplier<FileReference> builder) {
+    try {
+      return builder.get();
+    } catch (Exception e) {
+      log.error("Unable to build a reference to '{}', SKIPPING", objectName, e);
+      return null;
     }
   }
 

@@ -583,4 +583,35 @@ public class GoogleStorageClientTest {
 
     return fileBytesMap;
   }
+
+  // Object names that aren't valid in a URI (space, '%', '[', '#') used to abort the traversal. They are now published,
+  // and the published path round-trips to the object for content fetches.
+  @Test
+  public void testSpecialCharacterNamesRoundTrip() throws Exception {
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
+    TraversalParams params = new TraversalParams(ConfigFactory.empty(), URI.create("gs://special/"), "");
+
+    Map<String, String> objects = Map.of(
+        "folder with space/a b.txt", "spaced",
+        "100%[x]#.txt", "special",
+        "plain.txt", "plain");
+    objects.forEach((name, content) -> storage.create(BlobInfo.newBuilder(BlobId.of("special", name)).build(), content.getBytes()));
+
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+    googleStorageClient.traverse(publisher, params);
+
+    List<Document> documents = messenger.getDocsSentForProcessing();
+    assertEquals(3, documents.size());
+
+    for (Document doc : documents) {
+      URI published = new URI(doc.getString(FILE_PATH));
+      String name = published.getPath().substring(1);
+      assertTrue(objects.containsKey(name));
+      assertEquals(objects.get(name), new String(googleStorageClient.getFileContentStream(published).readAllBytes()));
+    }
+  }
 }

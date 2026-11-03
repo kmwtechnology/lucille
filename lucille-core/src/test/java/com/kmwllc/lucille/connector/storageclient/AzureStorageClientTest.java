@@ -1006,4 +1006,44 @@ public class AzureStorageClientTest {
 
     return results;
   }
+
+  // A listed blob whose reference can't be built (here, one with no properties) is skipped, and the rest of the
+  // traversal continues.
+  @Test
+  public void testUnbuildableReferenceIsSkipped() throws Exception {
+    Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of("fileOptions", Map.of(GET_FILE_CONTENT, false)));
+
+    AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("https://storagename.blob.core.windows.net/folder/"), "");
+
+    BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
+    PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
+
+    BlobItem broken = new BlobItem();
+    broken.setName("broken");
+
+    BlobItem good = new BlobItem();
+    good.setName("good");
+    good.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC")))
+        .setContentLength(1L));
+
+    when(pagedIterable.stream()).thenReturn(Stream.of(broken, good));
+    when(mockClient.listBlobsByHierarchy(any(), any(), any())).thenReturn(pagedIterable);
+
+    BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
+    when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);
+    azureStorageClient.setServiceClientForTesting(mockServiceClient);
+
+    azureStorageClient.initializeForTesting();
+    azureStorageClient.traverse(publisher, params);
+
+    List<Document> documents = messenger.getDocsSentForProcessing();
+    assertEquals(1, documents.size());
+    assertTrue(documents.get(0).getString(FILE_PATH).endsWith("/folder/good"));
+  }
 }

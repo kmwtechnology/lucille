@@ -92,8 +92,10 @@ public class AzureStorageClient extends BaseStorageClient {
               traversePrefix(publisher, params, stateMgr, blob.getName());
             }
           } else {
-            AzureFileReference fileRef = new AzureFileReference(blob, params);
-            processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+            FileReference fileRef = buildReferenceOrSkip(blob.getName(), () -> new AzureFileReference(blob, params));
+            if (fileRef != null) {
+              processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+            }
           }
         });
   }

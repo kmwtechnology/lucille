@@ -16,6 +16,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.channels.Channels;
 import java.util.Objects;
 import org.slf4j.Logger;
@@ -73,15 +74,26 @@ public class GoogleStorageClient extends BaseStorageClient {
               traversePrefix(publisher, params, stateMgr, blob.getName());
             }
           } else {
-            GoogleFileReference fileRef = new GoogleFileReference(blob, params);
-            processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+            FileReference fileRef = buildReferenceOrSkip(blob.getName(), () -> new GoogleFileReference(blob, params));
+            if (fileRef != null) {
+              processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+            }
           }
         });
   }
 
   private URI uriForDirectory(String prefix, TraversalParams params) {
-    URI paramsUri = params.getURI();
-    return URI.create(paramsUri.getScheme() + "://" + paramsUri.getAuthority() + "/" + prefix);
+    return buildObjectURI(params.getURI(), prefix);
+  }
+
+  // Builds the gs:// URI for an object name or prefix, percent-encoding any characters that can't appear in a URI
+  // (space, '#', '%', '[', ...), so the name round-trips through URI.getPath().
+  private static URI buildObjectURI(URI paramsUri, String name) {
+    try {
+      return new URI(paramsUri.getScheme(), paramsUri.getAuthority(), "/" + name, null);
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Unable to build Google Cloud URI for object: " + name, e);
+    }
   }
 
   @Override
@@ -170,9 +182,7 @@ public class GoogleStorageClient extends BaseStorageClient {
     }
 
     private static URI getFullPathHelper(Blob blob, TraversalParams params) {
-      URI paramsURI = params.getURI();
-      String fullPathStr = paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();
-      return URI.create(fullPathStr);
+      return buildObjectURI(params.getURI(), blob.getName());
     }
   }
 }

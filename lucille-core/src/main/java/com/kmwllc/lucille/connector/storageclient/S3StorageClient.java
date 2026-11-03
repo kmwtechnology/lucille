@@ -140,8 +140,10 @@ public class S3StorageClient extends BaseStorageClient {
   private void publishContents(Publisher publisher, TraversalParams params, FileStateTracker stateMgr,
       ListObjectsV2Response resp) {
     resp.contents().forEach(obj -> {
-      S3FileReference fileRef = new S3FileReference(obj, params);
-      processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+      FileReference fileRef = buildReferenceOrSkip(obj.key(), () -> new S3FileReference(obj, params));
+      if (fileRef != null) {
+        processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+      }
     });
   }
 
