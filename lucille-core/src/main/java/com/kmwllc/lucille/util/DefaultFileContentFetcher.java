@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 public class DefaultFileContentFetcher implements FileContentFetcher {
   private static final Logger log = LoggerFactory.getLogger(DefaultFileContentFetcher.class);
 
+  private final Config config;
   private final Map<String, StorageClient> availableClients;
   private boolean started = false;
 
@@ -31,6 +32,7 @@ public class DefaultFileContentFetcher implements FileContentFetcher {
    * @param config Configuration for whatever is using a FileContentFetcher, and potentially has "https", "s3", and "gcp".
    */
   public DefaultFileContentFetcher(Config config) {
+    this.config = config;
     this.availableClients = StorageClient.createClients(config);
   }
 
@@ -95,9 +97,8 @@ public class DefaultFileContentFetcher implements FileContentFetcher {
     } else if (FileUtils.isValidURI(path)) {
       URI pathURI = URI.create(path);
 
-      // scheme won't be null / empty, as we make sure the URI is valid.
-      String activeClient = pathURI.getScheme();
-      StorageClient storageClient = availableClients.get(activeClient);
+      // applies azure.allowedHosts to https URIs
+      StorageClient storageClient = StorageClient.clientFor(pathURI, availableClients, config);
 
       if (storageClient == null) {
         throw new IOException("No Storage Client available for path " + path + ".");

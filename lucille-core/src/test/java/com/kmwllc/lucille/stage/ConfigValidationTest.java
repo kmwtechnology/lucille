@@ -10,6 +10,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.Test;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.kmwllc.lucille.core.Document;
@@ -18,6 +19,7 @@ import com.kmwllc.lucille.core.RunResult;
 import com.kmwllc.lucille.core.Runner;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
 public class ConfigValidationTest {
@@ -148,6 +150,22 @@ public class ConfigValidationTest {
 
     assertTrue(exceptions.get("connector1").get(0).getMessage().contains("Config is missing required property path"));
     assertTrue(exceptions.get("connector2").get(0).getMessage().contains("No Connector class specified"));
+  }
+
+  @Test
+  public void testUnnamedConnectorIsReportedUnderItsRunName() throws Exception {
+    Config config = ConfigFactory.parseString(
+        "connectors: [{name: \"first\", class: \"com.kmwllc.lucille.connector.FileConnector\", "
+            + "paths: [\"src/test/resources/RunnerTest/singleDoc.csv\"], fileHandlers: {csv: {idField: \"id\"}}, "
+            + "pipeline: \"pipeline1\"}, "
+            + "{class: \"com.kmwllc.lucille.connector.FileConnector\", fileHandlers: {csv: {idField: \"id\"}}, "
+            + "pipeline: \"pipeline1\"}]\n"
+            + "pipelines: [{name: \"pipeline1\", stages: [{class: \"com.kmwllc.lucille.stage.NopStage\"}]}]\n"
+            + "indexer.type: \"Nop\"");
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(config);
+    // the second connector has no name, so it is reported as connector_2, the name it would have in a run
+    assertEquals(Set.of("connector_2"), exceptions.keySet());
+    assertTrue(exceptions.get("connector_2").get(0).getMessage().contains("connector_2"));
   }
 
 //  @Test

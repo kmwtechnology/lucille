@@ -302,12 +302,14 @@ public class WorkerTest {
     // RUN-04: a poll failure used to be one INFO line and a thread that vanished without closing anything
     StartStopCaptureStage.reset();
     TestMessenger messenger = Mockito.spy(new TestMessenger());
-    Mockito.doThrow(new java.io.IOException("authentication failed")).when(messenger).pollDocToProcess();
+    Mockito.doThrow(new MessengerException("Polling failed", new java.io.IOException("authentication failed")))
+        .when(messenger).pollDocToProcess();
     WorkerThread thread = startWorker(PIPELINES, messenger, "startStop");
 
     thread.join(15000);
     assertFalse(thread.isAlive());
-    assertTrue(String.valueOf(thread.getThrowable()), thread.getThrowable() instanceof java.io.IOException);
+    assertTrue(String.valueOf(thread.getThrowable()), thread.getThrowable() instanceof MessengerException);
+    assertTrue(thread.getThrowable().getCause() instanceof java.io.IOException);
     Mockito.verify(messenger, Mockito.times(1)).close();
     assertTrue(StartStopCaptureStage.stopCalled);
     StartStopCaptureStage.reset();
@@ -340,7 +342,7 @@ public class WorkerTest {
     Config config = ConfigFactory.load("WorkerTest/retryCounterClass.conf");
     Document doc = Document.create("doc1", "run1");
     KafkaWorkerMessenger messenger = mock(KafkaWorkerMessenger.class);
-    when(messenger.pollDocToProcess()).thenReturn(doc).thenThrow(new java.io.IOException("stop"));
+    when(messenger.pollDocToProcess()).thenReturn(doc).thenThrow(new org.apache.kafka.common.KafkaException("stop"));
 
     try (MockedConstruction<ZKRetryCounter> zkCounter = Mockito.mockConstruction(ZKRetryCounter.class)) {
       Worker worker = new Worker(config, messenger, "run1", "pipeline1", "pipeline1");

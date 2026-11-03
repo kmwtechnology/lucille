@@ -396,9 +396,11 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    *     returned exception whose status code is in the configured retryable set. Use
    *     {@link IndexerException} for permanent per-document failures. Returns an empty set if all
    *     documents succeeded or if per-document failure tracking is not supported. Does not return null.
-   * @throws Exception for errors that prevent the entire batch from being attempted.
+   * @throws IndexerException for errors that prevent the entire batch from being attempted. Throw an
+   *     {@link IndexerRetryableException} when the failure may be transient (for example a transport error), so the
+   *     configured retry policy applies to it.
    */
-  protected abstract Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception;
+  protected abstract Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException;
 
   /** Close the client or connection to the destination search engine. */
   public abstract void closeConnection();
@@ -651,10 +653,11 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   // interrupted. Nothing in Lucille interrupts the indexer thread (the Runner and WorkerIndexer stop it with
   // terminate() and join()), so this only matters when other code embeds Lucille and interrupts the thread itself,
   // which is considered unlikely. A call that blocks interruptibly (such as the Hybrid messenger's offset handoff)
-  // clears the flag when it throws; restoring it lets the next poll see the interrupt and stop the run. The batch whose
-  // call failed is re-delivered or superseded by a later commit.
+  // clears the flag when it is interrupted; messengers restore it before throwing a MessengerException, but one that
+  // does not would leave it cleared, so it is restored here too. That lets the next poll see the interrupt and stop the
+  // run. The batch whose call failed is re-delivered or superseded by a later commit.
   private static void restoreInterrupt(Exception e) {
-    if (e instanceof InterruptedException) {
+    if (e instanceof InterruptedException || e.getCause() instanceof InterruptedException) {
       Thread.currentThread().interrupt();
     }
   }

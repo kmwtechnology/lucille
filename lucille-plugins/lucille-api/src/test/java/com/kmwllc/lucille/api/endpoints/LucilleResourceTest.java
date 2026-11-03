@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
+import com.kmwllc.lucille.api.objects.RunDetailsResponse;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorResult;
 import com.kmwllc.lucille.core.RunDetails;
@@ -148,7 +149,7 @@ public class LucilleResourceTest {
     runRequest.setConfigId(configId);
     Response runResponse = lucilleResource.startRun(runRequest);
     assertEquals(Response.Status.OK.getStatusCode(), runResponse.getStatus());
-    RunDetails runDetails = (RunDetails) runResponse.getEntity();
+    RunDetailsResponse runDetails = (RunDetailsResponse) runResponse.getEntity();
     assertNotNull(runDetails);
     assertEquals(configId, runDetails.getConfigId());
   }
@@ -192,12 +193,12 @@ public class LucilleResourceTest {
     RunRequest runRequest = new RunRequest();
     runRequest.setConfigId(configId);
     Response runResponse = lucilleResource.startRun(runRequest);
-    RunDetails runDetails = (RunDetails) runResponse.getEntity();
+    RunDetailsResponse runDetails = (RunDetailsResponse) runResponse.getEntity();
     String runId = runDetails.getRunId();
     // Fetch run details
     Response fetchedRunResponse = lucilleResource.getRunById(runId);
     assertEquals(Response.Status.OK.getStatusCode(), fetchedRunResponse.getStatus());
-    RunDetails fetchedRunDetails = (RunDetails) fetchedRunResponse.getEntity();
+    RunDetailsResponse fetchedRunDetails = (RunDetailsResponse) fetchedRunResponse.getEntity();
     assertEquals(runId, fetchedRunDetails.getRunId());
     assertEquals(configId, fetchedRunDetails.getConfigId());
   }
@@ -211,12 +212,12 @@ public class LucilleResourceTest {
     RunRequest runRequest = new RunRequest();
     runRequest.setConfigId(configId);
     Response runResponse = lucilleResource.startRun(runRequest);
-    RunDetails runDetails = (RunDetails) runResponse.getEntity();
+    RunDetailsResponse runDetails = (RunDetailsResponse) runResponse.getEntity();
     String runId = runDetails.getRunId();
     // Fetch run details
     Response fetchedRunResponse = lucilleResource.getRunById(runId);
     assertEquals(Response.Status.OK.getStatusCode(), fetchedRunResponse.getStatus());
-    RunDetails fetchedRunDetails = (RunDetails) fetchedRunResponse.getEntity();
+    RunDetailsResponse fetchedRunDetails = (RunDetailsResponse) fetchedRunResponse.getEntity();
     assertEquals(runId, fetchedRunDetails.getRunId());
     assertEquals(configId, fetchedRunDetails.getConfigId());
   }
@@ -233,10 +234,14 @@ public class LucilleResourceTest {
     RunResult runResult = new RunResult(true, List.of(connector), List.of(connectorResult), "run1");
     assertTrue(runResult.hasFailingDocs());
 
-    RunDetails details = new RunDetails("run1", "config1");
-    details.setRunResult(runResult);
+    // only RunnerManager creates RunDetails, so mock one that has this result
+    RunDetails details = mock(RunDetails.class);
+    when(details.getRunId()).thenReturn("run1");
+    when(details.getConfigId()).thenReturn("config1");
+    when(details.getRunResult()).thenReturn(runResult);
 
-    JsonNode json = Jackson.newObjectMapper().valueToTree(details);
+    // serialize what the API returns for the run
+    JsonNode json = Jackson.newObjectMapper().valueToTree(RunDetailsResponse.from(details));
     Set<String> fields = new HashSet<>();
     json.get("runResult").fieldNames().forEachRemaining(fields::add);
     assertEquals(Set.of("runId", "status", "hasFailingDocs", "message", "history"), fields);
@@ -256,10 +261,14 @@ public class LucilleResourceTest {
     when(connectorResult.hasDocs()).thenReturn(true);
     RunResult runResult = new RunResult(true, List.of(connector), List.of(connectorResult), "run1");
 
-    RunDetails details = new RunDetails("run1", "config1");
-    details.setRunResult(runResult);
+    // only RunnerManager creates RunDetails, so mock one that has this result
+    RunDetails details = mock(RunDetails.class);
+    when(details.getRunId()).thenReturn("run1");
+    when(details.getConfigId()).thenReturn("config1");
+    when(details.getRunResult()).thenReturn(runResult);
 
-    JsonNode json = Jackson.newObjectMapper().valueToTree(details);
+    // serialize what the API returns for the run
+    JsonNode json = Jackson.newObjectMapper().valueToTree(RunDetailsResponse.from(details));
     assertTrue(json.get("runResult").has("hasFailingDocs"));
     assertFalse(json.get("runResult").get("hasFailingDocs").asBoolean());
   }

@@ -223,14 +223,6 @@
       <version>5.11.2</version>
     </dependency>
 
-    <!--  Note that this is also one of the dependencies for solr that we had to pull in manually. However,
-       it is not test scoped because we use this in RunDetails.java as well. -->
-    <dependency>
-      <groupId>io.swagger.core.v3</groupId>
-      <artifactId>swagger-annotations-jakarta</artifactId>
-      <version>2.2.22</version>
-    </dependency>
-
     <!-- FileConnector -->
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
