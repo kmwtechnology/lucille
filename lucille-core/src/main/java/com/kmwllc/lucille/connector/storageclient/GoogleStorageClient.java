@@ -18,6 +18,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.channels.Channels;
+import java.nio.file.NoSuchFileException;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,6 +103,10 @@ public class GoogleStorageClient extends BaseStorageClient {
     String objectKey = uri.getPath().substring(1);
 
     Blob blob = storage.get(BlobId.of(bucketName, objectKey));
+    if (blob == null) {
+      throw new NoSuchFileException(uri.toString(), null, "No Google Cloud object exists at this URI.");
+    }
+
     ReadChannel blobReadChannel = blob.reader();
     return Channels.newInputStream(blobReadChannel);
   }

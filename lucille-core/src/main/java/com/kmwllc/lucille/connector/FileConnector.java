@@ -206,6 +206,11 @@ public class FileConnector extends AbstractConnector {
   private final int maxThreads;
   private final boolean concurrent;
 
+  // Built at startup so that invalid fileOptions, filterOptions and fileHandlers fail there rather than when a
+  // traversal begins. Tombstones use it for the docIdPrefix. Each traversal builds its own, so that concurrent
+  // traversals don't share FileHandler instances.
+  private final TraversalParams startupParams;
+
   public FileConnector(Config config) throws ConnectorException {
     super(config);
 
@@ -237,6 +242,10 @@ public class FileConnector extends AbstractConnector {
 
     this.storageClientMap = StorageClient.createClients(config);
 
+    // validates the traversal options for every path; they differ only in the path itself, which validation and
+    // tombstones never read, so with no paths there is none to give
+    this.startupParams = buildTraversalParams(storageURIs.isEmpty() ? null : storageURIs.get(0));
+
     // an https path on a host outside azure.allowedHosts would otherwise only fail once traversal starts
     for (URI uri : storageURIs) {
       if (StorageClient.clientFor(uri, storageClientMap, config) == null && storageClientMap.containsKey(clientKeyFor(uri))) {
@@ -249,8 +258,8 @@ public class FileConnector extends AbstractConnector {
     // incremental mode requires state tracking in order to function correctly
     if (config.hasPath("filterOptions.publishMode")) {
       PublishMode mode = PublishMode.fromString(config.getString("filterOptions.publishMode"));
-      if (mode == PublishMode.INCREMENTAL && !config.hasPath("state")) {
-        throw new IllegalArgumentException("filterOptions.publishMode of 'incremental' requires state configuration.");
+      if (mode == PublishMode.INCREMENTAL && stateManager == null) {
+        throw new IllegalArgumentException("filterOptions.publishMode of 'incremental' requires state to be configured and enabled.");
       }
     }
 
@@ -279,8 +288,8 @@ public class FileConnector extends AbstractConnector {
 
     // lastPublishedCutoff is only applied in incremental mode with state; anywhere else it would be silently ignored
     if (config.hasPath("filterOptions.lastPublishedCutoff")) {
-      if (!config.hasPath("state")) {
-        throw new IllegalArgumentException("filterOptions.lastPublishedCutoff requires state configuration.");
+      if (stateManager == null) {
+        throw new IllegalArgumentException("filterOptions.lastPublishedCutoff requires state to be configured and enabled.");
       }
       if (!config.hasPath("filterOptions.publishMode")
           || PublishMode.fromString(config.getString("filterOptions.publishMode")) == PublishMode.FULL) {
@@ -350,11 +359,8 @@ public class FileConnector extends AbstractConnector {
     int publishedTombstoneCount = 0;
     log.info("{} previously published files now missing/expired, publishing document tombstones...", expiredFileCount);
 
-    // tombstones only take the docIdPrefix from the params, so one set serves them all
-    TraversalParams tombstoneParams = buildTraversalParams(storageURIs.get(0));
-
     for (String expiredFile : expiredFiles) {
-      Document doc = buildTombstoneDoc(expiredFile, tombstoneParams);
+      Document doc = buildTombstoneDoc(expiredFile, startupParams);
       try {
         publisher.publish(doc);
         publishedTombstoneCount++;

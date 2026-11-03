@@ -422,7 +422,7 @@ public class FileConnectorTest {
         .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"));
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
     assertTrue(e.getMessage().contains("incremental"));
-    assertTrue(e.getMessage().contains("state configuration"));
+    assertTrue(e.getMessage().contains("requires state to be configured and enabled"));
   }
 
   @Test
@@ -440,7 +440,7 @@ public class FileConnectorTest {
         .withValue("filterOptions.lastPublishedCutoff", ConfigValueFactory.fromAnyRef("1h"));
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
     assertTrue(e.getMessage().contains("lastPublishedCutoff"));
-    assertTrue(e.getMessage().contains("state configuration"));
+    assertTrue(e.getMessage().contains("requires state to be configured and enabled"));
   }
 
   @Test
@@ -799,6 +799,39 @@ public class FileConnectorTest {
     } finally {
       FileUtils.deleteDirectory(tempDir);
     }
+  }
+
+  // state { enabled: false } turns state off, so options that need state fail at startup instead of being ignored
+  @Test
+  public void testDisabledStateRejectsOptionsThatNeedState() {
+    Config base = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of("src/test/resources/FileConnectorTest/example"),
+        "state", Map.of("enabled", false),
+        "filterOptions", Map.of("publishMode", "incremental")));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(base));
+    assertTrue(e.getMessage().contains("enabled"));
+
+    Config cutoff = base.withValue("filterOptions.lastPublishedCutoff", ConfigValueFactory.fromAnyRef("1h"));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(cutoff));
+  }
+
+  // Every fileHandlers block, and the other traversal options, are validated at startup, even for an extension that no
+  // file in the traversal has.
+  @Test
+  public void testTraversalOptionsValidatedAtStartup() {
+    Config base = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of("src/test/resources/FileConnectorTest/example")));
+
+    // the xml handler requires xmlRootPath
+    Config badHandler = base.withValue("fileHandlers.xml", ConfigValueFactory.fromMap(Map.of("xmlIdPath", "/id")));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(badHandler));
+
+    Config unknownClass = base.withValue("fileHandlers.foo", ConfigValueFactory.fromMap(Map.of("class", "com.example.NoSuchHandler")));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(unknownClass));
+
+    Config badMaxSize = base.withValue("fileOptions.maxSizeBytes", ConfigValueFactory.fromAnyRef(0));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(badMaxSize));
   }
 
   // Extensions are matched without regard to case: DATA.CSV goes through the csv handler and backup.ZIP is unpacked.

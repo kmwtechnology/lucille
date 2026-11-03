@@ -628,4 +628,13 @@ public class GoogleStorageClientTest {
     assertNull(storage.get(BlobId.of("moves", "processeddata/a.csv")));
     assertEquals("a", new String(storage.get(BlobId.of("moves", "processed/data/a.csv")).getContent()));
   }
+
+  @Test
+  public void testMissingObjectThrowsIOException() throws Exception {
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+
+    assertThrows(IOException.class, () -> googleStorageClient.getFileContentStream(URI.create("gs://nowhere/missing.txt")));
+  }
 }
