@@ -59,7 +59,7 @@
     <slf4j.version>2.0.7</slf4j.version>
     <apache-commons-lang3.version>3.18.0</apache-commons-lang3.version>
     <apache-commons-text.version>1.10.0</apache-commons-text.version>
-    <protobuf.version>3.25.5</protobuf.version>
+    <protobuf.version>4.33.2</protobuf.version>
     <netty.version>4.1.138.Final</netty.version>
     <grpc.version>1.82.1</grpc.version>
     <!--  TODO: dropwizard-testing-junit4 is currently at 5.0.0 since 5.0.2 did not exist at time of upgrade. Bring back to use ${dropwizard-core.version} -->
