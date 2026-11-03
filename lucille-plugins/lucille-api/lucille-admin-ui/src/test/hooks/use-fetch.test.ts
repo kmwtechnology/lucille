@@ -1,15 +1,18 @@
+// Tests the useFetch hook: loading/success/error states, reload, and polling that stops at a terminal state.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { renderHook, waitFor, act } from "@testing-library/react"
 import { useFetch } from "@/hooks/use-fetch"
 import { mockFetch } from "@/test/helpers/fetch-mock"
 
 describe("useFetch", () => {
+  // Before the first response resolves, the hook reports loading.
   it("starts in the loading state", () => {
     mockFetch({ "/v1/thing": { json: { ok: true } } })
     const { result } = renderHook(() => useFetch("/v1/thing"))
     expect(result.current.status).toBe("loading")
   })
 
+  // A 2xx response moves to success with the JSON parsed into data.
   it("resolves to success with the parsed data", async () => {
     mockFetch({ "/v1/thing": { json: { value: 42 } } })
 
@@ -21,6 +24,7 @@ describe("useFetch", () => {
     }
   })
 
+  // A non-2xx response moves to error carrying the server's message.
   it("resolves to error with the server message on a non-2xx response", async () => {
     mockFetch({ "/v1/thing": { status: 500, json: { message: "boom" } } })
 
@@ -32,6 +36,7 @@ describe("useFetch", () => {
     }
   })
 
+  // Bumping reloadKey triggers a fresh fetch (used to manually refresh data).
   it("refetches when reloadKey changes", async () => {
     const fetchMock = mockFetch({ "/v1/thing": { json: { v: 1 } } })
 
@@ -52,6 +57,7 @@ describe("useFetch polling", () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
+  // Polls on the interval, then stops fetching once stopPollingWhen returns true (run finished).
   it("polls on the interval and stops when stopPollingWhen is satisfied", async () => {
     let calls = 0
     const fetchMock = mockFetch({

@@ -45,9 +45,13 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # -Pshaded-plugin-jars builds the shaded lucille-api-plugin.jar that the lucille-api image runs
+      # -Pshaded-plugin-jars builds the shaded lucille-api-plugin.jar; -Padmin-ui bundles the UI into it
       - name: Build with Maven (No Tests)
         run: mvn -B package --file pom.xml -DskipTests -Pshaded-plugin-jars -Padmin-ui
+
+      # Fail the release if -Padmin-ui did not bundle the UI into the jar (profile, shade, or Vite base regression).
+      - name: Verify the admin UI is bundled
+        run: unzip -l lucille-plugins/lucille-api/target/lucille-api-plugin.jar | grep -q 'admin/index.html'
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3

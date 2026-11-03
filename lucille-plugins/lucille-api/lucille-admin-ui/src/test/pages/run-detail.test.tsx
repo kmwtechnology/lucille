@@ -1,3 +1,4 @@
+// Tests the RunDetail page: error state when the run can't load, and the Succeeded/Running views on success.
 import { describe, it, expect } from "vitest"
 import { screen } from "@testing-library/react"
 import RunDetail from "@/pages/run-detail/run-detail"
@@ -12,6 +13,7 @@ function renderAt(id: string) {
 }
 
 describe("RunDetail page", () => {
+  // A failed fetch shows the not-found error state.
   it("shows the error state when the run cannot be loaded", async () => {
     mockFetchReject()
 
@@ -20,6 +22,7 @@ describe("RunDetail page", () => {
     expect(await screen.findByText("Run not found")).toBeInTheDocument()
   })
 
+  // A finished successful run shows id, Succeeded badge, config link, and result message.
   it("renders run id, status, details, and result on success", async () => {
     mockFetch({
       "/v1/run/": {
@@ -43,6 +46,7 @@ describe("RunDetail page", () => {
     expect(screen.getByText("all good")).toBeInTheDocument()
   })
 
+  // An in-progress run (not done, no result) shows the Running badge.
   it("shows a Running badge for an in-progress run", async () => {
     mockFetch({
       "/v1/run/": {

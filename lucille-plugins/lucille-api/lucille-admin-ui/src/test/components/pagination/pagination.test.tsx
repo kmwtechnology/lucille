@@ -1,3 +1,4 @@
+// Tests the Pagination component: range summary, prev/next enabling, page navigation, and page-size changes.
 import { describe, it, expect } from "vitest"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -22,6 +23,7 @@ function Harness({ total, initialPageSize = 10 }: { total: number; initialPageSi
 }
 
 describe("Pagination", () => {
+  // Shows the "x–y of N" range and the current/total page count.
   it("shows the range summary and page info", () => {
     render(<Harness total={25} />)
 
@@ -29,17 +31,20 @@ describe("Pagination", () => {
     expect(screen.getByText("Page 1 of 3")).toBeInTheDocument()
   })
 
+  // With no items the summary reads "0 ...", not a range.
   it("shows a zero summary when empty", () => {
     render(<Harness total={0} />)
     expect(screen.getByText("0 configs")).toBeInTheDocument()
   })
 
+  // On page 1 there is nothing before, so Previous is disabled.
   it("disables Previous on the first page and enables Next", () => {
     render(<Harness total={25} />)
     expect(screen.getByLabelText("Previous page")).toBeDisabled()
     expect(screen.getByLabelText("Next page")).toBeEnabled()
   })
 
+  // Clicking Next advances the page, updates the summary, and enables Previous.
   it("advances to the next page when Next is clicked", async () => {
     const user = userEvent.setup()
     render(<Harness total={25} />)
@@ -51,6 +56,7 @@ describe("Pagination", () => {
     expect(screen.getByLabelText("Previous page")).toBeEnabled()
   })
 
+  // On the final page Next is disabled and the last (partial) slice shows.
   it("disables Next on the last page", async () => {
     const user = userEvent.setup()
     render(<Harness total={25} />)
@@ -63,6 +69,7 @@ describe("Pagination", () => {
     expect(screen.getAllByTestId("item")).toHaveLength(5)
   })
 
+  // Picking a new page size recomputes pages and returns to page 1.
   it("changes page size via the select and resets to page 1", async () => {
     const user = userEvent.setup()
     render(<Harness total={100} />)

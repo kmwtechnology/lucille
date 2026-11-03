@@ -1,3 +1,4 @@
+// Tests the Dashboard page: health status, resource stats, config/run counts, and per-card error states.
 import { describe, it, expect } from "vitest"
 import { screen } from "@testing-library/react"
 import Dashboard from "@/pages/dashboard/dashboard"
@@ -29,6 +30,7 @@ function healthyRoutes(overrides: Record<string, unknown> = {}) {
 }
 
 describe("Dashboard page", () => {
+  // With everything up, the page shows Healthy plus the storage/RAM/CPU/JVM percentages.
   it("shows healthy API status and the resource stats", async () => {
     mockFetch(healthyRoutes())
 
@@ -41,6 +43,7 @@ describe("Dashboard page", () => {
     expect(screen.getByText("75%")).toBeInTheDocument()
   })
 
+  // Config/run cards show the totals (and the active-run count) from the API.
   it("shows config and run counts on success", async () => {
     mockFetch(healthyRoutes())
 
@@ -50,6 +53,7 @@ describe("Dashboard page", () => {
     expect(screen.getAllByText("2")).toHaveLength(2)
   })
 
+  // A failing liveness probe flips the API status card to Unhealthy.
   it("shows Unhealthy when the liveness check fails", async () => {
     mockFetch(healthyRoutes({ "/v1/livez": { status: 500 } }))
 
@@ -58,6 +62,7 @@ describe("Dashboard page", () => {
     expect(await screen.findByText("Unhealthy")).toBeInTheDocument()
   })
 
+  // A failing systemstats call shows a per-card error without taking down the page.
   it("shows an error message when systemstats fails", async () => {
     mockFetch(healthyRoutes({ "/v1/systemstats": { status: 500, json: { message: "boom" } } }))
 

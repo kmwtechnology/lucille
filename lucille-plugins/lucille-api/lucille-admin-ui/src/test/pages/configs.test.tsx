@@ -1,3 +1,4 @@
+// Tests the Configs page: empty state, error state, and a row per config with the pagination summary on success.
 import { describe, it, expect } from "vitest"
 import { screen } from "@testing-library/react"
 import Configs from "@/pages/configs/configs"
@@ -5,6 +6,7 @@ import { renderWithRouter } from "@/test/helpers/render"
 import { mockFetch, mockFetchReject } from "@/test/helpers/fetch-mock"
 
 describe("Configs page", () => {
+  // An empty response shows the "no configs yet" empty state.
   it("shows the empty state when there are no configs", async () => {
     mockFetch({ "/v1/config": { json: {} } })
 
@@ -13,6 +15,7 @@ describe("Configs page", () => {
     expect(await screen.findByText("No configurations yet")).toBeInTheDocument()
   })
 
+  // A failed fetch shows the error state rather than a blank list.
   it("shows the error state when the fetch fails", async () => {
     mockFetchReject()
 
@@ -22,6 +25,7 @@ describe("Configs page", () => {
     expect(screen.getByText("Unable to load configuration data")).toBeInTheDocument()
   })
 
+  // On success each config is a row and the pagination summary reflects the count.
   it("renders a row per config and the pagination summary on success", async () => {
     mockFetch({
       "/v1/config": {

@@ -18,6 +18,8 @@ import java.nio.charset.StandardCharsets;
 import org.junit.Before;
 import org.junit.Test;
 
+// Tests AdminUiServlet against fixture assets: serving real files with the right content type,
+// SPA fallback to index.html for unknown client routes, and refusing path traversal.
 public class AdminUiServletTest {
 
   private final AdminUiServlet servlet = new AdminUiServlet();
@@ -33,6 +35,7 @@ public class AdminUiServletTest {
     when(response.getOutputStream()).thenReturn(new CapturingServletOutputStream(body));
   }
 
+  // A request for a real bundled file returns its bytes with the right content type.
   @Test
   public void testServesRealAsset() throws Exception {
     when(request.getPathInfo()).thenReturn("/assets/app.js");
@@ -43,6 +46,7 @@ public class AdminUiServletTest {
     assertTrue(body.toString(StandardCharsets.UTF_8).contains("lucille admin ui test asset"));
   }
 
+  // A .css asset is served as text/css (content type derives from the extension).
   @Test
   public void testServesCssWithCssContentType() throws Exception {
     when(request.getPathInfo()).thenReturn("/assets/app.css");
@@ -52,6 +56,7 @@ public class AdminUiServletTest {
     verify(response).setContentType("text/css");
   }
 
+  // The root path serves index.html (the SPA entry point).
   @Test
   public void testServesIndexForRoot() throws Exception {
     when(request.getPathInfo()).thenReturn("/");
@@ -62,6 +67,8 @@ public class AdminUiServletTest {
     assertTrue(body.toString(StandardCharsets.UTF_8).contains("<div id=\"root\">"));
   }
 
+  // An unknown path (a client-side route) falls back to index.html instead of 404,
+  // so deep links and refreshes let React Router resolve the route.
   @Test
   public void testFallsBackToIndexForUnknownClientRoute() throws Exception {
     when(request.getPathInfo()).thenReturn("/configs/abc-123");
@@ -73,6 +80,7 @@ public class AdminUiServletTest {
     assertTrue(body.toString(StandardCharsets.UTF_8).contains("<div id=\"root\">"));
   }
 
+  // A "../" traversal attempt cannot escape admin/; it is treated as an unknown route.
   @Test
   public void testRejectsPathTraversalByFallingBackToIndex() throws Exception {
     when(request.getPathInfo()).thenReturn("/../../secret");
