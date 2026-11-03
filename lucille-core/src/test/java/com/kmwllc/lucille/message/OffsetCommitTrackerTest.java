@@ -4,13 +4,14 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.kafka.clients.consumer.CommitFailedException;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.MockConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.consumer.OffsetResetStrategy;
@@ -283,9 +284,8 @@ public class OffsetCommitTrackerTest {
   private static KafkaDocument kafkaDoc(TopicPartition partition, long offset) {
     String id = "doc-" + partition.partition() + "-" + offset;
     try {
-      KafkaDocument doc = new KafkaDocument(new ConsumerRecord<>(
-          partition.topic(), partition.partition(), offset, id, Document.create(id, "run1").toString()));
-      doc.setKafkaMetadata(new ConsumerRecord<>(partition.topic(), partition.partition(), offset, id, doc));
+      KafkaDocument doc = new KafkaDocument((ObjectNode) new ObjectMapper().readTree(Document.create(id, "run1").toString()));
+      doc.setKafkaMetadata(partition.topic(), partition.partition(), offset, id);
       return doc;
     } catch (Exception e) {
       throw new RuntimeException(e);

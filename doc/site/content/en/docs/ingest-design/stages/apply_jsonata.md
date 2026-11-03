@@ -10,7 +10,7 @@ description: Applies a JSONata expression to a field, or to the whole Document.
 Applies a [JSONata](https://jsonata.org/) expression ([jsonata-java](https://github.com/dashjoin/jsonata-java) implementation).
 
 - With `source`, the expression is evaluated on that field's value and the result is written to `destination`, or back to `source` if `destination` is not set. Documents without `source` are left unchanged.
-- Without `source`, the expression is evaluated on the whole Document and the result replaces it. The result must be an object and must not change reserved fields such as `id`. This mode is experimental.
+- Without `source`, the expression is evaluated on the whole Document and the result replaces it. The result must be an object and must keep the reserved fields, such as `id` and `run_id`, exactly as they were: it cannot change, add or remove them. This mode is experimental.
 
 If the expression fails or returns no result on a Document, a warning is logged and the Document is left unchanged.
 

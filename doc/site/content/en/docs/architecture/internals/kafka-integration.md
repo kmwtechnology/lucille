@@ -52,24 +52,26 @@ The source topic name is validated to contain only safe characters (`[A-Za-z\d._
 `KafkaDocument` extends `JsonDocument` to carry partition/offset/key metadata alongside document fields:
 
 ```java
-public class KafkaDocument extends JsonDocument {
+public final class KafkaDocument extends JsonDocument {
     private String topic;
     private int partition;
     private long offset;
     private String key;
 
-    public void setKafkaMetadata(ConsumerRecord<String, ?> record) {
-        this.topic = record.topic();
-        this.partition = record.partition();
-        this.offset = record.offset();
-        this.key = record.key();
+    public void setKafkaMetadata(String topic, int partition, long offset, String key) {
+        this.topic = topic;
+        this.partition = partition;
+        this.offset = offset;
+        this.key = key;
     }
 }
 ```
 
 This metadata travels with the document through the pipeline. It's essential for the Hybrid mode where the Indexer needs to report back which offsets have been successfully processed.
 
-Plain `Document` objects are written to Kafka. When deserialized, they come back as `KafkaDocument` instances with the Kafka metadata attached from the `ConsumerRecord`.
+Plain `Document` objects are written to Kafka. When deserialized, they come back as `KafkaDocument` instances, and the messenger that polled them attaches the topic, partition, offset and key of the `ConsumerRecord`. `KafkaDocument`'s API names no Kafka types, so the class loads without kafka-clients on the classpath.
+
+A `KafkaDocument` is never equal to a plain `JsonDocument`, even with the same fields, because it also compares its Kafka metadata; equality is symmetric in both directions.
 
 ## Serializer/Deserializer
 

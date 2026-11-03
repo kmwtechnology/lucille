@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.util;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -12,7 +14,6 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.List;
 import java.util.Map;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Test;
 
 public class FieldFilterTest {
@@ -189,8 +190,8 @@ public class FieldFilterTest {
     // the filtered copy of a KafkaDocument is still a KafkaDocument, so an indexer reading the Kafka offset or key
     // from the copy sees the same values as on the original
     FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of("field2"))));
-    KafkaDocument doc = new KafkaDocument(new ConsumerRecord<>("topic1", 2, 3, "key1",
-        "{\"id\":\"id1\", \"field1\":\"val1\", \"field2\":\"val2\"}"));
+    KafkaDocument doc = kafkaDoc("topic1", 2, 3, "key1",
+        "{\"id\":\"id1\", \"field1\":\"val1\", \"field2\":\"val2\"}");
 
     Document filtered = filter.getFilteredDocument(doc);
 
@@ -213,5 +214,11 @@ public class FieldFilterTest {
 
     assertEquals("id1", filtered.getId());
     assertEquals("val1", filtered.getString("field1"));
+  }
+
+  private static KafkaDocument kafkaDoc(String topic, int partition, long offset, String key, String json) throws Exception {
+    KafkaDocument doc = new KafkaDocument((ObjectNode) new ObjectMapper().readTree(json));
+    doc.setKafkaMetadata(topic, partition, offset, key);
+    return doc;
   }
 }

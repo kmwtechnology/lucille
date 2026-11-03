@@ -712,17 +712,14 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    * <p>The JSON written for the result is the same as for {@link #getConvertedIndexerDoc}. To keep it
    * so, a value that is or contains a null is converted as getConvertedIndexerDoc converts it, because a mapper may
    * leave out null map values (the OpenSearch and Elasticsearch clients' mappers do) but always writes the nulls inside
-   * a JsonNode. A Document that is not backed by JSON gets getConvertedIndexerDoc's result.
+   * a JsonNode.
    *
    * <p>The map shares state with the Document. Callers may add, remove or replace entries but must not modify the
    * values, and the Document must not be modified until the map has been serialized.
    */
   protected Map<String, Object> getRawIndexerDoc(Document doc) {
-    if (!(doc instanceof JsonDocument jsonDoc)) {
-      return getConvertedIndexerDoc(doc);
-    }
-
-    ObjectNode data = jsonDoc.data;
+    // Document is sealed, so every Document is a JsonDocument
+    ObjectNode data = ((JsonDocument) doc).data;
     Map<String, Object> indexerDoc = new LinkedHashMap<>();
     for (Iterator<Map.Entry<String, JsonNode>> it = data.fields(); it.hasNext(); ) {
       Map.Entry<String, JsonNode> field = it.next();

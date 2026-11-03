@@ -63,7 +63,7 @@ public class AddRandomDate extends Stage {
         rangeStartDate.getTime(), rangeEndDate.getTime()
     )));
 
-    doc.setField(fieldName,  randomDate);
+    doc.setField(fieldName, randomDate.toInstant());
 
     return null;
   }
