@@ -13,6 +13,7 @@ function run(overrides: Partial<Run>): Run {
     runResult: null,
     runType: null,
     done: false,
+    error: null,
     ...overrides,
   }
 }
