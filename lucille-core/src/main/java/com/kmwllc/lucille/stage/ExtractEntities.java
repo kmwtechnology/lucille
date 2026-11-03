@@ -63,8 +63,7 @@ public class ExtractEntities extends Stage {
       .optionalBoolean("ignoreCase", "onlyWhitespaceSeparated", "stopOnHit",
           "onlyWholeWords", "ignoreOverlaps", "usePayloads")
       .optionalString("updateMode", "entityField")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
-      .optionalParent(FileConnector.STORAGE_CLIENTS, FileConnector.STORAGE_CLIENTS_TYPE).build();
+      .include(FileConnector.STORAGE_SPEC).build();
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 

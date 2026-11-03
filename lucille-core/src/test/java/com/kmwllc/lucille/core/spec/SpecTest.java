@@ -40,10 +40,10 @@ public class SpecTest {
 
   @Test
   public void testUnknownNullAndEmptyObjectKeys() {
-    Spec childSpec = SpecBuilder.parent("child").optionalString("inner").build();
+    Spec childSpec = SpecBuilder.withoutDefaults().optionalString("inner").build();
     Spec spec = SpecBuilder.withoutDefaults()
         .optionalString("field")
-        .optionalParent(childSpec)
+        .optionalParent("child", childSpec)
         .optionalParent("map", new TypeReference<Map<String, String>>(){})
         .build();
 

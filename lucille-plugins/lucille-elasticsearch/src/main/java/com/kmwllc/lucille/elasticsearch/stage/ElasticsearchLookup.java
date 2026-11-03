@@ -41,7 +41,7 @@ import java.util.List;
 public class ElasticsearchLookup extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredParent(ElasticsearchUtils.ELASTICSEARCH_PARENT_SPEC)
+      .requiredParent("elasticsearch", ElasticsearchUtils.ELASTICSEARCH_PARENT_SPEC)
       .requiredList("source", new TypeReference<List<String>>(){})
       .requiredList("dest", new TypeReference<List<String>>(){})
       .optionalString("updateMode").build();

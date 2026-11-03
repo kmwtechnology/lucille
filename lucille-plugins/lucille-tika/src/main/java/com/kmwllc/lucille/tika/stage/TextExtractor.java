@@ -122,7 +122,7 @@ import org.xml.sax.SAXException;
  */
 public class TextExtractor extends Stage {
 
-  public static final Spec FORK_SPEC = SpecBuilder.parent("fork")
+  public static final Spec FORK_SPEC = SpecBuilder.withoutDefaults()
       .optionalBoolean("enabled")
       .optionalList("jvmArgs", new TypeReference<List<String>>() {})
       .optionalNumber("poolSize", "serverPulseMillis")
@@ -136,8 +136,8 @@ public class TextExtractor extends Stage {
       .optionalNumber("textContentLimit", "parseTimeout")
       .optionalList("skipEmbeddedContentTypePrefixes", new TypeReference<List<String>>() {})
       .optionalBoolean("enableOcr")
-      .optionalParent(FORK_SPEC, FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
-      .optionalParent(FileConnector.STORAGE_CLIENTS, FileConnector.STORAGE_CLIENTS_TYPE)
+      .optionalParent("fork", FORK_SPEC)
+      .include(FileConnector.STORAGE_SPEC)
       .optionalParent("metadataFields", new TypeReference<Map<String, Object>>() {})
       .include(FileContentFetcher.SPEC).build();
 

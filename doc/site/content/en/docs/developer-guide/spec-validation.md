@@ -29,8 +29,7 @@ A `Spec` is an immutable set of `Property` declarations that describes the legal
 
 ```java
 public class Spec {
-    private final String name;           // Non-null for "parent" specs (nested config blocks)
-    private final Set<Property> properties;
+    private final List<Property> properties;   // in declaration order
 }
 ```
 
@@ -78,11 +77,8 @@ SpecBuilder.indexer()
 // For a FileHandler — includes class, docIdPrefix as defaults
 SpecBuilder.fileHandler()
 
-// For arbitrary config blocks — no defaults
+// For arbitrary config blocks, including nested config objects — no defaults
 SpecBuilder.withoutDefaults()
-
-// For nested config objects
-SpecBuilder.parent("parentName")
 ```
 
 Each factory method pre-populates the builder with default legal properties appropriate for that component type.
@@ -103,9 +99,9 @@ Each factory method pre-populates the builder with default legal properties appr
 ### Objects (Nested Config Blocks)
 
 ```java
-// With a named Spec describing the object's structure
-.requiredParent(myParentSpec)
-.optionalParent(myParentSpec)
+// With a Spec describing the object's structure; the first argument is the object's key
+.requiredParent("name", myParentSpec)
+.optionalParent("name", myParentSpec)
 
 // With a TypeReference for unstructured objects (e.g., Map<String, String>)
 .requiredParent("name", new TypeReference<Map<String, String>>(){})
@@ -185,30 +181,33 @@ The `Property` base class handles this:
 
 ## Nested Specs (Parent Specs)
 
-For complex connectors with cloud provider configs, nested specs describe sub-objects:
+A parent Spec describes a nested config block. It is an ordinary Spec, usually built with `SpecBuilder.withoutDefaults()`; the block's key is given where the parent is added, like any other property:
 
 ```java
-// FileConnector declares parent specs for each cloud provider
-public static final Spec GCP_PARENT_SPEC = SpecBuilder.parent("gcp")
-    .requiredString("pathToServiceKey")
-    .optionalNumber("maxResultsPerPage").build();
-
-public static final Spec S3_PARENT_SPEC = SpecBuilder.parent("s3")
-    .optionalString("accessKeyId", "secretAccessKey", "region")
-    .optionalNumber("maxResultsPerPage").build();
-
-public static final Spec AZURE_PARENT_SPEC = SpecBuilder.parent("azure")
-    .optionalString("connectionString", "accountName", "accountKey")
-    .optionalNumber("maxResultsPerPage").build();
-
-// Used in the connector's SPEC
 public static final Spec SPEC = SpecBuilder.connector()
     .requiredList("paths", new TypeReference<List<String>>(){})
-    .optionalParent(GCP_PARENT_SPEC, AZURE_PARENT_SPEC, S3_PARENT_SPEC)
+    .optionalParent("fileOptions", SpecBuilder.withoutDefaults()
+        .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
+        .optionalNumber("maxSizeBytes").build())
     .build();
 ```
 
-When a parent spec is validated, it checks the properties within that nested config block. The parent's name (e.g., "gcp") becomes a legal top-level property, and its children (e.g., "gcp.pathToServiceKey") are validated against the parent spec's property set.
+When a parent spec is validated, it checks the properties within that nested config block. The parent's key (e.g., "fileOptions") becomes a legal property, and its children (e.g., "fileOptions.getFileContent") are validated against the parent spec's property set. Because the key is not part of the parent Spec, the same Spec can be used under more than one key.
+
+To share a group of parents across components, put them in one Spec and add it with `include()`. `FileConnector.STORAGE_SPEC` declares the `gcp`, `azure`, and `s3` blocks and `storageClients`; every component that reads files through StorageClients includes it, so they all accept the same storage configuration:
+
+```java
+public static final Spec STORAGE_SPEC = SpecBuilder.withoutDefaults()
+    .optionalParent("gcp", GCP_PARENT_SPEC)
+    .optionalParent("azure", AZURE_PARENT_SPEC)
+    .optionalParent("s3", S3_PARENT_SPEC)
+    .optionalParent("storageClients", new TypeReference<Map<String, Map<String, Object>>>(){}).build();
+
+// in a Stage that fetches files
+public static final Spec SPEC = SpecBuilder.stage()
+    .requiredString("dictPath")
+    .include(FileConnector.STORAGE_SPEC).build();
+```
 
 ## Error Collection (Not Fail-Fast)
 

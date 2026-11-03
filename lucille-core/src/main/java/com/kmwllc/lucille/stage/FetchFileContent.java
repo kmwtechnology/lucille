@@ -37,8 +37,7 @@ public class FetchFileContent extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("filePathField", "fileContentField")
       .optionalNumber("maxSizeBytes")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC)
-      .optionalParent(FileConnector.STORAGE_CLIENTS, FileConnector.STORAGE_CLIENTS_TYPE).build();
+      .include(FileConnector.STORAGE_SPEC).build();
 
   private final String filePathField;
   private final String fileContentField;

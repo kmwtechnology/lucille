@@ -15,14 +15,8 @@ import java.util.Map;
 public class SpecBuilder {
 
   private final Map<String, Property> properties = new LinkedHashMap<>();
-  private final String name;
-
-  SpecBuilder(String name) {
-    this.name = name;
-  }
 
   SpecBuilder(Collection<Property> defaultLegalProperties) {
-    this.name = null;
     defaultLegalProperties.forEach(this::add);
   }
 
@@ -38,8 +32,7 @@ public class SpecBuilder {
 
     Property existing = properties.putIfAbsent(property.getName(), property);
     if (existing != null && existing != property) {
-      throw new IllegalArgumentException("Property \"" + property.getName() + "\" is declared more than once"
-          + (name != null ? " in the \"" + name + "\" Spec." : "."));
+      throw new IllegalArgumentException("Property \"" + property.getName() + "\" is declared more than once.");
     }
   }
 
@@ -99,23 +92,11 @@ public class SpecBuilder {
   }
 
   /**
-   * Creates a Spec without any default, legal properties.
+   * Creates a Spec without any default, legal properties. Use this for the Spec of a parent (a nested object), and pass
+   * that Spec to {@link #requiredParent(String, Spec)} or {@link #optionalParent(String, Spec)} with the parent's key.
    * @return a Spec without any default, legal properties.
    */
   public static SpecBuilder withoutDefaults() { return new SpecBuilder(); }
-
-  /**
-   * Creates a ParentSpec with the given name. Has no default legal properties.
-   * @param parentName The name of the parent you are creating a spec for. Must not be null.
-   * @return A ParentSpec with the given name.
-   */
-  public static SpecBuilder parent(String parentName) {
-    if (parentName == null) {
-      throw new IllegalArgumentException("ParentName for a Spec must not be null.");
-    }
-
-    return new SpecBuilder(parentName);
-  }
   // ************ Adding Basic Types ****************
 
   public SpecBuilder requiredString(String... requiredStringFieldNames) {
@@ -160,13 +141,13 @@ public class SpecBuilder {
 
   // ************ Adding Objects (Parents) and Lists ************
 
-  public SpecBuilder requiredParent(Spec... requiredParents) {
-    Arrays.stream(requiredParents).forEach(requiredParentSpec -> add(new ObjectProperty(requiredParentSpec, true)));
+  public SpecBuilder requiredParent(String name, Spec parentSpec) {
+    add(new ObjectProperty(name, true, parentSpec));
     return this;
   }
 
-  public SpecBuilder optionalParent(Spec... optionalParents) {
-    Arrays.stream(optionalParents).forEach(optionalParentSpec -> add(new ObjectProperty(optionalParentSpec, false)));
+  public SpecBuilder optionalParent(String name, Spec parentSpec) {
+    add(new ObjectProperty(name, false, parentSpec));
     return this;
   }
 
@@ -213,6 +194,6 @@ public class SpecBuilder {
   }
 
   public Spec build() {
-    return new Spec(name, properties.values());
+    return new Spec(properties.values());
   }
 }

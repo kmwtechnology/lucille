@@ -26,8 +26,8 @@ import java.util.stream.Collectors;
  * The three basic types are number, boolean, and string. You can also specify a list or an objectc. For these types, you need to either
  * provide a Spec or a TypeReference describing the list or object.
  *
- * <p> For an object, providing a named <code>Spec</code> (created via SpecBuilder.parent())
- * describes the object's key and the properties it can / must have.
+ * <p> For an object, providing a <code>Spec</code> along with the object's key
+ * describes the properties it can / must have.
  * Providing a <code>TypeReference</code> describes what the unwrapped ConfigObject should deserialize as / cast to. For example, if you
  * need a "field mapping" that maps Strings to Strings, you should pass in <code>TypeReference&lt;Map&lt;String, String&gt;&gt;</code>.
  *
@@ -43,13 +43,10 @@ public class Spec {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  private final String name;
-
   // in declaration order, with unique names (SpecBuilder enforces this)
   private final List<Property> properties;
 
-  Spec(String name, Collection<Property> properties) {
-    this.name = name;
+  Spec(Collection<Property> properties) {
     this.properties = List.copyOf(properties);
   }
 
@@ -173,13 +170,6 @@ public class Spec {
     node.set("fields", fieldsArray);
 
     return node;
-  }
-
-  /**
-   * Returns the name of this spec if it is a "parent"; null otherwise.
-   */
-  public String getName() {
-    return name;
   }
 
   /**

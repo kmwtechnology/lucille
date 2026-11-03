@@ -52,7 +52,7 @@ class Worker implements Runnable {
       .optionalString("pipeline")
       .optionalNumber("threads", "maxProcessingSecs", "maxRetries")
       .optionalBoolean("exitOnTimeout", "enableHeartbeat")
-      .optionalParent(SpecBuilder.parent("retryCounter").optionalString("class").build()).build();
+      .optionalParent("retryCounter", SpecBuilder.withoutDefaults().optionalString("class").build()).build();
 
   public static final String METRICS_SUFFIX = ".worker.docProcessingTme";
 

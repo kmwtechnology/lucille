@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
 public class SolrUtils {
 
   // url is required for the standalone client and for the cloud client without zkHosts; getSolrClient enforces that
-  public static final Spec SOLR_PARENT_SPEC = SpecBuilder.parent("solr")
+  public static final Spec SOLR_PARENT_SPEC = SpecBuilder.withoutDefaults()
       .optionalStringOrList("url")
       .optionalString("zkChroot", "defaultCollection", "userName", "password")
       .optionalBoolean("useCloudClient", "acceptInvalidCert")

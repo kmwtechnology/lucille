@@ -181,12 +181,12 @@ public class ConfigValidationTest {
   @Test
   public void testParentSpecValidation() {
     Spec spec = SpecBuilder.connector()
-        .requiredParent(
-            SpecBuilder.parent("required")
+        .requiredParent("required",
+            SpecBuilder.withoutDefaults()
                 .requiredNumber("requiredProp")
                 .optionalNumber("optionalProp").build())
-        .optionalParent(
-            SpecBuilder.parent("optional")
+        .optionalParent("optional",
+            SpecBuilder.withoutDefaults()
                 .requiredNumber("requiredProp")
                 .optionalNumber("optionalProp").build()).build();
 

@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
  */
 public class OpenSearchUtils {
 
-  public static final Spec OPENSEARCH_PARENT_SPEC = SpecBuilder.parent("opensearch")
+  public static final Spec OPENSEARCH_PARENT_SPEC = SpecBuilder.withoutDefaults()
       .requiredStringOrList("url")
       .requiredString("index")
       .optionalBoolean("acceptInvalidCert", "useCompression")

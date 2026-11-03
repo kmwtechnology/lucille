@@ -68,7 +68,7 @@ public class KafkaUtils {
       .optionalParent("producer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("admin", new TypeReference<Map<String, Object>>(){})
       // controls optional enrichment of lifecycle events with source-document fields; see EventFieldConfig
-      .optionalParent(EventFieldConfig.SPEC).build();
+      .optionalParent("event", EventFieldConfig.SPEC).build();
 
   /** Default for <code>kafka.pollIntervalMs</code>: how long a consumer poll blocks waiting for records. */
   public static final int DEFAULT_POLL_INTERVAL_MS = 2000;

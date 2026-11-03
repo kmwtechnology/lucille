@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
+import com.typesafe.config.ConfigFactory;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
@@ -24,7 +25,7 @@ public class SpecBuilderTest {
         .optionalList("whitelist", new TypeReference<List<String>>() {})
         .optionalList("blacklist", new TypeReference<List<String>>() {})
         .optionalNumber("textContentLimit")
-        .optionalParent(FileConnector.AZURE_PARENT_SPEC)
+        .include(FileConnector.STORAGE_SPEC)
         .include(spec1).build();
 
     assertTrue(spec1.getLegalProperties().contains("fetcherClass"));
@@ -88,16 +89,20 @@ public class SpecBuilderTest {
   }
 
   @Test
-  public void testParentSpecMustBeNamed() {
-    Spec unnamed = SpecBuilder.withoutDefaults().optionalString("inner").build();
+  public void testParentKeyIsGivenAtCallSite() {
+    // the same parent Spec can be used under different keys
+    Spec parentSpec = SpecBuilder.withoutDefaults().requiredString("inner").build();
+    Spec spec = SpecBuilder.withoutDefaults()
+        .requiredParent("first", parentSpec)
+        .optionalParent("second", parentSpec).build();
+    assertEquals(List.of("first", "second"), List.copyOf(spec.getLegalProperties()));
+
+    spec.validate(ConfigFactory.parseString("first { inner = a }, second { inner = b }"), "Test");
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-        () -> SpecBuilder.withoutDefaults().optionalParent(unnamed));
-    assertTrue(e.getMessage().contains("SpecBuilder.parent"));
-    assertThrows(IllegalArgumentException.class, () -> SpecBuilder.withoutDefaults().requiredParent(unnamed));
+        () -> spec.validate(ConfigFactory.parseString("first { inner = a }, second {}"), "Test"));
+    assertTrue(e.getMessage(), e.getMessage().contains("second"));
 
-    Spec named = SpecBuilder.parent("outer").optionalString("inner").build();
-    assertTrue(SpecBuilder.withoutDefaults().optionalParent(named).build().getLegalProperties().contains("outer"));
-
+    assertThrows(IllegalArgumentException.class, () -> SpecBuilder.withoutDefaults().optionalParent(null, parentSpec));
     assertThrows(IllegalArgumentException.class, () -> SpecBuilder.withoutDefaults().optionalString((String) null));
   }
 
@@ -114,10 +119,5 @@ public class SpecBuilderTest {
     // as is a clash between an included Spec and a declared property
     Spec included = SpecBuilder.withoutDefaults().optionalString("field").build();
     assertThrows(IllegalArgumentException.class, () -> SpecBuilder.withoutDefaults().optionalString("field").include(included));
-
-    // the parent Spec's name is included in the message
-    e = assertThrows(IllegalArgumentException.class,
-        () -> SpecBuilder.parent("myParent").optionalString("field").optionalString("field"));
-    assertTrue(e.getMessage().contains("\"myParent\""));
   }
 }
