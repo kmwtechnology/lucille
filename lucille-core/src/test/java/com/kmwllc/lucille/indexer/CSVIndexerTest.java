@@ -2,10 +2,12 @@ package com.kmwllc.lucille.indexer;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.Runner;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.opencsv.ICSVWriter;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 import java.io.IOException;
 import org.junit.After;
 import org.junit.Before;
@@ -119,12 +121,12 @@ public class CSVIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/includeHeader.conf");
 
-    CSVIndexer noErrorIndexer = new CSVIndexer(config, messenger, null, false, "testing");
-    assertFalse(noErrorIndexer.validateConnection());
+    CSVIndexer noWriterIndexer = new CSVIndexer(config, messenger, null, false, "testing");
+    assertFalse(noWriterIndexer.validateConnection());
 
-    CSVIndexer faultyIndexer = new CSVIndexer(config, messenger, null, true, "testing");
-    assertThrows(NullPointerException.class,
-        () -> faultyIndexer.validateConnection());
+    // in bypass mode there is nothing to connect to, and no header is written
+    CSVIndexer bypassIndexer = new CSVIndexer(config, messenger, null, true, "testing");
+    assertTrue(bypassIndexer.validateConnection());
 
     CSVIndexer indexer = new CSVIndexer(config, messenger, false, "testing");
     assertTrue(indexer.validateConnection());
@@ -151,7 +153,11 @@ public class CSVIndexerTest {
 
       TestMessenger messenger = new TestMessenger();
       Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/missingParentConfig.conf");
-      new CSVIndexer(config, messenger, false, "testing").closeConnection();
+      CSVIndexer indexer = new CSVIndexer(config, messenger, false, "testing");
+      // the output file, and its parent directory, are created when the indexer connects
+      assertFalse(parentDirFile.exists());
+      assertTrue(indexer.validateConnection());
+      indexer.closeConnection();
 
       assertTrue(parentDirFile.exists());
     } finally {
@@ -181,5 +187,68 @@ public class CSVIndexerTest {
 
     // Again, doesn't throw an error.
     indexer.closeConnection();
+  }
+
+  @Test
+  public void testCreatingTheIndexerLeavesTheFileAlone() throws Exception {
+    Files.writeString(outputFile.toPath(), "existing row\n");
+    // append false: opening the file would truncate it
+    Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/config.conf")
+        .withValue("csv.append", ConfigValueFactory.fromAnyRef(false));
+
+    CSVIndexer indexer = new CSVIndexer(config, new TestMessenger(), false, "testing");
+    indexer.closeConnection();
+
+    assertEquals(List.of("existing row"), Files.readAllLines(outputFile.toPath()));
+  }
+
+  @Test
+  public void testValidatingAConfigLeavesTheFileAlone() throws Exception {
+    Files.writeString(outputFile.toPath(), "existing row\n");
+    Config config = ConfigFactory.parseString(
+        "connectors: [{name: \"connector1\", class: \"com.kmwllc.lucille.connector.SequenceConnector\", numDocs: 1, "
+            + "pipeline: \"pipeline1\"}]\n"
+            + "pipelines: [{name: \"pipeline1\", stages: []}]\n"
+            + "indexer { type: \"CSV\" }\n"
+            + "csv { columns: [\"id\"], path: \"output.csv\" }");
+
+    assertTrue(Runner.runInValidationMode(config).isEmpty());
+    assertEquals(List.of("existing row"), Files.readAllLines(outputFile.toPath()));
+  }
+
+  @Test
+  public void testBypassWritesNothing() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/includeHeader.conf");
+
+    CSVIndexer indexer = new CSVIndexer(config, messenger, true, "testing");
+    assertTrue(indexer.validateConnection());
+    messenger.sendForIndexing(Document.create("doc1", "test_run"));
+    messenger.sendForIndexing(Document.create("doc2", "test_run"));
+    indexer.run(2);
+
+    // the documents still complete, but no file is created
+    assertEquals(2, messenger.getSentEvents().stream().filter(e -> e.getType() == Event.Type.FINISH).count());
+    assertFalse(outputFile.exists());
+  }
+
+  @Test
+  public void testHeaderIsWrittenWhenTheIndexerConnects() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/includeHeader.conf");
+    Document doc = Document.create("doc1", "test_run");
+    doc.setField("f1", "123");
+    doc.setField("f2", "abc");
+
+    CSVIndexer indexer = new CSVIndexer(config, messenger, false, "testing");
+    List<String> lines;
+    try {
+      assertTrue(indexer.validateConnection());
+      indexer.sendToIndex(List.of(doc));
+      lines = Files.readAllLines(outputFile.toPath());
+    } finally {
+      indexer.closeConnection();
+    }
+    assertEquals(List.of("\"id\",\"f1\",\"f2\"", "\"doc1\",\"123\",\"abc\""), lines);
   }
 }

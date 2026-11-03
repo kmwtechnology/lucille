@@ -2,7 +2,11 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.*;
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
@@ -47,6 +51,7 @@ import java.util.stream.Collectors;
  *   <li>s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>storageClients (Map, Optional) : If your dictionary files are held in storage with a custom StorageClient. See FileConnector for the appropriate arguments to provide.</li>
  * </ul>
  */
 public class ExtractEntities extends Stage {
@@ -58,7 +63,8 @@ public class ExtractEntities extends Stage {
       .optionalBoolean("ignoreCase", "onlyWhitespaceSeparated", "stopOnHit",
           "onlyWholeWords", "ignoreOverlaps", "usePayloads")
       .optionalString("updateMode", "entityField")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC).build();
+      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
+      .optionalParent(FileConnector.STORAGE_CLIENTS, FileConnector.STORAGE_CLIENTS_TYPE).build();
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -92,7 +98,7 @@ public class ExtractEntities extends Stage {
     this.destFields = config.getStringList("dest");
     this.dictionaries = config.getStringList("dictionaries");
     this.updateMode = UpdateMode.fromConfig(config);
-    this.entityField = config.hasPath("entityField") ? config.getString("entityField") : null;
+    this.entityField = ConfigUtils.getStringOrDefault(config, "entityField", null);
     this.fileFetcher = FileContentFetcher.create(config);
   }
 

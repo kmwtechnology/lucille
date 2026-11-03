@@ -15,7 +15,7 @@ Generates vector embeddings for the `source` field of a Document, its children, 
 | `apiKey` | String | Yes | OpenAI API key. Use `${OPENAI_API_KEY}` for environment variable substitution. Must not be blank. |
 | `embedDocument` | Boolean | Yes | Whether to embed the Document itself. |
 | `embedChildren` | Boolean | Yes | Whether to embed the Document's children. At least one of `embedDocument` and `embedChildren` must be `true`. |
-| `dest` | String | No | Field to write the embedding to. Each vector component is added as a separate Float value, so the field holds a list of floats. If `dest` already has values, the vector is appended to them. Default: `embeddings`. |
+| `dest` | String | No | Field to write the embedding to. Each vector component is added as a separate Float value, so the field holds a list of floats. Any existing values in `dest` are overwritten. Default: `embeddings`. |
 | `modelName` | String | No | `text-embedding-3-small`, `text-embedding-3-large`, or `text-embedding-ada-002`. Any other name fails at startup. Default: `text-embedding-3-small`. |
 | `dimensions` | Integer | No | Output vector dimensions, passed to the OpenAI API (only `text-embedding-3-*` models support it). If omitted, the model's default is used. |
 
@@ -23,7 +23,7 @@ Text is truncated to 8,191 tokens before embedding (the OpenAI API limit). Lucil
 
 The stage fails at startup if both `embedDocument` and `embedChildren` are `false`, or if `apiKey` is blank. A failed API request throws an exception for that Document.
 
-When `embedChildren` is `true`, the Document's children are replaced with the embedded copies. Children that were not embedded (because their `source` is missing or blank) are removed from the Document.
+When `embedChildren` is `true`, the Document's children are replaced with the embedded copies. Children that were not embedded (because their `source` is missing or blank) are kept in the Document unchanged.
 
 ```hocon
 {

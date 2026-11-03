@@ -124,7 +124,7 @@ public class Spec {
    * @param property The property whose parent you want to get a Config path for.
    * @return A config path to the parent of the given property, null if it doesn't exist.
    */
-  static String getParent(String property) {
+  private static String getParent(String property) {
     int dotIndex = property.indexOf('.');
     if (dotIndex < 0 || dotIndex == property.length() - 1) {
       return null;

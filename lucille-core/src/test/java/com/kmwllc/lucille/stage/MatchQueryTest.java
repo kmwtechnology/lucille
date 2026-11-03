@@ -9,7 +9,9 @@ import org.junit.runners.JUnit4;
 
 import java.util.Set;
 
-import static junit.framework.TestCase.*;
+import static junit.framework.TestCase.assertEquals;
+import static junit.framework.TestCase.assertFalse;
+import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertThrows;
 
 

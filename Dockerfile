@@ -1,17 +1,25 @@
-FROM eclipse-temurin:21-jre
+# Single multi-stage Dockerfile for both Lucille images:
+#
+#   lucille       (core only)        -> docker build -t lucille:latest .              (default; builds the `core` stage)
+#   lucille-all   (all plugins)      -> docker build --target all -t lucille-all:latest .
+#
+# Run `mvn clean install` first so each stage's target/lib exists. The `core` stage is intentionally
+# the LAST stage in this file so that a plain `docker build .` (no --target) produces the minimal core
+# image; building the larger all-plugins image is an explicit opt-in via `--target all`.
+
+# ---------------------------------------------------------------------------------------------------
+# Shared base: everything the two images have in common (JRE, working dir, config dir, user, env,
+# entrypoint). The only thing the image stages add is which set of jars lands on /lucille/lib.
+# ---------------------------------------------------------------------------------------------------
+FROM eclipse-temurin:21-jre AS base
 
 LABEL maintainer="kmwtechnology"
-LABEL description="Lucille Search ETL base image"
 
 # Create a standard working directory
 WORKDIR /lucille
 
 # remove pebble due to CVE with go. unused.
 RUN apt-get update && apt-get upgrade -y && rm -f /usr/bin/pebble /bin/pebble
-
-# Copy the built Lucille artifacts
-COPY lucille-core/target/lucille.jar /lucille/lib/
-COPY lucille-core/target/lib/ /lucille/lib/
 
 # Default config directory — downstream consumers mount or COPY configs here
 RUN mkdir -p /lucille/conf
@@ -40,3 +48,30 @@ RUN chmod +x /lucille/docker-entrypoint.sh
 USER lucille
 
 ENTRYPOINT ["/lucille/docker-entrypoint.sh"]
+
+# ---------------------------------------------------------------------------------------------------
+# all: lucille-core + every component plugin (Solr, OpenSearch, Elasticsearch, Pinecone, Weaviate,
+# Parquet, Tika, OCR, Jlama, entity-extraction, video). Larger image, lowest barrier to entry.
+#
+# Note: this image is large (lucille-video bundles native ffmpeg/OpenCV for every platform) and is
+# tied to one CPU architecture, because lucille-jlama resolves its native library to the architecture
+# this image is BUILT on. Build it on (or cross-build it for) the architecture you will run it on, or
+# the Jlama stage will fail to load its native code.
+#
+# lucille-all's copy-dependencies build places lucille-core, every plugin jar, and all of their
+# transitive runtime dependencies into target/lib. Keeping each jar separate (rather than shading)
+# keeps each plugin's META-INF/services/com.kmwllc.lucille.core.Indexer file present and readable from the classpath.
+# ---------------------------------------------------------------------------------------------------
+FROM base AS all
+LABEL description="Lucille Search ETL batteries-included image (lucille-core + all component plugins)"
+COPY lucille-all/target/lib/ /lucille/lib/
+
+# ---------------------------------------------------------------------------------------------------
+# core: lucille-core only. The minimal image, and the default build target (last stage in this file).
+# Unlike the all-plugins lib, lucille-core's target/lib holds only core's dependencies, so the core
+# jar (lucille.jar, which carries the Runner main class) is copied in separately.
+# ---------------------------------------------------------------------------------------------------
+FROM base AS core
+LABEL description="Lucille Search ETL base image (lucille-core only)"
+COPY lucille-core/target/lucille.jar /lucille/lib/
+COPY lucille-core/target/lib/ /lucille/lib/

@@ -179,47 +179,26 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   public Indexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
     this.messenger = messenger;
     this.bypass = bypass;
-    this.idOverrideField =
-        config.hasPath("indexer.idOverrideField")
-            ? config.getString("indexer.idOverrideField")
-            : null;
-    this.indexOverrideField =
-        config.hasPath("indexer.indexOverrideField")
-            ? config.getString("indexer.indexOverrideField")
-            : null;
-    this.deletionMarkerField =
-        config.hasPath("indexer.deletionMarkerField")
-            ? config.getString("indexer.deletionMarkerField")
-            : null;
-    this.deletionMarkerFieldValue =
-        config.hasPath("indexer.deletionMarkerFieldValue")
-            ? config.getString("indexer.deletionMarkerFieldValue")
-            : null;
-    this.deleteByFieldField =
-        config.hasPath("indexer.deleteByFieldField")
-            ? config.getString("indexer.deleteByFieldField")
-            : null;
-    this.deleteByFieldValue =
-        config.hasPath("indexer.deleteByFieldValue")
-            ? config.getString("indexer.deleteByFieldValue")
-            : null;
+    this.idOverrideField = ConfigUtils.getStringOrDefault(config, "indexer.idOverrideField", null);
+    this.indexOverrideField = ConfigUtils.getStringOrDefault(config, "indexer.indexOverrideField", null);
+    this.deletionMarkerField = ConfigUtils.getStringOrDefault(config, "indexer.deletionMarkerField", null);
+    this.deletionMarkerFieldValue = ConfigUtils.getStringOrDefault(config, "indexer.deletionMarkerFieldValue", null);
+    this.deleteByFieldField = ConfigUtils.getStringOrDefault(config, "indexer.deleteByFieldField", null);
+    this.deleteByFieldValue = ConfigUtils.getStringOrDefault(config, "indexer.deleteByFieldValue", null);
 
     int batchSize;
     long batchByteSize;
 
     if (config.hasPath("indexer.batchSize") || config.hasPath("indexer.batchByteSize")) {
       // when only one is set, the other is disabled so the configured one governs
-      batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : NO_BATCH_SIZE;
-      batchByteSize = config.hasPath("indexer.batchByteSize") ? config.getLong("indexer.batchByteSize") : NO_BATCH_SIZE_BYTES;
+      batchSize = ConfigUtils.getIntOrDefault(config, "indexer.batchSize", NO_BATCH_SIZE);
+      batchByteSize = ConfigUtils.getLongOrDefault(config, "indexer.batchByteSize", NO_BATCH_SIZE_BYTES);
     } else {
       batchSize = DEFAULT_BATCH_SIZE;
       batchByteSize = NO_BATCH_SIZE_BYTES;
     }
 
-    int batchTimeout =
-        config.hasPath("indexer.batchTimeout")
-            ? config.getInt("indexer.batchTimeout")
-            : DEFAULT_BATCH_TIMEOUT;
+    int batchTimeout = ConfigUtils.getIntOrDefault(config, "indexer.batchTimeout", DEFAULT_BATCH_TIMEOUT);
     this.batch =
         (indexOverrideField == null)
             ? new SingleBatch(batchSize, batchByteSize, batchTimeout)
@@ -260,10 +239,8 @@ public abstract class Indexer implements Runnable, BatchProcessor {
             "indexer.maxRetries must be greater than 0 when specified. Remove the parameter to disable retries.");
       }
       int retryInitialWaitDurationMs = ConfigUtils.getOrDefault(config, "indexer.retryWaitDurationMs", DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS);
-      long retryMaxWaitDurationMs = config.hasPath("indexer.retryMaxWaitDurationMs")
-          ? config.getLong("indexer.retryMaxWaitDurationMs") : DEFAULT_RETRY_MAX_WAIT_DURATION_MS;
-      double retryRandomizationFactor = config.hasPath("indexer.retryRandomizationFactor")
-          ? config.getDouble("indexer.retryRandomizationFactor") : DEFAULT_RETRY_RANDOMIZATION_FACTOR;
+      long retryMaxWaitDurationMs = ConfigUtils.getLongOrDefault(config, "indexer.retryMaxWaitDurationMs", DEFAULT_RETRY_MAX_WAIT_DURATION_MS);
+      double retryRandomizationFactor = ConfigUtils.getDoubleOrDefault(config, "indexer.retryRandomizationFactor", DEFAULT_RETRY_RANDOMIZATION_FACTOR);
       if (!config.hasPath("indexer.retryableStatusCodes")) {
         this.retryableStatusCodes = DEFAULT_RETRYABLE_STATUS_CODES;
       } else {
@@ -365,8 +342,7 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    */
   public static int getMaxConcurrentBatches(Config config) {
     // getInt, unlike ConfigUtils.getOrDefault, converts a string value such as an environment substitution.
-    return config.hasPath("indexer.maxConcurrentBatches")
-        ? config.getInt("indexer.maxConcurrentBatches") : DEFAULT_MAX_CONCURRENT_BATCHES;
+    return ConfigUtils.getIntOrDefault(config, "indexer.maxConcurrentBatches", DEFAULT_MAX_CONCURRENT_BATCHES);
   }
 
   /**
@@ -420,9 +396,11 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    *     returned exception whose status code is in the configured retryable set. Use
    *     {@link IndexerException} for permanent per-document failures. Returns an empty set if all
    *     documents succeeded or if per-document failure tracking is not supported. Does not return null.
-   * @throws Exception for errors that prevent the entire batch from being attempted.
+   * @throws IndexerException for errors that prevent the entire batch from being attempted. Throw an
+   *     {@link IndexerRetryableException} when the failure may be transient (for example a transport error), so the
+   *     configured retry policy applies to it.
    */
-  protected abstract Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception;
+  protected abstract Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException;
 
   /** Close the client or connection to the destination search engine. */
   public abstract void closeConnection();
@@ -596,7 +574,7 @@ public abstract class Indexer implements Runnable, BatchProcessor {
 
       // Mark all the documents in failedDoc as failed
       for (Pair<Document, Exception> pair : failedDocPairs) {
-        sendFailEvent(pair.getLeft(), pair.getRight().getMessage());
+        sendFailEvent(pair.getLeft(), pair.getRight());
       }
 
       Set<Document> failedDocs = failedDocPairs.stream().map(Pair::getLeft).collect(Collectors.toSet());
@@ -625,14 +603,14 @@ public abstract class Indexer implements Runnable, BatchProcessor {
       String message = t.getMessage();
       log.error("Error sending documents to index: {}", message, t);
       for (Document d : batchedDocs) {
-        sendFailEvent(d, message);
+        sendFailEvent(d, t);
       }
       // An Error (OutOfMemoryError, etc.) must never be swallowed, and must not mark the batch complete — the documents
       // were not indexed, so committing their offsets would lose them. FAIL events were still sent just above, so the
       // run does not hang; the uncommitted offsets let a Kafka/Hybrid messenger re-deliver the batch on restart.
-      if (t instanceof Error) {
+      if (t instanceof Error error) {
         markComplete = false;
-        throw (Error) t;
+        throw error;
       }
     } finally {
       // Mark the batch complete for a normal outcome or a (handled) Exception, where the batch ran to a defined
@@ -649,15 +627,16 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   }
 
   /**
-   * Sends a FAIL event for the given document with the specified reason, setting up MDC context
+   * Sends a FAIL event for the given document, with the cause as its reason, setting up MDC context
    * for structured logging.
    */
-  private void sendFailEvent(Document d, String reason) {
+  private void sendFailEvent(Document d, Throwable cause) {
+    String reason = Event.failureMessage(cause);
     try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
       if (d.getRunId() != null) {
         MDC.pushByKey(RUNID_FIELD, d.getRunId());
       }
-      messenger.sendEvent(d, "FAILED: " + reason, Event.Type.FAIL);
+      messenger.sendEvent(d, reason, Event.Type.FAIL);
       docLogger.error("Document FAILED during indexing: {}. Reason: {}", d.getId(), reason);
       failedDocLogger.atError().setMessage(() -> d.toString()).log();
     } catch (Exception e) {
@@ -674,10 +653,11 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   // interrupted. Nothing in Lucille interrupts the indexer thread (the Runner and WorkerIndexer stop it with
   // terminate() and join()), so this only matters when other code embeds Lucille and interrupts the thread itself,
   // which is considered unlikely. A call that blocks interruptibly (such as the Hybrid messenger's offset handoff)
-  // clears the flag when it throws; restoring it lets the next poll see the interrupt and stop the run. The batch whose
-  // call failed is re-delivered or superseded by a later commit.
+  // clears the flag when it is interrupted; messengers restore it before throwing a MessengerException, but one that
+  // does not would leave it cleared, so it is restored here too. That lets the next poll see the interrupt and stop the
+  // run. The batch whose call failed is re-delivered or superseded by a later commit.
   private static void restoreInterrupt(Exception e) {
-    if (e instanceof InterruptedException) {
+    if (e instanceof InterruptedException || e.getCause() instanceof InterruptedException) {
       Thread.currentThread().interrupt();
     }
   }
@@ -738,11 +718,11 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    * values, and the Document must not be modified until the map has been serialized.
    */
   protected Map<String, Object> getRawIndexerDoc(Document doc) {
-    if (!(doc instanceof JsonDocument)) {
+    if (!(doc instanceof JsonDocument jsonDoc)) {
       return getConvertedIndexerDoc(doc);
     }
 
-    ObjectNode data = ((JsonDocument) doc).data;
+    ObjectNode data = jsonDoc.data;
     Map<String, Object> indexerDoc = new LinkedHashMap<>();
     for (Iterator<Map.Entry<String, JsonNode>> it = data.fields(); it.hasNext(); ) {
       Map.Entry<String, JsonNode> field = it.next();

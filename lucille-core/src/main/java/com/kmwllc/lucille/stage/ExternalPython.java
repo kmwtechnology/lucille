@@ -2,6 +2,7 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -60,10 +61,10 @@ public final class ExternalPython extends Stage {
     super(config);
 
     this.scriptPath = config.getString("scriptPath");
-    this.pythonExecutable = config.hasPath("pythonExecutable") ? config.getString("pythonExecutable") : "python3";
-    this.requirementsPath = config.hasPath("requirementsPath") ? config.getString("requirementsPath") : null;
-    this.functionName = config.hasPath("functionName") ? config.getString("functionName") : "process_document";
-    this.port = config.hasPath("port") ? config.getInt("port") : null;
+    this.pythonExecutable = ConfigUtils.getStringOrDefault(config, "pythonExecutable", "python3");
+    this.requirementsPath = ConfigUtils.getStringOrDefault(config, "requirementsPath", null);
+    this.functionName = ConfigUtils.getStringOrDefault(config, "functionName", "process_document");
+    this.port = ConfigUtils.getIntOrDefault(config, "port", null);
   }
 
   @Override

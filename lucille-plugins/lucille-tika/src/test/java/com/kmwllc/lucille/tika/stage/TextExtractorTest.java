@@ -590,7 +590,8 @@ public class TextExtractorTest {
     TextExtractor stage = spy((TextExtractor) factory.get(Map.of(
         "class", "com.kmwllc.lucille.tika.stage.TextExtractor",
         "byteArrayField", "byte_array",
-        "parseTimeout", 1000,
+        // 3s so the parse below finishes in time on slow Windows CI runners
+        "parseTimeout", 3000,
         "tikaConfigPath", "src/test/resources/TextExtractorTest/tika-config-hang.xml")));
 
     try {

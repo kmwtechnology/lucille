@@ -48,7 +48,7 @@ public class SetStaticValues extends Stage {
   public Iterator<Document> processDocument(Document doc) throws StageException {
     staticValues.forEach((fieldName, staticValue) -> {
       // a list in the config becomes a multi-valued field; update() takes the values as varargs
-      Object[] values = staticValue instanceof List ? ((List<?>) staticValue).toArray() : new Object[] {staticValue};
+      Object[] values = staticValue instanceof List<?> list ? list.toArray() : new Object[] {staticValue};
       doc.update(fieldName, updateMode, values);
     });
     if (skipDocument) {

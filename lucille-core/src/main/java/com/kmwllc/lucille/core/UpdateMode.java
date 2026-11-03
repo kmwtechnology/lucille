@@ -15,7 +15,7 @@ public enum UpdateMode {
   public static final String CONFIG_PATH = "updateMode";
   public static final UpdateMode DEFAULT = OVERWRITE;
 
-  private String text;
+  private final String text;
 
   UpdateMode(String text) {
     this.text = text;

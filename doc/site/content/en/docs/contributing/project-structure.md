@@ -86,7 +86,7 @@ The framework itself. Contains:
 - Built-in Connectors (FileConnector, DatabaseConnector, SolrConnector, etc.)
 - Built-in Indexers (SolrIndexer, OpenSearchIndexer, ElasticsearchIndexer, CSVIndexer)
 - The SPEC validation system
-- Test infrastructure (`TestMessenger`, `RunType.TEST`)
+- Test mode, a supported dry-run mode for pipeline development and tests (`Runner.runInTestMode`, `TestMessenger`)
 
 This is the only module required for a minimal Lucille deployment. If your pipeline doesn't need Tika, Pinecone, OCR, etc., you only need lucille-core.
 

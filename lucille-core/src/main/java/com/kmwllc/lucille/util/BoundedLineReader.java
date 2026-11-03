@@ -76,7 +76,7 @@ public class BoundedLineReader extends BufferedReader {
       line.append((char) c);
     }
 
-    return line.length() > 0 ? line.toString() : null;
+    return line.isEmpty() ? null : line.toString();
   }
 
   // the number of bytes the char takes in UTF-8; each half of a surrogate pair counts as 2, so the pair counts as 4

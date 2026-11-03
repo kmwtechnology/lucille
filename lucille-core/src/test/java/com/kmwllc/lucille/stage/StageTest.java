@@ -7,12 +7,19 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 public class StageTest {
 
@@ -315,5 +322,97 @@ public class StageTest {
   @Test
   public  void testValuesAndPathMutuallyExclusive() throws StageException {
     assertThrows(StageException.class, () -> factory.get("StageTest/valuesAndPath.conf"));
+  }
+
+  @Test
+  public void testFromConfigCreatesTheStage() throws StageException {
+    Stage stage = Stage.fromConfig(stageConfig(MockStage.class.getName()));
+    assertTrue(stage instanceof MockStage);
+  }
+
+  @Test
+  public void testFromConfigUnknownClass() {
+    StageException e = assertThrows(StageException.class, () -> Stage.fromConfig(stageConfig("com.example.NoSuchStage")));
+    assertTrue(e.getCause() instanceof ClassNotFoundException);
+  }
+
+  @Test
+  public void testFromConfigClassThatIsNotAStage() {
+    assertThrows(IllegalArgumentException.class, () -> Stage.fromConfig(stageConfig(String.class.getName())));
+  }
+
+  @Test
+  public void testFromConfigStageWithoutConfigConstructor() {
+    StageException e =
+        assertThrows(StageException.class, () -> Stage.fromConfig(stageConfig(NoConfigConstructorStage.class.getName())));
+    assertTrue(e.getCause() instanceof NoSuchMethodException);
+  }
+
+  @Test
+  public void testFromConfigRethrowsTheConstructorsStageException() {
+    StageException e =
+        assertThrows(StageException.class, () -> Stage.fromConfig(stageConfig(StageExceptionStage.class.getName())));
+    assertEquals("constructor failed", e.getMessage());
+  }
+
+  @Test
+  public void testFromConfigWrapsOtherCheckedExceptions() {
+    StageException e =
+        assertThrows(StageException.class, () -> Stage.fromConfig(stageConfig(IOExceptionStage.class.getName())));
+    assertTrue(e.getCause() instanceof IOException);
+  }
+
+  @Test
+  public void testFromConfigPassesInvalidConfigThrough() {
+    Config config = stageConfig(MockStage.class.getName()).withValue("bogus", ConfigValueFactory.fromAnyRef(true));
+    assertThrows(IllegalArgumentException.class, () -> Stage.fromConfig(config));
+  }
+
+  private static Config stageConfig(String className) {
+    return ConfigFactory.parseMap(Map.of("class", className));
+  }
+
+  public static class NoConfigConstructorStage extends Stage {
+
+    public static final Spec SPEC = SpecBuilder.stage().build();
+
+    public NoConfigConstructorStage() {
+      super(ConfigFactory.empty());
+    }
+
+    @Override
+    public Iterator<Document> processDocument(Document doc) {
+      return null;
+    }
+  }
+
+  public static class StageExceptionStage extends Stage {
+
+    public static final Spec SPEC = SpecBuilder.stage().build();
+
+    public StageExceptionStage(Config config) throws StageException {
+      super(config);
+      throw new StageException("constructor failed");
+    }
+
+    @Override
+    public Iterator<Document> processDocument(Document doc) {
+      return null;
+    }
+  }
+
+  public static class IOExceptionStage extends Stage {
+
+    public static final Spec SPEC = SpecBuilder.stage().build();
+
+    public IOExceptionStage(Config config) throws IOException {
+      super(config);
+      throw new IOException("resource unavailable");
+    }
+
+    @Override
+    public Iterator<Document> processDocument(Document doc) {
+      return null;
+    }
   }
 }

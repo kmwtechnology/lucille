@@ -9,24 +9,30 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
+import java.util.concurrent.ExecutionException;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
+/**
+ * An IndexerMessenger for hybrid mode: takes documents from the in-memory queue a co-located Worker fills, and queues
+ * the offsets of completed batches back for the Worker to commit.
+ *
+ * <p> Internal to Lucille: {@link com.kmwllc.lucille.core.WorkerIndexer} creates it, sharing its queues with a
+ * {@link HybridWorkerMessenger}. It is public only because the two are in different packages.
+ */
 public class HybridIndexerMessenger implements IndexerMessenger {
 
   private static final Logger log = LoggerFactory.getLogger(HybridIndexerMessenger.class);
 
-  private final LinkedBlockingQueue<Document> pipelineDest;
-  private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
+  private final BlockingQueue<Document> pipelineDest;
+  private final BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final String pipelineName;
   private final Config config;
@@ -38,11 +44,11 @@ public class HybridIndexerMessenger implements IndexerMessenger {
   // will handle, and we can't know whether a document will be indexed more than once
   // (reprocessing can happen when there's a kafka consumer group rebalance that happens
   // before all offsets have been committed)
-  private final Set idSet;
+  private final Set<String> idSet;
 
   public HybridIndexerMessenger(Config config,
-      LinkedBlockingQueue<Document> pipelineDest,
-      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
+      BlockingQueue<Document> pipelineDest,
+      BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
       Set<String> idSet,
       String pipelineName) {
     this.pipelineDest = pipelineDest;
@@ -55,24 +61,35 @@ public class HybridIndexerMessenger implements IndexerMessenger {
   }
 
   @Override
-  public Document pollDocToIndex() throws Exception {
-    return pipelineDest.poll(LocalMessenger.POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+  public Document pollDocToIndex() throws MessengerException {
+    try {
+      return pipelineDest.poll(LocalMessenger.POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Interrupted while polling for a document to index", e);
+    }
   }
 
   @Override
-  public void sendEvent(Event event) throws Exception {
+  public void sendEvent(Event event) throws MessengerException {
     if (idSet != null) {
       idSet.add(event.getDocumentId());
     }
     if (kafkaEventProducer != null) {
       String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-      RecordMetadata result = (RecordMetadata) kafkaEventProducer.send(
-          new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+      try {
+        kafkaEventProducer.send(new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+      } catch (ExecutionException e) {
+        throw KafkaUtils.toMessengerException("Sending " + event.getType() + " event for document " + event.getDocumentId(), e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new MessengerException("Sending " + event.getType() + " event for document " + event.getDocumentId() + " was interrupted", e);
+      }
     }
   }
 
   @Override
-  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+  public void sendEvent(Document document, String message, Event.Type type) throws MessengerException {
     if (idSet != null) {
       idSet.add(document.getId());
     }
@@ -83,7 +100,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
   }
 
   @Override
-  public void sendEvents(List<Document> documents, String message, Event.Type type) throws Exception {
+  public void sendEvents(List<Document> documents, String message, Event.Type type) throws MessengerException {
     if (documents.isEmpty()) {
       return;
     }
@@ -117,12 +134,12 @@ public class HybridIndexerMessenger implements IndexerMessenger {
 
     Exception e = sendException.get();
     if (e != null) {
-      throw new Exception("Failed to send one or more events", e);
+      throw new MessengerException("Failed to send one or more events", e);
     }
   }
 
   @Override
-  public void close() throws Exception {
+  public void close() {
     if (kafkaEventProducer != null) {
       kafkaEventProducer.close();
     }
@@ -130,18 +147,17 @@ public class HybridIndexerMessenger implements IndexerMessenger {
 
   // TODO document assumptions about ordering of documents in batch
   @Override
-  public void batchComplete(List<Document> batch) throws InterruptedException {
+  public void batchComplete(List<Document> batch) throws MessengerException {
     if (batch.isEmpty()) {
       return;
     }
     Map<TopicPartition, OffsetAndMetadata> batchOffsets = new HashMap<>();
     for (Document doc : batch) {
 
-      if (!(doc instanceof KafkaDocument)) {
+      if (!(doc instanceof KafkaDocument kDoc)) {
         continue;
       }
 
-      KafkaDocument kDoc = (KafkaDocument) doc;
       TopicPartition topicPartition = new TopicPartition(kDoc.getTopic(), kDoc.getPartition());
       // per the kafka docs:
       // "Note: The committed offset should always be the offset of the next message that your application will read.
@@ -150,7 +166,12 @@ public class HybridIndexerMessenger implements IndexerMessenger {
       batchOffsets.put(topicPartition, offset);
     }
     if (!batchOffsets.isEmpty()) {
-      offsets.put(batchOffsets);
+      try {
+        offsets.put(batchOffsets);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new MessengerException("Interrupted while queueing the offsets of a completed batch", e);
+      }
     }
   }
 

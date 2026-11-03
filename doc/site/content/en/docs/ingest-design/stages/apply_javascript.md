@@ -9,6 +9,8 @@ description: Runs a JavaScript snippet per document using GraalVM's JavaScript e
 
 Runs a JavaScript snippet per document using GraalVM's JavaScript engine. The script is read once at startup and evaluated once per document. The document is bound as `doc` (a proxy for reading and writing fields) and as `rawDoc` (the underlying Java `Document`).
 
+The script is wrapped in a function, so top-level `var`, `let`, `const`, and `function` declarations do not collide when the script runs again for the next document.
+
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `script` | String | No | Inline JavaScript code. |
@@ -16,6 +18,7 @@ Runs a JavaScript snippet per document using GraalVM's JavaScript engine. The sc
 | `s3` | Object | No | S3 credentials for reading `scriptPath` from S3: `accessKeyId`, `secretAccessKey`, `region`, `anonymous`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 | `azure` | Object | No | Azure credentials for reading `scriptPath` from Azure: `connectionString`, `accountName`, `accountKey`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 | `gcp` | Object | No | Google Cloud credentials for reading `scriptPath` from GCS: `pathToServiceKey` (required within `gcp`), `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `storageClients` | Object | No | Custom StorageClients, keyed by URI scheme, for reading `scriptPath` from other storage systems, or in place of a built-in client. See [Custom Storage Clients]({{< relref "docs/ingest-design/connectors/file_connector#custom-storage-clients" >}}). |
 
 Field access through `doc`:
 - Read and write root fields with `doc.field`. Reading a missing field returns `null`. Assigning `null` stores a JSON null.

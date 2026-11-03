@@ -208,10 +208,10 @@ Every Stage has its own page, listed alphabetically in the navigation under **St
 ### Enrichment & Lookup
 
 - [DictionaryLookup]({{< relref "docs/ingest-design/stages/dictionary_lookup" >}}) — Look up whole field values in a dictionary and write their payloads, or a match flag, to destination fields.
-- [ElasticsearchLookup]({{< relref "docs/ingest-design/stages/elasticsearch_lookup" >}}) — Look up a document in Elasticsearch by the Lucille document's ID and copy selected fields onto it.
+- [ElasticsearchLookup]({{< relref "docs/ingest-design/stages/elasticsearch_lookup" >}}) — Look up a document in Elasticsearch by the Lucille document's ID and copy selected fields onto it. *(requires `lucille-elasticsearch`)*
 - [MatchQuery]({{< relref "docs/ingest-design/stages/match_query" >}}) — Run a set of named Lucene queries against document fields in memory and record which queries match.
 - [QueryDatabase]({{< relref "docs/ingest-design/stages/query_database" >}}) — Execute a JDBC prepared statement per document and merge the result.
-- [QueryOpensearch]({{< relref "docs/ingest-design/stages/query_opensearch" >}}) — Execute an OpenSearch search template per document.
+- [QueryOpensearch]({{< relref "docs/ingest-design/stages/query_opensearch" >}}) — Execute an OpenSearch search template per document. *(requires `lucille-opensearch`)*
 
 ### AI / ML
 

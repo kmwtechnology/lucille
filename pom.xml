@@ -22,6 +22,7 @@
     <module>lucille-bom</module>
     <module>lucille-core</module>
     <module>lucille-plugins</module>
+    <module>lucille-all</module>
     <module>lucille-examples</module>
   </modules>
 

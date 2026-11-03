@@ -5,6 +5,7 @@ import com.github.tjake.jlama.model.ModelSupport;
 import com.github.tjake.jlama.model.functions.Generator.PoolingType;
 import com.github.tjake.jlama.safetensors.DType;
 import com.github.tjake.jlama.safetensors.SafeTensorSupport;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -83,10 +84,10 @@ public class JlamaEmbed extends Stage {
     this.pathToStoreModel = config.getString("pathToStoreModel");
     this.embeddingModel = config.getString("model");
     this.source = config.getString("source");
-    this.dest = config.hasPath("dest") ? config.getString("dest") : "embeddings";
-    this.workingMemoryType = config.hasPath("workingMemoryType") ? config.getString("workingMemoryType") : "";
-    this.workingQuantizationType = config.hasPath("workingQuantizationType") ? config.getString("workingQuantizationType") : "";
-    this.deleteModelAfter = config.hasPath("deleteModelAfter") ? config.getBoolean("deleteModelAfter") : false;
+    this.dest = ConfigUtils.getStringOrDefault(config, "dest", "embeddings");
+    this.workingMemoryType = ConfigUtils.getStringOrDefault(config, "workingMemoryType", "");
+    this.workingQuantizationType = ConfigUtils.getStringOrDefault(config, "workingQuantizationType", "");
+    this.deleteModelAfter = ConfigUtils.getBooleanOrDefault(config, "deleteModelAfter", false);
   }
 
   @Override

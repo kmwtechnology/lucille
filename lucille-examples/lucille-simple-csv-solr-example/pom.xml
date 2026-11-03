@@ -33,6 +33,10 @@
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-core</artifactId>
     </dependency>
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-solr</artifactId>
+    </dependency>
   </dependencies>
 
   <build>

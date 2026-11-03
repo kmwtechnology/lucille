@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.pinecone.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -64,8 +65,8 @@ public class EmitDocsToDeleteByPrefix extends Stage {
     super(config);
     this.indexName = config.getString("index");
     this.namespaces = config.hasPath("namespaces") ? config.getConfig("namespaces").root().unwrapped() : null;
-    this.dropOriginal = config.hasPath("dropOriginal") ? config.getBoolean("dropOriginal") : false;
-    this.addPrefix = config.hasPath("addPrefix") ? config.getString("addPrefix") : "";
+    this.dropOriginal = ConfigUtils.getBooleanOrDefault(config, "dropOriginal", false);
+    this.addPrefix = ConfigUtils.getStringOrDefault(config, "addPrefix", "");
     this.deletionMarkerField = config.getString("deletionMarkerField");
     this.deletionMarkerFieldValue = config.getString("deletionMarkerFieldValue");
   }

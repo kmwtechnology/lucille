@@ -13,12 +13,26 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.UnaryOperator;
 
 import static com.kmwllc.lucille.core.Document.RESERVED_FIELDS;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 @RunWith(JUnit4.class)
 public abstract class DocumentTest {
@@ -138,6 +152,23 @@ public abstract class DocumentTest {
   @Test(expected = IllegalArgumentException.class)
   public void testCreateWithBlankId() {
     createDocument(" \t\n ");
+  }
+
+  @Test
+  public void testIsSupportedValueMatchesSetField() {
+    List<Object> supported = List.of("s", 1L, 1.5, true, 1, 1.5f, Instant.EPOCH, new byte[] {1},
+        JsonNodeFactory.instance.textNode("j"), new Timestamp(0), new Date(0));
+    for (Object value : supported) {
+      assertTrue(value.getClass().getName(), Document.isSupportedValue(value));
+      createDocument("doc").setField("field", value);
+    }
+    assertTrue(Document.isSupportedValue(null));
+
+    // unsupported values are rejected by both
+    for (Object value : List.of(new Object(), (short) 1, new java.math.BigDecimal("1"))) {
+      assertFalse(value.getClass().getName(), Document.isSupportedValue(value));
+      assertThrows(IllegalArgumentException.class, () -> createDocument("doc").setField("field", value));
+    }
   }
 
   @Test
@@ -393,7 +424,7 @@ public abstract class DocumentTest {
     // is needed later in the workflow for accounting.
     Document document = createDocument("123");
     document.setField("myField", "hello");
-    Map docMap = document.asMap();
+    Map<String, Object> docMap = document.asMap();
     docMap.remove(Document.ID_FIELD);
     docMap.remove("myField");
     docMap.put("myField2", "hello2");

@@ -98,10 +98,9 @@ class OffsetCommitTracker {
    */
   void batchCompleted(List<Document> batch) {
     for (Document doc : batch) {
-      if (!(doc instanceof KafkaDocument)) {
+      if (!(doc instanceof KafkaDocument kafkaDoc)) {
         continue;
       }
-      KafkaDocument kafkaDoc = (KafkaDocument) doc;
       TopicPartition partition = new TopicPartition(kafkaDoc.getTopic(), kafkaDoc.getPartition());
       recordCompleted(partition, kafkaDoc.getOffset());
     }

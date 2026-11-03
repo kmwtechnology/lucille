@@ -10,6 +10,8 @@ description: >
 
 The Messenger layer is the architectural seam that makes Lucille deployment-mode independent. The same Connector, Worker, and Indexer code runs identically whether messages flow through in-memory queues, Kafka topics, or a hybrid of both. This is achieved through three interfaces and a factory pattern that selects the right implementation at runtime.
 
+The messenger interfaces are internal to Lucille: they are not a supported extension point. The Runner chooses the messengers from the run type, and there is no setting for supplying your own, so a new transport means changing Lucille itself. The interfaces may change in any release, including a minor one.
+
 ## The Three Messenger Interfaces
 
 Each Lucille component has its own messenger interface, exposing only the operations that component needs:
@@ -18,13 +20,13 @@ Each Lucille component has its own messenger interface, exposing only the operat
 
 ```java
 public interface WorkerMessenger {
-    Document pollDocToProcess() throws Exception;       // Receive work
-    void commitPendingDocOffsets() throws Exception;    // Acknowledge work
-    void sendForIndexing(Document document) throws Exception;  // Forward results
-    void sendFailed(Document document) throws Exception;       // Dead letter queue
-    void sendEvent(Document document, String message, Event.Type type) throws Exception;
-    void sendEvent(Event event) throws Exception;       // Lifecycle events
-    void close() throws Exception;
+    Document pollDocToProcess() throws MessengerException;       // Receive work
+    void commitPendingDocOffsets() throws MessengerException;    // Acknowledge work
+    void sendForIndexing(Document document) throws MessengerException;  // Forward results
+    void sendFailed(Document document) throws MessengerException;       // Dead letter queue
+    void sendEvent(Document document, String message, Event.Type type) throws MessengerException;
+    void sendEvent(Event event) throws MessengerException;       // Lifecycle events
+    void close();
 }
 ```
 
@@ -32,11 +34,12 @@ public interface WorkerMessenger {
 
 ```java
 public interface IndexerMessenger {
-    Document pollDocToIndex() throws Exception;         // Receive processed docs
-    void sendEvent(Event event) throws Exception;       // Report completion/failure
-    void sendEvent(Document document, String message, Event.Type type) throws Exception;
-    void close() throws Exception;
-    void batchComplete(List<Document> batch) throws Exception;  // Offset feedback
+    Document pollDocToIndex() throws MessengerException;         // Receive processed docs
+    void sendEvent(Event event) throws MessengerException;       // Report completion/failure
+    void sendEvent(Document document, String message, Event.Type type) throws MessengerException;
+    void sendEvents(List<Document> documents, String message, Event.Type type) throws MessengerException;
+    void close();
+    void batchComplete(List<Document> batch) throws MessengerException;  // Offset feedback
 
     // Optional capabilities (default implementations):
     default void setPreRevocationHook(Runnable hook) {}     // run before a Kafka partition is handed off
@@ -50,13 +53,18 @@ public interface IndexerMessenger {
 
 ```java
 public interface PublisherMessenger {
-    void initialize(String runId, String pipelineName) throws Exception;
+    void initialize(String runId, String pipelineName) throws MessengerException;
     String getRunId();
-    void sendForProcessing(Document document) throws Exception;  // Publish to workers
-    Event pollEvent() throws Exception;                          // Receive lifecycle events
+    void sendForProcessing(Document document) throws MessengerException;  // Publish to workers
+    Event pollEvent() throws MessengerException;                          // Receive lifecycle events
+    default void flush() throws MessengerException {}                     // Deliver buffered sends
     void close();
 }
 ```
+
+### MessengerException
+
+Every messenger operation that can fail declares `MessengerException`, which wraps the transport's own exception as its cause. A messenger interrupted while waiting (on a full in-memory queue, for example) restores the thread's interrupt flag before throwing. For a send, `isDocumentSpecific()` tells the caller whether the transport rejected only this message, such as a Kafka record that is too large, so the caller can fail the document and carry on; any other failure means the messenger can no longer be relied on. `close()` declares no checked exception, since a caller shutting down cannot act on one. Errors that indicate a bug or a broken invariant, such as initializing a messenger twice, are unchecked.
 
 ## LocalMessenger: One Class, Three Interfaces
 
@@ -148,7 +156,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
 Key difference from the Worker: the Worker commits right after it has processed a document, but the Indexer does not commit when it polls. Polling only records the offset with the `OffsetCommitTracker`:
 
 ```java
-public Document pollDocToIndex() throws Exception {
+public Document pollDocToIndex() {
     ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(pollInterval);
     if (consumerRecords.count() > 0) {
         // record the polled offset; nothing is committed yet
@@ -158,7 +166,7 @@ public Document pollDocToIndex() throws Exception {
     return null;
 }
 
-public void batchComplete(List<Document> batch) throws Exception {
+public void batchComplete(List<Document> batch) {
     offsetCommitTracker.batchCompleted(batch);  // advance the commit frontier and commit
 }
 ```

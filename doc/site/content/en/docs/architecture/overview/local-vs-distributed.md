@@ -44,7 +44,7 @@ The pluggable Messenger model also has significant advantages for testing.
 
 Moving from a sequential loop to a concurrent, queue-based architecture introduces a new challenge: the system becomes harder to test. A simple loop with mocked externals runs trivially inside a unit test. A multi-threaded, queue-based system with concurrent components does not — unless it has been specifically designed to make testing straightforward.
 
-The Messenger abstraction solves this directly. Lucille provides a **test mode** where a `TestMessenger` wraps the `LocalMessenger` and records a history of every message sent between components — every document published, every document sent for indexing, every lifecycle event. After a test run, test code can retrieve this history and make assertions about exactly what happened.
+The Messenger abstraction solves this directly. Lucille provides a **test mode** where a `TestMessenger` wraps the `LocalMessenger` and records a history of every message sent between components — every document published, every document sent for indexing, every lifecycle event. After a test run, test code can retrieve this history and make assertions about exactly what happened. The same mode serves pipeline development: run a pipeline on sample data and inspect what it would index before running it for real (see [Testing Pipelines]({{< relref "docs/developer-guide/testing#test-mode-is-for-pipeline-development-not-just-tests" >}})).
 
 The Indexer runs in **bypass mode** during tests: the full indexing code path executes — batching, event sending, error handling — right up to the point of communicating with the search backend, which is bypassed. This means the Indexer's logic is exercised without requiring a live Solr or OpenSearch instance.
 

@@ -10,7 +10,7 @@ auth:
   type: "basicAuth"
   enabled: false
 swagger:
-  resourcePackage: "com.kmwllc.lucille.endpoints"
+  resourcePackage: "com.kmwllc.lucille.api.endpoints"
   title: Lucille API
   description: Lucille API
   version: 0.0.1
