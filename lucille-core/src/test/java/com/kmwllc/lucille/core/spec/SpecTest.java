@@ -6,8 +6,11 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.typesafe.config.ConfigFactory;
+import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 
 public class SpecTest {
@@ -33,6 +36,27 @@ public class SpecTest {
 
   public static class WithNonSpecField {
     public static final String SPEC = "not a spec";
+  }
+
+  @Test
+  public void testUnknownNullAndEmptyObjectKeys() {
+    Spec childSpec = SpecBuilder.parent("child").optionalString("inner").build();
+    Spec spec = SpecBuilder.withoutDefaults()
+        .optionalString("field")
+        .optionalParent(childSpec)
+        .optionalParent("map", new TypeReference<Map<String, String>>(){})
+        .build();
+
+    // misspelled keys set to null or to an empty object are reported as unknown
+    for (String hocon : List.of("typo = null", "typo {}", "child { typo = null }", "child { typo {} }")) {
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+          () -> spec.validate(ConfigFactory.parseString(hocon), "Test"));
+      assertTrue(hocon + ": " + e.getMessage(), e.getMessage().contains("unknown property typo"));
+    }
+
+    // legal keys set to null or to an empty object still pass
+    spec.validate(ConfigFactory.parseString("field = null, child {}, map {}"), "Test");
+    spec.validate(ConfigFactory.parseString("child { inner = null }"), "Test");
   }
 
   @Test

@@ -5,8 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigObject;
+import com.typesafe.config.ConfigUtil;
+import com.typesafe.config.ConfigValue;
+import com.typesafe.config.ConfigValueType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -68,7 +73,8 @@ public class Spec {
     Set<String> errorMessages = new LinkedHashSet<>();
 
     // sorted, so unknown properties are reported in a stable order
-    Set<String> keys = config.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toCollection(TreeSet::new));
+    Set<String> keys = new TreeSet<>();
+    collectPaths(config.root(), new ArrayList<>(), keys);
 
     // This method is responsible for making sure that there are no unknown / illegal field names found.
     // Properties are responsible for making sure a required field is present and for making sure that the
@@ -112,6 +118,25 @@ public class Spec {
    */
   public Set<String> getLegalProperties() {
     return properties.stream().map(Property::getName).collect(Collectors.toCollection(LinkedHashSet::new));
+  }
+
+  /**
+   * Adds the path of every value in the given object to <code>paths</code>, descending into non-empty objects. Unlike
+   * {@link Config#entrySet()}, this includes keys set to <code>null</code> and keys set to an empty object, so that a
+   * misspelled <code>typo = null</code> or <code>typo {}</code> is still reported as unknown.
+   */
+  private static void collectPaths(ConfigObject object, List<String> prefix, Set<String> paths) {
+    for (Map.Entry<String, ConfigValue> entry : object.entrySet()) {
+      List<String> path = new ArrayList<>(prefix);
+      path.add(entry.getKey());
+
+      ConfigValue value = entry.getValue();
+      if (value.valueType() == ConfigValueType.OBJECT && !((ConfigObject) value).isEmpty()) {
+        collectPaths((ConfigObject) value, path, paths);
+      } else {
+        paths.add(ConfigUtil.joinPath(path));
+      }
+    }
   }
 
   /**
