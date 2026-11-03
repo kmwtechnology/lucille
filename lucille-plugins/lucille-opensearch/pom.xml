@@ -16,6 +16,10 @@
   <packaging>jar</packaging>
   <name>Lucille Plugins: Lucille OpenSearch</name>
 
+  <properties>
+    <lucille.module.name>com.kmwllc.lucille.opensearch</lucille.module.name>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>com.kmwllc</groupId>

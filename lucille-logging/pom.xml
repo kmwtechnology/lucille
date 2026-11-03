@@ -15,6 +15,10 @@
   <artifactId>lucille-logging</artifactId>
   <packaging>jar</packaging>
   <name>Lucille: Logging Runtime</name>
+
+  <properties>
+    <lucille.module.name>com.kmwllc.lucille.logging</lucille.module.name>
+  </properties>
   <description>
     Lucille's runtime logging backend, packaged as a separate, opt-in artifact.
 

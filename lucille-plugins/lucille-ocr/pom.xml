@@ -17,6 +17,7 @@
      <name>Lucille Plugins: Lucille OCR</name>
 
     <properties>
+      <lucille.module.name>com.kmwllc.lucille.ocr</lucille.module.name>
       <tika.version>2.7.0</tika.version>
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>

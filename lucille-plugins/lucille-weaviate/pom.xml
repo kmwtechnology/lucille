@@ -16,6 +16,10 @@
   <packaging>jar</packaging>
   <name>Lucille Plugins: Lucille Weaviate</name>
 
+  <properties>
+    <lucille.module.name>com.kmwllc.lucille.weaviate</lucille.module.name>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>com.kmwllc</groupId>

@@ -17,6 +17,7 @@
   <name>Lucille Plugins: Lucille Solr</name>
 
   <properties>
+    <lucille.module.name>com.kmwllc.lucille.solr</lucille.module.name>
     <!-- Jetty 12 floor, moved here from lucille-core with the Solr client stack that drags Jetty in. -->
     <jetty12.version>12.0.39</jetty12.version>
   </properties>
