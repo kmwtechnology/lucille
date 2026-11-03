@@ -25,6 +25,11 @@
       </dependency>
       <dependency>
         <groupId>com.kmwllc</groupId>
+        <artifactId>lucille-logging</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.kmwllc</groupId>
         <artifactId>lucille-pinecone</artifactId>
         <version>${project.version}</version>
       </dependency>

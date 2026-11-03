@@ -67,7 +67,7 @@ LABEL description="Lucille Search ETL batteries-included image (lucille-core + a
 COPY lucille-all/target/lib/ /lucille/lib/
 
 # ---------------------------------------------------------------------------------------------------
-# core: lucille-core only. The minimal image, and the default build target (last stage in this file).
+# core: lucille-core and lucille-logging only. The minimal image, and the default build target (last stage in this file).
 # Unlike the all-plugins lib, lucille-core's target/lib holds only core's dependencies, so the core
 # jar (lucille.jar, which carries the Runner main class) is copied in separately.
 # ---------------------------------------------------------------------------------------------------
@@ -75,3 +75,5 @@ FROM base AS core
 LABEL description="Lucille Search ETL base image (lucille-core only)"
 COPY lucille-core/target/lucille.jar /lucille/lib/
 COPY lucille-core/target/lib/ /lucille/lib/
+COPY lucille-logging/target/lucille-logging.jar /lucille/lib/
+COPY lucille-logging/target/lib/ /lucille/lib/
