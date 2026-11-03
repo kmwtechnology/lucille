@@ -9,9 +9,11 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
@@ -38,7 +40,19 @@ public class LocalStorageClient extends BaseStorageClient {
 
   @Override
   protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception {
-    Files.walkFileTree(toPath(params.getURI()), new LocalFileVisitor(publisher, params, stateMgr));
+    Path root = toPath(params.getURI());
+
+    // Fail rather than finish a traversal that saw nothing: with state, every file previously published under a missing
+    // or unreadable root (e.g. an unmounted share) would otherwise be tombstoned and deleted from state.
+    if (!Files.exists(root)) {
+      throw new NoSuchFileException(root.toString(), null, "The path to traverse does not exist.");
+    }
+
+    if (!Files.isReadable(root)) {
+      throw new AccessDeniedException(root.toString(), null, "The path to traverse is not readable.");
+    }
+
+    Files.walkFileTree(root, new LocalFileVisitor(publisher, params, stateMgr));
   }
 
   @Override
@@ -86,11 +100,13 @@ public class LocalStorageClient extends BaseStorageClient {
     private Publisher publisher;
     private TraversalParams params;
     private final FileStateTracker stateMgr;
+    private final Path root;
 
     public LocalFileVisitor(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) {
       this.publisher = publisher;
       this.params = params;
       this.stateMgr = stateMgr;
+      this.root = toPath(params.getURI()).toAbsolutePath().normalize();
     }
 
     @Override
@@ -118,8 +134,27 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-      // At some point we can add a feature to create a tombstone document, for now just log the failure.
-      log.warn("Visit File Failed for : {}", file.toString(), exc);
+      Path failedPath = file.toAbsolutePath().normalize();
+
+      // nothing under the root can be traversed, so stop rather than tombstone everything under it
+      if (failedPath.equals(root)) {
+        throw exc;
+      }
+
+      log.warn("Couldn't read '{}' during traversal. It is skipped, and is kept in state if state is in use.", failedPath, exc);
+
+      // The path still exists, so neither it nor (if it is a directory) anything under it may be treated as deleted.
+      if (stateMgr != null) {
+        String pathStr = failedPath.toUri().toString();
+
+        // a directory has no row of its own. If its type can't be read, protect it both ways.
+        if (!Files.isDirectory(failedPath)) {
+          stateMgr.markFileEncountered(pathStr);
+        }
+
+        stateMgr.markAllEntriesEncountered(ensureTrailingSlash(pathStr));
+      }
+
       return FileVisitResult.CONTINUE;
     }
 

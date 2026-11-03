@@ -801,6 +801,48 @@ public class FileConnectorTest {
     }
   }
 
+  // A root that is missing on one run (e.g. an unmounted share) fails that run without publishing tombstones or deleting
+  // state, so the next run sees the files as unchanged rather than re-publishing them.
+  @Test
+  public void testMissingRootDoesNotTombstoneOrDeleteState() throws Exception {
+    File root = tempFolder.newFolder("mount");
+    File unmounted = new File(tempFolder.getRoot(), "unmounted");
+    Files.writeString(new File(root, "file1.txt").toPath(), "Content 1");
+    Files.writeString(new File(root, "file2.txt").toPath(), "Content 2");
+
+    try {
+      Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")
+          .withValue("paths", ConfigValueFactory.fromIterable(List.of(root.toURI().toString())))
+          .withValue("state.connectionString", ConfigValueFactory.fromAnyRef(STATE_CONNECTION_STRING))
+          .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
+          .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"));
+
+      TestMessenger messenger1 = new TestMessenger();
+      Connector conn = new FileConnector(config);
+      conn.execute(new PublisherImpl(config, messenger1, "run1", "pipeline1"));
+      conn.close();
+      assertEquals(2, messenger1.getDocsSentForProcessing().size());
+
+      // the share is unmounted for the second run
+      assertTrue(root.renameTo(unmounted));
+      TestMessenger messenger2 = new TestMessenger();
+      Connector failingConn = new FileConnector(config);
+      assertThrows(ConnectorException.class, () -> failingConn.execute(new PublisherImpl(config, messenger2, "run2", "pipeline1")));
+      failingConn.close();
+      assertEquals(0, messenger2.getDocsSentForProcessing().size());
+
+      // remounted: nothing changed, so nothing is published and nothing is tombstoned
+      assertTrue(unmounted.renameTo(root));
+      TestMessenger messenger3 = new TestMessenger();
+      conn = new FileConnector(config);
+      conn.execute(new PublisherImpl(config, messenger3, "run3", "pipeline1"));
+      conn.close();
+      assertEquals(0, messenger3.getDocsSentForProcessing().size());
+    } finally {
+      FileUtils.deleteDirectory(STATE_DIR);
+    }
+  }
+
   // Verifies that files generate tombstones and modified files are re-published in the same incremental run (when configured). Uses
   // an empty state to trigger a database being created on disk to replicate a production environment
   @Test
