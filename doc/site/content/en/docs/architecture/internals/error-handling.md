@@ -28,7 +28,7 @@ The guiding principle: *get as much data into the search engine as possible, but
 
 ### 1. Invalid Configuration
 
-Before any run starts, `Runner.run()` calls `runInValidationMode(config)` which validates all pipelines (every Stage's SPEC), all connectors, the indexer config, and other parent configs (publisher, worker, etc.). If any validation errors are found, the run is aborted immediately — no connectors are started, no documents are processed. A `RunResult` with `status=false` is returned. All errors are reported at once (not fail-fast on the first one).
+Before any run starts, `Runner.run()` calls `ConfigValidator.validate(config)`, which validates all pipelines (every Stage's SPEC), all connectors, the indexer config, and other parent configs (publisher, worker, etc.). If any validation errors are found, the run is aborted immediately — no connectors are started, no documents are processed. A `RunResult` with `status=false` is returned. All errors are reported at once (not fail-fast on the first one).
 
 **Severity:** Fatal to the run. Nothing executes.
 

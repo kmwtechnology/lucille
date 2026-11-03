@@ -16,6 +16,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.RunResult;
+import com.kmwllc.lucille.core.ConfigValidator;
 import com.kmwllc.lucille.core.Runner;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -66,7 +67,7 @@ public class ConfigValidationTest {
   // asserts that if two connectors use the same pipeline it is only validated once
   @Test
   public void testDuplicatePipeline() throws Exception {
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("shared-pipeline.conf"));
+    Map<String, List<Exception>> exceptions = ConfigValidator.validate(addPath("shared-pipeline.conf"));
     assertEquals(1, exceptions.size());
 
     List<Exception> pipeline1Exceptions = exceptions.get("pipeline1");
@@ -79,7 +80,7 @@ public class ConfigValidationTest {
   // asserts that if no connectors use a pipeline it is still validated
   @Test
   public void testUnusedPipeline() throws Exception {
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("no-used-pipelines.conf"));
+    Map<String, List<Exception>> exceptions = ConfigValidator.validate(addPath("no-used-pipelines.conf"));
     assertEquals(1, exceptions.size());
 
     List<Exception> pipeline1Exceptions = exceptions.get("pipeline1");
@@ -91,7 +92,7 @@ public class ConfigValidationTest {
 
   @Test
   public void testValidationModeException() throws Exception {
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badPipeline.conf"));
+    Map<String, List<Exception>> exceptions = ConfigValidator.validate(addPath("badPipeline.conf"));
     assertEquals(2, exceptions.size());
 
     List<Exception> pipeline1Exceptions = exceptions.get("pipeline1");
@@ -118,7 +119,7 @@ public class ConfigValidationTest {
 
   @Test
   public void testValidationModeMultipleExceptionsInStage() throws Exception {
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("veryBadStage.conf"));
+    Map<String, List<Exception>> exceptions = ConfigValidator.validate(addPath("veryBadStage.conf"));
     assertEquals(1, exceptions.size());
 
     // should only be one exception, but we should have both of the errors mentioned in the response
@@ -132,7 +133,7 @@ public class ConfigValidationTest {
 
   @Test
   public void testPipelineStagesNoClass() throws Exception {
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("pipelineStageNoClass.conf"));
+    Map<String, List<Exception>> exceptions = ConfigValidator.validate(addPath("pipelineStageNoClass.conf"));
 
     assertEquals(1, exceptions.size());
     assertEquals(1, exceptions.get("pipeline1").size());
@@ -142,7 +143,7 @@ public class ConfigValidationTest {
 
   @Test
   public void testBadConnector() throws Exception {
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badConnector.conf"));
+    Map<String, List<Exception>> exceptions = ConfigValidator.validate(addPath("badConnector.conf"));
     assertEquals(2, exceptions.size());
 
     assertEquals(1, exceptions.get("connector1").size());
@@ -162,7 +163,7 @@ public class ConfigValidationTest {
             + "pipeline: \"pipeline1\"}]\n"
             + "pipelines: [{name: \"pipeline1\", stages: [{class: \"com.kmwllc.lucille.stage.NopStage\"}]}]\n"
             + "indexer.type: \"Nop\"");
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(config);
+    Map<String, List<Exception>> exceptions = ConfigValidator.validate(config);
     // the second connector has no name, so it is reported as connector_2, the name it would have in a run
     assertEquals(Set.of("connector_2"), exceptions.keySet());
     assertTrue(exceptions.get("connector_2").get(0).getMessage().contains("connector_2"));
@@ -211,7 +212,7 @@ public class ConfigValidationTest {
 
   @Test
   public void testValidationMissingConnectors() throws Exception {
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("noConnectors.conf"));
+    Map<String, List<Exception>> exceptions = ConfigValidator.validate(addPath("noConnectors.conf"));
 
     // the "connector name" used for this error is just "connectors". this is the only error present in the returned map.
     assertEquals(1, exceptions.size());
@@ -220,7 +221,7 @@ public class ConfigValidationTest {
 
   @Test
   public void testValidationMissingPipelines() throws Exception {
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("noPipelines.conf"));
+    Map<String, List<Exception>> exceptions = ConfigValidator.validate(addPath("noPipelines.conf"));
 
     // the "pipeline name" used for this error is just "pipelines".
     assertEquals(1, exceptions.get("pipelines").size());
@@ -228,7 +229,7 @@ public class ConfigValidationTest {
 
   @Test
   public void testSameConnectorAndPipelineNames() throws Exception {
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("repeatedConnector.conf"));
+    Map<String, List<Exception>> exceptions = ConfigValidator.validate(addPath("repeatedConnector.conf"));
 
     // there should be three exceptions - one for each implementation having an unknown property, and one mentioning
     // that there are multiple connectors named connector1

@@ -266,10 +266,10 @@ The `getParent()` helper handles dotted paths: for a key like `s3.region`, it ch
 
 ## The Validate-Without-Execution Mode
 
-The Runner's `-validate` flag triggers `runInValidationMode()`:
+`ConfigValidator.validate()` validates a whole config without running it. The `-validate` flag calls it, the Runner calls it before every run, and the API server calls it before storing a config:
 
 ```java
-public static Map<String, List<Exception>> runInValidationMode(Config config) throws Exception {
+public static Map<String, List<Exception>> validate(Config config) throws Exception {
     config = config.resolve();
     Map<String, List<Exception>> allExceptionsMap = new HashMap<>();
 
@@ -341,7 +341,7 @@ Error with CopyFields Config: [Config contains unknown parent feildMapping, Requ
 
 Connectors, Stages, and Indexers all declare a `SPEC` in code. When the `-validate` pass instantiates each component, the constructor triggers SPEC validation automatically — the code is the source of truth for what those components accept.
 
-A Lucille config also contains top-level blocks like `publisher`, `runner`, `worker`, `kafka`, `zookeeper`, and `log` that the framework reads directly at runtime. Each of these also has a Spec, declared as a `SPEC` constant on the class that reads the block (`PublisherImpl.SPEC`, `Runner.SPEC`, `Worker.SPEC`, `KafkaUtils.SPEC`, `ZKRetryCounter.SPEC`, `LogUtils.SPEC`). `Runner.PARENTS_AND_SPECS` pairs each block name with its Spec:
+A Lucille config also contains top-level blocks like `publisher`, `runner`, `worker`, `kafka`, `zookeeper`, and `log` that the framework reads directly at runtime. Each of these also has a Spec, declared as a `SPEC` constant on the class that reads the block (`PublisherImpl.SPEC`, `Runner.SPEC`, `Worker.SPEC`, `KafkaUtils.SPEC`, `ZKRetryCounter.SPEC`, `LogUtils.SPEC`). `ConfigValidator.PARENTS_AND_SPECS` pairs each block name with its Spec:
 
 ```java
 static final List<Pair<String, Spec>> PARENTS_AND_SPECS = List.of(
@@ -360,8 +360,8 @@ A Spec cannot restrict a property to a fixed set of values, so closed-set values
 
 ### Unknown top-level keys
 
-Lucille does not reject top-level keys it doesn't read, because users can define their own top-level keys, for example to reuse a block through HOCON substitution (`csv_connector { ... }` referenced as `${csv_connector}`). Instead, validation logs a warning for an unknown top-level key that is within one or two edits of a key Lucille reads, such as `publsher` for `publisher` or `Indexer` for `indexer`, because that block's settings would otherwise be silently ignored. `Runner.KNOWN_TOP_LEVEL_KEYS` lists the keys it compares against.
+Lucille does not reject top-level keys it doesn't read, because users can define their own top-level keys, for example to reuse a block through HOCON substitution (`csv_connector { ... }` referenced as `${csv_connector}`). Instead, validation logs a warning for an unknown top-level key that is within one or two edits of a key Lucille reads, such as `publsher` for `publisher` or `Indexer` for `indexer`, because that block's settings would otherwise be silently ignored. `ConfigValidator.KNOWN_TOP_LEVEL_KEYS` lists the keys it compares against.
 
 ### When to add a block
 
-If you add a new top-level config block to Lucille core that is read directly by the framework (not by a component constructor), declare a `SPEC` for it on the class that reads it and add a pair to `Runner.PARENTS_AND_SPECS`, so the `-validate` pass can catch configuration errors in it and recognizes the block's name. A new backend block read by an indexer goes in `Runner.KNOWN_TOP_LEVEL_KEYS` instead. If the block belongs to a component that has a SPEC, no entry is needed — the SPEC handles it.
+If you add a new top-level config block to Lucille core that is read directly by the framework (not by a component constructor), declare a `SPEC` for it on the class that reads it and add a pair to `ConfigValidator.PARENTS_AND_SPECS`, so the `-validate` pass can catch configuration errors in it and recognizes the block's name. A new backend block read by an indexer goes in `ConfigValidator.KNOWN_TOP_LEVEL_KEYS` instead. If the block belongs to a component that has a SPEC, no entry is needed — the SPEC handles it.
