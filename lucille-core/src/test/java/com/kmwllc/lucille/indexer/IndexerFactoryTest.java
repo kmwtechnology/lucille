@@ -29,7 +29,7 @@ public class IndexerFactoryTest {
   public void testFromValidTypeConfigCSV() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("IndexerFactoryTest/config_valid_type_csv.conf");
-    File outputFile = new File(config.getString("csv.path"));
+    File outputFile = new File(config.getString("indexer.csv.path"));
     FileUtils.deleteQuietly(outputFile);
     Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
     Assert.assertTrue(indexer instanceof CSVIndexer);
@@ -48,6 +48,65 @@ public class IndexerFactoryTest {
     // rather than throwing, so a pipeline can run without a configured destination.
     Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
     Assert.assertTrue(indexer instanceof NopIndexer);
+  }
+
+  @Test
+  public void testNestedBlockSelectsIndexer() throws Exception {
+    Config config = ConfigFactory.parseString("indexer { csv { columns: [\"id\"], path: \"target/x.csv\" } }");
+    Indexer indexer = IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing");
+    Assert.assertTrue(indexer instanceof CSVIndexer);
+    indexer.closeConnection();
+  }
+
+  @Test
+  public void testSeveralNestedBlocksRequireType() {
+    Config config = ConfigFactory.parseString("indexer { csv { columns: [\"id\"], path: \"target/x.csv\" }, nop {} }");
+    Exception exception = assertThrows(IndexerException.class,
+        () -> IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing"));
+    Assert.assertTrue(exception.getMessage(), exception.getMessage().contains("Set indexer.type or indexer.class"));
+  }
+
+  @Test
+  public void testTypeChoosesAmongNestedBlocks() throws Exception {
+    Config config = ConfigFactory.parseString(
+        "indexer { type: \"CSV\", csv { columns: [\"id\"], path: \"target/x.csv\" }, other {} }");
+    Indexer indexer = IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing");
+    Assert.assertTrue(indexer instanceof CSVIndexer);
+    indexer.closeConnection();
+  }
+
+  @Test
+  public void testUnregisteredNestedBlockIsAnError() {
+    Config config = ConfigFactory.parseString("indexer { unknownBackend { url: \"x\" } }");
+    Exception exception = assertThrows(IndexerException.class,
+        () -> IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing"));
+    Assert.assertTrue(exception.getMessage(), exception.getMessage().contains("indexer.unknownBackend"));
+  }
+
+  @Test
+  public void testTopLevelBlockIsAnError() {
+    Config config = ConfigFactory.parseString(
+        "indexer { type: \"CSV\" }, csv { columns: [\"id\"], path: \"target/x.csv\" }");
+    Exception exception = assertThrows(IllegalArgumentException.class,
+        () -> IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing"));
+    Assert.assertTrue(exception.getMessage(), exception.getMessage().contains("Move the block inside the indexer block"));
+  }
+
+  @Test
+  public void testTopLevelBlockIsAllowedWhenNestedBlockExists() throws Exception {
+    Config config = ConfigFactory.parseString(
+        "csv { columns: [\"id\"] }, indexer { csv: ${csv} { path: \"target/x.csv\" } }").resolve();
+    Indexer indexer = IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing");
+    Assert.assertTrue(indexer instanceof CSVIndexer);
+    indexer.closeConnection();
+  }
+
+  @Test
+  public void testWronglyCasedBlockIsAnError() {
+    Config config = ConfigFactory.parseString("indexer { CSV { columns: [\"id\"], path: \"target/x.csv\" } }");
+    Exception exception = assertThrows(IllegalArgumentException.class,
+        () -> IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing"));
+    Assert.assertTrue(exception.getMessage(), exception.getMessage().contains("must be named indexer.csv"));
   }
 
   @Test

@@ -84,7 +84,7 @@ public class SolrIndexerTest {
     Document doc2 = Document.create("doc2", "test_run");
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -123,7 +123,7 @@ public class SolrIndexerTest {
     Document doc2 = Document.create("doc2", "test_run");
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -168,7 +168,7 @@ public class SolrIndexerTest {
     doc3.setField("id_temp", "doc3_overriden");
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     messenger.sendForIndexing(doc3);
@@ -210,7 +210,7 @@ public class SolrIndexerTest {
     doc.setField("myid", "my_new_id");
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc); // seems to capture the document ID here before the indexing portion
     indexer.run(1);
 
@@ -239,7 +239,7 @@ public class SolrIndexerTest {
     doc.addChild(child);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc); // seems to capture the document ID here before the indexing portion
     indexer.run(1);
 
@@ -275,7 +275,7 @@ public class SolrIndexerTest {
     assertTrue(doc.has(Document.CHILDREN_FIELD));
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -325,7 +325,7 @@ public class SolrIndexerTest {
     doc4.addToField(indexOverrideField, "col2");
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc1);
     messenger.sendForIndexing(doc2);
     messenger.sendForIndexing(doc3);
@@ -392,7 +392,7 @@ public class SolrIndexerTest {
     doc1.addToField(deletionMarkerField, deletionMarkerFieldValue);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc1);
     indexer.run(1);
 
@@ -426,7 +426,7 @@ public class SolrIndexerTest {
     doc2.addToField(deletionMarkerField, "foo");
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc1);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -463,7 +463,7 @@ public class SolrIndexerTest {
     doc3.addToField("version", 2);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc1);
     messenger.sendForIndexing(doc2);
     messenger.sendForIndexing(doc3);
@@ -536,7 +536,7 @@ public class SolrIndexerTest {
                 })))
         .thenReturn(mock(UpdateResponse.class));
 
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(otherDoc1);
     messenger.sendForIndexing(doc1);
     messenger.sendForIndexing(doc2);
@@ -611,7 +611,7 @@ public class SolrIndexerTest {
                 })))
         .thenReturn(mock(UpdateResponse.class));
 
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc1);
     messenger.sendForIndexing(doc2);
     messenger.sendForIndexing(doc3);
@@ -663,7 +663,7 @@ public class SolrIndexerTest {
     doc3.addToField(deletionMarkerField, deletionMarkerFieldValue);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc1);
     messenger.sendForIndexing(doc2);
     messenger.sendForIndexing(doc3);
@@ -704,7 +704,7 @@ public class SolrIndexerTest {
     deletedDoc.addToField(deletionMarkerField, deletionMarkerFieldValue);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(deletedDoc);
     indexer.run(1);
 
@@ -745,7 +745,7 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
 
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc1);
     messenger.sendForIndexing(doc2);
     messenger.sendForIndexing(doc3);
@@ -773,7 +773,7 @@ public class SolrIndexerTest {
     Document doc4 = Document.create("doc4", "test_run");
     Document doc5 = Document.create("doc5", "test_run");
 
-    Indexer indexer = new ErroringIndexer(config, messenger, true);
+    Indexer indexer = new ErroringIndexer(config.getConfig("indexer"), messenger, true);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     messenger.sendForIndexing(doc3);
@@ -818,7 +818,7 @@ public class SolrIndexerTest {
         .thenThrow(new IOException("mock IO Exc"))
         .thenReturn(null);
 
-    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
 
     Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
     assertEquals(2, failedDocs.size());
@@ -842,7 +842,7 @@ public class SolrIndexerTest {
     doc.setField("myJsonField", jsonNode);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -871,7 +871,7 @@ public class SolrIndexerTest {
     doc.addChild(childDoc);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -898,7 +898,7 @@ public class SolrIndexerTest {
     doc.setField("myJsonField", jsonNode);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -927,7 +927,7 @@ public class SolrIndexerTest {
     doc.addChild(childDoc);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -954,7 +954,7 @@ public class SolrIndexerTest {
     doc.setField("myJsonField", jsonNode);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -983,7 +983,7 @@ public class SolrIndexerTest {
     doc.addChild(childDoc);
 
     SolrClient solrClient = mock(SolrClient.class);
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1002,11 +1002,11 @@ public class SolrIndexerTest {
   public void testUseCloudClientConfigException() {
     Config config = ConfigFactory.empty()
         .withValue("indexer.type", ConfigValueFactory.fromAnyRef("solr"))
-        .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
+        .withValue("indexer.solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
         // This should be a list of strings
-        .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef("hello"));
+        .withValue("indexer.solr.zkHosts", ConfigValueFactory.fromAnyRef("hello"));
     TestMessenger messenger = new TestMessenger();
-    new SolrIndexer(config, messenger, false, "", null);
+    new SolrIndexer(config.getConfig("indexer"), messenger, false, "", null);
   }
 
   /**
@@ -1031,7 +1031,7 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
 
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1058,15 +1058,15 @@ public class SolrIndexerTest {
   @Test
   public void testAllowInvalidCertSetsNoSystemProperty() {
     for (String conf : List.of("SolrIndexerTest/acceptInvalidCert.conf", "SolrIndexerTest/acceptInvalidCertCloud.conf")) {
-      String originalCheckPeerName = System.getProperty("solr.ssl.checkPeerName");
-      System.clearProperty("solr.ssl.checkPeerName");
+      String originalCheckPeerName = System.getProperty("indexer.solr.ssl.checkPeerName");
+      System.clearProperty("indexer.solr.ssl.checkPeerName");
       try {
-        Indexer indexer = new SolrIndexer(ConfigFactory.parseResourcesAnySyntax(conf), new TestMessenger(), false, "", null);
+        Indexer indexer = new SolrIndexer(ConfigFactory.parseResourcesAnySyntax(conf).getConfig("indexer"), new TestMessenger(), false, "", null);
         indexer.closeConnection();
-        assertNull(conf, System.getProperty("solr.ssl.checkPeerName"));
+        assertNull(conf, System.getProperty("indexer.solr.ssl.checkPeerName"));
       } finally {
         if (originalCheckPeerName != null) {
-          System.setProperty("solr.ssl.checkPeerName", originalCheckPeerName);
+          System.setProperty("indexer.solr.ssl.checkPeerName", originalCheckPeerName);
         }
       }
     }
@@ -1090,7 +1090,7 @@ public class SolrIndexerTest {
     RemoteSolrException solrError = new RemoteSolrException("http://solr", 400, "bad field value", null);
     when(solrClient.add(any(Collection.class))).thenThrow(solrError);
 
-    SolrIndexer indexer = new SolrIndexer(config, new TestMessenger(), "", solrClient);
+    SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new TestMessenger(), "", solrClient);
     Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc1, doc2, doc3));
 
     // each document is reported once, with the error Solr returned
@@ -1144,7 +1144,7 @@ public class SolrIndexerTest {
     byId.setField("is_delete", "true");
 
     SolrClient solrClient = mock(SolrClient.class);
-    SolrIndexer indexer = new SolrIndexer(config, new TestMessenger(), "", solrClient);
+    SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new TestMessenger(), "", solrClient);
     indexer.sendToIndex(List.of(byField, byId));
 
     // the pending delete by id joins the same query, as a terms query on the id field
@@ -1166,7 +1166,7 @@ public class SolrIndexerTest {
     when(solrClient.add(any(Collection.class)))
         .thenThrow(new RemoteSolrException("localhost", 503, "Service Unavailable", null));
 
-    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1192,7 +1192,7 @@ public class SolrIndexerTest {
     SolrClient solrClient = mock(SolrClient.class);
     when(solrClient.add(any(Collection.class))).thenThrow(new IOException("connection refused"));
 
-    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));
 
     assertEquals(1, failedDocs.size());
@@ -1215,7 +1215,7 @@ public class SolrIndexerTest {
     SolrClient solrClient = mock(SolrClient.class);
     when(solrClient.add(any(Collection.class))).thenThrow(new SolrServerException("no live SolrServers available"));
 
-    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));
 
     assertEquals(1, failedDocs.size());
@@ -1239,7 +1239,7 @@ public class SolrIndexerTest {
     when(solrClient.add(any(Collection.class)))
         .thenThrow(new RemoteSolrException("localhost", 503, "Service Unavailable", null));
 
-    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));
 
     assertEquals(1, failedDocs.size());
@@ -1265,7 +1265,7 @@ public class SolrIndexerTest {
     when(solrClient.add(any(Collection.class)))
         .thenThrow(new RemoteSolrException("localhost", 400, "Bad Request", null));
 
-    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));
 
     assertEquals(1, failedDocs.size());
@@ -1297,7 +1297,7 @@ public class SolrIndexerTest {
     SolrClient solrClient = mock(SolrClient.class);
     when(solrClient.deleteById(anyList())).thenThrow(new IOException("connection refused"));
 
-    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     IndexerRetryableException e =
         assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc)));
     assertEquals(IndexerRetryableException.UNKNOWN_STATUS_CODE, e.getStatusCode());
@@ -1318,7 +1318,7 @@ public class SolrIndexerTest {
     doc.setField("myJsonField", mapper.readTree("{\"a\": {\"aa\":1} }"));
 
     SolrClient solrClient = mock(SolrClient.class);
-    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
 
     IndexerException e = assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(doc)));
     assertFalse("Mapping errors must not be treated as retryable", e instanceof IndexerRetryableException);
@@ -1343,7 +1343,7 @@ public class SolrIndexerTest {
         .thenThrow(new IOException("simulated transient failure"))
         .thenReturn(mock(UpdateResponse.class));
 
-    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1408,7 +1408,7 @@ public class SolrIndexerTest {
     Config config = ConfigFactory.empty()
         .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2))
         .withValue("indexer.maxConcurrentBatches", ConfigValueFactory.fromAnyRef(maxConcurrentBatches));
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     for (int i = 0; i < 6; i++) {
       messenger.sendForIndexing(Document.create("doc" + i, "test_run"));
     }
@@ -1449,7 +1449,7 @@ public class SolrIndexerTest {
     });
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2));
-    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Indexer indexer = new SolrIndexer(config.getConfig("indexer"), messenger, "", solrClient);
     for (int i = 0; i < 6; i++) {
       messenger.sendForIndexing(Document.create("doc" + i, "test_run"));
     }

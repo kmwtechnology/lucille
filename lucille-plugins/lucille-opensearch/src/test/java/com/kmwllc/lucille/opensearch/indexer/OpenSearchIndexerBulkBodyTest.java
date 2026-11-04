@@ -182,7 +182,7 @@ public class OpenSearchIndexerBulkBodyTest {
         + "{\"id\":\"parent1\",\"parent_field\":\"p\",\"after_children\":\"a\",\"kids\":["
         + "{\"id\":\"child1\",\"child_field\":\"c1\",\"child_float\":2.2,\"child_bytes\":\"BAU=\"},"
         + "{\"id\":\"child2\"}]}\n",
-        bulkBody(config("opensearch.childDocumentsField: \"kids\"\nindexer.blacklist: [\"ignored\"]"), parent));
+        bulkBody(config("indexer.opensearch.childDocumentsField: \"kids\"\nindexer.blacklist: [\"ignored\"]"), parent));
 
     // without childDocumentsField the children are dropped
     assertEquals("{\"index\":{\"_id\":\"parent1\",\"_index\":\"lucille-default\"}}\n"
@@ -196,7 +196,7 @@ public class OpenSearchIndexerBulkBodyTest {
     populateScalars(doc);
 
     assertEquals("{\"update\":{\"_id\":\"doc1\",\"_index\":\"lucille-default\"}}\n"
-        + "{\"doc_as_upsert\":true,\"doc\":" + SCALARS_BODY + "}\n", bulkBody(config("opensearch.update: true"), doc));
+        + "{\"doc_as_upsert\":true,\"doc\":" + SCALARS_BODY + "}\n", bulkBody(config("indexer.opensearch.update: true"), doc));
   }
 
   // nullField is absent: the client's JacksonJsonpMapper leaves out null map values, at any depth, while
@@ -234,7 +234,7 @@ public class OpenSearchIndexerBulkBodyTest {
     Document before = doc.deepCopy();
 
     TestMessenger messenger = new TestMessenger();
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 

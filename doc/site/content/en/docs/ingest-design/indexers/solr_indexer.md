@@ -7,7 +7,7 @@ description: Configuration reference for the Solr Indexer, for single-node Solr 
 
 `com.kmwllc.lucille.solr.indexer.SolrIndexer`
 
-Config block: `solr { ... }`
+Config block: `indexer.solr { ... }`
 
 **Maven dependency:**
 ```xml
@@ -18,7 +18,7 @@ Config block: `solr { ... }`
 </dependency>
 ```
 
-Selecting the indexer with `indexer.type: "Solr"` works once `lucille-solr` is on the classpath.
+The block selects the indexer once `lucille-solr` is on the classpath.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
@@ -35,18 +35,22 @@ SolrIndexer supports `indexer.maxConcurrentBatches` greater than 1: concurrent b
 
 ```hocon
 # SolrCloud with URL
-solr {
-  useCloudClient: true
-  url: ["http://localhost:8983/solr"]
-  defaultCollection: "my-collection"
+indexer {
+  solr {
+    useCloudClient: true
+    url: ["http://localhost:8983/solr"]
+    defaultCollection: "my-collection"
+  }
 }
 
 # SolrCloud with ZooKeeper
-solr {
-  useCloudClient: true
-  zkHosts: ["zk1:2181", "zk2:2181"]
-  zkChroot: "/solr"
-  defaultCollection: "my-collection"
+indexer {
+  solr {
+    useCloudClient: true
+    zkHosts: ["zk1:2181", "zk2:2181"]
+    zkChroot: "/solr"
+    defaultCollection: "my-collection"
+  }
 }
 ```
 

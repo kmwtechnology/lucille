@@ -59,8 +59,9 @@ If you need to see what fields and values the document had at the point of failu
 **Re-run with a CSV indexer.** Swap your indexer to CSV and re-run. Documents that would have been rejected by the real backend are written to the CSV file where you can inspect their fields. This helps with indexer rejections but not pipeline failures (the document never reaches the indexer if a stage throws).
 
 ```hocon
-indexer { type: "CSV" }
-csv { path: "./debug-output.csv", columns: ["id", "title", "problematic_field"] }
+indexer {
+  csv { path: "./debug-output.csv", columns: ["id", "title", "problematic_field"] }
+}
 ```
 
 **Re-run in test mode (Java).** Use `Runner.runInTestMode()` with the same config and source data. After the run, inspect documents programmatically:

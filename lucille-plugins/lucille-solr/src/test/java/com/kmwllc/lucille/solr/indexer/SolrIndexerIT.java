@@ -102,7 +102,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     IndexerMessenger mockIndexerMessenger = mock(IndexerMessenger.class);
 
     try {
-      indexer = new SolrIndexer(config, mockIndexerMessenger, false, "solr", null);
+      indexer = new SolrIndexer(config.getConfig("indexer"), mockIndexerMessenger, false, "solr", null);
       assertTrue(indexer.validateConnection());
 
       SolrQuery qr = new SolrQuery();
@@ -174,7 +174,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     IndexerMessenger mockIndexerMessenger = mock(IndexerMessenger.class);
 
     try {
-      indexer = new SolrIndexer(config, mockIndexerMessenger, false, "solr", null);
+      indexer = new SolrIndexer(config.getConfig("indexer"), mockIndexerMessenger, false, "solr", null);
       assertTrue(indexer.validateConnection());
 
       SolrQuery qr = new SolrQuery();
@@ -254,7 +254,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     IndexerMessenger mockIndexerMessenger = mock(IndexerMessenger.class);
 
     try {
-      indexer = new SolrIndexer(config, mockIndexerMessenger, false, "solr", null);
+      indexer = new SolrIndexer(config.getConfig("indexer"), mockIndexerMessenger, false, "solr", null);
       assertTrue(indexer.validateConnection());
 
       SolrQuery qr = new SolrQuery();
@@ -331,8 +331,8 @@ public class SolrIndexerIT extends SolrCloudTestCase {
 
     IndexerMessenger mockIndexerMessenger = mock(IndexerMessenger.class);
 
-    SolrIndexer indexer1 = new SolrIndexer(configHttp, mockIndexerMessenger, "solr", mockHttp2Client);
-    SolrIndexer indexer2 = new SolrIndexer(configCloud, mockIndexerMessenger, "solr", mockCloudHttp2Client);
+    SolrIndexer indexer1 = new SolrIndexer(configHttp.getConfig("indexer"), mockIndexerMessenger, "solr", mockHttp2Client);
+    SolrIndexer indexer2 = new SolrIndexer(configCloud.getConfig("indexer"), mockIndexerMessenger, "solr", mockCloudHttp2Client);
 
     indexer1.validateConnection();
     indexer2.validateConnection();
@@ -363,7 +363,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     IndexerMessenger mockIndexerMessenger = mock(IndexerMessenger.class);
 
     try {
-      indexer = new SolrIndexer(config, mockIndexerMessenger, false, "solr", null);
+      indexer = new SolrIndexer(config.getConfig("indexer"), mockIndexerMessenger, false, "solr", null);
       assertTrue(indexer.validateConnection());
 
       // Index documents through the indexer with override IDs

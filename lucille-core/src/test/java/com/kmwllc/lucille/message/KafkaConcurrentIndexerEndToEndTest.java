@@ -112,7 +112,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         new TopicPartition(topic, 1), (long) perPartition);
 
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline);
-    SlowIndexer indexer = new SlowIndexer(config, messenger);
+    SlowIndexer indexer = new SlowIndexer(config.getConfig("indexer"), messenger);
     Thread thread = new Thread(indexer);
     thread.start();
     try {
@@ -192,7 +192,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         return doc;
       }
     };
-    GatedIndexer indexer = new GatedIndexer(config, messenger, "doc0");
+    GatedIndexer indexer = new GatedIndexer(config.getConfig("indexer"), messenger, "doc0");
     Thread thread = new Thread(indexer);
     thread.start();
     try {
@@ -278,7 +278,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         return doc;
       }
     };
-    RecordingIndexer indexer = new RecordingIndexer(config, messenger);
+    RecordingIndexer indexer = new RecordingIndexer(config.getConfig("indexer"), messenger);
     Thread thread = new Thread(indexer);
     thread.start();
     try {
@@ -367,7 +367,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         return doc;
       }
     };
-    DestinationIndexer indexer = new DestinationIndexer(config, messenger);
+    DestinationIndexer indexer = new DestinationIndexer(config.getConfig("indexer"), messenger);
     Map<TopicPartition, Long> expectedCommits = Map.of(new TopicPartition(topic, 0), (long) total);
     Thread thread = new Thread(indexer);
     thread.start();

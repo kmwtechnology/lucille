@@ -13,9 +13,11 @@ Lucille connects to external systems — search backends (Solr, OpenSearch, Elas
 **Never hard-code credentials in config files.** Use HOCON's environment variable substitution to inject secrets at runtime:
 
 ```hocon
-opensearch {
-  url: "https://localhost:9200"
-  url: ${?OPENSEARCH_URL}  # override from env var
+indexer {
+  opensearch {
+    url: "https://localhost:9200"
+    url: ${?OPENSEARCH_URL}  # override from env var
+  }
 }
 ```
 
@@ -32,10 +34,12 @@ In Kubernetes, inject credentials via Secrets mounted as environment variables. 
 The simplest approach: embed credentials in the URL:
 
 ```hocon
-opensearch {
-  url: "https://admin:password@opensearch-host:9200"
-  url: ${?OPENSEARCH_URL}
-  index: "my-index"
+indexer {
+  opensearch {
+    url: "https://admin:password@opensearch-host:9200"
+    url: ${?OPENSEARCH_URL}
+    index: "my-index"
+  }
 }
 ```
 
@@ -48,10 +52,12 @@ OpenSearch connections use TLS when the URL scheme is `https://`. Lucille builds
 **For valid certificates (production):**
 
 ```hocon
-opensearch {
-  url: "https://opensearch-host:9200"
-  index: "my-index"
-  acceptInvalidCert: false  # default — validates certificates normally
+indexer {
+  opensearch {
+    url: "https://opensearch-host:9200"
+    index: "my-index"
+    acceptInvalidCert: false  # default — validates certificates normally
+  }
 }
 ```
 
@@ -60,10 +66,12 @@ No additional configuration needed if the server's certificate is signed by a CA
 **For self-signed certificates (development only):**
 
 ```hocon
-opensearch {
-  url: "https://localhost:9200"
-  index: "my-index"
-  acceptInvalidCert: true  # disables certificate validation and hostname verification
+indexer {
+  opensearch {
+    url: "https://localhost:9200"
+    index: "my-index"
+    acceptInvalidCert: true  # disables certificate validation and hostname verification
+  }
 }
 ```
 
@@ -101,12 +109,14 @@ javax.net.ssl.trustStorePassword: ${?TRUSTSTORE_PASSWORD}
 ### HTTP Basic Authentication
 
 ```hocon
-solr {
-  url: "https://solr-host:8983/solr/my-collection"
-  userName: "solr-user"
-  userName: ${?SOLR_USER}
-  password: "solr-password"
-  password: ${?SOLR_PASSWORD}
+indexer {
+  solr {
+    url: "https://solr-host:8983/solr/my-collection"
+    userName: "solr-user"
+    userName: ${?SOLR_USER}
+    password: "solr-password"
+    password: ${?SOLR_PASSWORD}
+  }
 }
 ```
 
@@ -115,11 +125,13 @@ solr {
 For Solr clusters with mutual TLS (mTLS) or custom CA certificates:
 
 ```hocon
-solr {
-  url: "https://solr-host:8983/solr/my-collection"
-  userName: ${?SOLR_USER}
-  password: ${?SOLR_PASSWORD}
-  acceptInvalidCert: false
+indexer {
+  solr {
+    url: "https://solr-host:8983/solr/my-collection"
+    userName: ${?SOLR_USER}
+    password: ${?SOLR_PASSWORD}
+    acceptInvalidCert: false
+  }
 }
 
 # SSL system properties — Lucille sets these if not already set via -D flags
@@ -140,22 +152,26 @@ Lucille's `SSLUtils.setSSLSystemProperties(config)` reads these from the config 
 For SolrCloud deployments, the Solr client connects to ZooKeeper for cluster state. If ZooKeeper requires authentication, configure it separately (ZooKeeper auth is not managed by Lucille's config — use ZooKeeper's own client configuration mechanisms).
 
 ```hocon
-solr {
-  useCloudClient: true
-  zkHosts: ["zk1:2181", "zk2:2181", "zk3:2181"]
-  zkChroot: "/solr"
-  defaultCollection: "my-collection"
-  userName: ${?SOLR_USER}
-  password: ${?SOLR_PASSWORD}
+indexer {
+  solr {
+    useCloudClient: true
+    zkHosts: ["zk1:2181", "zk2:2181", "zk3:2181"]
+    zkChroot: "/solr"
+    defaultCollection: "my-collection"
+    userName: ${?SOLR_USER}
+    password: ${?SOLR_PASSWORD}
+  }
 }
 ```
 
 ### Development: Accepting Invalid Certificates
 
 ```hocon
-solr {
-  url: "https://localhost:8983/solr/my-collection"
-  acceptInvalidCert: true  # development only
+indexer {
+  solr {
+    url: "https://localhost:8983/solr/my-collection"
+    acceptInvalidCert: true  # development only
+  }
 }
 ```
 
@@ -265,10 +281,12 @@ java \
 Pinecone uses API key authentication:
 
 ```hocon
-pinecone {
-  apiKey: ${PINECONE_API_KEY}
-  environment: "us-east-1-aws"
-  index: "my-index"
+indexer {
+  pinecone {
+    apiKey: ${PINECONE_API_KEY}
+    environment: "us-east-1-aws"
+    index: "my-index"
+  }
 }
 ```
 
@@ -281,11 +299,13 @@ All Pinecone communication uses HTTPS by default. No additional TLS configuratio
 Weaviate supports API key and OIDC authentication:
 
 ```hocon
-weaviate {
-  scheme: "https"
-  host: "weaviate-host:8080"
-  apiKey: ${WEAVIATE_API_KEY}
-  className: "MyClass"
+indexer {
+  weaviate {
+    scheme: "https"
+    host: "weaviate-host:8080"
+    apiKey: ${WEAVIATE_API_KEY}
+    className: "MyClass"
+  }
 }
 ```
 
@@ -299,9 +319,9 @@ The standard pattern for all credentials in Lucille configs:
 
 ```hocon
 # Default for development (or omit entirely)
-opensearch.url: "http://localhost:9200"
+indexer.opensearch.url: "http://localhost:9200"
 # Override from environment in production
-opensearch.url: ${?OPENSEARCH_URL}
+indexer.opensearch.url: ${?OPENSEARCH_URL}
 ```
 
 ### Kubernetes Secrets

@@ -33,6 +33,8 @@ public class PackagingTest {
       "Solr", "com.kmwllc.lucille.solr.indexer.SolrIndexer",
       "OpenSearch", "com.kmwllc.lucille.opensearch.indexer.OpenSearchIndexer",
       "Elasticsearch", "com.kmwllc.lucille.elasticsearch.indexer.ElasticsearchIndexer",
+      "Pinecone", "com.kmwllc.lucille.pinecone.indexer.PineconeIndexer",
+      "Weaviate", "com.kmwllc.lucille.weaviate.indexer.WeaviateIndexer",
       "Nop", "com.kmwllc.lucille.indexer.NopIndexer");
 
   @Test
@@ -45,11 +47,16 @@ public class PackagingTest {
       settings.put("indexer.type", type);
       settings.put("indexer.sendEnabled", false);
       // Minimal backend config so Spec validation passes for the search backends.
-      settings.put("solr.url", "http://localhost:8983/solr");
-      settings.put("opensearch.url", "http://localhost:9200");
-      settings.put("opensearch.index", "test");
-      settings.put("elasticsearch.url", "http://localhost:9200");
-      settings.put("elasticsearch.index", "test");
+      settings.put("indexer.solr.url", "http://localhost:8983/solr");
+      settings.put("indexer.opensearch.url", "http://localhost:9200");
+      settings.put("indexer.opensearch.index", "test");
+      settings.put("indexer.elasticsearch.url", "http://localhost:9200");
+      settings.put("indexer.elasticsearch.index", "test");
+      settings.put("indexer.pinecone.apiKey", "test");
+      settings.put("indexer.pinecone.index", "test");
+      settings.put("indexer.pinecone.defaultEmbeddingField", "vector");
+      settings.put("indexer.weaviate.apiKey", "test");
+      settings.put("indexer.weaviate.host", "localhost");
 
       Config config = ConfigFactory.parseMap(settings);
       // bypass=true so no client is created / no network call is made. Only check the resolved type.

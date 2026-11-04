@@ -101,8 +101,9 @@ pipelines: [
   }
 ]
 
-indexer { type: "OpenSearch" }
-opensearch { ... }
+indexer {
+  opensearch { ... }
+}
 ```
 
 ### Batch vs. Streaming: Same Pipeline Logic

@@ -165,6 +165,7 @@ public final class Launch {
     log.info("Starting Indexer for pipeline: {}", pipelineName);
     IndexerMessenger messenger = new KafkaIndexerMessenger(config, pipelineName);
     Indexer indexer = IndexerFactory.fromConfig(config, messenger, false, pipelineName, null);
+    indexer.applyRootConfig(config);
 
     if (!indexer.validateConnection()) {
       log.error("Indexer could not connect");

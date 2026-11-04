@@ -59,11 +59,11 @@ import org.slf4j.LoggerFactory;
  *   <li>childDocumentsField (String, Optional) : Field name under which attached child documents are nested in the
  *   indexed document. If not set, child documents are not indexed. For child queries to work correctly, this field should be mapped
  *   as type "nested" in the index mapping.</li>
- *   <li>indexer.routingField (String, Optional) : Document field that supplies the routing key.</li>
- *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions. With External or ExternalGte,
- *   an upload carries the document's indexer.versionField value, or else its Kafka offset.</li>
- *   <li>indexer.versionField (String, Optional) : Document field holding the external version. Requires
- *   indexer.versionType. With External or ExternalGte, a delete by id carries this field's value too; a delete without it
+ *   <li>routingField (String, Optional) : Document field that supplies the routing key.</li>
+ *   <li>versionType (String, Optional) : Versioning type when using external versions. With External or ExternalGte,
+ *   an upload carries the document's versionField value, or else its Kafka offset.</li>
+ *   <li>versionField (String, Optional) : Document field holding the external version. Requires
+ *   versionType. With External or ExternalGte, a delete by id carries this field's value too; a delete without it
  *   is unversioned, and never uses the Kafka offset.</li>
  * </ul>
  */
@@ -77,7 +77,7 @@ public class OpenSearchIndexer extends Indexer {
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
       .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal",
           "connectTimeoutMs", "socketTimeoutMs", "connectionTimeToLiveMs")
-      .optionalString("childDocumentsField").build();
+      .optionalString("childDocumentsField", "routingField", "versionType", "versionField").build();
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 
@@ -101,16 +101,16 @@ public class OpenSearchIndexer extends Indexer {
 
     this.client = client;
     this.index = OpenSearchUtils.getOpenSearchIndex(config);
-    this.routingField = ConfigUtils.getStringOrDefault(config, "indexer.routingField", null);
+    this.routingField = ConfigUtils.getStringOrDefault(config, "opensearch.routingField", null);
     this.update = ConfigUtils.getBooleanOrDefault(config, "opensearch.update", false);
     this.versionType =
-        config.hasPath("indexer.versionType") ? parseVersionType(config.getString("indexer.versionType")) : null;
+        config.hasPath("opensearch.versionType") ? parseVersionType(config.getString("opensearch.versionType")) : null;
     this.childDocumentsField = ConfigUtils.getStringOrDefault(config, "opensearch.childDocumentsField", null);
-    this.versionField = ConfigUtils.getStringOrDefault(config, "indexer.versionField", null);
+    this.versionField = ConfigUtils.getStringOrDefault(config, "opensearch.versionField", null);
 
-    // validate config indexer.versionType that must be set if config indexer.versionField is set
+    // validate config opensearch.versionType that must be set if config opensearch.versionField is set
     if (this.versionField != null && this.versionType == null) {
-      throw new IllegalArgumentException("indexer.versionType must be set if indexer.versionField is set");
+      throw new IllegalArgumentException("opensearch.versionType must be set if opensearch.versionField is set");
     }
   }
 
@@ -531,7 +531,7 @@ public class OpenSearchIndexer extends Indexer {
         return type;
       }
     }
-    throw new IllegalArgumentException("Unknown indexer.versionType \"" + name + "\"; expected one of "
+    throw new IllegalArgumentException("Unknown opensearch.versionType \"" + name + "\"; expected one of "
         + java.util.Arrays.toString(VersionType.values()));
   }
 
@@ -546,8 +546,8 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   // The version to send with a delete by id, or null for an unversioned delete. Unlike getVersionNum, this never falls
-  // back to the Kafka offset: the offset of a delete is not comparable to a version taken from indexer.versionField, so
-  // only a document that carries indexer.versionField gets a versioned delete.
+  // back to the Kafka offset: the offset of a delete is not comparable to a version taken from opensearch.versionField, so
+  // only a document that carries opensearch.versionField gets a versioned delete.
   private Long getDeleteVersionNum(Document doc) {
     if ((versionType == VersionType.External || versionType == VersionType.ExternalGte)
         && versionField != null && doc.has(versionField)) {

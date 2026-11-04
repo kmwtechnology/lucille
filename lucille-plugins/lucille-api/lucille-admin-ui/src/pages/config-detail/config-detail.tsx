@@ -149,12 +149,17 @@ function PipelineItem({ pipeline, index }: { pipeline: Pipeline; index: number }
   )
 }
 
-const CONNECTION_KEYS = ["solr", "elasticsearch", "opensearch", "csv"] as const
+function isBlock(value: unknown): boolean {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
 
 function IndexerCard({ config }: { config: ConfigObject }) {
   const indexer = config.indexer
-  const connectionKey = CONNECTION_KEYS.find((k) => config[k] != null)
-  const connection = connectionKey ? (config[connectionKey] as Record<string, unknown>) : undefined
+  // Backend settings are the object nested in the indexer block; with several, indexer.type names the one in use.
+  const blocks = Object.keys(indexer ?? {}).filter((k) => isBlock(indexer?.[k]))
+  const connectionKey =
+    blocks.find((k) => k.toLowerCase() === String(indexer?.type).toLowerCase()) ?? blocks[0]
+  const connection = connectionKey ? (indexer?.[connectionKey] as Record<string, unknown>) : undefined
 
   return (
     <Card className={styles.sectionCard}>

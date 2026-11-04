@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.pinecone.indexer;
 
+import com.google.auto.service.AutoService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -23,6 +24,7 @@ import com.google.protobuf.Value;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.indexer.IndexerType;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import io.pinecone.clients.Index;
@@ -45,6 +47,8 @@ import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIn
  *    deletionMarkerField, and deletionMarkerFieldValue as Pinecone serverless index currently does not support delete via query/metadata.
  * - defaultEmbeddingField (String, required if namespaces is not set) : the field to retrieve embeddings from
  */
+@AutoService(Indexer.class)
+@IndexerType("Pinecone")
 public class PineconeIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()

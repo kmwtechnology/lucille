@@ -13,7 +13,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 **What the base class does for you:**
 
 - **Message consumption loop** — Polls the indexing queue, accumulates documents into batches, and flushes on batch size or timeout. You never write this loop.
-- **Config validation** — Validates both the generic `indexer` config block (batchSize, field filtering, deletion markers, retry settings) and your implementation-specific config block (e.g., `solr`, `opensearch`) using your `SPEC`.
+- **Config validation** — Validates both the generic `indexer` config block (batchSize, field filtering, deletion markers, retry settings) and your implementation-specific block nested inside it (e.g., `indexer.solr`, `indexer.opensearch`) using your `SPEC`.
 - **Field filtering** — Applies whitelist/blacklist filtering before documents reach `sendToIndex()`. Use `getConvertedIndexerDoc(doc)` to get the filtered field map as plain Java values, or `getRawIndexerDoc(doc)` when your client serializes it to JSON with Jackson.
 - **Batching** — Configurable batch size and timeout, with support for per-document index routing via `indexOverrideField`.
 - **Concurrent sends** — When `indexer.maxConcurrentBatches` is above 1, sends several batches to the destination at once while keeping writes to the same document id in order and completing batches in dispatch order. See [Concurrent Sends](#concurrent-sends) below.
@@ -31,7 +31,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 | `validateConnection()` | Yes | Return `true` if the destination is reachable and the target index/collection exists. Called before the consumption loop starts. |
 | `closeConnection()` | Yes | Close the client or connection to the destination. |
 | `supportsConcurrentSends()` | No | Return `true` only if `sendToIndex()` and your destination client are safe to call from several threads at once. The default is `false`, which makes the base class reject `indexer.maxConcurrentBatches` above 1. See [Concurrent Sends](#concurrent-sends). |
-| `getIndexerConfigKey()` | Yes | Return the config key for your implementation-specific block (e.g., `"solr"`, `"opensearch"`). Return `null` if your indexer takes no additional config. |
+| `getIndexerConfigKey()` | Yes | Return the key of your implementation-specific block inside the `indexer` block (e.g., `"solr"`, `"opensearch"`). Return `null` if your indexer takes no additional config. |
 
 **What you declare:**
 
@@ -41,9 +41,9 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 
 Your constructor must call `super(config, messenger, bypass, metricsPrefix, localRunId)` — this triggers config validation, sets up batching, and initializes metrics. The constructor signature must be `(Config, IndexerMessenger, boolean, String, String)` because the `IndexerFactory` instantiates indexers reflectively using this signature.
 
-**What's in `config`:** Unlike Stages and Connectors, the `Config` passed to your Indexer constructor is the **full root config** for the entire Lucille run. The base class reads generic settings from `config.getString("indexer.idOverrideField")` etc. Your implementation reads its own block via `config.getConfig("mykey")` (e.g., `config.getConfig("solr")`). Your SPEC declares only the properties within your implementation-specific block — write `"url"`, not `"solr.url"`. The base class validates the generic `indexer` block separately.
+**What's in `config`:** Like Stages and Connectors, your Indexer receives its own block: the `Config` passed to your constructor is the `indexer` block. The base class reads generic settings from it, such as `idOverrideField`. Your implementation reads its nested block via `config.getConfig("mykey")` (e.g., `config.getConfig("solr")`). Your SPEC declares only the properties within your implementation-specific block — write `"url"`, not `"solr.url"`. The base class validates the generic settings separately.
 
-**Two-level config:** Unlike Stages and Connectors, Indexers have a split config. The generic `indexer {}` block (batch size, field filtering, deletion markers, retries) is validated and consumed by the base class. Your implementation-specific block (e.g., `solr {}`, `opensearch {}`) is validated against your `SPEC` and read in your constructor. Your SPEC should only declare properties within your block — write `"url"`, not `"solr.url"`.
+**Two-level config:** The generic settings in `indexer {}` (batch size, field filtering, deletion markers, retries) are validated and consumed by the base class. Your implementation-specific block nested inside it (e.g., `solr {}`, `opensearch {}`) is validated against your `SPEC` and read in your constructor. Your SPEC should only declare properties within your block — write `"url"`, not `"solr.url"`.
 
 ---
 
@@ -94,7 +94,7 @@ public class ExampleIndexer extends Indexer {
 
   @Override
   protected String getIndexerConfigKey() {
-    return "example";  // matches the config block name: example { url: "...", index: "..." }
+    return "example";  // matches the nested block name: indexer { example { url: "...", index: "..." } }
   }
 
   @Override
@@ -146,9 +146,9 @@ Register the module in `lucille-plugins/pom.xml`.
 
 Use `com.kmwllc.lucille.<name>.indexer.<Name>Indexer` (e.g. `com.kmwllc.lucille.solr.indexer.SolrIndexer`), not `com.kmwllc.lucille.indexer`. Shared HTTP helpers like `SSLUtils`, `HttpHostUtils`, `HttpClientConfigUtils`, and `AsyncConnectionPoolUtils` stay in `lucille-core`'s `util` package — import them from there.
 
-### 3. Register the `indexer.type` (optional)
+### 3. Register the indexer's type (optional)
 
-The `indexer.type: "..."` shortcut is resolved at runtime from a service file on the classpath, so a plugin can register its type name without `lucille-core` referencing the class. You never hand-write that file: [Google AutoService](https://github.com/google/auto/tree/main/service) generates it at compile time from annotations. AutoService is already wired into the build (`auto-service-annotations` on the compile classpath and the `auto-service` processor in the compiler plugin's `annotationProcessorPaths`, both inherited from `lucille-parent`), so the only thing you write is the annotation:
+Registering lets the nested block's name, or `indexer.type: "..."`, select your indexer. The type name must match your block's name, ignoring case, for the block to select the indexer. Types are resolved at runtime from a service file on the classpath, so a plugin can register its type name without `lucille-core` referencing the class. You never hand-write that file: [Google AutoService](https://github.com/google/auto/tree/main/service) generates it at compile time from annotations. AutoService is already wired into the build (`auto-service-annotations` on the compile classpath and the `auto-service` processor in the compiler plugin's `annotationProcessorPaths`, both inherited from `lucille-parent`), so the only thing you write is the annotation:
 
 ```java
 import com.google.auto.service.AutoService;
@@ -162,9 +162,9 @@ public class NameIndexer extends Indexer {
 }
 ```
 
-`@IndexerType` declares the `indexer.type` name; `@AutoService(Indexer.class)` makes AutoService list this class in `META-INF/services/com.kmwllc.lucille.core.Indexer` at compile time. At runtime `IndexerFactory` reads the class names from those service files (merged across all jars on the classpath), resolves each with `Class.forName(name, false, loader)` which loads the class and reads its `@IndexerType` **without instantiating it**, and matches the annotation value case-insensitively against the configured `indexer.type`. Only the matching indexer is constructed, through its normal `(Config, IndexerMessenger, boolean, String, String)` constructor.
+`@IndexerType` declares the `indexer.type` name; `@AutoService(Indexer.class)` makes AutoService list this class in `META-INF/services/com.kmwllc.lucille.core.Indexer` at compile time. At runtime `IndexerFactory` reads the class names from those service files (merged across all jars on the classpath), resolves each with `Class.forName(name, false, loader)` which loads the class and reads its `@IndexerType` **without instantiating it**, and matches the annotation value case-insensitively against the nested block's name or the configured `indexer.type`. Only the matching indexer is constructed, through its normal `(Config, IndexerMessenger, boolean, String, String)` constructor.
 
-If you skip this step, your indexer is still usable, but users must use the fully-qualified `indexer.class` instead of `indexer.type`.
+If you skip this step, your indexer is still usable, but users must set the fully-qualified `indexer.class`.
 
 > **Note:** AutoService runs as an annotation processor during compilation. If you add or change an `@IndexerType` and the generated service file seems stale (the type won't resolve), do a clean build (`mvn clean ...`). Incremental compilation can skip the processor when it considers the class files up to date.
 

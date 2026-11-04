@@ -98,7 +98,7 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
     map.put("indexer.type", "solr");
     map.put("indexer.batchSize", 100);
     map.putAll(extra);
-    return new SolrIndexer(ConfigFactory.parseMap(map), mock(IndexerMessenger.class), false, "solr", null);
+    return new SolrIndexer(ConfigFactory.parseMap(map).getConfig("indexer"), mock(IndexerMessenger.class), false, "solr", null);
   }
 
   private static List<String> idsInSolr() throws Exception {

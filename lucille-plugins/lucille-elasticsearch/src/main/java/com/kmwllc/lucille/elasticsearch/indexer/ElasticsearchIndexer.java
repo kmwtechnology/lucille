@@ -67,11 +67,11 @@ import java.util.Optional;
  *   <li>childDocumentsField (String, Optional) : Field name to place attached child documents in the
  *   indexed document. If not set, child documents are not indexed. For child queries to work correctly, this field should be mapped
  *   as type "nested" in the index mapping.</li>
- *   <li>indexer.routingField (String, Optional) : Document field that supplies the routing key.</li>
- *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions. With External or ExternalGte,
- *   an upload carries the document's indexer.versionField value, or else its Kafka offset.</li>
- *   <li>indexer.versionField (String, Optional) : Document field holding the external version. Requires
- *   indexer.versionType. With External or ExternalGte, a delete by id carries this field's value too; a delete without it
+ *   <li>routingField (String, Optional) : Document field that supplies the routing key.</li>
+ *   <li>versionType (String, Optional) : Versioning type when using external versions. With External or ExternalGte,
+ *   an upload carries the document's versionField value, or else its Kafka offset.</li>
+ *   <li>versionField (String, Optional) : Document field holding the external version. Requires
+ *   versionType. With External or ExternalGte, a delete by id carries this field's value too; a delete without it
  *   is unversioned, and never uses the Kafka offset.</li>
  *   <li>elasticsearch.join.joinFieldName (String, Optional) : Name of the join field mapped in the index.</li>
  *   <li>elasticsearch.join.isChild (Boolean, Optional) : Whether documents are children in the join relation. Defaults to false.</li>
@@ -89,7 +89,7 @@ public class ElasticsearchIndexer extends Indexer {
       .requiredStringOrList("url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
       .optionalNumber("connectTimeoutMs", "socketTimeoutMs", "connectionTimeToLiveMs")
-      .optionalString("childDocumentsField")
+      .optionalString("childDocumentsField", "routingField", "versionType", "versionField")
       .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal")
       .optionalParent("join", new TypeReference<Map<String, String>>() {}).build();
 
@@ -121,11 +121,11 @@ public class ElasticsearchIndexer extends Indexer {
     this.update = ConfigUtils.getBooleanOrDefault(config, "elasticsearch.update", false);
 
     joinData = ElasticJoinData.fromConfig(config);
-    this.routingField = ConfigUtils.getStringOrDefault(config, "indexer.routingField", null);
-    this.versionType = config.hasPath("indexer.versionType") ? parseVersionType(config.getString("indexer.versionType")) : null;
-    this.versionField = ConfigUtils.getStringOrDefault(config, "indexer.versionField", null);
+    this.routingField = ConfigUtils.getStringOrDefault(config, "elasticsearch.routingField", null);
+    this.versionType = config.hasPath("elasticsearch.versionType") ? parseVersionType(config.getString("elasticsearch.versionType")) : null;
+    this.versionField = ConfigUtils.getStringOrDefault(config, "elasticsearch.versionField", null);
     if (this.versionField != null && this.versionType == null) {
-      throw new IllegalArgumentException("indexer.versionType must be set if indexer.versionField is set");
+      throw new IllegalArgumentException("elasticsearch.versionType must be set if elasticsearch.versionField is set");
     }
     this.childDocumentsField = ConfigUtils.getStringOrDefault(config, "elasticsearch.childDocumentsField", null);
   }
@@ -137,7 +137,7 @@ public class ElasticsearchIndexer extends Indexer {
         return type;
       }
     }
-    throw new IllegalArgumentException("Unknown indexer.versionType \"" + name + "\"; expected one of "
+    throw new IllegalArgumentException("Unknown elasticsearch.versionType \"" + name + "\"; expected one of "
         + java.util.Arrays.toString(VersionType.values()));
   }
 
@@ -154,8 +154,8 @@ public class ElasticsearchIndexer extends Indexer {
   }
 
   // The version to send with a delete by id, or null for an unversioned delete. Unlike getVersionNum, this never falls
-  // back to the Kafka offset: the offset of a delete is not comparable to a version taken from indexer.versionField, so
-  // only a document that carries indexer.versionField gets a versioned delete.
+  // back to the Kafka offset: the offset of a delete is not comparable to a version taken from elasticsearch.versionField, so
+  // only a document that carries elasticsearch.versionField gets a versioned delete.
   private Long getDeleteVersionNum(Document doc) {
     if ((versionType == VersionType.External || versionType == VersionType.ExternalGte)
         && versionField != null && doc.has(versionField)) {

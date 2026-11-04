@@ -1,8 +1,10 @@
 package com.kmwllc.lucille.weaviate.indexer;
 
+import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.indexer.IndexerType;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -30,6 +32,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+@AutoService(Indexer.class)
+@IndexerType("Weaviate")
 public class WeaviateIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()

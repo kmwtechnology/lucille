@@ -60,7 +60,7 @@ public class AsyncConnectionPoolUtilsTest {
   }
 
   private static Config config(int maxConcurrentBatches, Map<String, Object> extra) {
-    Map<String, Object> settings = new java.util.HashMap<>(Map.of("indexer.maxConcurrentBatches", maxConcurrentBatches));
+    Map<String, Object> settings = new java.util.HashMap<>(Map.of("maxConcurrentBatches", maxConcurrentBatches));
     settings.putAll(extra);
     return ConfigFactory.parseMap(settings);
   }

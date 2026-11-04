@@ -640,6 +640,7 @@ public class Runner {
         try {
           IndexerMessenger indexerMessenger = indexerMessengerFactory.create();
           indexer = IndexerFactory.fromConfig(config, indexerMessenger, bypassIndexer, metricsPrefix, localRunId);
+          indexer.applyRootConfig(config);
         } catch (Exception e) {
           log.error("Error creating indexer from config.", e);
           return new ConnectorResult(connector, publisher, false, "Error creating indexer from config.");

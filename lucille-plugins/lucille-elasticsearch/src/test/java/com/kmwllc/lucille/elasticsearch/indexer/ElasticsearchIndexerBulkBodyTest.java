@@ -179,7 +179,7 @@ public class ElasticsearchIndexerBulkBodyTest {
         + "{\"id\":\"parent1\",\"parent_field\":\"p\",\"after_children\":\"a\",\"kids\":["
         + "{\"id\":\"child1\",\"child_field\":\"c1\",\"child_float\":2.2,\"child_bytes\":\"BAU=\"},"
         + "{\"id\":\"child2\"}]}\n",
-        bulkBody(config("elasticsearch.childDocumentsField: \"kids\"\nindexer.blacklist: [\"ignored\"]"), parent));
+        bulkBody(config("indexer.elasticsearch.childDocumentsField: \"kids\"\nindexer.blacklist: [\"ignored\"]"), parent));
 
     // without childDocumentsField the children are dropped
     assertEquals("{\"index\":{\"_id\":\"parent1\",\"_index\":\"lucille-default\"}}\n"
@@ -193,7 +193,7 @@ public class ElasticsearchIndexerBulkBodyTest {
     populateScalars(doc);
 
     assertEquals("{\"update\":{\"_id\":\"doc1\",\"_index\":\"lucille-default\"}}\n"
-        + "{\"doc\":" + SCALARS_BODY + ",\"doc_as_upsert\":true}\n", bulkBody(config("elasticsearch.update: true"), doc));
+        + "{\"doc\":" + SCALARS_BODY + ",\"doc_as_upsert\":true}\n", bulkBody(config("indexer.elasticsearch.update: true"), doc));
   }
 
   // nullField is absent: the client's JacksonJsonpMapper leaves out null map values, at any depth, while
@@ -231,7 +231,7 @@ public class ElasticsearchIndexerBulkBodyTest {
     Document before = doc.deepCopy();
 
     TestMessenger messenger = new TestMessenger();
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 

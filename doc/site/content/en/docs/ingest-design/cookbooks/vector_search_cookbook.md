@@ -68,14 +68,12 @@ pipelines: [
 ]
 
 indexer {
-  class: "com.kmwllc.lucille.pinecone.indexer.PineconeIndexer"
-}
-
-pinecone {
-  apiKey: ${PINECONE_API_KEY}
-  index: "articles-index"
-  vectorField: "content_vector"
-  namespace: "articles"
+  pinecone {
+    apiKey: ${PINECONE_API_KEY}
+    index: "articles-index"
+    vectorField: "content_vector"
+    namespace: "articles"
+  }
 }
 ```
 
@@ -141,13 +139,11 @@ pipelines: [
 ]
 
 indexer {
-  class: "com.kmwllc.lucille.pinecone.indexer.PineconeIndexer"
-}
-
-pinecone {
-  apiKey: ${PINECONE_API_KEY}
-  index: "pdf-index"
-  vectorField: "content_vector"
+  pinecone {
+    apiKey: ${PINECONE_API_KEY}
+    index: "pdf-index"
+    vectorField: "content_vector"
+  }
 }
 ```
 
@@ -178,13 +174,11 @@ pipelines: [
 ]
 
 indexer {
-  class: "com.kmwllc.lucille.pinecone.indexer.PineconeIndexer"
-}
-
-pinecone {
-  apiKey: ${PINECONE_API_KEY}
-  index: "my-vectors"
-  vectorField: "embedding"
+  pinecone {
+    apiKey: ${PINECONE_API_KEY}
+    index: "my-vectors"
+    vectorField: "embedding"
+  }
 }
 ```
 
@@ -278,12 +272,12 @@ pipelines: [
   }
 ]
 
-indexer { type: "opensearch" }
-
-opensearch {
-  url: "https://localhost:9200"
-  index: "enriched-docs"
-  acceptInvalidCert: true
+indexer {
+  opensearch {
+    url: "https://localhost:9200"
+    index: "enriched-docs"
+    acceptInvalidCert: true
+  }
 }
 ```
 

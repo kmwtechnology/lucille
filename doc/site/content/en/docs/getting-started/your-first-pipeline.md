@@ -99,19 +99,17 @@ pipelines: [
 # We use the CSV indexer here so no search backend is needed.
 
 indexer {
-  type: "CSV"
-}
+  # CSV indexer settings
+  csv {
+    # Which fields to include in the output (must match field names after pipeline processing)
+    columns: ["id", "book_title", "author", "year", "source"]
 
-# CSV indexer settings
-csv {
-  # Which fields to include in the output (must match field names after pipeline processing)
-  columns: ["id", "book_title", "author", "year", "source"]
+    # Where to write the output
+    path: "my-output.csv"
 
-  # Where to write the output
-  path: "my-output.csv"
-
-  # Include a header row
-  includeHeader: true
+    # Include a header row
+    includeHeader: true
+  }
 }
 ```
 
@@ -178,9 +176,8 @@ Each **stage** in a pipeline specifies:
 - Stage-specific parameters (e.g., `fieldMapping` for RenameFields)
 
 The **indexer** specifies:
-- `type` — a shorthand for built-in indexers (Solr, OpenSearch, Elasticsearch, CSV)
-- Or `class` — for plugin or custom indexers
-- Backend-specific settings in a separate block (e.g., `csv {}`, `solr {}`, `opensearch {}`)
+- Backend-specific settings in a nested block (e.g., `csv {}`, `solr {}`, `opensearch {}`), whose name selects the indexer
+- Or `class` — for custom indexers
 
 ## What Have We Accomplished?
 
@@ -200,12 +197,10 @@ Replace the CSV indexer with a real search backend — OpenSearch, Elasticsearch
 
 ```hocon
 indexer {
-  type: "OpenSearch"
-}
-
-opensearch {
-  url: ${?OPENSEARCH_URL}
-  index: "my-books"
+  opensearch {
+    url: ${?OPENSEARCH_URL}
+    index: "my-books"
+  }
 }
 ```
 

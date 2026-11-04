@@ -9,35 +9,72 @@ For conceptual documentation — what an Indexer is, why batching matters, delet
 
 ## Generic `indexer` Configuration
 
-Indexer configuration has two parts: the generic `indexer` block (common to all backends), and a backend-specific config block (e.g., `solr`, `opensearch`, `elasticsearch`, `csv`).
+Indexer configuration lives in the `indexer` block. It holds generic settings common to all backends, and a nested backend-specific block (e.g., `solr`, `opensearch`, `elasticsearch`, `csv`). The name of the nested block selects the indexer.
 
 ```hocon
 indexer {
-  type: "Solr"
   batchSize: 100
   batchTimeout: 100
   blacklist: ["internal_field"]
-}
 
-solr {
-  useCloudClient: true
-  url: "http://localhost:8983/solr"
-  defaultCollection: "my-collection"
+  solr {
+    useCloudClient: true
+    url: "http://localhost:8983/solr"
+    defaultCollection: "my-collection"
+  }
 }
 ```
 
-`indexer.type` is a shorthand that is resolved at runtime from the classpath: `"Solr"`, `"OpenSearch"`, `"Elasticsearch"`, `"CSV"`, or `"Nop"`. 
-`Solr`, `OpenSearch`, and `Elasticsearch` live in their own plugin modules and the `type` shortcut only resolves when that module is on the classpath (see the per-indexer pages below for the exact Maven dependency). 
-For plugin indexers that do not register a `type` (e.g., Pinecone, Weaviate), use `indexer.class` with the fully qualified class name instead. `indexer.class` also works for any of the backends above if you prefer to be explicit.
+The nested block's name is resolved at runtime from the classpath: `solr`, `opensearch`, `elasticsearch`, `csv`, `pinecone`, or `weaviate`. Backends other than `csv` live in their own plugin modules and resolve only when that module is on the classpath (see the per-indexer pages below for the exact Maven dependency).
 
-Both blocks are validated when the indexer is constructed: an unknown key in the `indexer` block or in the backend block fails at startup. After construction, Lucille calls the indexer's connection check (for example a ping) and the run fails at startup if it does not succeed.
+Lucille chooses the indexer as follows:
+
+| Config | Result |
+|---|---|
+| `indexer.class` is set | That class is used. |
+| `indexer.type` is set | That type is used. Any other backend's block is ignored with a warning. |
+| Neither, one nested block | The block's name selects the indexer. |
+| Neither, no nested block | `NopIndexer`, with a warning. |
+| Neither, several nested blocks | Fails at startup. Set `indexer.type` to choose one. |
+| The block's name matches no registered indexer | Fails at startup. The error lists the available types. |
+
+Use `indexer.type` to choose among several blocks with one value, such as `type: ${?INDEXER_TYPE}`, or to state that a run has no destination with `type: "Nop"`. Use `indexer.class` for a custom indexer that does not register a type.
+
+A top-level backend block is not read by the indexer. If the selected indexer has one and no nested block, startup fails with a message telling you to move it. To share settings between an indexer and a stage or connector, define them under a top-level key of your own and merge them into each block:
+
+```hocon
+esCluster {
+  url: "https://es.example.com:9200"
+  acceptInvalidCert: false
+}
+
+indexer {
+  elasticsearch: ${esCluster} {
+    index: "products"
+  }
+}
+
+pipelines: [{
+  name: "main"
+  stages: [{
+    class: "com.kmwllc.lucille.elasticsearch.stage.ElasticsearchLookup"
+    elasticsearch: ${esCluster} {
+      index: "reference_data"
+    }
+    source: ["price"]
+    dest: ["es_price"]
+  }]
+}]
+```
+
+The generic settings and the backend block are validated when the indexer is constructed: an unknown key in the `indexer` block or in the backend block fails at startup. After construction, Lucille calls the indexer's connection check (for example a ping) and the run fails at startup if it does not succeed.
 
 ### Generic Parameters
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `type` | String | No | Shorthand from the classpath (case-insensitive): `Solr`, `OpenSearch`, `Elasticsearch` (each requires its plugin module on the classpath), or `CSV` / `Nop` (in `lucille-core`). Defaults to Nop. |
-| `class` | String | No | Fully qualified class name for plugin or custom indexers. Takes precedence over `type` if both are set. |
+| `type` | String | No | Selects the indexer by its registered type (case-insensitive): `Solr`, `OpenSearch`, `Elasticsearch`, `Pinecone`, `Weaviate` (each requires its plugin module on the classpath), `CSV`, or `Nop`. Usually not needed, because the nested block's name selects the indexer. |
+| `class` | String | No | Fully qualified class name, for a custom indexer. Takes precedence over `type` if both are set. |
 | `batchSize` | Integer | No | Number of documents a batch holds before it is sent. If only `batchByteSize` is set, count-based batching is disabled. Default: `100`. |
 | `batchByteSize` | Long | No | Estimated size in bytes a batch may hold before it is sent. The size is estimated from the document's JSON structure, not measured from the serialized request. When set alone, count-based batching is disabled. When set alongside `batchSize`, whichever limit is reached first sends the batch. Default: disabled. |
 | `batchTimeout` | Integer | No | Milliseconds since the last add or flush after which a partly filled batch is sent. Default: `100`. |
@@ -56,9 +93,6 @@ Both blocks are validated when the indexer is constructed: an unknown key in the
 | `retryMaxWaitDurationMs` | Long | No | Upper bound on the wait between retries, in ms. Setting it without `maxRetries` fails at startup. Default: `30000`. |
 | `retryRandomizationFactor` | Double | No | Jitter applied to each wait. `0.5` means the actual wait is between 50% and 150% of the computed backoff; `0.0` disables jitter. Setting it without `maxRetries` fails at startup. Default: `0.5`. |
 | `retryableStatusCodes` | List\<Integer\> | No | HTTP status codes that trigger a retry. `-1` stands for a failure with no status code (for example a connection error or timeout). An empty list fails at startup, and so does setting it without `maxRetries`. Default: `[429, 503, -1]`. |
-| `versionType` | String | No | Versioning type for writes. Read only by the OpenSearch and Elasticsearch indexers, which take a client `VersionType` name, case-insensitive, as the constant name (`External`, `ExternalGte`, `Internal`, `Force`) or its JSON spelling (`external`, `external_gte`, `internal`, `force`); any other value fails at startup there. Only `External` and `ExternalGte` are sent with writes; `Internal` and `Force` are accepted but no version or version type is sent. See each indexer's page for where the version number comes from. |
-| `versionField` | String | No | Document field holding a numeric version. Read only by the OpenSearch and Elasticsearch indexers, which use it when the document has it, else the Kafka offset of a document read from Kafka, else no version. A delete by ID uses only this field, never the Kafka offset. Both fail at startup if it is set without `versionType`. Other indexers ignore it. |
-| `routingField` | String | No | Document field whose value is sent as the routing key. Read only by the OpenSearch and Elasticsearch indexers. |
 | `pipeline` | String | No | Pipeline to index for when the indexer is started on its own (`com.kmwllc.lucille.core.Indexer` main, reading from Kafka) without a pipeline argument. A pipeline argument takes precedence. Not read otherwise. |
 
 ### Field Filtering

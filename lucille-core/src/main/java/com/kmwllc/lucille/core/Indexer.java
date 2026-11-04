@@ -16,6 +16,8 @@ import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigValue;
+import com.typesafe.config.ConfigValueType;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
@@ -38,9 +40,9 @@ import org.slf4j.MDC.MDCCloseable;
 /**
  * Indexes documents into a target destination.
  *
- * <p> Indexers have two separate configurations - the generic <code>indexer</code> configuration, and configuration for the
- * specific implementation held under a certain key. For example, <code>solr</code> holds configuration for a SolrIndexer, <code>csv</code>
- * holds configuration for a CSVIndexer, etc.
+ * <p> An Indexer's configuration is the <code>indexer</code> block. It holds generic settings and, nested under a certain key,
+ * configuration for the specific implementation. For example, <code>indexer.solr</code> holds configuration for a SolrIndexer,
+ * <code>indexer.csv</code> holds configuration for a CSVIndexer, etc.
  *
  * <p> All implementations must declare a <code>public static Spec SPEC</code> defining the specific implementation's properties.
  * This Spec will be accessed reflectively in the super constructor, so the Indexer will not function without declaring a Spec.
@@ -129,7 +131,7 @@ public abstract class Indexer implements Runnable, BatchProcessor {
 
   private volatile boolean running = true;
 
-  private final int logSeconds;
+  private int logSeconds = LogUtils.DEFAULT_LOG_SECONDS;
 
   private final Meter meter;
   private final Histogram histogram;
@@ -174,32 +176,32 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    * <p> All Indexer implementations should declare a <code>public static final Spec SPEC</code> that defines the implementation's
    * specific properties. For example, Elasticsearch needs <code>index</code>, <code>url</code>, etc.
    *
-   * @param config The root config for Lucille. (In other words, should potentially include both "indexer" and specific
-   *               implementation config, like "solr" or "elasticsearch".)
+   * @param config The "indexer" block of Lucille's config, which holds the generic indexer settings and the specific
+   *               implementation's nested block, like "solr" or "elasticsearch".
    */
   public Indexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
     this.messenger = messenger;
     this.bypass = bypass;
-    this.idOverrideField = ConfigUtils.getStringOrDefault(config, "indexer.idOverrideField", null);
-    this.indexOverrideField = ConfigUtils.getStringOrDefault(config, "indexer.indexOverrideField", null);
-    this.deletionMarkerField = ConfigUtils.getStringOrDefault(config, "indexer.deletionMarkerField", null);
-    this.deletionMarkerFieldValue = ConfigUtils.getStringOrDefault(config, "indexer.deletionMarkerFieldValue", null);
-    this.deleteByFieldField = ConfigUtils.getStringOrDefault(config, "indexer.deleteByFieldField", null);
-    this.deleteByFieldValue = ConfigUtils.getStringOrDefault(config, "indexer.deleteByFieldValue", null);
+    this.idOverrideField = ConfigUtils.getStringOrDefault(config, "idOverrideField", null);
+    this.indexOverrideField = ConfigUtils.getStringOrDefault(config, "indexOverrideField", null);
+    this.deletionMarkerField = ConfigUtils.getStringOrDefault(config, "deletionMarkerField", null);
+    this.deletionMarkerFieldValue = ConfigUtils.getStringOrDefault(config, "deletionMarkerFieldValue", null);
+    this.deleteByFieldField = ConfigUtils.getStringOrDefault(config, "deleteByFieldField", null);
+    this.deleteByFieldValue = ConfigUtils.getStringOrDefault(config, "deleteByFieldValue", null);
 
     int batchSize;
     long batchByteSize;
 
-    if (config.hasPath("indexer.batchSize") || config.hasPath("indexer.batchByteSize")) {
+    if (config.hasPath("batchSize") || config.hasPath("batchByteSize")) {
       // when only one is set, the other is disabled so the configured one governs
-      batchSize = ConfigUtils.getIntOrDefault(config, "indexer.batchSize", NO_BATCH_SIZE);
-      batchByteSize = ConfigUtils.getLongOrDefault(config, "indexer.batchByteSize", NO_BATCH_SIZE_BYTES);
+      batchSize = ConfigUtils.getIntOrDefault(config, "batchSize", NO_BATCH_SIZE);
+      batchByteSize = ConfigUtils.getLongOrDefault(config, "batchByteSize", NO_BATCH_SIZE_BYTES);
     } else {
       batchSize = DEFAULT_BATCH_SIZE;
       batchByteSize = NO_BATCH_SIZE_BYTES;
     }
 
-    int batchTimeout = ConfigUtils.getIntOrDefault(config, "indexer.batchTimeout", DEFAULT_BATCH_TIMEOUT);
+    int batchTimeout = ConfigUtils.getIntOrDefault(config, "batchTimeout", DEFAULT_BATCH_TIMEOUT);
     this.batch =
         (indexOverrideField == null)
             ? new SingleBatch(batchSize, batchByteSize, batchTimeout)
@@ -216,17 +218,16 @@ public abstract class Indexer implements Runnable, BatchProcessor {
           "When one of indexer.deletionMarkerField and indexer.deletionMarkerFieldValue are set, both must be set.");
     }
 
-    this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     this.meter = metrics.meter(metricsPrefix + ".indexer.docsIndexed");
     this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
     this.localRunId = localRunId;
 
-    this.fieldFilter = new FieldFilter(config.getConfig("indexer"));
+    this.fieldFilter = new FieldFilter(config);
 
-    if (!config.hasPath("indexer.maxRetries")) {
-      if (config.hasPath("indexer.retryWaitDurationMs") || config.hasPath("indexer.retryableStatusCodes")
-          || config.hasPath("indexer.retryMaxWaitDurationMs") || config.hasPath("indexer.retryRandomizationFactor")) {
+    if (!config.hasPath("maxRetries")) {
+      if (config.hasPath("retryWaitDurationMs") || config.hasPath("retryableStatusCodes")
+          || config.hasPath("retryMaxWaitDurationMs") || config.hasPath("retryRandomizationFactor")) {
         throw new IllegalArgumentException(
             "indexer.retryWaitDurationMs, indexer.retryMaxWaitDurationMs, indexer.retryRandomizationFactor, "
                 + "and indexer.retryableStatusCodes require indexer.maxRetries to be set.");
@@ -234,18 +235,18 @@ public abstract class Indexer implements Runnable, BatchProcessor {
       this.retry = null;
       this.retryableStatusCodes = List.of();
     } else {
-      int maxRetries = config.getInt("indexer.maxRetries");
+      int maxRetries = config.getInt("maxRetries");
       if (maxRetries <= 0) {
         throw new IllegalArgumentException(
             "indexer.maxRetries must be greater than 0 when specified. Remove the parameter to disable retries.");
       }
-      int retryInitialWaitDurationMs = ConfigUtils.getOrDefault(config, "indexer.retryWaitDurationMs", DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS);
-      long retryMaxWaitDurationMs = ConfigUtils.getLongOrDefault(config, "indexer.retryMaxWaitDurationMs", DEFAULT_RETRY_MAX_WAIT_DURATION_MS);
-      double retryRandomizationFactor = ConfigUtils.getDoubleOrDefault(config, "indexer.retryRandomizationFactor", DEFAULT_RETRY_RANDOMIZATION_FACTOR);
-      if (!config.hasPath("indexer.retryableStatusCodes")) {
+      int retryInitialWaitDurationMs = ConfigUtils.getOrDefault(config, "retryWaitDurationMs", DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS);
+      long retryMaxWaitDurationMs = ConfigUtils.getLongOrDefault(config, "retryMaxWaitDurationMs", DEFAULT_RETRY_MAX_WAIT_DURATION_MS);
+      double retryRandomizationFactor = ConfigUtils.getDoubleOrDefault(config, "retryRandomizationFactor", DEFAULT_RETRY_RANDOMIZATION_FACTOR);
+      if (!config.hasPath("retryableStatusCodes")) {
         this.retryableStatusCodes = DEFAULT_RETRYABLE_STATUS_CODES;
       } else {
-        this.retryableStatusCodes = config.getIntList("indexer.retryableStatusCodes");
+        this.retryableStatusCodes = config.getIntList("retryableStatusCodes");
         if (this.retryableStatusCodes.isEmpty()) {
           throw new IllegalArgumentException(
               "indexer.retryableStatusCodes must not be empty when specified. "
@@ -343,7 +344,7 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    */
   public static int getMaxConcurrentBatches(Config config) {
     // getInt, unlike ConfigUtils.getOrDefault, converts a string value such as an environment substitution.
-    return ConfigUtils.getIntOrDefault(config, "indexer.maxConcurrentBatches", DEFAULT_MAX_CONCURRENT_BATCHES);
+    return ConfigUtils.getIntOrDefault(config, "maxConcurrentBatches", DEFAULT_MAX_CONCURRENT_BATCHES);
   }
 
   /**
@@ -817,26 +818,50 @@ public abstract class Indexer implements Runnable, BatchProcessor {
 
   private void validateIndexerConfigs(Config config) {
     // Validate the general "indexer" entry in the Config. (This Spec is same for all indexers.)
-    Config indexerConfig = config.getConfig("indexer");
+    String indexerConfigKey = getIndexerConfigKey();
+    Config genericConfig = config;
+
+    // Every object in the block is an implementation's block; the generic settings are all scalars and lists.
+    for (Map.Entry<String, ConfigValue> entry : config.root().entrySet()) {
+      if (entry.getValue().valueType() != ConfigValueType.OBJECT) {
+        continue;
+      }
+      String key = entry.getKey();
+      genericConfig = genericConfig.root().withoutKey(key).toConfig();
+      if (key.equals(indexerConfigKey)) {
+        continue;
+      }
+      if (key.equalsIgnoreCase(indexerConfigKey)) {
+        throw new IllegalArgumentException("Config block indexer." + key + " must be named indexer." + indexerConfigKey + ".");
+      }
+      log.warn("Ignoring config block indexer.{}, which {} does not use.", key, getClass().getSimpleName());
+    }
+
     SpecBuilder.withoutDefaults()
         .optionalString("type", "class", "pipeline", "idOverrideField", "indexOverrideField", "deletionMarkerField",
-            "deletionMarkerFieldValue", "deleteByFieldField", "deleteByFieldValue", "versionType", "versionField", "routingField")
+            "deletionMarkerFieldValue", "deleteByFieldField", "deleteByFieldValue")
         .optionalNumber("batchSize", "batchByteSize", "batchTimeout", "maxRetries", "retryWaitDurationMs",
             "retryMaxWaitDurationMs", "retryRandomizationFactor", "maxConcurrentBatches")
         .optionalBoolean("sendEnabled")
         .optionalList("whitelist", new TypeReference<List<String>>(){})
         .optionalList("blacklist", new TypeReference<List<String>>(){})
         .optionalList("retryableStatusCodes", new TypeReference<List<Integer>>(){}).build()
-        .validate(indexerConfig, "Indexer");
+        .validate(genericConfig, "Indexer");
 
     // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.
     // This spec is unique to the implementation and must be public + static under "SPEC".
-    String indexerConfigKey = getIndexerConfigKey();
-
     if (indexerConfigKey != null && config.hasPath(indexerConfigKey)) {
       Config specificImplConfig = config.getConfig(indexerConfigKey);
       Spec.of(getClass()).validate(specificImplConfig, indexerConfigKey);
     }
+  }
+
+  /**
+   * Applies settings from Lucille's root config, which this Indexer's own config does not include. Called before the
+   * Indexer's thread starts.
+   */
+  void applyRootConfig(Config rootConfig) {
+    this.logSeconds = ConfigUtils.getOrDefault(rootConfig, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
   }
 
   public int getBatchCapacity() {
