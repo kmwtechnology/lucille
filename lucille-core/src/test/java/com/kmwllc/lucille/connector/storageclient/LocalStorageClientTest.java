@@ -717,6 +717,19 @@ public class LocalStorageClientTest {
     }
   }
 
+  // A listing that ends early leaves files unseen that would look deleted, so it fails the traversal.
+  @Test
+  public void testDirectoryListingFailurePartwayFails() throws Exception {
+    Path root = tempFolder.newFolder("listing").toPath();
+    LocalStorageClient client = new LocalStorageClient();
+    LocalStorageClient.LocalFileVisitor visitor = client.new LocalFileVisitor(null,
+        new TraversalParams(ConfigFactory.empty(), root.toUri(), ""), null);
+
+    java.io.IOException listingFailure = new java.io.IOException("mount dropped");
+    assertEquals(listingFailure, assertThrows(java.io.IOException.class, () -> visitor.postVisitDirectory(root, listingFailure)));
+    assertEquals(java.nio.file.FileVisitResult.CONTINUE, visitor.postVisitDirectory(root, null));
+  }
+
   // A move folder whose parents don't exist yet is created, rather than failing the move after the file was published.
   @Test
   public void testMoveFileCreatesMissingParents() throws Exception {

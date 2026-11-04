@@ -158,7 +158,12 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-      // we don't care about after we finished the directory
+      // The listing ended early (e.g. a mount dropped), so the files not yet listed would look deleted. Fail the run
+      // rather than tombstone them.
+      if (exc != null) {
+        throw exc;
+      }
+
       return FileVisitResult.CONTINUE;
     }
   }
