@@ -401,4 +401,14 @@ public class QueryDatabaseTest {
     // verify that connection has been established, and that prepareStatement was called
     verify(mockConnection, times(1)).prepareStatement(any());
   }
+
+  @Test
+  public void testNullKeyField() throws Exception {
+    Stage stage = factory.get("QueryDatabaseTest/animal.conf");
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"name\":null}");
+    assertThrows(StageException.class, () -> stage.processDocument(doc));
+    Document leadingNull = Document.createFromJson("{\"id\":\"2\",\"name\":[null,\"cat\"]}");
+    assertThrows(StageException.class, () -> stage.processDocument(leadingNull));
+    stage.stop();
+  }
 }

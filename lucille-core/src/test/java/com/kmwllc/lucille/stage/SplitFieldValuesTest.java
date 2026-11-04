@@ -1,5 +1,9 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertThrows;
+import java.util.List;
+import java.util.Map;
+import static org.junit.Assert.assertFalse;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -58,5 +62,30 @@ public class SplitFieldValuesTest {
     assertEquals(
         Set.of("inputField", "delimiter", "trimWhitespace", "outputField"),
         stage.getNonDefaultLegalProperties());
+  }
+
+  @Test
+  public void testNullValues() throws Exception {
+    Stage stage = factory.get(Map.of("inputField", "f", "outputField", "o", "delimiter", " ", "trimWhitespace", true));
+
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"f\":null}");
+    stage.processDocument(doc);
+    assertFalse(doc.has("o"));
+
+    Document mixed = Document.createFromJson("{\"id\":\"1\",\"f\":[null,\"Hi There\"]}");
+    stage.processDocument(mixed);
+    assertEquals(List.of("Hi", "There"), mixed.getStringList("o"));
+  }
+
+  @Test
+  public void testDelimiterIsRegex() throws Exception {
+    Stage stage = factory.get(Map.of("inputField", "a", "outputField", "b", "delimiter", "\\|", "trimWhitespace", true));
+    Document doc = Document.create("doc");
+    doc.setField("a", "x|y");
+    stage.processDocument(doc);
+    assertEquals(List.of("x", "y"), doc.getStringList("b"));
+
+    assertThrows(StageException.class,
+        () -> factory.get(Map.of("inputField", "a", "outputField", "b", "delimiter", "(", "trimWhitespace", true)));
   }
 }

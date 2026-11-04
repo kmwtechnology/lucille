@@ -80,4 +80,11 @@ public class MatchQueryTest {
     assertThrows(StageException.class,
         () -> factory.get("MatchQueryTest/blank_matched_queries.conf"));
   }
+
+  @Test
+  public void testNullValueIsSkipped() throws Exception {
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"content\":null,\"table\":\"geotrans\",\"country\":\"jp\"}");
+    factory.get("MatchQueryTest/config.conf").processDocument(doc);
+    assertTrue(doc.getStringList("matchfield").contains("japan"));
+  }
 }

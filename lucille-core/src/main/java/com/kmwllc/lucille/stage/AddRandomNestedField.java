@@ -233,7 +233,8 @@ public class AddRandomNestedField extends Stage {
       JsonNode valNode = null;
       boolean hasSource = !isBlank(sourceField) && doc.has(sourceField);
       if (hasSource) {
-        valNode = doc.getJson(sourceField);
+        // copy, since the same source can be written into every generated object
+        valNode = doc.getJson(sourceField).deepCopy();
       } else if (genKey != null) {
         valNode = generateWith(genKey);
       }

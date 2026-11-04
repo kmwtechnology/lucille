@@ -1,5 +1,8 @@
 package com.kmwllc.lucille.util;
 
+import com.kmwllc.lucille.core.Document;
+import java.util.List;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -74,4 +77,12 @@ public class StageUtilsTest {
         new ArrayList<>(Arrays.asList("c", "d")), "TestStage");
   }
 
+  @Test
+  public void testGetNonNullStrings() throws Exception {
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"null\":null,\"mixed\":[null,\"a\",5],\"empty\":[]}");
+    assertEquals(List.of(), StageUtils.getNonNullStrings(doc, "missing"));
+    assertEquals(List.of(), StageUtils.getNonNullStrings(doc, "null"));
+    assertEquals(List.of(), StageUtils.getNonNullStrings(doc, "empty"));
+    assertEquals(List.of("a", "5"), StageUtils.getNonNullStrings(doc, "mixed"));
+  }
 }

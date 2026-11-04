@@ -1,5 +1,8 @@
 package com.kmwllc.lucille.stage;
 
+import java.util.List;
+import java.util.Map;
+import static org.junit.Assert.assertFalse;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -56,5 +59,32 @@ public class CreateStaticTeaserTest {
     assertEquals(
         Set.of("updateMode", "source", "dest", "maxLength"),
         stage.getNonDefaultLegalProperties());
+  }
+
+  @Test
+  public void testNullValues() throws Exception {
+    Stage stage = factory.get(Map.of("source", List.of("f"), "dest", List.of("o"), "maxLength", 50));
+
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"f\":null}");
+    stage.processDocument(doc);
+    assertFalse(doc.has("o"));
+
+    Document mixed = Document.createFromJson("{\"id\":\"1\",\"f\":[null,\"Hi There\"]}");
+    stage.processDocument(mixed);
+    assertFalse(mixed.has("o"));
+  }
+
+  @Test
+  public void testWordEndingAtLimitIsKept() throws Exception {
+    Stage stage = factory.get(Map.of("source", List.of("in"), "dest", List.of("out"), "maxLength", 11));
+    Document doc = Document.create("doc");
+    doc.setField("in", "Hello world");
+    stage.processDocument(doc);
+    assertEquals("Hello world", doc.getString("out"));
+
+    Document longer = Document.create("longer");
+    longer.setField("in", "Hello world again");
+    stage.processDocument(longer);
+    assertEquals("Hello world", longer.getString("out"));
   }
 }

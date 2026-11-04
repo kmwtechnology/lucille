@@ -13,6 +13,7 @@ Parses the XML in `xmlField` and evaluates each XPath expression in `fieldMappin
 |---|---|---|---|
 | `xmlField` | String | No | Field containing the XML. If the field is multi-valued, only the first value is used. Default: `xml`. |
 | `fieldMapping` | Map\<String, List\<String\>\> | Yes | Map of XPath expression to the list of destination fields. Quote the expressions, since in an unquoted HOCON key `//` starts a comment and `.` is a path separator. An expression that does not compile fails at startup. |
+| `allowDoctype` | Boolean | No | Accept XML that contains a DOCTYPE. External DTDs and external entities are never loaded, even when allowed. Default: `false`, so XML with a DOCTYPE is logged as an error and nothing is extracted from it. |
 
 ## Behavior
 
