@@ -31,7 +31,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Collections;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -1162,7 +1161,7 @@ public class OpenSearchIndexerTest {
         new ObjectMapper().createObjectNode()
             .put("id", "doc1")
             .put("field1", "value1"));
-    doc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
+    doc.setKafkaMetadata("testing", 0, 100, null);
 
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
@@ -1192,7 +1191,7 @@ public class OpenSearchIndexerTest {
         new ObjectMapper().createObjectNode()
             .put("id", "doc1")
             .put("field1", "value1"));
-    doc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
+    doc.setKafkaMetadata("testing", 0, 100, null);
 
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
@@ -1247,7 +1246,7 @@ public class OpenSearchIndexerTest {
         new ObjectMapper().createObjectNode()
             .put("id", "doc2")
             .put("deleted", "true"));
-    kafkaDoc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
+    kafkaDoc.setKafkaMetadata("testing", 0, 100, null);
     assertTrue(indexer.sendToIndex(List.of(doc, kafkaDoc)).isEmpty());
 
     ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
