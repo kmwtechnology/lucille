@@ -145,18 +145,16 @@ public sealed interface Document permits JsonDocument {
 
   /* --- NAMES OF RESERVED FIELDS --- */
 
-  // Field names beginning with "___" belong to Lucille, which may add reserved fields with that prefix in a minor
-  // release. id and run_id are the only reserved names without it.
-
   String ID_FIELD = "id";
   String RUNID_FIELD = "run_id";
   String CHILDREN_FIELD = "___children";
   String DROP_FIELD = "___dropped";
   String SKIP_FIELD = "___skipped";
+
   /**
    * The reserved field names, which stages and other callers cannot set, rename or remove. The set is immutable.
    * Lucille may add reserved names in a minor release; any it adds will begin with "___", so avoid that prefix in
-   * field names of your own.
+   * field names of your own. Note that id and run_id are the only reserved names without the "___" prefix.
    */
   Set<String> RESERVED_FIELDS = Set.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD, SKIP_FIELD);
 
