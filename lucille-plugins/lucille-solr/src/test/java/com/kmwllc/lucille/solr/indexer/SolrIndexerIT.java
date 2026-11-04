@@ -86,9 +86,9 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     JettySolrRunner jetty = cluster.getJettySolrRunners().get(0);
 
     Map<String, Object> map = new HashMap<>();
-    map.put("solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
-    map.put("solr.useCloudClient", true);
-    map.put("solr.defaultCollection", "test");
+    map.put("indexer.solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
+    map.put("indexer.solr.useCloudClient", true);
+    map.put("indexer.solr.defaultCollection", "test");
     map.put("indexer.batchTimeout", 5000);
     map.put("indexer.batchSize", 1);
     map.put("indexer.type", "solr");
@@ -149,9 +149,9 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     JettySolrRunner jetty = cluster.getJettySolrRunners().get(0);
 
     Map<String, Object> map = new HashMap<>();
-    map.put("solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
-    map.put("solr.useCloudClient", true);
-    map.put("solr.defaultCollection", "test");
+    map.put("indexer.solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
+    map.put("indexer.solr.useCloudClient", true);
+    map.put("indexer.solr.defaultCollection", "test");
     map.put("indexer.batchTimeout", 5000);
     map.put("indexer.batchSize", 1);
     map.put("indexer.type", "solr");
@@ -229,9 +229,9 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     JettySolrRunner jetty = cluster.getJettySolrRunners().get(0);
 
     Map<String, Object> map = new HashMap<>();
-    map.put("solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
-    map.put("solr.useCloudClient", true);
-    map.put("solr.defaultCollection", "test");
+    map.put("indexer.solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
+    map.put("indexer.solr.useCloudClient", true);
+    map.put("indexer.solr.defaultCollection", "test");
     map.put("indexer.batchTimeout", 5000);
     map.put("indexer.batchSize", 2);
     map.put("indexer.type", "solr");
@@ -314,7 +314,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
 
     // Create a HTTP2SolrClient config
     Map<String, Object> mapHttp = new HashMap<>();
-    mapHttp.put("solr.url", List.of(jetty.getBaseUrl().toString() + "/test"));
+    mapHttp.put("indexer.solr.url", List.of(jetty.getBaseUrl().toString() + "/test"));
     mapHttp.put("indexer.batchTimeout", 5000);
     mapHttp.put("indexer.batchSize", 2);
     mapHttp.put("indexer.type", "solr");
@@ -322,9 +322,9 @@ public class SolrIndexerIT extends SolrCloudTestCase {
 
     // Create a CloudHTTP2SolrClient config
     Map<String, Object> mapCloud = new HashMap<>();
-    mapCloud.put("solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
-    mapCloud.put("solr.useCloudClient", true);
-    mapCloud.put("solr.defaultCollection", "test");
+    mapCloud.put("indexer.solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
+    mapCloud.put("indexer.solr.useCloudClient", true);
+    mapCloud.put("indexer.solr.defaultCollection", "test");
     mapCloud.put("indexer.batchTimeout", 5000);
     mapCloud.put("indexer.batchSize", 2);
     mapCloud.put("indexer.type", "solr");
@@ -347,9 +347,9 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     JettySolrRunner jetty = cluster.getJettySolrRunners().get(0);
 
     Map<String, Object> map = new HashMap<>();
-    map.put("solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
-    map.put("solr.useCloudClient", true);
-    map.put("solr.defaultCollection", "test");
+    map.put("indexer.solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
+    map.put("indexer.solr.useCloudClient", true);
+    map.put("indexer.solr.defaultCollection", "test");
     map.put("indexer.batchTimeout", 5000);
     map.put("indexer.batchSize", 1);
     map.put("indexer.type", "solr");

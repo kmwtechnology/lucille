@@ -86,16 +86,16 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
     return solrRule.getSolrClient(CORE);
   }
 
-  private static Map<String, Object> baseConfig() {
+  private static Map<String, Object> baseConfig(String solrBlock) {
     Map<String, Object> map = new HashMap<>();
     // the documented single-node configuration: a url, no useCloudClient
-    map.put("solr.url", List.of(solrRule.getBaseUrl()));
-    map.put("solr.defaultCollection", CORE);
+    map.put(solrBlock + ".url", List.of(solrRule.getBaseUrl()));
+    map.put(solrBlock + ".defaultCollection", CORE);
     return map;
   }
 
   private static SolrIndexer newIndexer(Map<String, Object> extra) {
-    Map<String, Object> map = baseConfig();
+    Map<String, Object> map = baseConfig("indexer.solr");
     map.put("indexer.type", "solr");
     map.put("indexer.batchSize", 100);
     map.putAll(extra);
@@ -230,7 +230,7 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
     solrClient().add(docs);
     solrClient().commit();
 
-    Map<String, Object> map = baseConfig();
+    Map<String, Object> map = baseConfig("solr");
     map.put("name", "connector1");
     map.put("pipeline", "pipeline1");
     // fewer rows than documents, so the connector has to follow the cursor across pages
