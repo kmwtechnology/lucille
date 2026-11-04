@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.TestMessenger;
@@ -234,7 +235,7 @@ public class OpenSearchIndexerBulkBodyTest {
     Document before = doc.deepCopy();
 
     TestMessenger messenger = new TestMessenger();
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 

@@ -17,6 +17,7 @@ import co.elastic.clients.util.BinaryData;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
@@ -231,7 +232,7 @@ public class ElasticsearchIndexerBulkBodyTest {
     Document before = doc.deepCopy();
 
     TestMessenger messenger = new TestMessenger();
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 

@@ -4,12 +4,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerType;
-import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.solr.util.SolrUtils;
 import com.kmwllc.lucille.util.SSLUtils;
 import com.typesafe.config.Config;
@@ -69,24 +69,18 @@ public class SolrIndexer extends Indexer {
 
   private final SolrClient solrClient;
 
-  public SolrIndexer(Config config, IndexerMessenger messenger, boolean bypass,
-      String metricsPrefix, String localRunId, SolrClient solrClient) {
-    super(config, messenger, bypass, metricsPrefix, localRunId);
+  public SolrIndexer(Config config, IndexerContext context, SolrClient solrClient) {
+    super(config, context);
 
     this.solrClient = solrClient;
   }
 
-  public SolrIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, bypass, metricsPrefix, localRunId);
+  public SolrIndexer(Config config, IndexerContext context) {
+    super(config, context);
 
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.
     this.solrClient = getSolrClient(config, bypass);
-  }
-
-  // Convenience Constructors
-  public SolrIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, SolrClient solrClient) {
-    this(config, messenger, false, metricsPrefix, null, solrClient);
   }
 
   @Override

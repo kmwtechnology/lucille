@@ -39,7 +39,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 |---|---|---|
 | `public static final Spec SPEC` | Yes | Declares the legal properties for your implementation-specific config block (not the generic `indexer` block — that's validated by the base class). |
 
-Your constructor must call `super(config, messenger, bypass, metricsPrefix, localRunId)` — this triggers config validation, sets up batching, and initializes metrics. The constructor signature must be `(Config, IndexerMessenger, boolean, String, String)` because the `IndexerFactory` instantiates indexers reflectively using this signature.
+Your constructor must call `super(config, context)` — this triggers config validation, sets up batching, and initializes metrics. The constructor signature must be `(Config, IndexerContext)` because the `IndexerFactory` instantiates indexers reflectively using this signature. `IndexerContext` holds what the framework provides apart from config, such as the messenger and the metrics prefix. Pass it through to `super`; the base class exposes what you need, such as the `bypass` field.
 
 **What's in `config`:** Like Stages and Connectors, your Indexer receives its own block: the `Config` passed to your constructor is the `indexer` block. The base class reads generic settings from it, such as `idOverrideField`. Your implementation reads its nested block via `config.getConfig("mykey")` (e.g., `config.getConfig("solr")`). Your SPEC declares only the properties within your implementation-specific block — write `"url"`, not `"solr.url"`. The base class validates the generic settings separately.
 
@@ -56,10 +56,10 @@ package com.kmwllc.lucille.indexer;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import java.util.List;
 import java.util.Set;
@@ -84,9 +84,8 @@ public class ExampleIndexer extends Indexer {
   private final String url;
   private final String defaultIndex;
   
-  public ExampleIndexer(Config config, IndexerMessenger messenger, boolean bypass,
-      String metricsPrefix, String localRunId) {
-    super(config, messenger, bypass, metricsPrefix, localRunId);
+  public ExampleIndexer(Config config, IndexerContext context) {
+    super(config, context);
     Config implConfig = config.getConfig("example");
     this.url = implConfig.getString("url");
     this.defaultIndex = ConfigUtils.getOrDefault(implConfig, "index", "index1");
@@ -153,6 +152,7 @@ Registering lets the nested block's name, or `indexer.type: "..."`, select your 
 ```java
 import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.indexer.IndexerType;
 
 @AutoService(Indexer.class)
@@ -162,7 +162,7 @@ public class NameIndexer extends Indexer {
 }
 ```
 
-`@IndexerType` declares the `indexer.type` name; `@AutoService(Indexer.class)` makes AutoService list this class in `META-INF/services/com.kmwllc.lucille.core.Indexer` at compile time. At runtime `IndexerFactory` reads the class names from those service files (merged across all jars on the classpath), resolves each with `Class.forName(name, false, loader)` which loads the class and reads its `@IndexerType` **without instantiating it**, and matches the annotation value case-insensitively against the nested block's name or the configured `indexer.type`. Only the matching indexer is constructed, through its normal `(Config, IndexerMessenger, boolean, String, String)` constructor.
+`@IndexerType` declares the `indexer.type` name; `@AutoService(Indexer.class)` makes AutoService list this class in `META-INF/services/com.kmwllc.lucille.core.Indexer` at compile time. At runtime `IndexerFactory` reads the class names from those service files (merged across all jars on the classpath), resolves each with `Class.forName(name, false, loader)` which loads the class and reads its `@IndexerType` **without instantiating it**, and matches the annotation value case-insensitively against the nested block's name or the configured `indexer.type`. Only the matching indexer is constructed, through its normal `(Config, IndexerContext)` constructor.
 
 If you skip this step, your indexer is still usable, but users must set the fully-qualified `indexer.class`.
 
@@ -220,14 +220,14 @@ public class MyIndexerTest {
   @Test
   public void testBasicIndexing() throws Exception {
     Config config = ConfigFactory.empty()
-        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+        .withValue("batchSize", ConfigValueFactory.fromAnyRef(1));
     TestMessenger messenger = new TestMessenger();
 
     Document doc = Document.create("doc1", "test_run");
     doc.setField("title", "Hello");
 
     MyClient mockClient = mock(MyClient.class);
-    Indexer indexer = new MyIndexer(config, messenger, false, "", null, mockClient);
+    Indexer indexer = new MyIndexer(config, new IndexerContext(messenger, false, "", null), mockClient);
 
     messenger.sendForIndexing(doc);
     indexer.run(1);
@@ -264,15 +264,13 @@ Indexers that talk to external systems (Solr, OpenSearch, Elasticsearch) should 
 
 ```java
 // Production constructor — creates a real client
-public MyIndexer(Config config, IndexerMessenger messenger, boolean bypass,
-    String metricsPrefix, String localRunId) {
-  this(config, messenger, bypass, metricsPrefix, localRunId, createRealClient(config));
+public MyIndexer(Config config, IndexerContext context) {
+  this(config, context, createRealClient(config));
 }
 
 // Test constructor — accepts a mock
-public MyIndexer(Config config, IndexerMessenger messenger, boolean bypass,
-    String metricsPrefix, String localRunId, MyClient client) {
-  super(config, messenger, bypass, metricsPrefix, localRunId);
+public MyIndexer(Config config, IndexerContext context, MyClient client) {
+  super(config, context);
   this.client = client;
 }
 ```

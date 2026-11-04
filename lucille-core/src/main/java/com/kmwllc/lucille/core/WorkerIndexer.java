@@ -82,7 +82,6 @@ public class WorkerIndexer {
         new HybridIndexerMessenger(config, pipelineDest, offsets, idSet, pipelineName);
 
     indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassSearchEngine, pipelineName, null);
-    indexer.applyRootConfig(config);
 
     if (!bypassSearchEngine && !indexer.validateConnection()) {
       throw new IndexerException("Indexer could not connect");

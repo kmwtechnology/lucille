@@ -17,6 +17,7 @@ import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.KafkaDocument;
@@ -24,7 +25,6 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.elasticsearch.util.ElasticsearchUtils;
 import com.kmwllc.lucille.indexer.IndexerType;
-import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.FieldFilter;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -107,9 +107,8 @@ public class ElasticsearchIndexer extends Indexer {
   private final String childDocumentsField;
   private final String versionField;
 
-  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass,
-      String metricsPrefix, String localRunId, ElasticsearchClient client) {
-    super(config, messenger, bypass, metricsPrefix, localRunId);
+  public ElasticsearchIndexer(Config config, IndexerContext context, ElasticsearchClient client) {
+    super(config, context);
 
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
@@ -164,16 +163,11 @@ public class ElasticsearchIndexer extends Indexer {
     return null;
   }
 
-  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
-    this(config, messenger, bypass, metricsPrefix, localRunId, null);
+  public ElasticsearchIndexer(Config config, IndexerContext context) throws IndexerException {
+    this(config, context, null);
     // built after super() and this class's config checks, so a constructor that throws can't leak the client's
     // connection pool and threads; nothing after this line can throw
     this.client = getClient(config, bypass);
-  }
-
-  // Convenience Constructors
-  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, ElasticsearchClient client) {
-    this(config, messenger, false, metricsPrefix, null, client);
   }
 
   @Override

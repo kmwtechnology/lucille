@@ -926,7 +926,7 @@ public class IndexerConcurrencyTest {
     private final Set<String> barrierCheckFailures = ConcurrentHashMap.newKeySet();
 
     ControlledIndexer(Config config, RecordingMessenger messenger) {
-      super(config, messenger, false, "IndexerConcurrencyTest", "IndexerConcurrencyTest");
+      super(config, new IndexerContext(messenger, false, "IndexerConcurrencyTest", "IndexerConcurrencyTest"));
       this.messenger = messenger;
     }
 

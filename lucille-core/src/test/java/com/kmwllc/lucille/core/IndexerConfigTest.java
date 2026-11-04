@@ -61,7 +61,7 @@ public class IndexerConfigTest {
         "indexer.type", "csv", "indexer.maxConcurrentBatches", 2,
         "indexer.csv.columns", List.of("id"), "indexer.csv.path", "target/IndexerConfigTest.csv"));
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-        () -> new CSVIndexer(config.getConfig("indexer"), new TestMessenger(), false, "testing"));
+        () -> new CSVIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null)));
     assertTrue(e.getMessage(), e.getMessage().contains("does not support concurrent sends"));
   }
 
@@ -70,7 +70,7 @@ public class IndexerConfigTest {
     Config config = ConfigFactory.parseMap(Map.of(
         "indexer.type", "csv", "indexer.maxConcurrentBatches", 1,
         "indexer.csv.columns", List.of("id"), "indexer.csv.path", "target/IndexerConfigTest.csv"));
-    new CSVIndexer(config.getConfig("indexer"), new TestMessenger(), false, "testing").closeConnection();
+    new CSVIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null)).closeConnection();
   }
 
   @Test
@@ -108,7 +108,7 @@ public class IndexerConfigTest {
     }
 
     ConcurrentCapableIndexer(Config config, IndexerMessenger messenger) {
-      super(config, messenger, false, "IndexerConfigTest", null);
+      super(config, new IndexerContext(messenger, false, "IndexerConfigTest", null));
     }
 
     @Override

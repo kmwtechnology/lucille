@@ -4,11 +4,11 @@ import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.indexer.IndexerType;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import io.weaviate.client.WeaviateAuthClient;
 import io.weaviate.client.WeaviateClient;
@@ -54,14 +54,8 @@ public class WeaviateIndexer extends Indexer {
 
   private final String vectorField;
 
-  public WeaviateIndexer(Config config, IndexerMessenger messenger, WeaviateClient client,
-      String metricsPrefix, String localRunId) {
-    this(config, messenger, client, false, metricsPrefix, localRunId);
-  }
-
-  private WeaviateIndexer(Config config, IndexerMessenger messenger, WeaviateClient client, boolean bypass,
-      String metricsPrefix, String localRunId) {
-    super(config, messenger, bypass, metricsPrefix, localRunId);
+  public WeaviateIndexer(Config config, IndexerContext context, WeaviateClient client) {
+    super(config, context);
 
     if (this.deletionMarkerField != null || this.deleteByFieldField != null) {
       log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be indexed as regular docs");
@@ -77,19 +71,11 @@ public class WeaviateIndexer extends Indexer {
     this.client = client;
   }
 
-  public WeaviateIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    this(config, messenger, getClient(config, bypass), bypass, metricsPrefix, localRunId);
+  public WeaviateIndexer(Config config, IndexerContext context) {
+    this(config, context, getClient(config, context.bypass()));
   }
 
   // Convenience Constructors
-  public WeaviateIndexer(Config config, IndexerMessenger messenger, WeaviateClient client, String metricsPrefix) {
-    this(config, messenger, client, metricsPrefix, null);
-  }
-
-  public WeaviateIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
-    this(config, messenger, bypass, metricsPrefix, null);
-  }
-
   @Override
   protected String getIndexerConfigKey() { return "weaviate"; }
 

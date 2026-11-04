@@ -4,13 +4,13 @@ import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerType;
-import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.opensearch.util.OpenSearchUtils;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -95,9 +95,8 @@ public class OpenSearchIndexer extends Indexer {
 
   private final String childDocumentsField;
 
-  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass,
-      String metricsPrefix,String localRunId, OpenSearchClient client) {
-    super(config, messenger, bypass, metricsPrefix, localRunId);
+  public OpenSearchIndexer(Config config, IndexerContext context, OpenSearchClient client) {
+    super(config, context);
 
     this.client = client;
     this.index = OpenSearchUtils.getOpenSearchIndex(config);
@@ -114,16 +113,11 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
-    this(config, messenger, bypass, metricsPrefix, localRunId, null);
+  public OpenSearchIndexer(Config config, IndexerContext context) throws IndexerException {
+    this(config, context, null);
     // built after super() and this class's config checks, so a constructor that throws can't leak the client's
     // connection pool and threads; nothing after this line can throw
     this.client = getClient(config, bypass);
-  }
-
-  // Convenience Constructors
-  public OpenSearchIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, OpenSearchClient client) {
-    this(config, messenger, false, metricsPrefix, null, client);
   }
 
   @Override

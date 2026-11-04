@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.LongNode;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.IndexerMessenger;
@@ -98,7 +99,7 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
     map.put("indexer.type", "solr");
     map.put("indexer.batchSize", 100);
     map.putAll(extra);
-    return new SolrIndexer(ConfigFactory.parseMap(map).getConfig("indexer"), mock(IndexerMessenger.class), false, "solr", null);
+    return new SolrIndexer(ConfigFactory.parseMap(map).getConfig("indexer"), new IndexerContext(mock(IndexerMessenger.class), false, "solr", null));
   }
 
   private static List<String> idsInSolr() throws Exception {

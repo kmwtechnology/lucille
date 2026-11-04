@@ -5,10 +5,10 @@ import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.message.IndexerMessenger;
 import com.opencsv.CSVWriterBuilder;
 import com.opencsv.ICSVWriter;
 import com.typesafe.config.Config;
@@ -58,17 +58,15 @@ public class CSVIndexer extends Indexer {
   private final boolean includeHeader;
 
   /**
-   * Creates a CSVIndexer from the given arguments.
+   * Creates a CSVIndexer that writes to the given writer.
    * @param config The "indexer" block of Lucille's config, which contains "csv" (Configuration for the CSVIndexer)
-   * @param localRunId The runID for a local run, null otherwise.
    */
-  public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix, String localRunId) {
-    this(config, messenger, writer, null, bypass, metricsPrefix, localRunId);
+  public CSVIndexer(Config config, IndexerContext context, ICSVWriter writer) {
+    this(config, context, writer, null);
   }
 
-  private CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, String path, boolean bypass,
-      String metricsPrefix, String localRunId) {
-    super(config, messenger, bypass, metricsPrefix, localRunId);
+  private CSVIndexer(Config config, IndexerContext context, ICSVWriter writer, String path) {
+    super(config, context);
     if (this.indexOverrideField != null) {
       // a writer passed in has already opened its output; close it so the file isn't left locked
       if (writer != null) {
@@ -93,30 +91,11 @@ public class CSVIndexer extends Indexer {
   }
 
   /**
-   * Creates a CSVIndexer from the given arguments.
-   * @param config The "indexer" block of Lucille's config, which contains "csv" (Configuration for the CSVIndexer)
-   * @param localRunId The runID for a local run, null otherwise.
-   */
-  public CSVIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    this(config, messenger, null, ConfigUtils.getStringOrDefault(config, "csv.path", null), bypass, metricsPrefix, localRunId);
-  }
-
-  // Convenience Constructors - No localRunId needs to be specified, uses "null".
-
-  /**
-   * Creates a CSVIndexer from the given arguments with no localRunId.
+   * Creates a CSVIndexer that writes to the file at the configured path.
    * @param config The "indexer" block of Lucille's config, which contains "csv" (Configuration for the CSVIndexer)
    */
-  public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix) {
-    this(config, messenger, writer, bypass, metricsPrefix, null);
-  }
-
-  /**
-   * Creates a CSVIndexer from the given arguments with no localRunId.
-   * @param config The "indexer" block of Lucille's config, which contains "csv" (Configuration for the CSVIndexer)
-   */
-  public CSVIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
-    this(config, messenger, null, ConfigUtils.getStringOrDefault(config, "csv.path", null), bypass, metricsPrefix, null);
+  public CSVIndexer(Config config, IndexerContext context) {
+    this(config, context, null, ConfigUtils.getStringOrDefault(config, "csv.path", null));
   }
 
   @Override

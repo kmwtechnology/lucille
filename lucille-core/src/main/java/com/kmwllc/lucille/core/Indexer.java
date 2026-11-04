@@ -131,7 +131,7 @@ public abstract class Indexer implements Runnable, BatchProcessor {
 
   private volatile boolean running = true;
 
-  private int logSeconds = LogUtils.DEFAULT_LOG_SECONDS;
+  private final int logSeconds;
 
   private final Meter meter;
   private final Histogram histogram;
@@ -178,10 +178,12 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    *
    * @param config The "indexer" block of Lucille's config, which holds the generic indexer settings and the specific
    *               implementation's nested block, like "solr" or "elasticsearch".
+   * @param context What the framework provides to this Indexer apart from its config.
    */
-  public Indexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    this.messenger = messenger;
-    this.bypass = bypass;
+  public Indexer(Config config, IndexerContext context) {
+    this.messenger = context.messenger();
+    this.bypass = context.bypass();
+    this.logSeconds = context.logSeconds();
     this.idOverrideField = ConfigUtils.getStringOrDefault(config, "idOverrideField", null);
     this.indexOverrideField = ConfigUtils.getStringOrDefault(config, "indexOverrideField", null);
     this.deletionMarkerField = ConfigUtils.getStringOrDefault(config, "deletionMarkerField", null);
@@ -219,9 +221,9 @@ public abstract class Indexer implements Runnable, BatchProcessor {
     }
 
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
-    this.meter = metrics.meter(metricsPrefix + ".indexer.docsIndexed");
-    this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
-    this.localRunId = localRunId;
+    this.meter = metrics.meter(context.metricsPrefix() + ".indexer.docsIndexed");
+    this.histogram = metrics.histogram(context.metricsPrefix() + ".indexer.batchTimeOverSize");
+    this.localRunId = context.localRunId();
 
     this.fieldFilter = new FieldFilter(config);
 
@@ -854,14 +856,6 @@ public abstract class Indexer implements Runnable, BatchProcessor {
       Config specificImplConfig = config.getConfig(indexerConfigKey);
       Spec.of(getClass()).validate(specificImplConfig, indexerConfigKey);
     }
-  }
-
-  /**
-   * Applies settings from Lucille's root config, which this Indexer's own config does not include. Called before the
-   * Indexer's thread starts.
-   */
-  void applyRootConfig(Config rootConfig) {
-    this.logSeconds = ConfigUtils.getOrDefault(rootConfig, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
   }
 
   public int getBatchCapacity() {
