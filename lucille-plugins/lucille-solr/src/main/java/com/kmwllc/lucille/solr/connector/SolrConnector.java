@@ -70,7 +70,7 @@ public class SolrConnector extends AbstractConnector {
   private final String actionFormat;
 
   public static final Spec SPEC = SpecBuilder.connector()
-      .requiredParent(SolrUtils.SOLR_PARENT_SPEC)
+      .requiredParent("solr", SolrUtils.SOLR_PARENT_SPEC)
       .optionalParent("solrParams", new TypeReference<Map<String, Object>>(){})
       .optionalList("preActions", new TypeReference<List<String>>(){})
       .optionalList("postActions", new TypeReference<List<String>>(){})

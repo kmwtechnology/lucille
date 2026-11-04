@@ -9,8 +9,6 @@ import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.core.filehandler.FileHandler;
 import com.kmwllc.lucille.core.filehandler.FileHandlerException;
-import com.kmwllc.lucille.core.spec.Spec;
-import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -66,11 +64,6 @@ public class ArchiveEntryStreamTest {
     public void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr)
         throws FileHandlerException {
       processFile(inputStream, pathStr);
-    }
-
-    @Override
-    public Spec getSpec() {
-      return SpecBuilder.fileHandler().build();
     }
   }
 

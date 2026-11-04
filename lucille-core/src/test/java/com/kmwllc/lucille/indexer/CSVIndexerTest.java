@@ -2,7 +2,7 @@ package com.kmwllc.lucille.indexer;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
-import com.kmwllc.lucille.core.Runner;
+import com.kmwllc.lucille.core.ConfigValidator;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.opencsv.ICSVWriter;
 import com.typesafe.config.Config;
@@ -212,7 +212,7 @@ public class CSVIndexerTest {
             + "indexer { type: \"CSV\" }\n"
             + "csv { columns: [\"id\"], path: \"output.csv\" }");
 
-    assertTrue(Runner.runInValidationMode(config).isEmpty());
+    assertTrue(ConfigValidator.validate(config).isEmpty());
     assertEquals(List.of("existing row"), Files.readAllLines(outputFile.toPath()));
   }
 

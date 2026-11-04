@@ -8,12 +8,14 @@ description: >
 
 A FileHandler turns a file's content into Documents. Each implementation handles a specific file format — CSV, JSON, XML, or any custom format you need. The `FileConnector` uses FileHandlers to parse files it discovers during traversal.
 
-To create a FileHandler, implement the `FileHandler` interface. The framework handles discovery, instantiation, and integration with the FileConnector.
+To create a FileHandler, extend `BaseFileHandler`, which implements the `FileHandler` interface. The framework handles discovery, instantiation, and integration with the FileConnector.
 
 **What the framework does for you:**
 
 - **Discovery by file extension** — FileHandlers are mapped to file extensions in the connector's `fileHandlers` config block. The framework instantiates your handler and routes files to it based on their extension.
-- **Config validation** — Your `getSpec()` method declares legal properties; the framework validates the config at startup.
+- **Config validation** — The `BaseFileHandler` constructor validates `config` against your class's `SPEC` field, so missing or unrecognized properties fail at startup.
+- **Publishing** — `BaseFileHandler` implements `processFileAndPublish()` by iterating `processFile()` and publishing each document, with handling for unreadable records.
+- **Document ID prefix** — `BaseFileHandler` reads the standard `docIdPrefix` property into the protected `docIdPrefix` field.
 - **InputStream management** — The framework opens the file (from local disk, S3, Azure, GCS, or inside archives) and passes you an `InputStream`. You don't need to know where the file came from.
 
 **What you implement:**
@@ -21,10 +23,11 @@ To create a FileHandler, implement the `FileHandler` interface. The framework ha
 | Method | Required | Purpose |
 |---|---|---|
 | `processFile(InputStream, String pathStr)` | Yes | Parse the stream and return an `Iterator<Document>`. The iterator should close resources when exhausted. |
-| `processFileAndPublish(Publisher, InputStream, String)` | Yes | Parse and publish directly. For most handlers, this iterates `processFile()` and calls `publisher.publish()` for each document. |
-| `getSpec()` | Yes | Return a `Spec` declaring your handler's legal config properties. |
+| `processFileAndPublish(Publisher, InputStream, String)` | No | Parse and publish directly. `BaseFileHandler` provides this; override it only if you need to manage resources differently or publish in batches. |
 
-**Constructor:** Your handler must have a public constructor that takes a single `Config` argument.
+**What you declare:** a `public static final Spec SPEC`, built with `SpecBuilder.fileHandler()`, which already includes `class` and `docIdPrefix`.
+
+**Constructor:** Your handler must have a public constructor that takes a single `Config` argument and calls `super(config)`.
 
 **What's in `config`:** The `Config` passed to your FileHandler constructor contains only the properties defined inside your handler's config block — the `{ ... }` value for your file extension key within the `fileHandlers` map. For example, if the user writes:
 
@@ -78,8 +81,7 @@ Every file handler must follow the [Javadoc Standards]({{< relref "docs/develope
 package com.mycompany.lucille.filehandler;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.filehandler.FileHandler;
+import com.kmwllc.lucille.core.filehandler.BaseFileHandler;
 import com.kmwllc.lucille.core.filehandler.FileHandlerException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -99,23 +101,18 @@ import org.yaml.snakeyaml.Yaml;
  *   <li>docIdPrefix (String, Optional) : Prefix to prepend to document IDs. Defaults to empty string.</li>
  * </ul>
  */
-public class YamlFileHandler implements FileHandler {
+public class YamlFileHandler extends BaseFileHandler {
 
+  // docIdPrefix is already declared by SpecBuilder.fileHandler()
   public static final Spec SPEC = SpecBuilder.fileHandler()
-      .optionalString("idField", "docIdPrefix")
+      .optionalString("idField")
       .build();
 
   private final String idField;
-  private final String docIdPrefix;
 
   public YamlFileHandler(Config config) {
+    super(config);
     this.idField = config.hasPath("idField") ? config.getString("idField") : null;
-    this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
-  }
-
-  @Override
-  public Spec getSpec() {
-    return SPEC;
   }
 
   @Override
@@ -162,19 +159,6 @@ public class YamlFileHandler implements FileHandler {
       }
     };
   }
-
-  @Override
-  public void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr)
-      throws FileHandlerException {
-    Iterator<Document> docs = processFile(inputStream, pathStr);
-    while (docs.hasNext()) {
-      try {
-        publisher.publish(docs.next());
-      } catch (Exception e) {
-        throw new FileHandlerException("Error publishing document from " + pathStr, e);
-      }
-    }
-  }
 }
 ```
 
@@ -186,7 +170,7 @@ public class YamlFileHandler implements FileHandler {
 - **Close resources when exhausted** — If your iterator opens readers or parsers, close them when `hasNext()` returns false or when an exception is thrown.
 - **Use `pathStr` for IDs and logging** — The path string identifies the file for error messages and can be used as part of document ID generation. Don't use it to open the file — the InputStream is already open.
 - **Handle malformed input gracefully** — Throw `FileHandlerException` with a descriptive message rather than letting raw parsing exceptions propagate.
-- **`processFileAndPublish` can usually delegate** — The pattern shown above (iterate `processFile()` and publish each document) works for most handlers. Override with a custom implementation only if you need to manage resources differently or publish in batches.
+- **Leave `processFileAndPublish` to the base class** — `BaseFileHandler` iterates `processFile()` and publishes each document. Override it only if you need to manage resources differently or publish in batches.
 
 ---
 

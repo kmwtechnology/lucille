@@ -46,6 +46,7 @@ import org.slf4j.MDC.MDCCloseable;
  * This Spec will be accessed reflectively in the super constructor, so the Indexer will not function without declaring a Spec.
  * The Config provided to <code>super()</code> will be validated against the Spec. The Indexer superclass will validate the
  * generic <code>indexer</code> configuration and the specific implementation configuration as well.
+ * SPEC is looked up on the implementation class itself, not on its superclasses, so a class extending another Indexer must declare its own.
  *
  * <p> The <code>public static Spec SPEC</code> should <b>not</b> include the config key in your property names. For example, you
  * only write "url", not "solr.url", in a Spec for a SolrIndexer.
@@ -814,14 +815,6 @@ public abstract class Indexer implements Runnable, BatchProcessor {
     Launch.indexer(args);
   }
 
-  public Spec getImplementationSpec() {
-    try {
-      return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
-    } catch (Exception e) {
-      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
-    }
-  }
-
   private void validateIndexerConfigs(Config config) {
     // Validate the general "indexer" entry in the Config. (This Spec is same for all indexers.)
     Config indexerConfig = config.getConfig("indexer");
@@ -842,7 +835,7 @@ public abstract class Indexer implements Runnable, BatchProcessor {
 
     if (indexerConfigKey != null && config.hasPath(indexerConfigKey)) {
       Config specificImplConfig = config.getConfig(indexerConfigKey);
-      getImplementationSpec().validate(specificImplConfig, indexerConfigKey);
+      Spec.of(getClass()).validate(specificImplConfig, indexerConfigKey);
     }
   }
 

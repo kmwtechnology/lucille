@@ -62,8 +62,7 @@ public class DictionaryLookup extends Stage {
       .requiredString("dictPath")
       .optionalBoolean("usePayloads", "ignoreCase", "setOnly", "useAnyMatch", "ignoreMissingSource")
       .optionalString("updateMode")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
-      .optionalParent(FileConnector.STORAGE_CLIENTS, FileConnector.STORAGE_CLIENTS_TYPE).build();
+      .include(FileConnector.STORAGE_SPEC).build();
 
   private final List<String> sourceFields;
   private final List<String> destFields;

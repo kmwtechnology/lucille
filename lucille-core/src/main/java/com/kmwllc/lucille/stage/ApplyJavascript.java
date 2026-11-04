@@ -68,8 +68,7 @@ public class ApplyJavascript extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("scriptPath")
       .optionalString("script")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
-      .optionalParent(FileConnector.STORAGE_CLIENTS, FileConnector.STORAGE_CLIENTS_TYPE)
+      .include(FileConnector.STORAGE_SPEC)
       .build();
 
   private final String scriptPath;

@@ -13,6 +13,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -39,6 +40,44 @@ public class StageTest {
 
       return null;
     }
+  }
+
+  public static class SubclassWithoutSpec extends MockStage {
+
+    public SubclassWithoutSpec(Config config) {
+      super(config);
+    }
+  }
+
+  public static class SubclassWithRedeclaredSpec extends MockStage {
+
+    public static final Spec SPEC = MockStage.SPEC;
+
+    public SubclassWithRedeclaredSpec(Config config) {
+      super(config);
+    }
+  }
+
+  @Test
+  public void testEmptyConditionFieldsRejected() {
+    // an empty fields list used to make the condition pass for every document, even with must_not
+    for (String operator : List.of("must", "must_not")) {
+      Config config = ConfigFactory.parseString("conditions: [{ fields: [], operator: " + operator + " }]");
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new MockStage(config));
+      assertTrue(e.getMessage().contains("fields must not be empty"));
+    }
+  }
+
+  @Test
+  public void testSpecIsNotInherited() throws Exception {
+    Config config = ConfigFactory.empty();
+
+    RuntimeException e = assertThrows(RuntimeException.class, () -> new SubclassWithoutSpec(config));
+    assertTrue(e.getMessage().contains(SubclassWithoutSpec.class.getName()));
+    assertTrue(e.getMessage().contains("not on its superclasses"));
+
+    Stage stage = new SubclassWithRedeclaredSpec(config);
+    assertProcessed(stage, Document.create("doc"), true);
   }
 
   private static void assertProcessed(Stage stage, Document doc, boolean processed) throws StageException {

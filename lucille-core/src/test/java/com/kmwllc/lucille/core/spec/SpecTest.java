@@ -2,31 +2,109 @@ package com.kmwllc.lucille.core.spec;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.typesafe.config.ConfigFactory;
+import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 
 public class SpecTest {
 
+  public static class WithSpec {
+    public static final Spec SPEC = SpecBuilder.withoutDefaults().requiredString("message").build();
+  }
+
+  public static class SubclassWithoutSpec extends WithSpec {
+  }
+
+  public static class SubclassWithRedeclaredSpec extends WithSpec {
+    public static final Spec SPEC = WithSpec.SPEC;
+  }
+
+  public static class WithNullSpec {
+    public static final Spec SPEC = null;
+  }
+
+  public static class WithPrivateSpec {
+    private static final Spec SPEC = SpecBuilder.withoutDefaults().build();
+  }
+
+  public static class WithNonSpecField {
+    public static final String SPEC = "not a spec";
+  }
+
+  @Test
+  public void testUnknownNullAndEmptyObjectKeys() {
+    Spec childSpec = SpecBuilder.withoutDefaults().optionalString("inner").build();
+    Spec spec = SpecBuilder.withoutDefaults()
+        .optionalString("field")
+        .optionalParent("child", childSpec)
+        .optionalParent("map", new TypeReference<Map<String, String>>(){})
+        .build();
+
+    // misspelled keys set to null or to an empty object are reported as unknown
+    for (String hocon : List.of("typo = null", "typo {}", "child { typo = null }", "child { typo {} }")) {
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+          () -> spec.validate(ConfigFactory.parseString(hocon), "Test"));
+      assertTrue(hocon + ": " + e.getMessage(), e.getMessage().contains("unknown property typo"));
+    }
+
+    // legal keys set to null or to an empty object still pass
+    spec.validate(ConfigFactory.parseString("field = null, child {}, map {}"), "Test");
+    spec.validate(ConfigFactory.parseString("child { inner = null }"), "Test");
+  }
+
+  @Test
+  public void testValidationErrorOrder() {
+    Spec spec = SpecBuilder.withoutDefaults()
+        .requiredString("second")
+        .requiredString("first")
+        .build();
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> spec.validate(ConfigFactory.parseString("zebra: 1, apple: 2"), "Test"));
+
+    // unknown properties in sorted order, then missing properties in declaration order
+    String message = e.getMessage();
+    int zebra = message.indexOf("unknown property zebra");
+    int apple = message.indexOf("unknown property apple");
+    int second = message.indexOf("second");
+    int first = message.indexOf("first");
+    assertTrue(message, apple >= 0 && zebra > apple && second > zebra && first > second);
+  }
+
+  @Test
+  public void testOf() {
+    assertSame(WithSpec.SPEC, Spec.of(WithSpec.class));
+    assertSame(WithSpec.SPEC, Spec.of(SubclassWithRedeclaredSpec.class));
+
+    for (Class<?> c : new Class<?>[] {SubclassWithoutSpec.class, WithNullSpec.class, WithPrivateSpec.class, WithNonSpecField.class}) {
+      IllegalStateException e = assertThrows(IllegalStateException.class, () -> Spec.of(c));
+      assertTrue(e.getMessage().contains(c.getName()));
+      assertTrue(e.getMessage().contains("not on its superclasses"));
+    }
+  }
+
   @Test
   public void testToJson() {
-    JsonNode messageJson = SpecBuilder.withoutDefaults().requiredStringWithDescription("message", "A message to send.").build().toJson();
+    JsonNode messageJson = SpecBuilder.withoutDefaults().requiredString("message").build().toJson();
     JsonNode messageNode = messageJson.get("fields").get(0);
 
     assertEquals("message", messageNode.get("name").asText());
     assertTrue(messageNode.get("required").asBoolean());
     assertEquals("STRING", messageNode.get("type").get("type").asText());
 
-    JsonNode withDescriptionJson = SpecBuilder.withoutDefaults().optionalStringWithDescription("message", "A message to send.").build().toJson();
-    messageNode = withDescriptionJson.get("fields").get(0);
+    JsonNode optionalJson = SpecBuilder.withoutDefaults().optionalString("message").build().toJson();
+    messageNode = optionalJson.get("fields").get(0);
 
     assertEquals("message", messageNode.get("name").asText());
     assertFalse(messageNode.get("required").asBoolean());
     assertEquals("STRING", messageNode.get("type").get("type").asText());
-    assertEquals("A message to send.", messageNode.get("description").asText());
   }
 
   @Test

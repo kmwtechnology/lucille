@@ -50,7 +50,7 @@ import org.slf4j.LoggerFactory;
 public class CSVFileHandler extends BaseFileHandler {
 
   public static final Spec SPEC = SpecBuilder.fileHandler()
-      .optionalString("docIdPrefix", "lineNumberField", "separatorChar", "filenameField", "filePathField", "idField", "docIdFormat")
+      .optionalString("lineNumberField", "separatorChar", "filenameField", "filePathField", "idField", "docIdFormat")
       .optionalNumber("maxRecordBytes")
       .optionalList("idFields", new TypeReference<List<String>>() {})
       .optionalList("ignoredTerms", new TypeReference<List<String>>() {})

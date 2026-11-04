@@ -152,45 +152,50 @@ public class FileConnector extends AbstractConnector {
   public static final String MOVE_TO_ERROR_FOLDER = StorageClientOptions.MOVE_TO_ERROR_FOLDER;
 
   // parent specs for cloud provider configs
-  public static final Spec GCP_PARENT_SPEC = SpecBuilder.parent("gcp")
+  private static final Spec GCP_PARENT_SPEC = SpecBuilder.withoutDefaults()
       .requiredString("pathToServiceKey")
       .optionalNumber(MAX_RESULTS_PER_PAGE).build();
-  public static final Spec S3_PARENT_SPEC = SpecBuilder.parent("s3")
+  private static final Spec S3_PARENT_SPEC = SpecBuilder.withoutDefaults()
       .optionalString("accessKeyId", "secretAccessKey", "region")
       .optionalBoolean("anonymous")
       .optionalNumber(MAX_RESULTS_PER_PAGE).build();
-  public static final Spec AZURE_PARENT_SPEC = SpecBuilder.parent("azure")
+  private static final Spec AZURE_PARENT_SPEC = SpecBuilder.withoutDefaults()
       .optionalString("connectionString", "accountName", "accountKey")
       .optionalList(AZURE_ALLOWED_HOSTS, new TypeReference<List<String>>(){})
       .optionalNumber(MAX_RESULTS_PER_PAGE).build();
-  // custom storage clients, keyed by URI scheme. Each client's settings are not validated here.
-  public static final TypeReference<Map<String, Map<String, Object>>> STORAGE_CLIENTS_TYPE = new TypeReference<Map<String, Map<String, Object>>>(){};
+
+  /**
+   * The storage configuration accepted by every component that reads files through StorageClients: the gcp, azure,
+   * and s3 blocks, and storageClients (custom storage clients, keyed by URI scheme, whose settings are not validated
+   * here). Add it to a component's Spec with {@link SpecBuilder#include(Spec)}.
+   */
+  public static final Spec STORAGE_SPEC = SpecBuilder.withoutDefaults()
+      .optionalParent("gcp", GCP_PARENT_SPEC)
+      .optionalParent("azure", AZURE_PARENT_SPEC)
+      .optionalParent("s3", S3_PARENT_SPEC)
+      .optionalParent(STORAGE_CLIENTS, new TypeReference<Map<String, Map<String, Object>>>(){}).build();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredList("paths", new TypeReference<List<String>>(){})
       .optionalNumber("maxThreads")
-      .optionalParent(
-          SpecBuilder.parent("filterOptions")
-              .optionalList("includes", new TypeReference<List<String>>(){})
-              .optionalList("excludes", new TypeReference<List<String>>(){})
-              .optionalList("pathsToSkip", new TypeReference<List<String>>(){})
-              // durations are strings.
-              .optionalString("lastModifiedCutoff", "lastPublishedCutoff", "publishMode")
-              .optionalBoolean("sendTombstones").build(),
-          SpecBuilder.parent("fileOptions")
-              .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
-              .optionalNumber(MAX_SIZE_BYTES)
-              .optionalString("moveToAfterProcessing", "moveToErrorFolder").build(),
-          SpecBuilder.parent("state")
-              .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")
-              .optionalBoolean("performDeletions", "enabled")
-              .optionalNumber("pathLength", "runsBeforeExpiration").build(),
-          GCP_PARENT_SPEC,
-          AZURE_PARENT_SPEC,
-          S3_PARENT_SPEC)
-      .optionalParent(STORAGE_CLIENTS, STORAGE_CLIENTS_TYPE)
+      .optionalParent("filterOptions", SpecBuilder.withoutDefaults()
+          .optionalList("includes", new TypeReference<List<String>>(){})
+          .optionalList("excludes", new TypeReference<List<String>>(){})
+          .optionalList("pathsToSkip", new TypeReference<List<String>>(){})
+          // durations are strings.
+          .optionalString("lastModifiedCutoff", "lastPublishedCutoff", "publishMode")
+          .optionalBoolean("sendTombstones").build())
+      .optionalParent("fileOptions", SpecBuilder.withoutDefaults()
+          .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
+          .optionalNumber(MAX_SIZE_BYTES)
+          .optionalString("moveToAfterProcessing", "moveToErrorFolder").build())
+      .optionalParent("state", SpecBuilder.withoutDefaults()
+          .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")
+          .optionalBoolean("performDeletions", "enabled")
+          .optionalNumber("pathLength", "runsBeforeExpiration").build())
+      .include(STORAGE_SPEC)
       .optionalParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){}).build();
 
   private final List<URI> storageURIs;

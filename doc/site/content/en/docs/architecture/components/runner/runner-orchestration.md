@@ -24,7 +24,7 @@ public static RunResult run(Config config, RunType type, String runId) throws Ex
     MDC.put(RUNID_FIELD, runId);
 
     // 1. Validate FIRST
-    Map<String, List<Exception>> validationErrors = runInValidationMode(config);
+    Map<String, List<Exception>> validationErrors = ConfigValidator.validate(config);
     if (!validationErrors.isEmpty()) {
         return new RunResult(false, ...);
     }
@@ -48,10 +48,10 @@ public static RunResult run(Config config, RunType type, String runId) throws Ex
 
 ## The Validation Step
 
-Before any work begins, the Runner validates the entire configuration:
+Before any work begins, the Runner validates the entire configuration with `ConfigValidator`, the same validation the `-validate` flag and the API server use:
 
 ```java
-Map<String, List<Exception>> validationErrors = runInValidationMode(config);
+Map<String, List<Exception>> validationErrors = ConfigValidator.validate(config);
 ```
 
 This validates:

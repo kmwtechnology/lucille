@@ -26,7 +26,7 @@ import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
  */
 public class ElasticsearchUtils {
 
-  public static Spec ELASTICSEARCH_PARENT_SPEC = SpecBuilder.parent("elasticsearch")
+  public static Spec ELASTICSEARCH_PARENT_SPEC = SpecBuilder.withoutDefaults()
       .requiredString("index")
       .requiredStringOrList("url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
