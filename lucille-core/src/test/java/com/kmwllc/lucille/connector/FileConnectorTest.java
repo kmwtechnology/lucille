@@ -1018,6 +1018,47 @@ public class FileConnectorTest {
     }
   }
 
+  // A run that fails doesn't delete the rows an earlier run kept: their tombstones are still published by the next run
+  // that finishes.
+  @Test
+  public void testFailedRunKeepsRowsAwaitingTombstones() throws Exception {
+    File root = tempFolder.newFolder("tombstone-then-outage");
+    File unmounted = new File(tempFolder.getRoot(), "tombstone-then-outage-unmounted");
+    File file1 = new File(root, "file1.txt");
+    Files.writeString(file1.toPath(), "Content 1");
+    Files.writeString(new File(root, "file2.txt").toPath(), "Content 2");
+
+    try {
+      Config config = tombstoneConfig(root);
+      assertEquals(2, runOnce(config, new TestMessenger()).size());
+
+      // the tombstone can't be published, so its row is kept
+      Files.delete(file1.toPath());
+      Publisher failingPublisher = mock(Publisher.class);
+      doThrow(new RuntimeException("index unavailable")).when(failingPublisher).publish(any());
+      Connector failingPublish = new FileConnector(config);
+      assertThrows(ConnectorException.class, () -> failingPublish.execute(failingPublisher));
+      failingPublish.close();
+
+      // the next run fails during traversal
+      assertTrue(root.renameTo(unmounted));
+      Connector failingTraversal = new FileConnector(config);
+      assertThrows(ConnectorException.class, () -> failingTraversal.execute(mock(Publisher.class)));
+      failingTraversal.close();
+
+      assertTrue(unmounted.renameTo(root));
+      List<Document> retried = runOnce(config, new TestMessenger());
+      assertEquals(1, retried.size());
+      assertTrue(retried.get(0).getBoolean(FileConnector.EXPIRED));
+      assertEquals(file1.toPath().toUri().toString(), retried.get(0).getString(FILE_PATH));
+
+      // published, so the row is deleted now
+      assertEquals(0, runOnce(config, new TestMessenger()).size());
+    } finally {
+      FileUtils.deleteDirectory(STATE_DIR);
+    }
+  }
+
   // an on-disk state database, in incremental mode with tombstones
   private static Config tombstoneConfig(File root) {
     return ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")

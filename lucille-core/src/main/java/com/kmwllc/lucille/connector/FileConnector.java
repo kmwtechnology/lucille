@@ -301,6 +301,21 @@ public class FileConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
+    boolean finished = false;
+
+    try {
+      runTraversalsAndTombstones(publisher);
+      finished = true;
+    } finally {
+      // A run that didn't finish deletes nothing at close, including rows an earlier run kept because their tombstones
+      // could not be published. Those tombstones are still owed.
+      if (!finished && stateManager != null) {
+        stateManager.retainExpiredRows();
+      }
+    }
+  }
+
+  private void runTraversalsAndTombstones(Publisher publisher) throws ConnectorException {
     initialize();
 
     // discover and publish all valid file candidates
@@ -365,7 +380,6 @@ public class FileConnector extends AbstractConnector {
         publisher.publish(doc);
         publishedTombstoneCount++;
       } catch (Exception e) {
-        stateManager.retainExpiredRows();
         throw new ConnectorException("Error publishing document tombstone for file: " + expiredFile, e);
       }
     }

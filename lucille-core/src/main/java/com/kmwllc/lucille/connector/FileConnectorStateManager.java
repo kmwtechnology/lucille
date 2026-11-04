@@ -78,7 +78,7 @@ public class FileConnectorStateManager implements FileStateTracker {
 
   private Instant traversalInstant;
 
-  // set when this run's tombstones could not all be published, so shutdown() keeps the expired rows for the next run
+  // set when this run failed or its tombstones could not be listed, so shutdown() keeps the expired rows for the next run
   private volatile boolean retainExpiredRows = false;
 
   // Used for the whole-table operations. Kept separate from the per-thread connections because it has to outlive them.
@@ -272,7 +272,7 @@ public class FileConnectorStateManager implements FileStateTracker {
       // still called when preExecute fails
       if (performDeletions && jdbcConnection != null) {
         if (retainExpiredRows) {
-          log.warn("Not all tombstones were published this run, so expired files are kept in state for the next run.");
+          log.warn("This run did not finish or could not publish its tombstones, so expired files are kept in state for the next run.");
         } else {
           deleteExpiredFilesAndResetTable();
         }
@@ -307,8 +307,9 @@ public class FileConnectorStateManager implements FileStateTracker {
   }
 
   /**
-   * Keeps the expired rows when {@link #shutdown()} would otherwise delete them, because their tombstones were not all
-   * published. They are listed again, and their tombstones published, on the next run. Reset by {@link #init()}.
+   * Keeps the expired rows when {@link #shutdown()} would otherwise delete them, because the run failed or their
+   * tombstones could not be listed. They are listed again, and their tombstones published, on the next run that
+   * finishes. Reset by {@link #init()}.
    */
   void retainExpiredRows() {
     retainExpiredRows = true;
