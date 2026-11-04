@@ -1,19 +1,18 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
-import org.apache.commons.lang3.StringUtils;
 
 /**
- * Removes empty fields from a document.
+ * Removes empty fields from a document. A field is empty if it is null, an empty string, an empty list, or a list holding
+ * only nulls and empty strings. Whitespace-only strings, nested objects and reserved fields are never removed.
  */
 public class RemoveEmptyFields extends Stage {
 
@@ -21,20 +20,32 @@ public class RemoveEmptyFields extends Stage {
 
   public RemoveEmptyFields(Config config) {
     super(config);
-    // iterate fields that have a blank value or a null value and remove them. 
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    // get the field names
-    Map<String, Object> data = doc.asMap();
-    Set<String> fieldNames = data.keySet();
-    for (String fieldName : fieldNames) {
-      if (StringUtils.isEmpty(doc.getString(fieldName))) {
+    for (String fieldName : doc.getFieldNames()) {
+      // removeField throws on reserved fields such as the id and attached children
+      if (!Document.RESERVED_FIELDS.contains(fieldName) && isEmpty(doc.getJson(fieldName))) {
         doc.removeField(fieldName);
       }
     }
     return null;
   }
 
+  private static boolean isEmpty(JsonNode node) {
+    if (!node.isArray()) {
+      return isEmptyValue(node);
+    }
+    for (JsonNode element : node) {
+      if (!isEmptyValue(element)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static boolean isEmptyValue(JsonNode node) {
+    return node.isNull() || (node.isTextual() && node.textValue().isEmpty());
+  }
 }

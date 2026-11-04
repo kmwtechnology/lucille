@@ -244,6 +244,12 @@ public class ChunkText extends Stage {
     }
 
     int chunkLength = chunks.length;
+    // Windows start at indexes below chunkLength - chunksToOverlap, which is <= 0 here, so there are no windows to build.
+    // The sizing below would then return a bad array size (or an array nothing fills), so return the whole text as one chunk.
+    if (chunkLength <= chunksToOverlap) {
+      return new String[] {String.join(" ", chunks).trim()};
+    }
+
     int stepSize = chunksToMerge - chunksToOverlap;;
     int endIndex = chunkLength - chunksToOverlap;
     int resultSize = (endIndex - 1) / stepSize + 1;

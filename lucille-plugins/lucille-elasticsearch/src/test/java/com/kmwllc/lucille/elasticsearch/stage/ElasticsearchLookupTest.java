@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.elasticsearch.stage;
 
+import java.util.Map;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -211,6 +213,50 @@ public class ElasticsearchLookupTest {
       assertEquals(3, doc6.getFieldNames().size());
       assertEquals("bar", doc6.getString("foo"));
       assertEquals("10", doc6.getString("foo2_dest"));
+    }
+  }
+
+  @Test
+  public void testValuesKeepJsonTypes() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of(
+        "source", List.of("arr", "obj", "nul", "num"),
+        "dest", List.of("d_arr", "d_obj", "d_nul", "d_num"),
+        "elasticsearch", Map.of("url", "url", "index", "index")));
+    try (MockedStatic<ElasticsearchUtils> mockedUtils = Mockito.mockStatic(ElasticsearchUtils.class)) {
+      ElasticsearchClient client = mock(ElasticsearchClient.class);
+      GetResponse<ObjectNode> found = (GetResponse<ObjectNode>) mock(GetResponse.class);
+      when(found.found()).thenReturn(true);
+      ObjectNode source = new ObjectNode(JsonNodeFactory.instance);
+      source.putArray("arr").add(1).addNull().add(2);
+      source.putObject("obj").put("k", 1);
+      source.putNull("nul");
+      source.put("num", 10);
+      when(found.source()).thenReturn(source);
+      when(client.get((Function<GetRequest.Builder, ObjectBuilder<GetRequest>>) Mockito.any(), (Class) Mockito.any()))
+          .thenReturn(found);
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config)).thenReturn(client);
+
+      Document doc = Document.create("doc");
+      new ElasticsearchLookup(config).processDocument(doc);
+      assertEquals(List.of(1, 2), doc.getIntList("d_arr"));
+      assertEquals(source.get("obj"), doc.getJson("d_obj"));
+      assertFalse(doc.has("d_nul"));
+      assertEquals(Integer.valueOf(10), doc.getInt("d_num"));
+    }
+  }
+
+  @Test
+  public void testSourceDestSizeMismatchFailsAtStart() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of(
+        "source", List.of("a", "b"),
+        "dest", List.of("a"),
+        "elasticsearch", Map.of("url", "url", "index", "index")));
+    try (MockedStatic<ElasticsearchUtils> mockedUtils = Mockito.mockStatic(ElasticsearchUtils.class)) {
+      // ping succeeds, so the only failure can be the length check
+      ElasticsearchClient client = mock(ElasticsearchClient.class);
+      when(client.ping()).thenReturn(new BooleanResponse(true));
+      mockedUtils.when(() -> ElasticsearchUtils.getElasticsearchOfficialClient(config)).thenReturn(client);
+      assertThrows(StageException.class, () -> new ElasticsearchLookup(config).start());
     }
   }
 }

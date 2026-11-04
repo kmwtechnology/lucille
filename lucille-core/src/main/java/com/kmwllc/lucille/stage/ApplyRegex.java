@@ -122,12 +122,13 @@ public class ApplyRegex extends Stage {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField)) {
+      List<String> values = StageUtils.getNonNullStrings(doc, sourceField);
+      if (values.isEmpty()) {
         continue;
       }
 
       List<String> outputValues = new ArrayList<>();
-      for (String value : doc.getStringList(sourceField)) {
+      for (String value : values) {
         Matcher matcher = pattern.matcher(value);
         int group = matcher.groupCount() > 0 ? 1 : 0;
 

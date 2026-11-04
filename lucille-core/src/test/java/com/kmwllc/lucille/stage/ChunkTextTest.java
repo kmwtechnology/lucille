@@ -489,4 +489,20 @@ public class ChunkTextTest {
     assertThrows(StageException.class,
         () -> factory.get("ChunkTextTest/tooMuchOverlapPercent.conf"));
   }
+
+  @Test
+  public void testOverlapCoveringAllChunksGivesOneChunk() throws StageException {
+    // 3 chunks with merge 5 / overlap 4 used to throw NegativeArraySizeException; 2 with merge 3 / overlap 2 gave no chunks
+    Map<String, Object> config = Map.of("source", "text", "chunkingMethod", "sentence", "chunksToMerge", 5, "chunksToOverlap", 4);
+    Document doc = Document.create("doc");
+    doc.setField("text", "One. Two. Three.");
+    factory.get(config).processDocument(doc);
+    assertEquals(List.of("One. Two. Three."), doc.getChildren().stream().map(c -> c.getString("text")).toList());
+
+    config = Map.of("source", "text", "chunkingMethod", "sentence", "chunksToMerge", 3, "chunksToOverlap", 2);
+    Document doc2 = Document.create("doc2");
+    doc2.setField("text", "One. Two.");
+    factory.get(config).processDocument(doc2);
+    assertEquals(List.of("One. Two."), doc2.getChildren().stream().map(c -> c.getString("text")).toList());
+  }
 }

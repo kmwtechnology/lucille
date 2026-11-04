@@ -11,7 +11,7 @@ Splits every value of `inputField` by `delimiter` and adds the pieces to `output
 
 If `outputField` is the same as `inputField`, the original values are replaced by the pieces. Otherwise the pieces are appended to any existing values of `outputField`; there is no `updateMode`.
 
-`delimiter` is a Java regular expression (it is passed to `String.split`), so characters such as `|` or `.` must be escaped. Trailing empty pieces are dropped.
+`delimiter` is a Java regular expression (it is passed to `String.split`), so characters such as `|` or `.` must be escaped. Trailing empty pieces are dropped. An invalid regular expression fails the stage at startup.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
