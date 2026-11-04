@@ -1063,4 +1063,22 @@ public class AzureStorageClientTest {
     assertFalse(client.containsPath(URI.create(account + "/container/logs"),
         URI.create("https://other.blob.core.windows.net/container/logs")));
   }
+
+  // Decided by where a moved blob lands. The container alone is the root, so it lands a blob on its own name.
+  @Test
+  public void testMoveTargetInsidePath() {
+    AzureStorageClient client = new AzureStorageClient(ConfigFactory.parseMap(Map.of("connectionString", "connectionString")));
+    String account = "https://storagename.blob.core.windows.net";
+
+    assertTrue(client.moveTargetInsidePath(URI.create(account + "/container/in/"), URI.create(account + "/container")));
+    assertTrue(client.moveTargetInsidePath(URI.create(account + "/container/in/"), URI.create(account + "/container/")));
+    assertTrue(client.moveTargetInsidePath(URI.create(account + "/container/in/"), URI.create(account + "/container/in")));
+    assertTrue(client.moveTargetInsidePath(URI.create(account + "/container/in"), URI.create(account + "/container/in-done")));
+    assertTrue(client.moveTargetInsidePath(URI.create(account + "/container"), URI.create(account + "/container/done")));
+
+    assertFalse(client.moveTargetInsidePath(URI.create(account + "/container/in/"), URI.create(account + "/container/done")));
+    assertFalse(client.moveTargetInsidePath(URI.create(account + "/container/in/"), URI.create(account + "/container2")));
+    assertFalse(client.moveTargetInsidePath(URI.create(account + "/container/in/"),
+        URI.create("https://other.blob.core.windows.net/container")));
+  }
 }

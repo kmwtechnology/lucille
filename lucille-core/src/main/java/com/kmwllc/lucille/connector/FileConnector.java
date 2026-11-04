@@ -544,9 +544,9 @@ public class FileConnector extends AbstractConnector {
       return;
     }
 
-    if (client.containsPath(path, target)) {
-      throw new IllegalArgumentException(key + " (" + target + ") is inside the path being traversed (" + path
-          + "), so moved files would be traversed again. Choose a folder outside it.");
+    if (client.moveTargetInsidePath(path, target)) {
+      throw new IllegalArgumentException(key + " (" + target + ") would put moved files back inside the path being traversed ("
+          + path + "), so they would be traversed again or overwrite themselves. Choose a folder outside it.");
     }
   }
 

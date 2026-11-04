@@ -124,6 +124,19 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
+  public boolean moveTargetInsidePath(URI path, URI folder) {
+    if (!Objects.equals(path.getScheme(), folder.getScheme()) || !Objects.equals(path.getAuthority(), folder.getAuthority())) {
+      return false;
+    }
+
+    BlobLocation pathLocation = BlobLocation.fromURI(path.normalize());
+    BlobLocation folderLocation = BlobLocation.fromURI(folder.normalize());
+
+    return pathLocation.containerName.equals(folderLocation.containerName)
+        && movedKeyInsidePrefix(pathLocation.blobName, folderLocation.blobName);
+  }
+
+  @Override
   protected InputStream getFileContentStreamFromStorage(URI uri) throws IOException {
     BlobLocation location = BlobLocation.fromURI(uri);
 

@@ -246,4 +246,27 @@ public class BaseStorageClientTest {
     assertFalse(client.containsPath(URI.create("s3://b/logs"), URI.create("s3://other/logs")));
     assertFalse(client.containsPath(URI.create("s3://b/logs"), URI.create("gs://b/logs")));
   }
+
+  // Decided by where a moved file lands, the folder and then the object's full key, not by where the folder is.
+  @Test
+  public void testMoveTargetInsidePath() {
+    S3StorageClient client = new S3StorageClient(ConfigFactory.empty());
+
+    // the folder is inside the path
+    assertTrue(client.moveTargetInsidePath(URI.create("s3://b/in"), URI.create("s3://b/in/done")));
+    assertTrue(client.moveTargetInsidePath(URI.create("s3://b/in"), URI.create("s3://b/in-done/")));
+    assertTrue(client.moveTargetInsidePath(URI.create("s3://b/in/"), URI.create("s3://b/in/")));
+    assertTrue(client.moveTargetInsidePath(URI.create("s3://b"), URI.create("s3://b/done")));
+
+    // the folder is outside the path, but the moved key isn't
+    assertTrue(client.moveTargetInsidePath(URI.create("s3://b/in/"), URI.create("s3://b/in"))); // in/in/a.csv
+    assertTrue(client.moveTargetInsidePath(URI.create("s3://b/a/a"), URI.create("s3://b/a"))); // a/a/a/x.csv
+    assertTrue(client.moveTargetInsidePath(URI.create("s3://b/in/"), URI.create("s3://b"))); // in/a.csv, its own key
+    assertTrue(client.moveTargetInsidePath(URI.create("s3://b/in/"), URI.create("s3://b/")));
+
+    assertFalse(client.moveTargetInsidePath(URI.create("s3://b/in/"), URI.create("s3://b/done")));
+    assertFalse(client.moveTargetInsidePath(URI.create("s3://b/aa"), URI.create("s3://b/a"))); // a/aa/x.csv
+    assertFalse(client.moveTargetInsidePath(URI.create("s3://b/in/"), URI.create("s3://other")));
+    assertFalse(client.moveTargetInsidePath(URI.create("s3://b/in/"), URI.create("s3://other/in/")));
+  }
 }

@@ -630,6 +630,48 @@ public class GoogleStorageClientTest {
   }
 
   @Test
+  public void testMoveFileFolderWithTrailingSlash() throws Exception {
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+    storage.create(BlobInfo.newBuilder(BlobId.of("moves-slash", "data/a.csv")).build(), "a".getBytes());
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+
+    googleStorageClient.moveFile(URI.create("gs://moves-slash/data/a.csv"), URI.create("gs://moves-slash/processed/"));
+
+    assertNull(storage.get(BlobId.of("moves-slash", "data/a.csv")));
+    assertEquals("a", new String(storage.get(BlobId.of("moves-slash", "processed/data/a.csv")).getContent()));
+  }
+
+  // A bucket on its own is the root of that bucket, with or without a trailing '/'.
+  @Test
+  public void testMoveFileToRootOfAnotherBucket() throws Exception {
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+
+    for (String folder : List.of("gs://root-dest", "gs://root-dest/")) {
+      storage.create(BlobInfo.newBuilder(BlobId.of("root-source", "data/a.csv")).build(), "a".getBytes());
+      googleStorageClient.moveFile(URI.create("gs://root-source/data/a.csv"), URI.create(folder));
+
+      assertNull(storage.get(BlobId.of("root-source", "data/a.csv")));
+      assertEquals("a", new String(storage.get(BlobId.of("root-dest", "data/a.csv")).getContent()));
+      storage.delete(BlobId.of("root-dest", "data/a.csv"));
+    }
+  }
+
+  // The root of the path's own bucket would land each file on its own key, and the move's delete would then destroy it.
+  @Test
+  public void testMoveTargetInsidePath() {
+    GoogleStorageClient client = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+
+    assertTrue(client.moveTargetInsidePath(URI.create("gs://b/data/"), URI.create("gs://b")));
+    assertTrue(client.moveTargetInsidePath(URI.create("gs://b/data/"), URI.create("gs://b/")));
+    assertTrue(client.moveTargetInsidePath(URI.create("gs://b/data/"), URI.create("gs://b/data")));
+    assertTrue(!client.moveTargetInsidePath(URI.create("gs://b/data/"), URI.create("gs://b/done")));
+    assertTrue(!client.moveTargetInsidePath(URI.create("gs://b/data/"), URI.create("gs://other")));
+  }
+
+  @Test
   public void testMissingObjectThrowsIOException() throws Exception {
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
     googleStorageClient.setStorageForTesting(storage);

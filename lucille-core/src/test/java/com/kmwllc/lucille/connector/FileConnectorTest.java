@@ -887,6 +887,17 @@ public class FileConnectorTest {
     }
     new FileConnector(s3.withValue("fileOptions.moveToAfterProcessing", ConfigValueFactory.fromAnyRef("s3://b/done/"))).close();
     new FileConnector(s3.withValue("fileOptions.moveToAfterProcessing", ConfigValueFactory.fromAnyRef("s3://other/incoming/"))).close();
+
+    // The folder itself is outside the path, but the moved key isn't: s3://b/incoming lands a file at
+    // incoming/incoming/a.csv, and s3://b lands it on its own key.
+    Config slashed = s3.withValue("paths", ConfigValueFactory.fromIterable(List.of("s3://b/incoming/")));
+    for (String landsInside : List.of("s3://b/incoming", "s3://b", "s3://b/")) {
+      for (String option : List.of("moveToAfterProcessing", "moveToErrorFolder")) {
+        Config config = slashed.withValue("fileOptions." + option, ConfigValueFactory.fromAnyRef(landsInside));
+        assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+      }
+    }
+    new FileConnector(slashed.withValue("fileOptions.moveToAfterProcessing", ConfigValueFactory.fromAnyRef("s3://b/done"))).close();
   }
 
   // Cloud paths are raw key prefixes: s3://b/logs also traverses s3://b/logs-old, so concurrent traversal of the two is

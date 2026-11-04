@@ -161,6 +161,29 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
+   * Implements {@link #moveTargetInsidePath(URI, URI)} for object stores that move files by {@link #destinationKey}.
+   * Different buckets never overlap.
+   */
+  static boolean movedKeyInsideBucketPath(URI path, URI folder) {
+    URI normalizedPath = path.normalize();
+    URI normalizedFolder = folder.normalize();
+
+    return Objects.equals(normalizedPath.getScheme(), normalizedFolder.getScheme())
+        && Objects.equals(normalizedPath.getAuthority(), normalizedFolder.getAuthority())
+        && movedKeyInsidePrefix(keyPrefix(normalizedPath), keyPrefix(normalizedFolder));
+  }
+
+  /**
+   * Returns whether objects listed under the given key prefix would still be under it after moving to the given folder.
+   * Every listed key starts with the prefix, so the destination of the prefix itself decides for all of them. This covers
+   * a folder under the prefix, the prefix without its trailing '/' (the file lands at <code>incoming/incoming/a.csv</code>)
+   * and the root of the bucket (the file lands on its own key).
+   */
+  static boolean movedKeyInsidePrefix(String prefix, String folderKey) {
+    return destinationKey(folderKey, prefix).startsWith(prefix);
+  }
+
+  /**
    * Returns whether the provided URI, which represents a directory in some storage provider, is a directory
    * that should be skipped and not traversed at all, based on the <code>pathsToSkip</code> in <code>params</code>.
    * @param directoryURI A URI representing a directory (or the notion of a directory) in a storage provider.

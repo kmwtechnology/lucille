@@ -166,6 +166,11 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
+  public boolean moveTargetInsidePath(URI path, URI folder) {
+    return movedKeyInsideBucketPath(path, folder);
+  }
+
+  @Override
   public void moveFile(URI filePath, URI folder) throws IOException {
     String sourceBucket = filePath.getAuthority();
     String sourceKey = filePath.getPath().substring(1);

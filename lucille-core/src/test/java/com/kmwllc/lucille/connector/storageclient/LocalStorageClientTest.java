@@ -730,6 +730,19 @@ public class LocalStorageClientTest {
     assertEquals(java.nio.file.FileVisitResult.CONTINUE, visitor.postVisitDirectory(root, null));
   }
 
+  // A local move drops the source path, so only a folder inside the path puts files back inside it.
+  @Test
+  public void testMoveTargetInsidePath() {
+    LocalStorageClient client = new LocalStorageClient();
+
+    assertTrue(client.moveTargetInsidePath(URI.create("file:///data/in"), URI.create("file:///data/in/done")));
+    assertTrue(client.moveTargetInsidePath(URI.create("file:///data/in/"), URI.create("file:///data/in")));
+
+    assertFalse(client.moveTargetInsidePath(URI.create("file:///data/in"), URI.create("file:///data/in-done")));
+    assertFalse(client.moveTargetInsidePath(URI.create("file:///data/in"), URI.create("file:///data")));
+    assertFalse(client.moveTargetInsidePath(URI.create("file:///data/in"), URI.create("file:///")));
+  }
+
   // A move folder whose parents don't exist yet is created, rather than failing the move after the file was published.
   @Test
   public void testMoveFileCreatesMissingParents() throws Exception {
