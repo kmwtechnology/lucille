@@ -70,14 +70,14 @@ public class FileHandlerTest {
     assertInstanceOf(JsonFileHandler.class, result.get("jsonl"));
     // small detail... when you only specify one (json, jsonl), they are the *same* JsonFileHandler.
     assertEquals(result.get("json"), result.get("jsonl"));
-    assertInstanceOf(JsonFileHandler.class, result.get("json"));
+    assertInstanceOf(XMLFileHandler.class, result.get("xml"));
 
     result = FileHandler.createFromConfig(ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/csv_on_other_type.conf"));
     assertEquals(5, result.size());
     assertInstanceOf(CSVFileHandler.class, result.get("csv"));
     assertInstanceOf(JsonFileHandler.class, result.get("json"));
     assertInstanceOf(JsonFileHandler.class, result.get("jsonl"));
-    assertInstanceOf(JsonFileHandler.class, result.get("json"));
+    assertInstanceOf(XMLFileHandler.class, result.get("xml"));
     assertInstanceOf(CSVFileHandler.class, result.get("tsv"));
 
     result = FileHandler.createFromConfig(ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/jsonAndJsonl.conf"));
