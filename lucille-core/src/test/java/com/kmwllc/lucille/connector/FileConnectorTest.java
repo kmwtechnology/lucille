@@ -857,7 +857,8 @@ public class FileConnectorTest {
     List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(3, docs.size());
     assertEquals(2, docs.stream().filter(doc -> doc.has("csvLineNumber")).count());
-    assertTrue(docs.stream().anyMatch(doc -> doc.getString(FILE_PATH).endsWith("backup.ZIP!inner.txt")));
+    // CSV row docs carry no file_path, so the check must be null-safe and not depend on traversal order
+    assertTrue(docs.stream().map(doc -> doc.getString(FILE_PATH)).anyMatch(path -> path != null && path.endsWith("backup.ZIP!inner.txt")));
   }
 
   // A move folder the traversal would visit is rejected at startup, since moved files would be published again.
