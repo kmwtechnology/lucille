@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -112,7 +113,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         new TopicPartition(topic, 1), (long) perPartition);
 
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline);
-    SlowIndexer indexer = new SlowIndexer(config, messenger);
+    SlowIndexer indexer = new SlowIndexer(config.getConfig("indexer"), messenger);
     Thread thread = new Thread(indexer);
     thread.start();
     try {
@@ -192,7 +193,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         return doc;
       }
     };
-    GatedIndexer indexer = new GatedIndexer(config, messenger, "doc0");
+    GatedIndexer indexer = new GatedIndexer(config.getConfig("indexer"), messenger, "doc0");
     Thread thread = new Thread(indexer);
     thread.start();
     try {
@@ -278,7 +279,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         return doc;
       }
     };
-    RecordingIndexer indexer = new RecordingIndexer(config, messenger);
+    RecordingIndexer indexer = new RecordingIndexer(config.getConfig("indexer"), messenger);
     Thread thread = new Thread(indexer);
     thread.start();
     try {
@@ -367,7 +368,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         return doc;
       }
     };
-    DestinationIndexer indexer = new DestinationIndexer(config, messenger);
+    DestinationIndexer indexer = new DestinationIndexer(config.getConfig("indexer"), messenger);
     Map<TopicPartition, Long> expectedCommits = Map.of(new TopicPartition(topic, 0), (long) total);
     Thread thread = new Thread(indexer);
     thread.start();
@@ -508,7 +509,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     final List<String> sent = Collections.synchronizedList(new ArrayList<>());
 
     RecordingIndexer(Config config, IndexerMessenger messenger) {
-      super(config, messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest");
+      super(config, new IndexerContext(messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest"));
     }
 
     @Override
@@ -580,7 +581,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     private final AtomicInteger concurrent = new AtomicInteger();
 
     SlowIndexer(Config config, IndexerMessenger messenger) {
-      super(config, messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest");
+      super(config, new IndexerContext(messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest"));
     }
 
     @Override
@@ -630,7 +631,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     private final Map<String, List<String>> applied = new HashMap<>();
 
     DestinationIndexer(Config config, IndexerMessenger messenger) {
-      super(config, messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest");
+      super(config, new IndexerContext(messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest"));
     }
 
     Map<String, String> content() {

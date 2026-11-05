@@ -97,9 +97,11 @@ K concurrent sends need at least K connections to the destination, or the reques
 Override only if needed:
 
 ```hocon
-opensearch {       # or: elasticsearch { ... }
-  maxConnectionsPerRoute: 10
-  maxConnectionsTotal: 50
+indexer {
+  opensearch {       # or: elasticsearch { ... }
+    maxConnectionsPerRoute: 10
+    maxConnectionsTotal: 50
+  }
 }
 ```
 
@@ -205,4 +207,4 @@ These are covered above; restated briefly:
 | Larger batches | `indexer.batchSize` (default 100), `batchByteSize`, `batchTimeout` (default 100 ms) | More documents per bulk request | Always first; amortizes per-request overhead |
 | More consumers | `worker.threads` (hybrid); more standalone Indexer processes (distributed) | Overlap sends across partitions | Partitions available (or add them) — source topic in hybrid, destination topic in distributed; WorkerIndexer also scales the pipeline |
 | Concurrent sends | `indexer.maxConcurrentBatches` (default 1) | Overlap K bulk requests within one indexer | Indexer-bound with destination headroom; at/near the partition ceiling; local mode; delete-by-query (single partition) |
-| Connection pool | `opensearch`/`elasticsearch` `.maxConnectionsPerRoute` / `.maxConnectionsTotal` | Override the K-derived pool size | Rarely; defaults track K |
+| Connection pool | `indexer.opensearch`/`indexer.elasticsearch` `.maxConnectionsPerRoute` / `.maxConnectionsTotal` | Override the K-derived pool size | Rarely; defaults track K |

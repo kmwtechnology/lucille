@@ -17,10 +17,12 @@ In containerized deployments (Docker, Kubernetes), credentials and environment-s
 Lucille handles this through HOCON's substitution syntax:
 
 ```hocon
-opensearch {
-  # default value in the file; overridden by env var if present
-  url: "http://localhost:9200"
-  url: ${?OPENSEARCH_URL}
+indexer {
+  opensearch {
+    # default value in the file; overridden by env var if present
+    url: "http://localhost:9200"
+    url: ${?OPENSEARCH_URL}
+  }
 }
 ```
 
@@ -41,12 +43,14 @@ No application code is involved. The config library resolves everything before a
 The most common pattern in Lucille configs is declaring a default and then overriding it with an optional environment variable:
 
 ```hocon
-opensearch {
-  url: "http://localhost:9200"
-  url: ${?OPENSEARCH_URL}
+indexer {
+  opensearch {
+    url: "http://localhost:9200"
+    url: ${?OPENSEARCH_URL}
 
-  index: "my-index"
-  index: ${?OPENSEARCH_INDEX}
+    index: "my-index"
+    index: ${?OPENSEARCH_INDEX}
+  }
 }
 ```
 
@@ -194,8 +198,9 @@ A complete Lucille config has the following top-level structure:
 ```hocon
 connectors: [...]     # list of connector definitions (executed in sequence)
 pipelines: [...]      # list of pipeline definitions (referenced by connectors)
-indexer { ... }       # indexer type and general settings
-solr { ... }          # or opensearch { ... } or elasticsearch { ... } — backend-specific settings
+indexer {             # general indexer settings
+  solr { ... }        # or opensearch { ... }, elasticsearch { ... } — backend-specific settings
+}
 worker { ... }        # worker thread count, timeout, retry settings
 kafka { ... }         # Kafka connection info (for distributed mode)
 publisher { ... }     # backpressure settings

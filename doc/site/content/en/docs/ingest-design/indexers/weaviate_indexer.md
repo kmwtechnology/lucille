@@ -7,7 +7,7 @@ description: Configuration reference for the Weaviate Indexer, which indexes doc
 
 `com.kmwllc.lucille.weaviate.indexer.WeaviateIndexer`
 
-Indexes documents into [Weaviate](https://weaviate.io/). Config block: `weaviate { ... }`
+Indexes documents into [Weaviate](https://weaviate.io/). Config block: `indexer.weaviate { ... }`
 
 **Maven dependency:**
 ```xml
@@ -28,15 +28,13 @@ Indexes documents into [Weaviate](https://weaviate.io/). Config block: `weaviate
 
 ```hocon
 indexer {
-  class: "com.kmwllc.lucille.weaviate.indexer.WeaviateIndexer"
-}
-
-weaviate {
-  apiKey: ${WEAVIATE_API_KEY}
-  host: "my-cluster.weaviate.network"
-  className: "Article"
-  idDestinationName: "lucille_id"
-  vectorField: "content_vector"
+  weaviate {
+    apiKey: ${WEAVIATE_API_KEY}
+    host: "my-cluster.weaviate.network"
+    className: "Article"
+    idDestinationName: "lucille_id"
+    vectorField: "content_vector"
+  }
 }
 ```
 

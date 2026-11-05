@@ -9,10 +9,10 @@ description: A no-op indexer that discards all documents, useful for testing pip
 
 Discards all documents without sending them anywhere. Useful for testing pipelines when indexing output is not needed. NopIndexer has no config block and no parameters beyond the shared `indexer { ... }` block.
 
-NopIndexer is not available through `indexer.type`. Select it with `indexer.class`:
+NopIndexer is never selected by default: a config that selects no indexer fails at startup. To run with no destination, select it explicitly:
 
 ```hocon
-indexer { class: "com.kmwllc.lucille.indexer.NopIndexer" }
+indexer { type: "Nop" }
 ```
 
 Documents still go through the normal indexer loop (batching, metrics, and completion events), so each document is reported as successfully indexed. Connection validation always passes. NopIndexer accepts `indexer.maxConcurrentBatches` greater than 1, so it can be used to exercise concurrent batching without a backend.
@@ -33,11 +33,14 @@ Setting `indexer.sendEnabled: false` starts the configured indexer in bypass mod
 
 ```hocon
 # Option 1: NopIndexer
-indexer { class: "com.kmwllc.lucille.indexer.NopIndexer" }
+indexer {
+  class: "com.kmwllc.lucille.indexer.NopIndexer"
+
+  solr { url: "http://localhost:8983/solr" }
+}
 
 # Option 2: sendEnabled on a real indexer
 indexer { type: "Solr", sendEnabled: false }
-solr { url: "http://localhost:8983/solr" }
 ```
 
 ---

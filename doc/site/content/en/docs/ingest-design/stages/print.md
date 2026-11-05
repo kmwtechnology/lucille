@@ -64,8 +64,9 @@ pipelines: [{
   name: replay-pipeline
   stages: []
 }]
-indexer { type: OpenSearch }
-opensearch { ... }
+indexer {
+  opensearch { ... }
+}
 ```
 
 This lets you iterate on indexer configuration, field mappings, or search backend settings without repeating expensive enrichment (OCR, embedding generation, database lookups) on every attempt.

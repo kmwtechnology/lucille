@@ -7,7 +7,7 @@ description: Configuration reference for the Solr Indexer, for single-node Solr 
 
 `com.kmwllc.lucille.solr.indexer.SolrIndexer`
 
-Config block: `solr { ... }`
+Config block: `indexer.solr { ... }`
 
 **Maven dependency:**
 ```xml
@@ -18,7 +18,7 @@ Config block: `solr { ... }`
 </dependency>
 ```
 
-Selecting the indexer with `indexer.type: "Solr"` works once `lucille-solr` is on the classpath.
+The block selects the indexer once `lucille-solr` is on the classpath.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
@@ -35,18 +35,22 @@ SolrIndexer supports `indexer.maxConcurrentBatches` greater than 1: concurrent b
 
 ```hocon
 # SolrCloud with URL
-solr {
-  useCloudClient: true
-  url: ["http://localhost:8983/solr"]
-  defaultCollection: "my-collection"
+indexer {
+  solr {
+    useCloudClient: true
+    url: ["http://localhost:8983/solr"]
+    defaultCollection: "my-collection"
+  }
 }
 
 # SolrCloud with ZooKeeper
-solr {
-  useCloudClient: true
-  zkHosts: ["zk1:2181", "zk2:2181"]
-  zkChroot: "/solr"
-  defaultCollection: "my-collection"
+indexer {
+  solr {
+    useCloudClient: true
+    zkHosts: ["zk1:2181", "zk2:2181"]
+    zkChroot: "/solr"
+    defaultCollection: "my-collection"
+  }
 }
 ```
 
@@ -54,11 +58,16 @@ solr {
 
 ## SSL
 
-When the client is created, SolrIndexer copies the config keys `javax.net.ssl.keyStore`, `javax.net.ssl.keyStorePassword`, `javax.net.ssl.trustStore`, and `javax.net.ssl.trustStorePassword` into JVM system properties of the same name. A system property that is already set (for example with `-D`) is not overridden. These keys can be set at the root of the config or inside the `solr` block; if a key is set in both, the root value is used.
+When the client is created, SolrIndexer copies the config keys `javax.net.ssl.keyStore`, `javax.net.ssl.keyStorePassword`, `javax.net.ssl.trustStore`, and `javax.net.ssl.trustStorePassword` into JVM system properties of the same name. A system property that is already set (for example with `-D`) is not overridden. Set these keys inside the `solr` block. Keys at the root of the config are not read.
 
 ```hocon
-javax.net.ssl.trustStore: "/path/to/truststore.jks"
-javax.net.ssl.trustStorePassword: ${?TRUSTSTORE_PASSWORD}
+indexer {
+  solr {
+    url: "https://solr-host:8983/solr"
+    javax.net.ssl.trustStore: "/path/to/truststore.jks"
+    javax.net.ssl.trustStorePassword: ${?TRUSTSTORE_PASSWORD}
+  }
+}
 ```
 
 ---

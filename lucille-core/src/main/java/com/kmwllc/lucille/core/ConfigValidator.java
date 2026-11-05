@@ -46,12 +46,12 @@ public final class ConfigValidator {
   );
 
   /**
-   * Every top-level key Lucille reads: the components, the framework blocks above, and the backend blocks indexers read.
+   * Every top-level key Lucille reads: the components and the framework blocks above.
    * Users may add top-level keys of their own (for example, to reuse a block through HOCON substitution), so an unknown
    * top-level key is only reported when it looks like a misspelling of one of these.
    */
   static final Set<String> KNOWN_TOP_LEVEL_KEYS = Stream.concat(
-      Stream.of("connectors", "pipelines", "indexer", "solr", "opensearch", "elasticsearch", "csv", "pinecone", "weaviate"),
+      Stream.of("connectors", "pipelines", "indexer"),
       PARENTS_AND_SPECS.stream().map(Pair::getLeft)).collect(Collectors.toUnmodifiableSet());
 
   private ConfigValidator() {
@@ -255,6 +255,10 @@ public final class ConfigValidator {
   private static List<Exception> validateIndexer(Config config) {
     Indexer indexer = null;
     try {
+      // A run where no connector has a pipeline starts no indexer, so it doesn't have to select one.
+      if (!IndexerFactory.isIndexerSelected(config) && !hasConnectorWithPipeline(config)) {
+        return List.of();
+      }
       indexer = IndexerFactory.fromConfig(config, new LocalMessenger(), true, "");
     } catch (Exception e) {
       return List.of(e);
@@ -270,6 +274,12 @@ public final class ConfigValidator {
     }
 
     return List.of();
+  }
+
+  // A config with no connectors key is already an error, so the indexer is held to the same check as any other config.
+  private static boolean hasConnectorWithPipeline(Config rootConfig) {
+    return !rootConfig.hasPath("connectors")
+        || rootConfig.getConfigList("connectors").stream().anyMatch(connector -> connector.hasPath("pipeline"));
   }
 
   private static List<Exception> validateOtherParents(Config rootConfig) {
@@ -316,7 +326,7 @@ public final class ConfigValidator {
       String closest = null;
       int closestDistance = Integer.MAX_VALUE;
       for (String known : KNOWN_TOP_LEVEL_KEYS) {
-        // allow one edit for short names like "log" and "csv", so short keys of the user's own aren't flagged
+        // allow one edit for short names like "log", so short keys of the user's own aren't flagged
         int maxDistance = known.length() <= 4 ? 1 : 2;
         int distance = new LevenshteinDistance(maxDistance).apply(key.toLowerCase(Locale.ROOT), known);
         if (distance >= 0 && (distance < closestDistance || (distance == closestDistance && known.compareTo(closest) < 0))) {

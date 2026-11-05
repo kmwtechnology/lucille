@@ -23,7 +23,7 @@ import org.junit.Test;
 public class IndexerDocTest {
 
   private static Indexer indexer(String indexerConfig) {
-    return new NopIndexer(ConfigFactory.parseString("indexer {" + indexerConfig + "}"), new TestMessenger(), false, "test");
+    return new NopIndexer(ConfigFactory.parseString(indexerConfig), new IndexerContext(new TestMessenger(), false, "test", null));
   }
 
   private static Document parentWithChild() throws Exception {

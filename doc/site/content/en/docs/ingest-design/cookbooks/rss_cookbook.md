@@ -82,13 +82,11 @@ pipelines: [
 
 ```hocon
 indexer: {
-  type: "csv"
-}
-
-csv: {
-  path: "./rss_results.csv"
-  columns: ["id", "link", "title", "description", "paragraphTexts",
-    "bulletPoints", "headline"]
+  csv {
+    path: "./rss_results.csv"
+    columns: ["id", "link", "title", "description", "paragraphTexts",
+      "bulletPoints", "headline"]
+  }
 }
 ```
 
@@ -138,13 +136,11 @@ pipelines: [
 ]
 
 indexer: {
-  type: "csv"
-}
-
-csv: {
-  path: "./rss_results.csv"
-  columns: ["id", "link", "title", "description", "paragraphTexts",
-    "bulletPoints", "headline"]
+  csv {
+    path: "./rss_results.csv"
+    columns: ["id", "link", "title", "description", "paragraphTexts",
+      "bulletPoints", "headline"]
+  }
 }
 ```
 The CSV file will thus be saved on disk.
@@ -173,13 +169,11 @@ pipelines: [
 ]
 
 indexer: {
-  type: "opensearch"
-}
-
-opensearch: {
-  url: <Your OpenSearch URL>
-  index: "rss-index"
-  acceptInvalidCert: true
+  opensearch {
+    url: <Your OpenSearch URL>
+    index: "rss-index"
+    acceptInvalidCert: true
+  }
 }
 ```
 You'll notice we're using incremental mode now, with a `refreshIncrement` of 60s and a `runDuration` of 1h. This means that every 

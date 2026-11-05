@@ -7,7 +7,7 @@ description: Configuration reference for the Elasticsearch Indexer, including jo
 
 `com.kmwllc.lucille.elasticsearch.indexer.ElasticsearchIndexer`
 
-Config block: `elasticsearch { ... }`. Select it with `indexer.type: "Elasticsearch"`. Works when `lucille-elasticsearch` is on the classpath.
+Config block: `indexer.elasticsearch { ... }`. The block selects the indexer when `lucille-elasticsearch` is on the classpath.
 
 **Maven dependency:**
 ```xml
@@ -31,22 +31,24 @@ Config block: `elasticsearch { ... }`. Select it with `indexer.type: "Elasticsea
 | `maxConnectionsPerRoute` | Integer | No | Maximum pooled connections to each host. Must be at least 1. Default: the larger of `5` and `indexer.maxConcurrentBatches` + 1. |
 | `maxConnectionsTotal` | Integer | No | Maximum pooled connections across all hosts. Must be at least 1. Default: the larger of `25` and `maxConnectionsPerRoute`. |
 | `childDocumentsField` | String | No | Field in the indexed document that holds attached child documents. If not set, attached children are not indexed. |
+| `versionType` | String | No | Versioning type for writes. Takes a client `VersionType` name, case-insensitive, as the constant name (`External`, `ExternalGte`, `Internal`, `Force`) or its JSON spelling (`external`, `external_gte`, `internal`, `force`); any other value fails at startup. Only `External` and `ExternalGte` are sent with writes; `Internal` and `Force` are accepted but no version or version type is sent. |
+| `versionField` | String | No | Document field holding a numeric version. Used when the document has it, else the Kafka offset of a document read from Kafka, else no version. A delete by ID uses only this field, never the Kafka offset. Fails at startup if it is set without `versionType`. |
+| `routingField` | String | No | Document field whose value is sent as the routing key. |
 | `join` | Object | No | Parent-child join settings. See [Join Field Support](#join-field-support). |
 
 ```hocon
-elasticsearch {
-  url: "http://localhost:9200"
-  index: "my-index"
-  join: {
-    joinFieldName: "my_join_field"
-    isChild: true
-    childName: "my_child"
-    parentDocumentIdSource: "parent_id_field"
-  }
-}
 indexer {
-  type: "Elasticsearch"
-  routingField: "parent_id_field"
+  elasticsearch {
+    url: "http://localhost:9200"
+    index: "my-index"
+    join: {
+      joinFieldName: "my_join_field"
+      isChild: true
+      childName: "my_child"
+      parentDocumentIdSource: "parent_id_field"
+    }
+    routingField: "parent_id_field"
+  }
 }
 ```
 
@@ -77,17 +79,17 @@ The join field is added to the request sent to Elasticsearch, not to the Lucille
 
 If a document already has a field named `joinFieldName`, the indexer throws and the whole batch fails without being retried.
 
-The join settings do not set routing. Elasticsearch requires a child to be on the same shard as its parent, so set `indexer.routingField` to the same field as `parentDocumentIdSource`.
+The join settings do not set routing. Elasticsearch requires a child to be on the same shard as its parent, so set `routingField` to the same field as `parentDocumentIdSource`.
 
 ---
 
 ## Routing and Versioning
 
-These use the generic `indexer` block:
+These go in the `elasticsearch` block:
 
-- `indexer.routingField`: the value of this document field (first value, if multi-valued) is sent as the `_routing` parameter. A document without the field is sent without routing. Routing is not sent with deletes by ID or delete-by-query.
-- `indexer.versionType`: an Elasticsearch `VersionType`, as the constant name (`External`, `ExternalGte`, `Internal`, `Force`) or the JSON spelling (`external`, `external_gte`, `internal`, `force`), case-insensitive. Any other value fails at startup. Only `External` and `ExternalGte` send a version; `Internal` and `Force` send none.
-- `indexer.versionField`: with `External` or `ExternalGte`, the version is this field's value (first value, if multi-valued) read as a Long when it is set and present on the document; a value that is not numeric is read as `0`. Otherwise the Kafka offset is used for a document read from Kafka (distributed mode), and a document with neither is indexed without a version. A delete by ID is sent with this field's value too, but never with the Kafka offset, which is not comparable to it; a delete document without the field is sent without a version. A delete that Elasticsearch rejects for its version (409) is reported as succeeded, because the index already holds that version or a newer one: either a newer document superseded the delete, or a retry of the batch resent a delete that was already applied. For as long as the index keeps deleted versions (`index.gc_deletes`, 60 seconds by default), Elasticsearch also rejects an upload with an older version than the delete. Delete-by-query is never versioned. Setting `indexer.versionField` without `indexer.versionType` fails at startup.
+- `routingField`: the value of this document field (first value, if multi-valued) is sent as the `_routing` parameter. A document without the field is sent without routing. Routing is not sent with deletes by ID or delete-by-query.
+- `versionType`: an Elasticsearch `VersionType`, as the constant name (`External`, `ExternalGte`, `Internal`, `Force`) or the JSON spelling (`external`, `external_gte`, `internal`, `force`), case-insensitive. Any other value fails at startup. Only `External` and `ExternalGte` send a version; `Internal` and `Force` send none.
+- `versionField`: with `External` or `ExternalGte`, the version is this field's value (first value, if multi-valued) read as a Long when it is set and present on the document; a value that is not numeric is read as `0`. Otherwise the Kafka offset is used for a document read from Kafka (distributed mode), and a document with neither is indexed without a version. A delete by ID is sent with this field's value too, but never with the Kafka offset, which is not comparable to it; a delete document without the field is sent without a version. A delete that Elasticsearch rejects for its version (409) is reported as succeeded, because the index already holds that version or a newer one: either a newer document superseded the delete, or a retry of the batch resent a delete that was already applied. For as long as the index keeps deleted versions (`index.gc_deletes`, 60 seconds by default), Elasticsearch also rejects an upload with an older version than the delete. Delete-by-query is never versioned. Setting `versionField` without `versionType` fails at startup.
 
 ---
 
@@ -151,7 +153,7 @@ indexer {
 Ensure your Elasticsearch index mapping includes the join field with the correct parent and child relation names. The `joinFieldName` in config must match the mapping exactly.
 
 **Routing errors with joins:**
-Parent and child documents must be on the same shard. Set `indexer.routingField` to the field containing the parent ID.
+Parent and child documents must be on the same shard. Set `routingField` to the field containing the parent ID.
 
 **"index not found":**
 The startup check only pings the cluster; Lucille does not check that the index exists and never creates it. Create the index (or an index template) before indexing so it has the mapping you need.

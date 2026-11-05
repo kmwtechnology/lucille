@@ -132,4 +132,30 @@ public class ConfigValidatorTest {
     assertEquals(2, CloseCountingConnector.closed.get());
     CloseCountingConnector.reset();
   }
+
+  private static final String SETUP_ONLY = "connectors: [{name: \"setup\", class: \"com.kmwllc.lucille.connector.SequenceConnector\", numDocs: 0}], "
+      + "pipelines: [], ";
+
+  @Test
+  public void testConfigWithNoPipelineConnectorNeedsNoIndexer() throws Exception {
+    assertEquals(Map.of(), ConfigValidator.validate(ConfigFactory.parseString(SETUP_ONLY)));
+    assertEquals(Map.of(), ConfigValidator.validate(ConfigFactory.parseString(SETUP_ONLY + "indexer { batchSize: 100 }")));
+    assertEquals(Map.of(), ConfigValidator.validate(ConfigFactory.parseString("connectors: [], pipelines: []")));
+    assertTrue(Runner.run(ConfigFactory.parseString(SETUP_ONLY), Runner.RunType.LOCAL).getStatus());
+  }
+
+  @Test
+  public void testSelectedIndexerIsValidatedWithNoPipelineConnector() throws Exception {
+    Map<String, List<Exception>> errors = ConfigValidator.validate(ConfigFactory.parseString(SETUP_ONLY + "indexer { type: \"Bogus\" }"));
+    assertTrue(errors.get("indexer").get(0).getMessage().contains("Unknown indexer.type"));
+  }
+
+  @Test
+  public void testConnectorWithPipelineNeedsIndexer() throws Exception {
+    Map<String, List<Exception>> errors = ConfigValidator.validate(ConfigFactory.parseString(
+        "connectors: [{name: \"setup\", class: \"com.kmwllc.lucille.connector.SequenceConnector\", numDocs: 0}, "
+            + "{name: \"ingest\", class: \"com.kmwllc.lucille.connector.SequenceConnector\", numDocs: 0, pipeline: \"p\"}], "
+            + "pipelines: [{name: \"p\", stages: []}]"));
+    assertTrue(errors.get("indexer").get(0).getMessage().contains("No indexer is selected"));
+  }
 }
