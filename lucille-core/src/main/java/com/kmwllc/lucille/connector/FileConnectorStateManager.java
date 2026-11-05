@@ -1,6 +1,9 @@
 package com.kmwllc.lucille.connector;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -9,8 +12,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -36,7 +42,7 @@ import com.typesafe.config.Config;
  *         <li>Names are case-sensitive - it is very important to keep the paths consistent in your Config when using state.</li>
  *       </ul>
  *     </li>
- *     <li>last_published (TIMESTAMP): The last time the file was known to be published by Lucille. Is NULL for directories.</li>
+ *     <li>last_published (BIGINT epoch microseconds): The last time the file was known to be published by Lucille. Is NULL for directories.</li>
  *     <li>encountered (BOOLEAN): Used internally to track files which have been encountered in a traversal, enabling deletions.</li>
  *     <li>runs_not_encountered (INTEGER): The consecutive number of runs the state manager has seen where the file was not encountered.</li>
  *   </ul>
@@ -105,7 +111,10 @@ public class FileConnectorStateManager implements FileStateTracker {
     this.jdbcUser = ConfigUtils.getOrDefault(config, "jdbcUser", "");
     this.jdbcPassword = ConfigUtils.getOrDefault(config, "jdbcPassword", "");
 
-    this.tableName = ConfigUtils.getOrDefault(config, "tableName", connectorName).toUpperCase();
+    // An explicit state.tableName is used as given (upper-cased); only a table name generated from the connector is mapped.
+    this.tableName = config.hasPath("tableName")
+        ? config.getString("tableName").toUpperCase(Locale.ROOT)
+        : toSqlTableName(connectorName);
     this.performDeletions = ConfigUtils.getOrDefault(config, "performDeletions", true);
     this.runsBeforeExpiration = ConfigUtils.getOrDefault(config, "runsBeforeExpiration", 1);
     if (this.runsBeforeExpiration < 1) {
@@ -114,6 +123,64 @@ public class FileConnectorStateManager implements FileStateTracker {
     this.pathLength = ConfigUtils.getOrDefault(config, "pathLength", DEFAULT_PATH_LENGTH);
 
     this.tableKey = connectionString + ":" + tableName;
+  }
+
+  // Longest table name we generate. Keeps us under the identifier limits of PostgreSQL (63 bytes) and MySQL (64 characters).
+  static final int MAX_TABLE_NAME_LENGTH = 48;
+  // Prefix on every generated table name. It is also a letter, so a generated name never starts with a digit, and it is
+  // never a reserved word, so a connector name such as "order" still gives a valid unquoted identifier.
+  static final String TABLE_NAME_PREFIX = "STATE_";
+  // Characters kept from a name that had to be rewritten, before the hash suffix is appended.
+  private static final int MAX_TABLE_NAME_BASE_LENGTH = 32;
+  private static final int HASH_SUFFIX_BYTES = 4;
+
+  /**
+   * Converts a connector name into a valid, unquoted SQL table name. Every generated name starts with
+   * {@link #TABLE_NAME_PREFIX}, so the table for connector "file" is STATE_FILE.
+   * <ul>
+   *   <li>A name that is already a valid identifier (letters, digits and underscores, starting with a letter) is only
+   *   upper-cased and prefixed, provided the result is at most {@link #MAX_TABLE_NAME_LENGTH} characters.</li>
+   *   <li>Any other name has each invalid character replaced with an underscore, is truncated, and gets an 8-character hash
+   *   of the upper-cased name appended. The hash keeps names such as "my-conn" and "my_conn" from colliding.</li>
+   * </ul>
+   * @param name The connector name.
+   * @return A table name safe to use unquoted on H2, PostgreSQL and MySQL.
+   */
+  static String toSqlTableName(String name) {
+    String upper = name.toUpperCase(Locale.ROOT);
+    int maxBodyLength = MAX_TABLE_NAME_LENGTH - TABLE_NAME_PREFIX.length();
+    if (upper.matches("[A-Z][A-Z0-9_]*") && upper.length() <= maxBodyLength) {
+      return TABLE_NAME_PREFIX + upper;
+    }
+
+    String base = upper.replaceAll("[^A-Z0-9_]", "_");
+    if (base.length() > MAX_TABLE_NAME_BASE_LENGTH) {
+      base = base.substring(0, MAX_TABLE_NAME_BASE_LENGTH);
+    }
+    return TABLE_NAME_PREFIX + base + "_" + hashSuffix(upper);
+  }
+
+  // Hex of the first bytes of the SHA-256 of the upper-cased name, so the suffix is stable and matches the case-insensitive naming used before.
+  private static String hashSuffix(String name) {
+    try {
+      byte[] digest = MessageDigest.getInstance("SHA-256").digest(name.getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().withUpperCase().formatHex(digest, 0, HASH_SUFFIX_BYTES);
+    } catch (NoSuchAlgorithmException e) {
+      // every JVM is required to provide SHA-256
+      throw new IllegalStateException(e);
+    }
+  }
+
+  // Applies the database's rule for unquoted identifiers, so lookups in the metadata match what CREATE TABLE stored.
+  // H2 folds to upper case, PostgreSQL to lower case, and MySQL keeps the case it was given.
+  private static String foldIdentifier(String identifier, DatabaseMetaData metadata) throws SQLException {
+    if (metadata.storesUpperCaseIdentifiers()) {
+      return identifier.toUpperCase(Locale.ROOT);
+    }
+    if (metadata.storesLowerCaseIdentifiers()) {
+      return identifier.toLowerCase(Locale.ROOT);
+    }
+    return identifier;
   }
 
   /**
@@ -128,25 +195,29 @@ public class FileConnectorStateManager implements FileStateTracker {
     // released in shutdown(), which is still called if the rest of init() fails
     claimedTable.set(true);
 
-    traversalInstant = Instant.now();
+    // Microsecond precision: this is what the table stores, so the value written and the value read back agree.
+    traversalInstant = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
     jdbcConnection = openConnection();
 
     // After getting connection setup, make sure the table exists, create it if it doesn't.
     DatabaseMetaData metadata = jdbcConnection.getMetaData();
+    String foldedName = foldIdentifier(tableName, metadata);
 
     // checking if we have a table under the given name.
-    try (ResultSet rs = metadata.getTables(null, null, tableName, null)) {
+    try (ResultSet rs = metadata.getTables(null, null, foldedName, null)) {
       if (!rs.next()) {
+        // Identifiers are unquoted so that one statement works on H2, PostgreSQL and MySQL. last_published is epoch
+        // microseconds, because TIMESTAMP WITH TIME ZONE is not valid on MySQL.
         try (Statement statement = jdbcConnection.createStatement()) {
-          statement.executeUpdate("CREATE TABLE \"" + tableName + "\" (name VARCHAR(" + pathLength
-              + ") PRIMARY KEY, last_published TIMESTAMP WITH TIME ZONE, encountered BOOLEAN, runs_not_encountered INTEGER)");
+          statement.executeUpdate("CREATE TABLE " + tableName + " (name VARCHAR(" + pathLength
+              + ") PRIMARY KEY, last_published BIGINT, encountered BOOLEAN, runs_not_encountered INTEGER)");
         }
       }
     }
 
     // making sure encountered = false for all rows
-    String allNotEncounteredSQL = "UPDATE \"" + tableName + "\" SET encountered=false";
+    String allNotEncounteredSQL = "UPDATE " + tableName + " SET encountered=false";
 
     try (Statement statement = jdbcConnection.createStatement()) {
       int rowsAffected = statement.executeUpdate(allNotEncounteredSQL);
@@ -209,7 +280,7 @@ public class FileConnectorStateManager implements FileStateTracker {
 
   // Returns the calling thread's TraversalState. Every per-file operation goes through here.
   private TraversalState currentState() {
-    TraversalState state = threadState.get();Ï
+    TraversalState state = threadState.get();
 
     if (state == null) {
       throw new IllegalStateException("Thread " + Thread.currentThread().getName()
@@ -250,7 +321,7 @@ public class FileConnectorStateManager implements FileStateTracker {
    * Calling it before marking is finished will prematurely increment counters for files still being traversed.
    */
   public void incrementRunsNotEncountered() throws SQLException {
-    String incrementSQL = "UPDATE \"" + tableName + "\" SET runs_not_encountered = runs_not_encountered + 1 WHERE encountered=FALSE";
+    String incrementSQL = "UPDATE " + tableName + " SET runs_not_encountered = runs_not_encountered + 1 WHERE encountered=FALSE";
 
     try (Statement statement = jdbcConnection.createStatement()) {
       statement.executeUpdate(incrementSQL);
@@ -281,7 +352,7 @@ public class FileConnectorStateManager implements FileStateTracker {
   }
   
   public List<URI> listExpiredFiles() throws SQLException {
-    String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE encountered=FALSE AND runs_not_encountered >= ?";
+    String selectSQL = "SELECT name FROM " + tableName + " WHERE encountered=FALSE AND runs_not_encountered >= ?";
     List<URI> fileUris = new ArrayList<>();
     try (PreparedStatement ps = jdbcConnection.prepareStatement(selectSQL)) {
       ps.setInt(1, runsBeforeExpiration);
@@ -294,7 +365,7 @@ public class FileConnectorStateManager implements FileStateTracker {
   }
 
   private void deleteExpiredFilesAndResetTable() throws SQLException {
-    String deleteSQL = "DELETE FROM \"" + tableName + "\" WHERE encountered=FALSE AND runs_not_encountered >= ?";
+    String deleteSQL = "DELETE FROM " + tableName + " WHERE encountered=FALSE AND runs_not_encountered >= ?";
 
     try (PreparedStatement ps = jdbcConnection.prepareStatement(deleteSQL)) {
       ps.setInt(1, runsBeforeExpiration);
