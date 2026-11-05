@@ -9,7 +9,6 @@ import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
-import com.typesafe.config.ConfigValueFactory;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,6 +30,10 @@ public class IndexerFactory {
 
   private static final Logger log = LoggerFactory.getLogger(IndexerFactory.class);
 
+  private static final String NO_INDEXER_SELECTED = "No indexer is selected. Nest a backend block inside the indexer block, "
+      + "such as indexer.solr, or set indexer.type or indexer.class. A top-level backend block must be moved inside the "
+      + "indexer block. To run with no destination, set indexer.type: \"Nop\".";
+
   private IndexerFactory() {
   }
 
@@ -45,7 +48,7 @@ public class IndexerFactory {
    *       {@code @IndexerType} annotation.</li>
    *   <li>Neither set — the name of the single nested block in {@code indexer}, such as {@code indexer.solr}, resolved
    *       the same way as {@code indexer.type}. Several nested blocks are an error.</li>
-   *   <li>Nothing set or nested — defaults to {@link NopIndexer}, which performs no indexing.</li>
+   *   <li>Nothing set or nested — an error. A run with no destination states that with {@code indexer.type: "Nop"}.</li>
    * </ol>
    *
    * @param config Lucille's root config. The Indexer is constructed with its "indexer" block.
@@ -53,9 +56,8 @@ public class IndexerFactory {
   public static Indexer fromConfig(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId)
       throws IndexerException {
 
-    // If indexer block does not exist, add blank one so that it defaults to NopIndexer.
     if (!config.hasPath("indexer")) {
-      config = config.withValue("indexer", ConfigValueFactory.fromMap(Map.of()));
+      throw new IndexerException(NO_INDEXER_SELECTED);
     }
 
     if (bypass == false) {
@@ -79,9 +81,7 @@ public class IndexerFactory {
     } else if (nestedBlocks.size() == 1) {
       return indexerFromBlock(nestedBlocks.get(0), config, messenger, bypass, metricsPrefix, localRunId);
     } else {
-      // No indexer specified: default to a no-op indexer so a pipeline can run without a destination.
-      log.warn("No indexer.class, indexer.type, or nested indexer block specified in Config. Defaulting to NopIndexer (no documents will be indexed).");
-      return construct(NopIndexer.class, config, messenger, bypass, metricsPrefix, localRunId);
+      throw new IndexerException(NO_INDEXER_SELECTED);
     }
   }
 

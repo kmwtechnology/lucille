@@ -40,13 +40,25 @@ public class IndexerFactoryTest {
   }
 
   @Test
-  public void testDefaultsToNopIndexerWhenNoTypeOrClass() throws Exception {
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("IndexerFactoryTest/config_no_type_or_class.conf");
+  public void testFailsWhenNoTypeOrClass() throws Exception {
+    assertNoIndexerSelected(ConfigFactory.load("IndexerFactoryTest/config_no_type_or_class.conf"));
+  }
 
-    // With neither indexer.class nor indexer.type set, the factory defaults to a no-op indexer
-    // rather than throwing, so a pipeline can run without a configured destination.
-    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
+  @Test
+  public void testFailsWhenSendDisabledAndNothingSelected() throws Exception {
+    assertNoIndexerSelected(ConfigFactory.parseString("indexer { sendEnabled: false }"));
+  }
+
+  @Test
+  public void testFailsWhenBackendBlockIsOnlyAtTopLevel() throws Exception {
+    assertNoIndexerSelected(ConfigFactory.parseString(
+        "indexer { batchSize: 100 }\ncsv { columns: [\"id\"], path: \"target/x.csv\" }"));
+  }
+
+  @Test
+  public void testExplicitNopType() throws Exception {
+    Config config = ConfigFactory.parseString("indexer { type: \"Nop\" }");
+    Indexer indexer = IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing");
     Assert.assertTrue(indexer instanceof NopIndexer);
   }
 
@@ -110,13 +122,14 @@ public class IndexerFactoryTest {
   }
 
   @Test
-  public void testDefaultsToNopIndexerWhenNoIndexerBlock() throws Exception {
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("IndexerFactoryTest/config_no_indexer_block.conf");
+  public void testFailsWhenNoIndexerBlock() throws Exception {
+    assertNoIndexerSelected(ConfigFactory.load("IndexerFactoryTest/config_no_indexer_block.conf"));
+  }
 
-    // should still default to NopIndexer rather than throwing ConfigException.Missing when indexer block is missing
-    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
-    Assert.assertTrue(indexer instanceof NopIndexer);
+  private static void assertNoIndexerSelected(Config config) {
+    Exception exception = assertThrows(IndexerException.class,
+        () -> IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing"));
+    Assert.assertTrue(exception.getMessage(), exception.getMessage().contains("No indexer is selected"));
   }
 
   @Test

@@ -93,14 +93,7 @@ java \
   -cp 'target/lib/*' com.kmwllc.lucille.core.Runner
 ```
 
-Or configure via HOCON (Lucille sets these as system properties if not already set):
-
-```hocon
-javax.net.ssl.trustStore: "/path/to/truststore.jks"
-javax.net.ssl.trustStore: ${?TRUSTSTORE_PATH}
-javax.net.ssl.trustStorePassword: "changeit"
-javax.net.ssl.trustStorePassword: ${?TRUSTSTORE_PASSWORD}
-```
+Lucille does not read these settings from the config for OpenSearch.
 
 ---
 
@@ -131,21 +124,21 @@ indexer {
     userName: ${?SOLR_USER}
     password: ${?SOLR_PASSWORD}
     acceptInvalidCert: false
+
+    # SSL system properties — Lucille sets these if not already set via -D flags
+    javax.net.ssl.keyStore: "/path/to/keystore.jks"
+    javax.net.ssl.keyStore: ${?KEYSTORE_PATH}
+    javax.net.ssl.keyStorePassword: "changeit"
+    javax.net.ssl.keyStorePassword: ${?KEYSTORE_PASSWORD}
+    javax.net.ssl.trustStore: "/path/to/truststore.jks"
+    javax.net.ssl.trustStore: ${?TRUSTSTORE_PATH}
+    javax.net.ssl.trustStorePassword: "changeit"
+    javax.net.ssl.trustStorePassword: ${?TRUSTSTORE_PASSWORD}
   }
 }
-
-# SSL system properties — Lucille sets these if not already set via -D flags
-javax.net.ssl.keyStore: "/path/to/keystore.jks"
-javax.net.ssl.keyStore: ${?KEYSTORE_PATH}
-javax.net.ssl.keyStorePassword: "changeit"
-javax.net.ssl.keyStorePassword: ${?KEYSTORE_PASSWORD}
-javax.net.ssl.trustStore: "/path/to/truststore.jks"
-javax.net.ssl.trustStore: ${?TRUSTSTORE_PATH}
-javax.net.ssl.trustStorePassword: "changeit"
-javax.net.ssl.trustStorePassword: ${?TRUSTSTORE_PASSWORD}
 ```
 
-Lucille's `SSLUtils.setSSLSystemProperties(config)` reads these from the config and sets them as JVM system properties (without overriding properties already set via `-D` flags). This means you can provide them either in the config file or on the command line.
+Lucille reads these from the `solr` block and sets them as JVM system properties (without overriding properties already set via `-D` flags). This means you can provide them either in the config file or on the command line. Keys at the root of the config are not read.
 
 ### SolrCloud with ZooKeeper
 
