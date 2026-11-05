@@ -9,7 +9,7 @@ description: A no-op indexer that discards all documents, useful for testing pip
 
 Discards all documents without sending them anywhere. Useful for testing pipelines when indexing output is not needed. NopIndexer has no config block and no parameters beyond the shared `indexer { ... }` block.
 
-NopIndexer is the default when the `indexer` block selects nothing else. To select it explicitly:
+NopIndexer is never selected by default: a config that selects no indexer fails at startup. To run with no destination, select it explicitly:
 
 ```hocon
 indexer { type: "Nop" }

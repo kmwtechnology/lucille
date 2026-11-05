@@ -34,7 +34,7 @@ Lucille chooses the indexer as follows:
 | `indexer.class` is set | That class is used. |
 | `indexer.type` is set | That type is used. Any other backend's block is ignored with a warning. |
 | Neither, one nested block | The block's name selects the indexer. |
-| Neither, no nested block | `NopIndexer`, with a warning. |
+| Neither, no nested block | Fails at startup. To run with no destination, set `type: "Nop"`. |
 | Neither, several nested blocks | Fails at startup. Set `indexer.type` to choose one. |
 | The block's name matches no registered indexer | Fails at startup. The error lists the available types. |
 
@@ -177,7 +177,7 @@ A record on the destination topic that cannot be deserialized stops the indexer,
 ### Core Indexers
 
 - [CSV Indexer]({{< relref "docs/ingest-design/indexers/csv_indexer" >}}) — Write pipeline output to a CSV file.
-- [NopIndexer]({{< relref "docs/ingest-design/indexers/nop_indexer" >}}) — No-op indexer for testing (default).
+- [NopIndexer]({{< relref "docs/ingest-design/indexers/nop_indexer" >}}) — No-op indexer for testing.
 
 ### Plugin Indexers
 
