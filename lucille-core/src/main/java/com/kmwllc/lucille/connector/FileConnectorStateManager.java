@@ -209,7 +209,7 @@ public class FileConnectorStateManager implements FileStateTracker {
 
   // Returns the calling thread's TraversalState. Every per-file operation goes through here.
   private TraversalState currentState() {
-    TraversalState state = threadState.get();
+    TraversalState state = threadState.get();Ï
 
     if (state == null) {
       throw new IllegalStateException("Thread " + Thread.currentThread().getName()

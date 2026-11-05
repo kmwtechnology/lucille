@@ -1,0 +1,77 @@
+name: FileConnector State DB Smoketest (PostgreSQL, MySQL)
+
+# Runs FileConnectorStateManagerDatabaseIT against live PostgreSQL and MySQL. The state DB is H2 by default, so the
+# H2-based unit tests never exercise the dialects or driver behavior these databases need; this job does.
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  state-db-smoketest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: lucille
+          POSTGRES_USER: lucille
+          POSTGRES_PASSWORD: lucille
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lucille -d lucille"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: lucille
+          MYSQL_USER: lucille
+          MYSQL_PASSWORD: lucille
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -ulucille -plucille"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      # Build the core jar that failsafe runs the IT against, skipping unit tests.
+      - name: Build core (skip unit tests)
+        run: mvn -B -pl lucille-core -am package -DskipTests --file pom.xml
+      - name: Run state DB IT against PostgreSQL
+        env:
+          STATE_DB_URL: "jdbc:postgresql://localhost:5432/lucille"
+          STATE_DB_USER: "lucille"
+          STATE_DB_PASSWORD: "lucille"
+        run: >
+          mvn -B -pl lucille-core
+          failsafe:integration-test failsafe:verify
+          -Dit.test=FileConnectorStateManagerDatabaseIT
+          --file pom.xml
+      - name: Run state DB IT against MySQL
+        env:
+          STATE_DB_URL: "jdbc:mysql://localhost:3306/lucille"
+          STATE_DB_USER: "lucille"
+          STATE_DB_PASSWORD: "lucille"
+        run: >
+          mvn -B -pl lucille-core
+          failsafe:integration-test failsafe:verify
+          -Dit.test=FileConnectorStateManagerDatabaseIT
+          --file pom.xml
