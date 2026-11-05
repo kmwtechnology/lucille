@@ -88,10 +88,11 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   // Builds the gs:// URI for an object name or prefix, percent-encoding any characters that can't appear in a URI
-  // (space, '#', '%', '[', ...), so the name round-trips through URI.getPath().
+  // (space, '#', '%', '[', ...), so the name round-trips through URI.getPath(). Uses the constructor that takes an
+  // authority: the four-argument one takes a hostname, which can't contain the '_' that bucket names may.
   private static URI buildObjectURI(URI paramsUri, String name) {
     try {
-      return new URI(paramsUri.getScheme(), paramsUri.getAuthority(), "/" + name, null);
+      return new URI(paramsUri.getScheme(), paramsUri.getAuthority(), "/" + name, null, null);
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException("Unable to build Google Cloud URI for object: " + name, e);
     }
@@ -109,12 +110,6 @@ public class GoogleStorageClient extends BaseStorageClient {
 
     ReadChannel blobReadChannel = blob.reader();
     return Channels.newInputStream(blobReadChannel);
-  }
-
-  // the folder's key: its path without the leading '/'. Empty for the bucket itself, with or without a trailing '/'.
-  private static String folderKey(URI folder) {
-    String path = folder.getPath();
-    return path == null || path.length() <= 1 ? "" : path.substring(1);
   }
 
   private String getStartingDirectory(TraversalParams params) {
@@ -146,7 +141,7 @@ public class GoogleStorageClient extends BaseStorageClient {
     String sourceKey = filePath.getPath().substring(1);
 
     String destBucket = folder.getAuthority();
-    String destKey = destinationKey(folderKey(folder), sourceKey);
+    String destKey = destinationKey(keyPrefix(folder), sourceKey);
 
     BlobId source = BlobId.of(sourceBucket, sourceKey);
     BlobId target = BlobId.of(destBucket, destKey);

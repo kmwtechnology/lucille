@@ -679,4 +679,23 @@ public class GoogleStorageClientTest {
 
     assertThrows(IOException.class, () -> googleStorageClient.getFileContentStream(URI.create("gs://nowhere/missing.txt")));
   }
+
+  // GCS bucket names may contain '_', which a hostname can't, so URIs are built from the authority.
+  @Test
+  public void testBucketNameWithUnderscore() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+    storage.create(BlobInfo.newBuilder(BlobId.of("my_bucket", "folder/a b.txt")).build(), "a".getBytes());
+
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+    googleStorageClient.traverse(publisher, new TraversalParams(ConfigFactory.empty(), URI.create("gs://my_bucket/"), ""));
+
+    List<Document> documents = messenger.getDocsSentForProcessing();
+    assertEquals(1, documents.size());
+    URI published = new URI(documents.get(0).getString(FILE_PATH));
+    assertEquals("my_bucket", published.getAuthority());
+    assertEquals("a", new String(googleStorageClient.getFileContentStream(published).readAllBytes()));
+  }
 }

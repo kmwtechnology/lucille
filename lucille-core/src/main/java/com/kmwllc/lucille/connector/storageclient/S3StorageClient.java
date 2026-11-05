@@ -150,7 +150,8 @@ public class S3StorageClient extends BaseStorageClient {
   private URI uriForDirectory(String prefix, TraversalParams params) {
     URI paramsUri = params.getURI();
     try {
-      return new URI(paramsUri.getScheme(), paramsUri.getAuthority(), "/" + prefix, null);
+      // takes the bucket as an authority, not a hostname, which could not contain the '_' older bucket names may
+      return new URI(paramsUri.getScheme(), paramsUri.getAuthority(), "/" + prefix, null, null);
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException("Unable to build S3 URI for prefix: " + prefix, e);
     }
@@ -176,7 +177,7 @@ public class S3StorageClient extends BaseStorageClient {
     String sourceKey = filePath.getPath().substring(1);
 
     String destBucket = folder.getAuthority();
-    String destKey = destinationKey(folderKey(folder), sourceKey);
+    String destKey = destinationKey(keyPrefix(folder), sourceKey);
 
     CopyObjectRequest copyRequest = CopyObjectRequest.builder()
         .sourceBucket(sourceBucket).sourceKey(sourceKey)
@@ -189,12 +190,6 @@ public class S3StorageClient extends BaseStorageClient {
 
     s3.copyObject(copyRequest);
     s3.deleteObject(deleteRequest);
-  }
-
-  // the folder's key: its path without the leading '/'. Empty for the bucket itself, with or without a trailing '/'.
-  private static String folderKey(URI folder) {
-    String path = folder.getPath();
-    return path == null || path.length() <= 1 ? "" : path.substring(1);
   }
 
   private String getStartingDirectory(TraversalParams params) {
@@ -261,7 +256,7 @@ public class S3StorageClient extends BaseStorageClient {
       URI paramsURI = params.getURI();
 
       try {
-        return new URI(paramsURI.getScheme(), paramsURI.getAuthority(), "/" + s3Obj.key(), null);
+        return new URI(paramsURI.getScheme(), paramsURI.getAuthority(), "/" + s3Obj.key(), null, null);
       } catch (Exception e) {
         throw new IllegalArgumentException("Unable to build S3 URI for key: " + s3Obj.key(), e);
       }

@@ -149,8 +149,12 @@ public abstract class BaseStorageClient implements StorageClient {
     return keyPrefix(normalizedChild).startsWith(keyPrefix(normalizedParent));
   }
 
-  // The key prefix a path lists: its path without the leading '/'. Empty for the root of the bucket.
-  private static String keyPrefix(URI uri) {
+  /**
+   * Returns the object-store key a URI names: its path without the leading '/'. This is the key prefix a traversal path
+   * lists, or the folder key a move uses (see {@link #destinationKey}). Empty for the root of the bucket or container,
+   * with or without a trailing '/'.
+   */
+  static String keyPrefix(URI uri) {
     String path = uri.getPath();
 
     if (path == null || path.isEmpty()) {
@@ -378,7 +382,10 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * Builds the FileReference for one listed object, or returns null, logging the error, if it can't be built (e.g. the
    * object's name can't form a URI). The caller skips that object, so one bad object doesn't fail the whole traversal.
-   * It is never published or recorded in state, because it has no full path to record it under.
+   * It is never published or marked encountered in state, because it has no full path to record it under. So if an
+   * object with that name was published by an earlier run, its row is treated like any file not encountered: once it
+   * has gone unencountered for <code>state.runsBeforeExpiration</code> runs, it is tombstoned (with
+   * <code>sendTombstones</code>) and deleted from state.
    */
   static FileReference buildReferenceOrSkip(String objectName, Supplier<FileReference> builder) {
     try {
