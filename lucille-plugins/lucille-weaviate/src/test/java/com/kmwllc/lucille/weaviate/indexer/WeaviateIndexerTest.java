@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
@@ -32,7 +33,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -228,12 +228,12 @@ public class WeaviateIndexerTest {
     Document failedDoc2 = Document.create("failedDoc2", "test_run");
 
     WeaviateIndexer indexer = new WeaviateIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
-    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3, failedDoc1, failedDoc2));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3, failedDoc1, failedDoc2));
 
     assertEquals(2, failedDocs.size());
 
-    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(failedDoc1)));
-    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(failedDoc2)));
+    assertTrue(failedDocs.stream().anyMatch(p -> p.document().equals(failedDoc1)));
+    assertTrue(failedDocs.stream().anyMatch(p -> p.document().equals(failedDoc2)));
   }
 
   @Test
@@ -294,7 +294,7 @@ public class WeaviateIndexerTest {
     }
 
     @Override
-    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws IndexerException {
+    public List<IndexerFailure> sendToIndex(List<Document> docs) throws IndexerException {
       throw new IndexerException("Test that errors when sending to indexer are correctly handled");
     }
   }

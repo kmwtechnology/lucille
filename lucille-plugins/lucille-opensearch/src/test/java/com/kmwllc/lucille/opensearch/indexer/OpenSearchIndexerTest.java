@@ -30,7 +30,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Collections;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -65,6 +64,7 @@ import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
@@ -353,11 +353,11 @@ public class OpenSearchIndexerTest {
     doc3.setField("other_id", "something_else");
 
     OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient2);
-    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
     assertEquals(2, failedDocs.size());
-    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc)));
-    assertFalse(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc2)));
-    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc3)));
+    assertTrue(failedDocs.stream().anyMatch(p -> p.document().equals(doc)));
+    assertFalse(failedDocs.stream().anyMatch(p -> p.document().equals(doc2)));
+    assertTrue(failedDocs.stream().anyMatch(p -> p.document().equals(doc3)));
   }
 
   @Test
@@ -2258,7 +2258,7 @@ public class OpenSearchIndexerTest {
     }
 
     @Override
-    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws IndexerException {
+    public List<IndexerFailure> sendToIndex(List<Document> docs) throws IndexerException {
       throw new IndexerException("Test that errors when sending to indexer are correctly handled");
     }
   }
@@ -2278,7 +2278,7 @@ public class OpenSearchIndexerTest {
     }
 
     @Override
-    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws IndexerException {
+    public List<IndexerFailure> sendToIndex(List<Document> docs) throws IndexerException {
       throw new IndexerRetryableException(
           503, "Simulated 503 Service Unavailable", new IOException("backend unavailable"));
     }

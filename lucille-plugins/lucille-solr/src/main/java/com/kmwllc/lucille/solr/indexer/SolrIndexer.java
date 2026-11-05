@@ -5,6 +5,7 @@ import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -16,12 +17,9 @@ import com.typesafe.config.Config;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
@@ -80,7 +78,7 @@ public class SolrIndexer extends Indexer {
 
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.
-    this.solrClient = getSolrClient(config, bypass);
+    this.solrClient = getSolrClient(config, isBypass());
   }
 
   @Override
@@ -98,10 +96,7 @@ public class SolrIndexer extends Indexer {
   }
 
   @Override
-  public boolean validateConnection() {
-    if (bypass) {
-      return true;
-    }
+  protected boolean checkConnection() {
     if (solrClient instanceof HttpJdkSolrClient) {
       try {
         SolrPingResponse resp = solrClient.ping();
@@ -146,7 +141,7 @@ public class SolrIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    if (!bypass && solrClient != null) {
+    if (!isBypass() && solrClient != null) {
       try {
         solrClient.close();
       } catch (Exception e) {
@@ -156,12 +151,7 @@ public class SolrIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
-    if (bypass) {
-      log.debug("sendToSolr bypassed for documents: {}", documents);
-      return Set.of();
-    }
-
+  protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
     Map<String, SolrDocRequests> solrDocRequestsByCollection = new HashMap<>();
 
     for (Document doc : documents) {
@@ -195,7 +185,7 @@ public class SolrIndexer extends Indexer {
 
         if (hasDeleteByFieldValues(doc)) {
           solrDocRequests.addDeleteByFieldValue(
-              doc.getString(deleteByFieldField), doc.getString(deleteByFieldValue));
+              doc.getString(getDeleteByFieldField()), doc.getString(getDeleteByFieldValue()));
         } else {
           solrDocRequests.addIdForDeletion(solrId);
         }
@@ -216,7 +206,7 @@ public class SolrIndexer extends Indexer {
       }
     }
 
-    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
+    List<IndexerFailure> failedDocs = new ArrayList<>();
 
     for (String collection : solrDocRequestsByCollection.keySet()) {
       SolrDocRequests requests = solrDocRequestsByCollection.get(collection);
@@ -226,7 +216,7 @@ public class SolrIndexer extends Indexer {
       } catch (Exception e) {
         // Add all the docs to failed docs
         for (Document d : requests.getAddUpdateSourceDocs()) {
-          failedDocs.add(Pair.of(d, e));
+          failedDocs.add(new IndexerFailure(d, e));
         }
       }
 
@@ -354,7 +344,7 @@ public class SolrIndexer extends Indexer {
         continue;
       }
 
-      if (indexOverrideField != null && indexOverride != null && indexOverrideField.equals(key)) {
+      if (getIndexOverrideField() != null && indexOverride != null && getIndexOverrideField().equals(key)) {
         // do not add the indexOverrideField to the solr document
         continue;
       }

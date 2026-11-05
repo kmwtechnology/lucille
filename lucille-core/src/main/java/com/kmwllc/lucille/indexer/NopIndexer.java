@@ -4,12 +4,11 @@ import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.util.List;
-import java.util.Set;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,14 +39,14 @@ public class NopIndexer extends Indexer {
   }
 
   @Override
-  public boolean validateConnection() {
+  protected boolean checkConnection() {
     return true;
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) {
+  protected List<IndexerFailure> sendToIndex(List<Document> documents) {
     // no-op
-    return Set.of();
+    return List.of();
   }
 
   @Override

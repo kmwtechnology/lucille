@@ -21,7 +21,9 @@ import com.typesafe.config.ConfigValueType;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,7 +32,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -110,7 +111,7 @@ import org.slf4j.MDC.MDCCloseable;
  *   before rejoining a rebalance.</li>
  * </ul>
  */
-public abstract class Indexer implements Runnable, BatchProcessor {
+public abstract class Indexer implements Runnable {
 
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int NO_BATCH_SIZE = Integer.MAX_VALUE;
@@ -136,25 +137,27 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   private final Meter meter;
   private final Histogram histogram;
 
-  protected final String idOverrideField;
-  protected final String indexOverrideField;
+  private final String idOverrideField;
+  private final String indexOverrideField;
 
-  protected final String deletionMarkerField;
-  protected final String deletionMarkerFieldValue;
-  protected final String deleteByFieldField;
-  protected final String deleteByFieldValue;
+  private final String deletionMarkerField;
+  private final String deletionMarkerFieldValue;
+  private final String deleteByFieldField;
+  private final String deleteByFieldValue;
 
-  protected final FieldFilter fieldFilter;
+  private final FieldFilter fieldFilter;
 
   private Instant lastLog = Instant.now();
 
   // A runID for a local (local / test) run. Null if not in one of those modes / started independently.
   private final String localRunId;
 
-  protected final boolean bypass;
+  private final boolean bypass;
 
   // Non-null only when indexer.maxRetries is configured; null means retries are disabled (the default).
   private final Retry retry;
+  // The configured indexer.maxRetries, or 0 when retries are disabled.
+  private final int maxRetries;
   // Empty when retries are disabled; otherwise the set of HTTP status codes (and -1 for no-status) that trigger a retry.
   private final List<Integer> retryableStatusCodes;
 
@@ -235,9 +238,10 @@ public abstract class Indexer implements Runnable, BatchProcessor {
                 + "and indexer.retryableStatusCodes require indexer.maxRetries to be set.");
       }
       this.retry = null;
+      this.maxRetries = 0;
       this.retryableStatusCodes = List.of();
     } else {
-      int maxRetries = config.getInt("maxRetries");
+      this.maxRetries = config.getInt("maxRetries");
       if (maxRetries <= 0) {
         throw new IllegalArgumentException(
             "indexer.maxRetries must be greater than 0 when specified. Remove the parameter to disable retries.");
@@ -255,26 +259,15 @@ public abstract class Indexer implements Runnable, BatchProcessor {
                   + "Remove the parameter to use the default, or provide at least one status code.");
         }
       }
-      this.retry = Retry.of("indexer-batch-retry", RetryConfig.<Set<Pair<Document, Exception>>>custom()
+      this.retry = Retry.of("indexer-batch-retry", RetryConfig.<List<IndexerFailure>>custom()
           .maxAttempts(maxRetries + 1) // maxAttempts includes the initial attempt
           .intervalFunction(IntervalFunction.ofExponentialRandomBackoff(
               retryInitialWaitDurationMs, IntervalFunction.DEFAULT_MULTIPLIER,
               retryRandomizationFactor, retryMaxWaitDurationMs))
-          .retryOnResult(result -> {
-            // Retry the batch if any per-document failure has a retryable status code.
-            @SuppressWarnings("unchecked")
-            Set<Pair<Document, Exception>> pairs = (Set<Pair<Document, Exception>>) result;
-            return pairs.stream().anyMatch(p ->
-                p.getRight() instanceof IndexerRetryableException e
-                    && retryableStatusCodes.contains(e.getStatusCode()));
-          })
-          .retryOnException(e -> {
-            if (e instanceof IndexerRetryableException retryable) {
-              return retryableStatusCodes.contains(retryable.getStatusCode());
-            }
-            // Plain IndexerException (non-HTTP failure) — do not retry
-            return false;
-          })
+          // Retry the batch if any per-document failure is retryable.
+          .retryOnResult(failures -> failures.stream().anyMatch(failure -> isRetryable(failure.cause())))
+          // A plain IndexerException (non-HTTP failure), or a status not in retryableStatusCodes, is not retried.
+          .retryOnException(this::isRetryable)
           .build());
       this.retry.getEventPublisher().onRetry(event -> {
         Throwable lastThrowable = event.getLastThrowable();
@@ -304,8 +297,8 @@ public abstract class Indexer implements Runnable, BatchProcessor {
     // This Indexer is the dispatcher's BatchProcessor: it supplies the two steps the dispatcher schedules,
     // sendWithRetry (may run on a pool) and completeBatch (indexer thread, in dispatch order).
     this.dispatcher = maxConcurrentBatches == 1
-        ? new SynchronousDispatcher(this)
-        : new ConcurrentDispatcher(maxConcurrentBatches, localRunId, this,
+        ? new SynchronousDispatcher(new Processor())
+        : new ConcurrentDispatcher(maxConcurrentBatches, localRunId, new Processor(),
             this::destinationIds, this::isDeleteByQuery);
 
     // When a partition is about to be revoked in a rebalance, flush the open batch and drain in-flight batches so their
@@ -382,29 +375,47 @@ public abstract class Indexer implements Runnable, BatchProcessor {
 
   /**
    * Return true if connection to the destination search engine is valid and the relevant index or
-   * collection exists; false otherwise.
+   * collection exists; false otherwise. Always true in bypass mode, when the destination is not contacted.
    *
    * @return Whether this Indexer has a valid connection to its destination.
    */
-  public abstract boolean validateConnection();
+  public final boolean validateConnection() {
+    return bypass || checkConnection();
+  }
+
+  /**
+   * Return true if connection to the destination search engine is valid and the relevant index or
+   * collection exists; false otherwise. Not called in bypass mode.
+   *
+   * @return Whether this Indexer has a valid connection to its destination.
+   */
+  protected abstract boolean checkConnection();
 
   /**
    * Send a batch of documents to the destination search engine. Implementations should use a single
    * call to the batch API provided by the search engine client, if available, as opposed to sending
    * each document individually.
    *
+   * <p> If retries are configured (indexer.maxRetries), a retry calls this method again with the entire batch, including
+   * documents the destination has already accepted. That is safe for a destination where writing the same document twice
+   * has the same effect as writing it once. An Indexer for an append-only destination or one that uses external versions
+   * must not report retryable failures unless it can handle being sent those documents again. A retried batch is the
+   * same List instance, so an Indexer can track what it has already sent for that batch; see {@link #getMaxRetries()}.
+   *
+   * <p> Not called in bypass mode.
+   *
    * @param documents The documents to send to the destination.
-   * @return A set of Pairs containing Documents that were not successfully indexed, along with an
-   *     Exception describing the failure. Use {@link IndexerRetryableException} to signal that the
-   *     failure may be transient; the base class will trigger a retry of the entire batch for any
-   *     returned exception whose status code is in the configured retryable set. Use
-   *     {@link IndexerException} for permanent per-document failures. Returns an empty set if all
-   *     documents succeeded or if per-document failure tracking is not supported. Does not return null.
+   * @return The documents that were not successfully indexed, each with the Exception describing its failure, or an empty
+   *     list if all documents succeeded or if per-document failure tracking is not supported. Each failure must hold the
+   *     instance that was passed in, and a document reported more than once is failed with its first cause. Use
+   *     {@link IndexerRetryableException} to signal that the failure may be transient; the base class will retry the
+   *     entire batch for any returned exception whose status code is in the configured retryable set. Use
+   *     {@link IndexerException} for permanent per-document failures. Does not return null.
    * @throws IndexerException for errors that prevent the entire batch from being attempted. Throw an
    *     {@link IndexerRetryableException} when the failure may be transient (for example a transport error), so the
    *     configured retry policy applies to it.
    */
-  protected abstract Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException;
+  protected abstract List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException;
 
   /** Close the client or connection to the destination search engine. */
   public abstract void closeConnection();
@@ -528,21 +539,22 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    * Sends the batch to the destination, applying the retry policy. Never throws: any Throwable is captured in the
    * returned {@link SendOutcome} so that {@link #completeBatch} can handle it.
    */
-  @Override
-  public final SendOutcome sendWithRetry(List<Document> batchedDocs) {
+  private SendOutcome sendWithRetry(List<Document> batchedDocs) {
+    if (bypass) {
+      return new SendOutcome(List.of(), null, 0);
+    }
     long start = System.nanoTime();
     try {
       // Note: the retry wraps the entire sendToIndex() call. If sendToIndex() partially succeeds
       // (e.g. some documents indexed before a subsequent delete-by-query fails), a retry will
-      // re-execute the entire method. This is considered safe because search engine upserts are idempotent —
-      // re-indexing an already-indexed document produces the same result.
+      // re-execute the entire method. sendToIndex's Javadoc states what that requires of an Indexer.
       // When retries are configured, retryOnResult triggers a retry if any per-document failure has a
       // retryable status code. When retries are exhausted, the last result is returned directly —
       // preserving per-document detail for the FAIL event path in completeBatch.
-      Set<Pair<Document, Exception>> failedDocPairs = retry != null
+      List<IndexerFailure> failures = retry != null
           ? Retry.decorateCheckedSupplier(retry, () -> sendToIndex(batchedDocs)).get()
           : sendToIndex(batchedDocs);
-      return new SendOutcome(failedDocPairs, null, System.nanoTime() - start);
+      return new SendOutcome(failures, null, System.nanoTime() - start);
     } catch (Throwable t) {
       return new SendOutcome(null, t, System.nanoTime() - start);
     }
@@ -552,8 +564,7 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    * Records metrics and sends FAIL / FINISH events for a sent batch, then marks it complete. Always runs on the indexer
    * thread.
    */
-  @Override
-  public final void completeBatch(List<Document> batchedDocs, SendOutcome outcome) {
+  private void completeBatch(List<Document> batchedDocs, SendOutcome outcome) {
     // An Error (OutOfMemoryError, etc.) means the send did not run to a defined conclusion — the batch's documents were
     // not indexed. Two things must happen on that path, and they are deliberately split:
     //  - FAIL events are still sent for every document, so the run's publisher stops tracking them and does not hang
@@ -566,26 +577,35 @@ public abstract class Indexer implements Runnable, BatchProcessor {
       if (outcome.error() != null) {
         throw outcome.error();
       }
-      Set<Pair<Document, Exception>> failedDocPairs = outcome.failedDocPairs();
       // The send's own elapsed time, measured in sendWithRetry. Time spent waiting for a free slot or behind an older
       // batch (see ConcurrentDispatcher) is not included, so this stays a measure of the backend.
       histogram.update(outcome.elapsedNanos() / batchedDocs.size());
-      meter.mark(batchedDocs.size());
 
-      if (!failedDocPairs.isEmpty()) {
-        log.warn("{} Documents were not indexed successfully.", failedDocPairs.size());
+      // Account for documents by identity: two documents with the same content are different documents, and each needs
+      // exactly one FINISH or FAIL event.
+      Set<Document> nonFailedDocs = Collections.newSetFromMap(new IdentityHashMap<>());
+      nonFailedDocs.addAll(batchedDocs);
+
+      for (IndexerFailure failure : outcome.failures()) {
+        Document doc = failure.document();
+        if (nonFailedDocs.remove(doc)) {
+          sendFailEvent(doc, failure.cause());
+        } else {
+          log.error("sendToIndex reported a failure for doc {}, which is not an instance from its batch or was already "
+              + "reported.", doc.getId(), failure.cause());
+        }
       }
-
-      // Mark all the documents in failedDoc as failed
-      for (Pair<Document, Exception> pair : failedDocPairs) {
-        sendFailEvent(pair.getLeft(), pair.getRight());
-      }
-
-      Set<Document> failedDocs = failedDocPairs.stream().map(Pair::getLeft).collect(Collectors.toSet());
 
       List<Document> succeededDocs = batchedDocs.stream()
-          .filter(d -> !failedDocs.contains(d))
+          .filter(nonFailedDocs::contains)
           .collect(Collectors.toList());
+
+      int failedCount = batchedDocs.size() - succeededDocs.size();
+      if (failedCount > 0) {
+        log.warn("{} Documents were not indexed successfully.", failedCount);
+      }
+
+      meter.mark(succeededDocs.size());
 
       try {
         messenger.sendEvents(succeededDocs, "SUCCEEDED", Event.Type.FINISH);
@@ -664,6 +684,81 @@ public abstract class Indexer implements Runnable, BatchProcessor {
     if (e instanceof InterruptedException || e.getCause() instanceof InterruptedException) {
       Thread.currentThread().interrupt();
     }
+  }
+
+  // The two steps of a send, for the dispatcher. A separate class, so that they are not part of the Indexer's public API.
+  private final class Processor implements BatchProcessor {
+
+    @Override
+    public SendOutcome sendWithRetry(List<Document> batchedDocs) {
+      return Indexer.this.sendWithRetry(batchedDocs);
+    }
+
+    @Override
+    public void completeBatch(List<Document> batchedDocs, SendOutcome outcome) {
+      Indexer.this.completeBatch(batchedDocs, outcome);
+    }
+  }
+
+  /**
+   * Whether this Indexer is in bypass mode (test mode, or indexer.sendEnabled: false), when the destination is not
+   * contacted. {@link #sendToIndex} and {@link #checkConnection} are not called, so this matters mainly for not creating
+   * a client.
+   */
+  protected final boolean isBypass() {
+    return bypass;
+  }
+
+  /** The configured indexer.idOverrideField, or null if not set. See {@link #getDocIdOverride}. */
+  protected final String getIdOverrideField() {
+    return idOverrideField;
+  }
+
+  /** The configured indexer.indexOverrideField, or null if not set. See {@link #getIndexOverride}. */
+  protected final String getIndexOverrideField() {
+    return indexOverrideField;
+  }
+
+  /** The configured indexer.deletionMarkerField, or null if not set. See {@link #isMarkedForDeletion}. */
+  protected final String getDeletionMarkerField() {
+    return deletionMarkerField;
+  }
+
+  /** The configured indexer.deletionMarkerFieldValue, or null if not set. See {@link #isMarkedForDeletion}. */
+  protected final String getDeletionMarkerFieldValue() {
+    return deletionMarkerFieldValue;
+  }
+
+  /** The configured indexer.deleteByFieldField, or null if not set. See {@link #hasDeleteByFieldValues}. */
+  protected final String getDeleteByFieldField() {
+    return deleteByFieldField;
+  }
+
+  /** The configured indexer.deleteByFieldValue, or null if not set. See {@link #hasDeleteByFieldValues}. */
+  protected final String getDeleteByFieldValue() {
+    return deleteByFieldValue;
+  }
+
+  /** The filter built from the configured indexer.whitelist and indexer.blacklist. */
+  protected final FieldFilter getFieldFilter() {
+    return fieldFilter;
+  }
+
+  /**
+   * Whether the retry policy retries a batch when {@link #sendToIndex} throws the given exception or returns it for a
+   * document: it is an {@link IndexerRetryableException} whose status code is in indexer.retryableStatusCodes. Always
+   * false when indexer.maxRetries is not set.
+   */
+  protected final boolean isRetryable(Throwable e) {
+    return e instanceof IndexerRetryableException retryable && retryableStatusCodes.contains(retryable.getStatusCode());
+  }
+
+  /**
+   * The configured indexer.maxRetries, or 0 when retries are disabled. A retried batch is passed to
+   * {@link #sendToIndex} again as the same List instance, up to this many times.
+   */
+  protected final int getMaxRetries() {
+    return maxRetries;
   }
 
   /**

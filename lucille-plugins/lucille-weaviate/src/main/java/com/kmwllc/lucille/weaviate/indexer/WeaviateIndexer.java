@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.indexer.IndexerType;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -22,12 +23,10 @@ import io.weaviate.client.v1.data.model.WeaviateObject.WeaviateObjectBuilder;
 import io.weaviate.client.v1.data.replication.model.ConsistencyLevel;
 import io.weaviate.client.v1.misc.model.Meta;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,10 +56,10 @@ public class WeaviateIndexer extends Indexer {
   public WeaviateIndexer(Config config, IndexerContext context, WeaviateClient client) {
     super(config, context);
 
-    if (this.deletionMarkerField != null || this.deleteByFieldField != null) {
+    if (getDeletionMarkerField() != null || getDeleteByFieldField() != null) {
       log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be indexed as regular docs");
     }
-    if (this.indexOverrideField != null) {
+    if (getIndexOverrideField() != null) {
       throw new IllegalArgumentException("indexer.indexOverrideField is not supported by WeaviateIndexer.");
     }
 
@@ -96,10 +95,7 @@ public class WeaviateIndexer extends Indexer {
   }
 
   @Override
-  public boolean validateConnection() {
-    if (bypass) {
-      return true;
-    }
+  protected boolean checkConnection() {
     Result<Meta> meta = client.misc().metaGetter().run();
 
     if (meta.getError() != null) {
@@ -115,12 +111,8 @@ public class WeaviateIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
-    if (bypass) {
-      // no client in bypass mode
-      return Set.of();
-    }
-    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
+  protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
+    List<IndexerFailure> failedDocs = new ArrayList<>();
 
     try (ObjectsBatcher batcher = client.batch().objectsBatcher()) {
       Map<String, Document> docGeneratedUUIDMap = new HashMap<>();
@@ -169,7 +161,7 @@ public class WeaviateIndexer extends Indexer {
 
         if (errorResponse != null) {
           Document docWithResponseUUID = docGeneratedUUIDMap.get(response.getId());
-          failedDocs.add(Pair.of(docWithResponseUUID, new IndexerException(errorResponse.toString())));
+          failedDocs.add(new IndexerFailure(docWithResponseUUID, new IndexerException(errorResponse.toString())));
         }
       }
     } catch (Exception e) {

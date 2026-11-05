@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.LongNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.IndexerMessenger;
@@ -24,10 +25,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.solr.SolrTestCaseJ4;
 import org.apache.solr.SolrTestCaseJ4.SuppressSSL;
 import org.apache.solr.client.solrj.SolrClient;
@@ -122,7 +121,7 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
       doc1.setField("name_s", "one");
       Document doc2 = Document.create("doc2");
       doc2.setField("name_s", "two");
-      assertEquals(Set.of(), indexer.sendToIndex(List.of(doc1, doc2)));
+      assertEquals(List.of(), indexer.sendToIndex(List.of(doc1, doc2)));
 
       assertEquals(List.of("doc1", "doc2"), idsInSolr());
     } finally {
@@ -164,7 +163,7 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
       deleteById.setField("is_delete", "true");
       deletes.add(deleteById);
 
-      assertEquals(Set.of(), indexer.sendToIndex(deletes));
+      assertEquals(List.of(), indexer.sendToIndex(deletes));
       assertEquals(List.of("john", "keep", "smith"), idsInSolr());
     } finally {
       indexer.closeConnection();
@@ -181,11 +180,11 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
       Document doc1 = Document.create("doc1");
       doc1.setField("name_s", "one");
       doc1.setField("other_s", "dropped");
-      assertEquals(Set.of(), whitelist.sendToIndex(List.of(doc1)));
+      assertEquals(List.of(), whitelist.sendToIndex(List.of(doc1)));
 
       Document doc2 = Document.create("doc2");
       doc2.setField("other_id", "overridden");
-      assertEquals(Set.of(), blacklistWithOverride.sendToIndex(List.of(doc2)));
+      assertEquals(List.of(), blacklistWithOverride.sendToIndex(List.of(doc2)));
 
       assertEquals(List.of("doc1", "overridden"), idsInSolr());
     } finally {
@@ -201,14 +200,14 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
       Document bad = Document.create("bad");
       bad.setField("count_i", "not a number");
 
-      Set<Pair<Document, Exception>> failed = indexer.sendToIndex(List.of(bad));
+      List<IndexerFailure> failed = indexer.sendToIndex(List.of(bad));
 
       assertEquals(1, failed.size());
-      Pair<Document, Exception> failure = failed.iterator().next();
-      assertSame(bad, failure.getLeft());
+      IndexerFailure failure = failed.get(0);
+      assertSame(bad, failure.document());
       // Solr's own rejection of the value, not a NullPointerException from the failure accounting
-      assertTrue(failure.getRight() instanceof IndexerRetryableException);
-      assertEquals(400, ((IndexerRetryableException) failure.getRight()).getStatusCode());
+      assertTrue(failure.cause() instanceof IndexerRetryableException);
+      assertEquals(400, ((IndexerRetryableException) failure.cause()).getStatusCode());
     } finally {
       indexer.closeConnection();
     }
