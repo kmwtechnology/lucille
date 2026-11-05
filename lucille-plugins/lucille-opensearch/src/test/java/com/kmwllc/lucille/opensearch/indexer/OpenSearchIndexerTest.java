@@ -1214,7 +1214,7 @@ public class OpenSearchIndexerTest {
         .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef("true"));
   }
 
-  // A delete by id carries the document's indexer.versionField value, with indexer.versionType.
+  // A delete by id carries the document's opensearch.versionField value, with opensearch.versionType.
   @Test
   public void testVersionedDeleteById() throws Exception {
     OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig().getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
@@ -1232,7 +1232,7 @@ public class OpenSearchIndexerTest {
     assertEquals(VersionType.ExternalGte, delete.versionType());
   }
 
-  // A delete without indexer.versionField is unversioned, and never takes its version from the Kafka offset, which is
+  // A delete without opensearch.versionField is unversioned, and never takes its version from the Kafka offset, which is
   // not comparable to a versionField value.
   @Test
   public void testUnversionedDeleteById() throws Exception {
@@ -1257,7 +1257,7 @@ public class OpenSearchIndexerTest {
     }
   }
 
-  // Without indexer.versionType, a delete is unversioned even when the document has a version-like field.
+  // Without opensearch.versionType, a delete is unversioned even when the document has a version-like field.
   @Test
   public void testDeleteByIdWithoutVersionType() throws Exception {
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf");

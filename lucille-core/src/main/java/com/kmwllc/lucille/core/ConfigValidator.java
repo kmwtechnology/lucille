@@ -46,7 +46,7 @@ public final class ConfigValidator {
   );
 
   /**
-   * Every top-level key Lucille reads: the components, the framework blocks above, and the backend blocks indexers read.
+   * Every top-level key Lucille reads: the components and the framework blocks above.
    * Users may add top-level keys of their own (for example, to reuse a block through HOCON substitution), so an unknown
    * top-level key is only reported when it looks like a misspelling of one of these.
    */
@@ -255,6 +255,10 @@ public final class ConfigValidator {
   private static List<Exception> validateIndexer(Config config) {
     Indexer indexer = null;
     try {
+      // A run where no connector has a pipeline starts no indexer, so it doesn't have to select one.
+      if (!IndexerFactory.isIndexerSelected(config) && !hasConnectorWithPipeline(config)) {
+        return List.of();
+      }
       indexer = IndexerFactory.fromConfig(config, new LocalMessenger(), true, "");
     } catch (Exception e) {
       return List.of(e);
@@ -270,6 +274,12 @@ public final class ConfigValidator {
     }
 
     return List.of();
+  }
+
+  // A config with no connectors key is already an error, so the indexer is held to the same check as any other config.
+  private static boolean hasConnectorWithPipeline(Config rootConfig) {
+    return !rootConfig.hasPath("connectors")
+        || rootConfig.getConfigList("connectors").stream().anyMatch(connector -> connector.hasPath("pipeline"));
   }
 
   private static List<Exception> validateOtherParents(Config rootConfig) {

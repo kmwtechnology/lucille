@@ -32,11 +32,12 @@ Lucille chooses the indexer as follows:
 | Config | Result |
 |---|---|
 | `indexer.class` is set | That class is used. |
-| `indexer.type` is set | That type is used. Any other backend's block is ignored with a warning. |
+| `indexer.type` is set | That type is used. |
 | Neither, one nested block | The block's name selects the indexer. |
-| Neither, no nested block | Fails at startup. To run with no destination, set `type: "Nop"`. |
+| Neither, no nested block | Fails at startup, unless no connector has a pipeline, since a [setup-only run]({{< relref "docs/ingest-design/control-flow#setup-only-connectors-no-pipeline" >}}) starts no indexer. To run with no destination, set `type: "Nop"`. |
 | Neither, several nested blocks | Fails at startup. Set `indexer.type` to choose one. |
 | The block's name matches no registered indexer | Fails at startup. The error lists the available types. |
+| `indexer.class` or `indexer.type` is set, with a block the indexer does not use | Ignored with a warning if the block's name matches a registered indexer. Otherwise fails at startup, and the error lists the available types. |
 
 Use `indexer.type` to choose among several blocks with one value, such as `type: ${?INDEXER_TYPE}`, or to state that a run has no destination with `type: "Nop"`. Use `indexer.class` for a custom indexer that does not register a type.
 

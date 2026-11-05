@@ -1033,7 +1033,7 @@ public class ElasticsearchIndexerTest {
         .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef("true"));
   }
 
-  // A delete by id carries the document's indexer.versionField value, with indexer.versionType.
+  // A delete by id carries the document's elasticsearch.versionField value, with elasticsearch.versionType.
   @Test
   public void testVersionedDeleteById() throws Exception {
     ElasticsearchIndexer indexer = new ElasticsearchIndexer(versionedDeleteConfig().getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
@@ -1051,7 +1051,7 @@ public class ElasticsearchIndexerTest {
     assertEquals(VersionType.ExternalGte, delete.versionType());
   }
 
-  // A delete without indexer.versionField is unversioned, and never takes its version from the Kafka offset, which is
+  // A delete without elasticsearch.versionField is unversioned, and never takes its version from the Kafka offset, which is
   // not comparable to a versionField value.
   @Test
   public void testUnversionedDeleteById() throws Exception {
@@ -1076,7 +1076,7 @@ public class ElasticsearchIndexerTest {
     }
   }
 
-  // Without indexer.versionType, a delete is unversioned even when the document has a version-like field.
+  // Without elasticsearch.versionType, a delete is unversioned even when the document has a version-like field.
   @Test
   public void testDeleteByIdWithoutVersionType() throws Exception {
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf");

@@ -86,6 +86,24 @@ public class IndexerFactory {
   }
 
   /**
+   * Returns whether the given root Config selects an Indexer, through indexer.class, indexer.type or a block nested in
+   * the indexer block. It doesn't check that the selection is valid.
+   */
+  public static boolean isIndexerSelected(Config config) {
+    return config.hasPath("indexer") && (config.hasPath("indexer.class") || config.hasPath("indexer.type")
+        || !getNestedBlocks(config.getConfig("indexer")).isEmpty());
+  }
+
+  /**
+   * Returns the type names of the Indexers registered on the classpath.
+   */
+  public static List<String> getRegisteredTypes() {
+    List<String> known = new ArrayList<>();
+    findRegisteredIndexers("", known);
+    return known;
+  }
+
+  /**
    * Instantiates an Indexer from the designated Config, without a localRunId.
    */
   public static Indexer fromConfig(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix)
@@ -185,17 +203,13 @@ public class IndexerFactory {
 
   // Throws if the selected Indexer's settings are still in a top-level block rather than nested in "indexer". Without
   // this, the top-level block would be silently ignored as one of the user's own keys.
-  private static void checkBlockIsNested(Class<? extends Indexer> indexerClass, Config config) {
-    String type = readIndexerType(indexerClass);
-    if (type == null) {
-      return;
-    }
-    boolean nested = getNestedBlocks(config.getConfig("indexer")).stream().anyMatch(type::equalsIgnoreCase);
+  private static void checkBlockIsNested(String blockName, Class<? extends Indexer> indexerClass, Config config) {
+    boolean nested = getNestedBlocks(config.getConfig("indexer")).stream().anyMatch(blockName::equalsIgnoreCase);
     if (nested) {
       return;
     }
     for (Map.Entry<String, ConfigValue> entry : config.root().entrySet()) {
-      if (entry.getKey().equalsIgnoreCase(type) && entry.getValue().valueType() == ConfigValueType.OBJECT) {
+      if (entry.getKey().equalsIgnoreCase(blockName) && entry.getValue().valueType() == ConfigValueType.OBJECT) {
         throw new IllegalArgumentException("Found a top-level " + entry.getKey() + " block, but " + indexerClass.getSimpleName()
             + " reads its settings from indexer." + entry.getKey() + ". Move the block inside the indexer block.");
       }
@@ -263,11 +277,26 @@ public class IndexerFactory {
   // given root config.
   private static Indexer construct(Class<? extends Indexer> indexerClass, Config config, IndexerMessenger messenger,
       boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
-    checkBlockIsNested(indexerClass, config);
+    // Checked before construction when possible, so that the error comes before any about the settings being missing.
+    String type = readIndexerType(indexerClass);
+    if (type != null) {
+      checkBlockIsNested(type, indexerClass, config);
+    }
     try {
       int logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
       IndexerContext context = new IndexerContext(messenger, bypass, metricsPrefix, localRunId, logSeconds);
-      return indexerClass.getConstructor(Config.class, IndexerContext.class).newInstance(config.getConfig("indexer"), context);
+      Indexer indexer = indexerClass.getConstructor(Config.class, IndexerContext.class).newInstance(config.getConfig("indexer"), context);
+      // An indexer with no @IndexerType, or a type that differs from its config key, can only be checked once it exists.
+      String configKey = indexer.getConfigKey();
+      if (configKey != null && !configKey.equalsIgnoreCase(type)) {
+        try {
+          checkBlockIsNested(configKey, indexerClass, config);
+        } catch (IllegalArgumentException e) {
+          indexer.closeConnection();
+          throw e;
+        }
+      }
+      return indexer;
     } catch (InvocationTargetException e) {
       // The constructor threw. Unwrap so the underlying cause (e.g. an IllegalArgumentException from Spec validation
       // with a message like "Config is missing required property index") surfaces with its own message instead of a

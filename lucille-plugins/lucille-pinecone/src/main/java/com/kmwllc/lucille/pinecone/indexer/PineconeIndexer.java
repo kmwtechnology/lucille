@@ -96,7 +96,6 @@ public class PineconeIndexer extends Indexer {
     }
   }
 
-  // Convenience Constructors
   @Override
   protected String getIndexerConfigKey() { return "pinecone"; }
 
