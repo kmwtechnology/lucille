@@ -39,23 +39,6 @@
     <auto-service.version>1.1.1</auto-service.version>
     <maven-exec-plugin.version>1.6.0</maven-exec-plugin.version>
     <maven-jar-plugin.version>3.0.2</maven-jar-plugin.version>
-    <!-- NOTE: stable JPMS Automatic-Module-Name entries are intentionally NOT shipped yet. Several component
-         plugins depend on jars that are not JPMS-clean (Tika split packages; Hadoop/jlama automatic module
-         names with invalid identifiers), so Lucille cannot yet be cleanly consumed on the module path, and
-         declaring module names would be partly misleading and also flips maven-javadoc-plugin into module mode
-         (which fails on those dependencies). Deferred to a follow-up once the dependency graph is JPMS-clean.
-         The japicmp binary-compatibility gate and PUBLIC_API.md (the rest of REL-01) are in place. -->
-    <!-- API binary-compatibility check. japicmp compares each publishable jar against the
-         ${lucille.api.baseline.version} release. The check lives in the "api-compat" profile and is OFF by
-         default; it is ARMED AT RELEASE by setting the baseline to the 1.0 tag and activating the profile in
-         CI once a 1.0 release jar exists to compare against. -->
-    <!-- japicmp 0.26.x requires Maven >= 3.8.1 (CI's setup-java Maven satisfies this). On older Maven, pass
-         -Djapicmp-maven-plugin.version=0.21.2. -->
-    <japicmp-maven-plugin.version>0.27.0</japicmp-maven-plugin.version>
-    <lucille.api.baseline.version>1.0.0</lucille.api.baseline.version>
-    <!-- Per-module off switch for the api-compat check (e.g. aggregator modules with no API). Default false
-         so the check runs for every module when the api-compat profile is active. -->
-    <japicmp.skip>false</japicmp.skip>
     <maven-shade-plugin.version>3.1.0</maven-shade-plugin.version>
     <maven-surefire-plugin.version>3.5.6</maven-surefire-plugin.version>
     <maven-javadoc-plugin.version>3.3.2</maven-javadoc-plugin.version>
@@ -460,82 +443,6 @@
       </properties>
     </profile>
 
-    <!-- API binary-compatibility gate. Activate with -Papi-compat once a ${lucille.api.baseline.version} (1.0) release jar exists.
-          japicmp compares each publishable module's new jar against its released baseline and fails the build on a binary-incompatible
-          change to a public package (see PUBLIC_API.md). Until 1.0 is tagged and published there is no baseline to resolve, which
-          is why this is staged in a profile rather than bound to the default build. ignoreMissingOldVersion
-          lets a brand-new module (no released baseline yet) pass instead of erroring. -->
-    <profile>
-      <id>api-compat</id>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>com.github.siom79.japicmp</groupId>
-            <artifactId>japicmp-maven-plugin</artifactId>
-            <version>${japicmp-maven-plugin.version}</version>
-            <executions>
-              <execution>
-                <id>api-compat-check</id>
-                <phase>verify</phase>
-                <goals>
-                  <goal>cmp</goal>
-                </goals>
-              </execution>
-            </executions>
-            <configuration>
-              <oldVersion>
-                <dependency>
-                  <groupId>${project.groupId}</groupId>
-                  <artifactId>${project.artifactId}</artifactId>
-                  <version>${lucille.api.baseline.version}</version>
-                  <type>${project.packaging}</type>
-                </dependency>
-              </oldVersion>
-              <!-- newVersion defaults to this module's freshly built artifact, which is correct even for
-                   modules that override <finalName> (e.g. lucille-core -> lucille.jar). -->
-              <parameter>
-                <!-- Fail only on binary-incompatible changes to the public packages. -->
-                <onlyBinaryIncompatible>true</onlyBinaryIncompatible>
-                <breakBuildOnBinaryIncompatibleModifications>true</breakBuildOnBinaryIncompatibleModifications>
-                <!-- A newly added module has no released baseline; don't fail resolving it. -->
-                <ignoreMissingOldVersion>true</ignoreMissingOldVersion>
-                <!-- Public API surface guarded by the check; keep in sync with PUBLIC_API.md. Internal
-                     packages (doclet, *.util, *.internal, *.impl, connector.jdbc) are intentionally excluded. -->
-                <includes>
-                  <include>com.kmwllc.lucille.core</include>
-                  <include>com.kmwllc.lucille.core.spec</include>
-                  <include>com.kmwllc.lucille.core.filehandler</include>
-                  <include>com.kmwllc.lucille.connector</include>
-                  <include>com.kmwllc.lucille.connector.storageclient</include>
-                  <include>com.kmwllc.lucille.indexer</include>
-                  <include>com.kmwllc.lucille.stage</include>
-                  <include>com.kmwllc.lucille.message</include>
-                  <include>com.kmwllc.lucille.elasticsearch</include>
-                  <include>com.kmwllc.lucille.opensearch</include>
-                  <include>com.kmwllc.lucille.solr</include>
-                  <include>com.kmwllc.lucille.pinecone</include>
-                  <include>com.kmwllc.lucille.weaviate</include>
-                  <include>com.kmwllc.lucille.parquet</include>
-                  <include>com.kmwllc.lucille.tika</include>
-                  <include>com.kmwllc.lucille.ocr</include>
-                  <include>com.kmwllc.lucille.jlama</include>
-                  <include>com.kmwllc.lucille.entityextraction</include>
-                  <include>com.kmwllc.lucille.video</include>
-                  <include>com.kmwllc.lucille.api</include>
-                </includes>
-                <excludes>
-                  <exclude>com.kmwllc.lucille.doclet</exclude>
-                  <exclude>com.kmwllc.lucille.connector.jdbc</exclude>
-                  <exclude>com.kmwllc.lucille.stage.util</exclude>
-                  <exclude>com.kmwllc.lucille.stage.dateformatters</exclude>
-                </excludes>
-              </parameter>
-              <skip>${japicmp.skip}</skip>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
   </profiles>
 
   <distributionManagement>

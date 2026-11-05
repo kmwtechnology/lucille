@@ -18,7 +18,6 @@
 
    <properties>
        <maven.deploy.skip>true</maven.deploy.skip>
-       <japicmp.skip>true</japicmp.skip>
    </properties>
 
   <modules>
