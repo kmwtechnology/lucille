@@ -10,7 +10,10 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
@@ -19,6 +22,7 @@ import static org.mockito.Mockito.verify;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.contrib.nio.testing.LocalStorageHelper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -36,6 +40,13 @@ import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Arrays;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -522,6 +533,87 @@ public class GoogleStorageClientTest {
     assertEquals("gs://bucket/root-file.txt", docs.get(0).getString(FILE_PATH));
 
     googleStorageClient.stop();
+  }
+
+  private Set<String> publishedFromBucket(String start, Map<String, Object> connectorConfig, Map<String, Object> gcpSettings) throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    Map<String, Object> gcpConfig = new HashMap<>(gcpSettings);
+    gcpConfig.put(GOOGLE_SERVICE_KEY, "validPath");
+    GoogleStorageClient client = new GoogleStorageClient(ConfigFactory.parseMap(gcpConfig));
+    client.setStorageForTesting(storage);
+    client.initializeForTesting();
+
+    client.traverse(publisher, new TraversalParams(ConfigFactory.parseMap(connectorConfig), URI.create(start), ""));
+
+    Set<String> paths = new HashSet<>();
+    messenger.getDocsSentForProcessing().forEach(doc -> paths.add(doc.getString(FILE_PATH)));
+    assertEquals(paths.size(), messenger.getDocsSentForProcessing().size());
+    return paths;
+  }
+
+  private void createNestedBlobs() {
+    for (String name : List.of("1.txt", "a/2.txt", "a/x/3.txt", "b/4.txt", "c/5.txt")) {
+      storage.create(BlobInfo.newBuilder(BlobId.of("bucket", name)).build(), name.getBytes());
+    }
+  }
+
+  // Sibling listings wait for each other, so this only passes if they run at the same time.
+  @Test
+  public void testTraversalThreadsListDirectoriesInParallel() throws Exception {
+    createNestedBlobs();
+    Set<String> sequential = publishedFromBucket("gs://bucket/", Map.of(), Map.of());
+    assertEquals(5, sequential.size());
+
+    Storage realStorage = storage;
+    CyclicBarrier siblings = new CyclicBarrier(3);
+    AtomicInteger listings = new AtomicInteger();
+    storage = mock(Storage.class, delegatesTo(realStorage));
+    doAnswer(invocation -> {
+      // the root is listed first, and a/x/ only after its parent
+      int listing = listings.incrementAndGet();
+      if (listing >= 2 && listing <= 4) {
+        siblings.await(20, TimeUnit.SECONDS);
+      }
+      return realStorage.list(invocation.<String>getArgument(0), Arrays.copyOfRange(invocation.getArguments(), 1, invocation.getArguments().length, BlobListOption[].class));
+    }).when(storage).list(anyString(), any(BlobListOption[].class));
+
+    try {
+      assertEquals(sequential, publishedFromBucket("gs://bucket/", Map.of(), Map.of("traversalThreads", 3)));
+    } finally {
+      storage = realStorage;
+    }
+  }
+
+  @Test
+  public void testFlatListing() throws Exception {
+    createNestedBlobs();
+    Set<String> hierarchical = publishedFromBucket("gs://bucket/", Map.of(), Map.of());
+
+    Storage realStorage = storage;
+    storage = mock(Storage.class, delegatesTo(realStorage));
+    try {
+      assertEquals(hierarchical, publishedFromBucket("gs://bucket/", Map.of(), Map.of("listingMode", "flat")));
+      // one listing covers every level
+      verify(storage, times(1)).list(anyString(), any(BlobListOption[].class));
+    } finally {
+      storage = realStorage;
+    }
+  }
+
+  @Test
+  public void testMaxDocuments() throws Exception {
+    createNestedBlobs();
+
+    assertEquals(2, publishedFromBucket("gs://bucket/", Map.of(), Map.of("maxDocuments", 2)).size());
+  }
+
+  // a start directory in pathsToSkip used to be traversed anyway
+  @Test
+  public void testPathsToSkipOnTheStartDirectory() throws Exception {
+    createNestedBlobs();
+
+    assertEquals(Set.of(), publishedFromBucket("gs://bucket/a/", Map.of("filterOptions", Map.of("pathsToSkip", List.of("gs://bucket/a/"))), Map.of()));
   }
 
   @Test
