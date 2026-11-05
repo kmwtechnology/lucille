@@ -51,7 +51,7 @@
          CI once a 1.0 release jar exists to compare against. -->
     <!-- japicmp 0.26.x requires Maven >= 3.8.1 (CI's setup-java Maven satisfies this). On older Maven, pass
          -Djapicmp-maven-plugin.version=0.21.2. -->
-    <japicmp-maven-plugin.version>0.26.5</japicmp-maven-plugin.version>
+    <japicmp-maven-plugin.version>0.27.0</japicmp-maven-plugin.version>
     <lucille.api.baseline.version>1.0.0</lucille.api.baseline.version>
     <!-- Per-module off switch for the api-compat check (e.g. aggregator modules with no API). Default false
          so the check runs for every module when the api-compat profile is active. -->
