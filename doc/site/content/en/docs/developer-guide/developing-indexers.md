@@ -27,7 +27,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 
 | Method | Required | Purpose |
 |---|---|---|
-| `sendToIndex(List<Document> docs)` | Yes | Send a batch to the destination. Return an `IndexerFailure(document, cause)` for each per-document failure, holding the instance that was passed in; return an empty list if all succeeded. Not called in bypass mode. Throw `IndexerException` if the whole batch could not be attempted, or `IndexerRetryableException` if that failure may be transient, so the retry policy applies. |
+| `sendToIndex(List<Document> docs)` | Yes | Send a batch to the destination. Return an `IndexerFailure(document, cause)` for each per-document failure, holding the instance that was passed in, and report each instance only once; a failure that breaks either rule fails the rest of the batch. Return an empty list if all succeeded. Not called in bypass mode. Throw `IndexerException` if the whole batch could not be attempted, or `IndexerRetryableException` if that failure may be transient, so the retry policy applies. |
 | `checkConnection()` | Yes | Return `true` if the destination is reachable and the target index/collection exists. Called before the consumption loop starts, through the base class's `validateConnection()`. Not called in bypass mode. |
 | `closeConnection()` | Yes | Close the client or connection to the destination. |
 | `supportsConcurrentSends()` | No | Return `true` only if `sendToIndex()` and your destination client are safe to call from several threads at once. The default is `false`, which makes the base class reject `indexer.maxConcurrentBatches` above 1. See [Concurrent Sends](#concurrent-sends). |
@@ -39,7 +39,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 |---|---|---|
 | `public static final Spec SPEC` | Yes | Declares the legal properties for your implementation-specific config block (not the generic `indexer` block — that's validated by the base class). |
 
-Your constructor must call `super(config, context)` — this triggers config validation, sets up batching, and initializes metrics. The constructor signature must be `(Config, IndexerContext)` because the `IndexerFactory` instantiates indexers reflectively using this signature. `IndexerContext` holds what the framework provides apart from config, such as the messenger and the metrics prefix. Pass it through to `super`; the base class exposes what you need, such as the `bypass` field.
+Your constructor must call `super(config, context)` — this triggers config validation, sets up batching, and initializes metrics. The constructor signature must be `(Config, IndexerContext)` because the `IndexerFactory` instantiates indexers reflectively using this signature. `IndexerContext` holds what the framework provides apart from config, such as the messenger and the metrics prefix. Pass it through to `super`; the base class exposes what you need, such as `isBypass()`.
 
 **What's in `config`:** Like Stages and Connectors, your Indexer receives its own block: the `Config` passed to your constructor is the `indexer` block. The base class reads generic settings from it, such as `idOverrideField`. Your implementation reads its nested block via `config.getConfig("mykey")` (e.g., `config.getConfig("solr")`). Your SPEC declares only the properties within your implementation-specific block — write `"url"`, not `"solr.url"`. The base class validates the generic settings separately.
 

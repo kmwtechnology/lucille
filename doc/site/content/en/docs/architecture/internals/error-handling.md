@@ -122,7 +122,7 @@ There are two sub-cases:
 The Indexer catches the exception, logs it, and sends a FAIL event for every document in the batch. If retries are configured (`indexer.maxRetries > 0`) and the failure's status code is in `indexer.retryableStatusCodes` (default `[429, 503, -1]`), the batch is retried with exponential backoff before being declared failed. After all retries are exhausted (or if the status code is not retryable), all documents in the batch receive FAIL events. The Indexer continues processing subsequent batches. `batchComplete()` is still called once the batch has been handled, so Kafka offsets can be committed even though the batch failed; it is skipped only after an `Error` (such as an `OutOfMemoryError`), so offsets for documents that were never indexed are not committed.
 
 **10b. The bulk API succeeds but reports per-document failures:**
-`sendToIndex()` returns a set of failed document/reason pairs. The Indexer sends FAIL events for those specific documents and FINISH events for the rest. The Indexer continues normally.
+`sendToIndex()` returns a list of `IndexerFailure`s, each holding a document and its cause. The Indexer sends FAIL events for those specific documents and FINISH events for the rest. A failure that doesn't match a document awaiting a result (a copy, or an instance reported twice) fails the rest of the batch, because there is no telling which document was rejected. The Indexer continues normally.
 
 **Severity:** Per-batch or per-document failure. The run continues. Failed documents are counted in the Publisher's accounting.
 

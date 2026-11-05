@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.weaviate.indexer;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -234,6 +235,68 @@ public class WeaviateIndexerTest {
 
     assertTrue(failedDocs.stream().anyMatch(p -> p.document().equals(failedDoc1)));
     assertTrue(failedDocs.stream().anyMatch(p -> p.document().equals(failedDoc2)));
+  }
+
+  // Sets up a response for each given id, in order: rejected if the matching entry is true.
+  private void respondWith(List<String> ids, List<Boolean> rejected) {
+    ObjectGetResponse[] responses = new ObjectGetResponse[ids.size()];
+    for (int i = 0; i < ids.size(); i++) {
+      responses[i] = new ObjectGetResponse();
+      responses[i].setId(WeaviateIndexer.generateDocumentUUID(ids.get(i)));
+      responses[i].setResult(new ObjectsGetResponseAO2Result());
+      if (rejected.get(i)) {
+        responses[i].getResult().setErrors(new ErrorResponse("fake error"));
+      }
+    }
+    Result<ObjectGetResponse[]> mockResponse = Mockito.mock(Result.class);
+    when(mockObjectsBatcher.run()).thenReturn(mockResponse);
+    when(mockResponse.getResult()).thenReturn(responses);
+  }
+
+  private WeaviateIndexer indexerWithConfig(String extraConfig) {
+    Config config = ConfigFactory.parseString(extraConfig)
+        .withFallback(ConfigFactory.load("WeaviateIndexerTest/config.conf").getConfig("indexer"));
+    return new WeaviateIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
+  }
+
+  @Test
+  public void testRejectedDocumentsWithSameIdAreEachReported() throws Exception {
+    Document first = Document.create("doc1", "test_run");
+    Document second = Document.create("doc1", "test_run");
+    respondWith(List.of("doc1", "doc1"), List.of(true, true));
+
+    List<IndexerFailure> failures = indexerWithConfig("").sendToIndex(List.of(first, second));
+
+    assertEquals(2, failures.size());
+    assertSame(first, failures.get(0).document());
+    assertSame(second, failures.get(1).document());
+  }
+
+  @Test
+  public void testRejectedDocumentsWithSameOverrideAreEachReported() throws Exception {
+    Document first = Document.create("doc1", "test_run");
+    first.setField("other_id", "shared");
+    Document second = Document.create("doc2", "test_run");
+    second.setField("other_id", "shared");
+    respondWith(List.of("shared", "shared"), List.of(true, true));
+
+    List<IndexerFailure> failures = indexerWithConfig("idOverrideField: \"other_id\"").sendToIndex(List.of(first, second));
+
+    assertEquals(2, failures.size());
+    assertSame(first, failures.get(0).document());
+    assertSame(second, failures.get(1).document());
+  }
+
+  @Test
+  public void testRejectionIsAttributedToTheDocumentOfItsResponse() throws Exception {
+    Document first = Document.create("doc1", "test_run");
+    Document second = Document.create("doc1", "test_run");
+    respondWith(List.of("doc1", "doc1"), List.of(false, true));
+
+    List<IndexerFailure> failures = indexerWithConfig("").sendToIndex(List.of(first, second));
+
+    assertEquals(1, failures.size());
+    assertSame(second, failures.get(0).document());
   }
 
   @Test

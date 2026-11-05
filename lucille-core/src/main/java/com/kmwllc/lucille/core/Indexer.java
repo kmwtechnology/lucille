@@ -407,7 +407,8 @@ public abstract class Indexer implements Runnable {
    * @param documents The documents to send to the destination.
    * @return The documents that were not successfully indexed, each with the Exception describing its failure, or an empty
    *     list if all documents succeeded or if per-document failure tracking is not supported. Each failure must hold the
-   *     instance that was passed in, and a document reported more than once is failed with its first cause. Use
+   *     instance that was passed in, and each instance may be reported only once. A failure that breaks either rule can't
+   *     be matched to a document, so every document in the batch without a failure of its own is failed. Use
    *     {@link IndexerRetryableException} to signal that the failure may be transient; the base class will retry the
    *     entire batch for any returned exception whose status code is in the configured retryable set. Use
    *     {@link IndexerException} for permanent per-document failures. Does not return null.
@@ -586,13 +587,29 @@ public abstract class Indexer implements Runnable {
       Set<Document> nonFailedDocs = Collections.newSetFromMap(new IdentityHashMap<>());
       nonFailedDocs.addAll(batchedDocs);
 
+      IndexerFailure unmatchedFailure = null;
       for (IndexerFailure failure : outcome.failures()) {
         Document doc = failure.document();
         if (nonFailedDocs.remove(doc)) {
           sendFailEvent(doc, failure.cause());
         } else {
           log.error("sendToIndex reported a failure for doc {}, which is not an instance from its batch or was already "
-              + "reported.", doc.getId(), failure.cause());
+              + "reported. The rest of the batch will be failed.", doc.getId(), failure.cause());
+          if (unmatchedFailure == null) {
+            unmatchedFailure = failure;
+          }
+        }
+      }
+
+      // A document was rejected and there is no telling which one, so none of the rest can be reported as succeeded.
+      if (unmatchedFailure != null) {
+        IndexerException cause = new IndexerException("sendToIndex reported a failure for doc "
+            + unmatchedFailure.document().getId() + " that could not be matched to a document in its batch: "
+            + unmatchedFailure.cause().getMessage(), unmatchedFailure.cause());
+        for (Document doc : batchedDocs) {
+          if (nonFailedDocs.remove(doc)) {
+            sendFailEvent(doc, cause);
+          }
         }
       }
 

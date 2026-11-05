@@ -22,6 +22,8 @@ import io.weaviate.client.v1.data.model.WeaviateObject;
 import io.weaviate.client.v1.data.model.WeaviateObject.WeaviateObjectBuilder;
 import io.weaviate.client.v1.data.replication.model.ConsistencyLevel;
 import io.weaviate.client.v1.misc.model.Meta;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -115,7 +117,8 @@ public class WeaviateIndexer extends Indexer {
     List<IndexerFailure> failedDocs = new ArrayList<>();
 
     try (ObjectsBatcher batcher = client.batch().objectsBatcher()) {
-      Map<String, Document> docGeneratedUUIDMap = new HashMap<>();
+      // several documents can share a UUID, as it comes from the id or id override, and each gets its own response
+      Map<String, Deque<Document>> docsByGeneratedUUID = new HashMap<>();
 
       for (Document doc : documents) {
         // the document's fields with indexer.whitelist / indexer.blacklist applied; the id moves to idDestinationName
@@ -143,7 +146,7 @@ public class WeaviateIndexer extends Indexer {
             .build();
         batcher.withObject(obj);
 
-        docGeneratedUUIDMap.put(uuidForDoc, doc);
+        docsByGeneratedUUID.computeIfAbsent(uuidForDoc, uuid -> new ArrayDeque<>()).add(doc);
       }
 
       Result<ObjectGetResponse[]> result = batcher.withConsistencyLevel(ConsistencyLevel.ALL).run();
@@ -158,9 +161,10 @@ public class WeaviateIndexer extends Indexer {
       ObjectGetResponse[] responses = result.getResult();
       for (ObjectGetResponse response : responses) {
         ErrorResponse errorResponse = response.getResult().getErrors();
+        Deque<Document> docsWithResponseUUID = docsByGeneratedUUID.get(response.getId());
+        Document docWithResponseUUID = docsWithResponseUUID == null ? null : docsWithResponseUUID.poll();
 
         if (errorResponse != null) {
-          Document docWithResponseUUID = docGeneratedUUIDMap.get(response.getId());
           failedDocs.add(new IndexerFailure(docWithResponseUUID, new IndexerException(errorResponse.toString())));
         }
       }

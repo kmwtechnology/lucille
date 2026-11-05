@@ -65,17 +65,64 @@ public class IndexerBatchAccountingTest {
   }
 
   @Test
-  public void testFailureForDocumentNotInBatchSendsNoEventForIt() throws Exception {
+  public void testCopyOfDocumentFailsIt() throws Exception {
     TestMessenger messenger = new TestMessenger();
-    Document copy = Document.create("doc1", "run1");
-    Indexer indexer = new FailingIndexer(ConfigFactory.parseString("batchSize: 1"), messenger, "notInBatch",
-        batch -> List.of(new IndexerFailure(copy, new IndexerException("rejected"))));
+    Indexer indexer = new FailingIndexer(ConfigFactory.parseString("batchSize: 1"), messenger, "copyOfDocument",
+        batch -> List.of(new IndexerFailure(batch.get(0).deepCopy(), new IndexerException("rejected"))));
     send(messenger, Document.create("doc1", "run1"));
     indexer.run(1);
 
     List<Event> events = messenger.getSentEvents();
     assertEquals(1, events.size());
-    assertEquals(Event.Type.FINISH, events.get(0).getType());
+    assertEquals(Event.Type.FAIL, events.get(0).getType());
+    assertTrue(events.get(0).getMessage(), events.get(0).getMessage().contains("rejected"));
+  }
+
+  @Test
+  public void testUnmatchedFailureFailsRestOfBatch() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Indexer indexer = new FailingIndexer(ConfigFactory.parseString("batchSize: 3"), messenger, "unmatchedFailure",
+        batch -> List.of(new IndexerFailure(batch.get(1).deepCopy(), new IndexerException("copy")),
+            new IndexerFailure(batch.get(0), new IndexerException("matched"))));
+    send(messenger, Document.create("doc1", "run1"), Document.create("doc2", "run1"), Document.create("doc3", "run1"));
+    indexer.run(3);
+
+    assertEquals(0, eventsOfType(messenger, Event.Type.FINISH).size());
+    List<Event> fails = eventsOfType(messenger, Event.Type.FAIL);
+    assertEquals(3, fails.size());
+    // a failure that does match keeps its own cause, wherever it comes in the list
+    assertEquals("doc1", fails.get(0).getDocumentId());
+    assertTrue(fails.get(0).getMessage(), fails.get(0).getMessage().contains("matched"));
+    assertEquals("doc2", fails.get(1).getDocumentId());
+    assertEquals("doc3", fails.get(2).getDocumentId());
+    assertEquals(0, SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG)
+        .meter("unmatchedFailure.indexer.docsIndexed").getCount());
+  }
+
+  @Test
+  public void testFailureForUnknownIdFailsBatchWithNoEventForIt() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Indexer indexer = new FailingIndexer(BATCH_OF_TWO, messenger, "unknownId",
+        batch -> List.of(new IndexerFailure(Document.create("unknown", "run1"), new IndexerException("rejected"))));
+    send(messenger, Document.create("doc1", "run1"), Document.create("doc2", "run1"));
+    indexer.run(2);
+
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(List.of("doc1", "doc2"), events.stream().map(Event::getDocumentId).toList());
+    assertEquals(2, eventsOfType(messenger, Event.Type.FAIL).size());
+  }
+
+  @Test
+  public void testDocumentReportedTwiceFailsItsSibling() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Indexer indexer = new FailingIndexer(BATCH_OF_TWO, messenger, "reportedTwiceWithSibling",
+        batch -> List.of(new IndexerFailure(batch.get(1), new IndexerException("first")),
+            new IndexerFailure(batch.get(1), new IndexerException("second"))));
+    send(messenger, Document.create("doc1", "run1"), Document.create("doc1", "run1"));
+    indexer.run(2);
+
+    assertEquals(0, eventsOfType(messenger, Event.Type.FINISH).size());
+    assertEquals(2, eventsOfType(messenger, Event.Type.FAIL).size());
   }
 
   @Test
