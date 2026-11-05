@@ -61,6 +61,7 @@ connectors: [
 | `preActions` | List\<String\> | No | Solr update requests to send before the query (see below). |
 | `postActions` | List\<String\> | No | Solr update requests to send after the query (see below). |
 | `useXml` | Boolean | No | If `true`, sends action requests as XML instead of JSON. Default: `false`. |
+| `lowercaseFields` | Boolean | No | If `true`, lowercases each field name before setting it on the Document (see [Document Fields](#document-fields)). Default: `false`. |
 
 ### `solr` Connection Parameters
 
@@ -81,7 +82,11 @@ connectors: [
 
 ## Document Fields
 
-Each Solr result becomes a Document whose ID is `docIdPrefix` (if set) followed by the value of `idField`. Every other returned field is copied with its type, under its name lowercased; fields whose names differ only in case overwrite each other. A result whose `idField` value is missing or blank is skipped and logged, and the number of skipped results is logged at the end. The `idField` and `id` fields are not copied. Nested child documents are not read.
+Each Solr result becomes a Document whose ID is `docIdPrefix` (if set) followed by the value of `idField`. Every other returned field is copied with its type, under its Solr name. A result whose `idField` value is missing or blank is skipped and logged, and the number of skipped results is logged at the end. The `idField` field is not copied, and neither are fields named after Lucille's reserved fields (`id`, `run_id`, `___children`, `___dropped`, `___skipped`). These names are case-sensitive, so a field such as `ID` or `RUN_ID` is copied as an ordinary field. Nested child documents are not read.
+
+With `lowercaseFields: true`, each field name is lowercased before it is set on the Document, and the reserved-field check applies to the lowercased name. A field such as `ID` then becomes `id` and is not copied. Fields whose names differ only in case end up with the same name, and the last one overwrites the others.
+
+**Migrating from earlier versions:** the connector used to lowercase every field name. If your pipeline or indexer mapping depends on lowercased names (for example `author` for a Solr field `Author`), set `lowercaseFields: true`.
 
 Solr returns `_version_` with every document. Remove it with a `DeleteFields` stage before indexing the documents into Solr, or Solr rejects each one with a 409 version conflict.
 
