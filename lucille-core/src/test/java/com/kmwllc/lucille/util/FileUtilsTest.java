@@ -2,6 +2,8 @@ package com.kmwllc.lucille.util;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import org.junit.Test;
 
@@ -89,5 +91,28 @@ public class FileUtilsTest {
     // plain local paths are opened directly
     assertNull(FileUtils.storageURIFor("relative/a.csv"));
     assertNull(FileUtils.storageURIFor("/absolute/a.csv"));
+  }
+
+  @Test
+  public void testParsePathOrURIKeepsValidURIs() throws Exception {
+    assertEquals(URI.create("s3://bucket/key"), FileUtils.parsePathOrURI("s3://bucket/key"));
+    assertEquals(URI.create("temp/defaults.csv"), FileUtils.parsePathOrURI("temp/defaults.csv"));
+  }
+
+  @Test
+  public void testParsePathOrURITreatsDriveLetterAsLocalPath() throws Exception {
+    // a single-letter "scheme" is a Windows drive letter, not a URI scheme
+    assertEquals("file", FileUtils.parsePathOrURI("C:/data").getScheme());
+    assertEquals("file", FileUtils.parsePathOrURI("C:\\data").getScheme());
+  }
+
+  @Test
+  public void testParsePathOrURIConvertsInvalidURIToLocalPath() throws Exception {
+    assertEquals(Paths.get("folder with spaces/file.txt").toUri(), FileUtils.parsePathOrURI("folder with spaces/file.txt"));
+  }
+
+  @Test
+  public void testParsePathOrURIRejectsInvalidURIWithScheme() {
+    assertThrows(URISyntaxException.class, () -> FileUtils.parsePathOrURI("s3://bucket/with space"));
   }
 }

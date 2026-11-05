@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.kmwllc.lucille.util.ThreadNameUtils;
+import com.kmwllc.lucille.util.FileUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.storageclient.BaseFileReference;
@@ -227,7 +228,7 @@ public class FileConnector extends AbstractConnector {
 
     for (String path : paths) {
       try {
-        URI newStorageURI = TraversalParams.parsePathOrURI(path);
+        URI newStorageURI = FileUtils.parsePathOrURI(path);
         storageURIs.add(newStorageURI);
         log.debug("FileConnector to use path {} with scheme {}", path, newStorageURI.getScheme());
       } catch (URISyntaxException e) {
@@ -532,7 +533,7 @@ public class FileConnector extends AbstractConnector {
     URI path = storageURIs.get(0);
     URI target;
     try {
-      target = TraversalParams.parsePathOrURI(config.getString(key));
+      target = FileUtils.parsePathOrURI(config.getString(key));
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException("Invalid " + key + ": " + config.getString(key), e);
     }

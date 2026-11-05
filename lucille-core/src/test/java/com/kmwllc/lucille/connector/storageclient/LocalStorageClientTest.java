@@ -470,7 +470,7 @@ public class LocalStorageClientTest {
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(ConfigFactory.empty(), TraversalParams.parsePathOrURI(defaultAbsolutePath.toString()), "file_");
+    TraversalParams params = new TraversalParams(ConfigFactory.empty(), com.kmwllc.lucille.util.FileUtils.parsePathOrURI(defaultAbsolutePath.toString()), "file_");
     localStorageClient.start();
     localStorageClient.traverse(publisher, params);
 
