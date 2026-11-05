@@ -107,6 +107,17 @@ The `provided` scope on lucille-core means the plugin compiles against core but 
 - The component is specialized enough that most users won't need it
 - Including it in core would bloat the core JAR or cause transitive dependency conflicts
 
+**Wiring up a new plugin module:**
+
+A new plugin needs to be registered in these places:
+
+- **`lucille-plugins/pom.xml`**: add the module to `<modules>`
+- **`lucille-bom/pom.xml`**: add a `<dependency>` entry so consumers who import the BOM can declare the plugin without a version.
+- **`lucille-all/pom.xml`**: add it if the plugin should ship in the batteries-included `lucille-all` image. Skip it for plugins that should stay opt-in.
+- **`lucille-parent/pom.xml`**: add the plugin's base package to the `<includes>` list of the `api-compat` profile. That list is an explicit list of packages, so a new package is not checked for binary compatibility until it is added (see [API compatibility check](#api-compatibility-check-japicmp)).
+- **`PUBLIC_API.md`**: add the plugin to the list of component plugins, and note any package that is internal.
+- **Baseline override**: the compatibility check compares each module against `lucille.api.baseline.version`. A module that did not exist in baseline version has no such artifact, so the check silently skips it. Set `lucille.api.baseline.version` in that module's own `<properties>` to the first version in which the module was released, so it is guarded from then on.
+
 ### lucille-examples
 
 Runnable example projects that demonstrate common ingestion patterns. Each example:
@@ -138,6 +149,9 @@ All other modules inherit this version via their `<parent>` declaration. The ver
 ```bash
 mvn versions:set -DnewVersion=0.9.0
 ```
+
+`versions:set` does **not** change `lucille.api.baseline.version` in lucille-parent. That property is a fixed reference point for the API compatibility check, not a copy of the project version. 
+See [API compatibility check](#api-compatibility-check-japicmp) for when and how it needs to change.
 
 ---
 
@@ -312,6 +326,46 @@ mvn clean deploy -Ddeploy
 
 This publishes lucille-core, lucille-bom, and all plugin modules. Examples are excluded from publishing (`maven.deploy.skip=true`).
 
+### API compatibility check (japicmp)
+
+Lucille uses [japicmp](https://siom79.github.io/japicmp/) to catch accidental binary-incompatible changes to the public Java API (the packages listed in [`PUBLIC_API.md`](https://github.com/kmwtechnology/lucille/blob/main/PUBLIC_API.md)). It compares each module's freshly built jar against a released **baseline** jar and fails the build if code compiled against the baseline would no longer link against the new jar.
+
+The check is configured in the `api-compat` profile of `lucille-parent/pom.xml`. It is **off by default**; run it with:
+
+```bash
+mvn verify -Papi-compat
+```
+
+The plugin version in use (0.26.x) needs Maven 3.8.1 or newer. On older Maven, add `-Djapicmp-maven-plugin.version=0.21.2`.
+
+**The baseline.** The baseline version is the property `lucille.api.baseline.version` in `lucille-parent/pom.xml`. Say it is set to the 1.0 release (`1.0.0`), it is meant to stay there for the whole 1.x line. Every 1.x release is compared back to 1.0.0, so the guarantee is "code compiled against 1.0 keeps working on any later 1.x", and breaks that build up gradually over several releases are still caught.
+
+- **Do not update it on every release.** Releases such as 1.0.1, 1.1.0 or 1.5.0 do not need any change. `mvn versions:set` leaves the property alone, which is intended: if the baseline followed the project version, a release would be compared against itself and could never fail.
+- **Update it on a major version bump.** Breaking 1.x compatibility is allowed in 2.0, so when 2.0.0 is released, set the baseline to `2.0.0`. From the repository root, this updates the default in lucille-parent and any module that overrides it:
+
+  ```bash
+  mvn versions:set-property -Dproperty=lucille.api.baseline.version -DnewVersion=2.0.0
+  ```
+
+- **New modules need their own baseline.** The baseline is one version for every module. A module first released after 1.0 has no 1.0.0 artifact, so the check skips it instead of failing. Override the property in that module's own POM (see "Wiring up a new plugin module" above).
+
+**When it takes effect.** The check needs the baseline jar to exist in a Maven repository. Until 1.0.0 is published, the baseline cannot be resolved, and the check logs a warning and passes (`ignoreMissingOldVersion`). Once 1.0.0 is released, run the release build with `-Papi-compat` so the check is enforced.
+
+**What it checks.** Binary-incompatible changes to public and protected members of the listed packages, for example:
+
+- a class, method, constructor or field removed
+- a class, method or field made less accessible (for example public to package-private)
+- a method's return type or parameter types changed (reported as a removal)
+- a class or method made `final`, `abstract` or `static`, or no longer `static`
+- a superclass or interface removed
+
+**What it does not check.** It is not a full compatibility guarantee:
+
+- *Source-only* breaks, such as adding an abstract method to an interface (binary-compatible, but implementers no longer compile)
+- *Behavior* changes behind an unchanged signature
+- The *HOCON configuration surface* (stage, connector and indexer property names, defaults, and `indexer.type` names). A renamed or removed property breaks users' configs without changing any Java signature, and japicmp cannot see it.
+- Packages not in the `<includes>` list, and dependency changes
+
 ---
 
 ## Summary
@@ -332,3 +386,5 @@ The key things a developer needs to know:
 4. **Version is in lucille-parent.** All modules inherit it.
 5. **Examples show the patterns.** Start from an example when building a new ingest project.
 6. **The BOM simplifies dependency management.** Import it and you don't need to specify Lucille module versions.
+7. **A new module must be registered in several places.** Add it to the plugins `<modules>`, the BOM, and the `api-compat` include list (and to `lucille-all` if it ships there).
+8. **The API compatibility baseline is fixed at 1.0.0.** It changes on a major version bump, not on every release, and `versions:set` does not touch it.

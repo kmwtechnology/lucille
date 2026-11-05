@@ -14,6 +14,19 @@ Everything not listed here is internal and may change in any release without not
 - `japicmp` compares each release against the `1.0` baseline jar and fails the build on a binary-incompatible
   change to a public package. The baseline is the `1.0` tag; the check is added now and armed at release.
 
+### What the automated check does not cover
+
+`japicmp` only detects binary-incompatible changes to the Java signatures of the packages below. It does not
+detect:
+
+- **Configuration changes.** Lucille's HOCON configuration surface (stage, connector and indexer property
+  names, their defaults, and `indexer.type` names) is not covered. Renaming or removing a property breaks
+  users' config files without changing any Java signature. Example configs are validated separately by the
+  example modules' `ConfigValidationTest`s, which catch breakage in those configs only.
+- **Source-only breaks**, such as adding an abstract method to an interface (binary-compatible, but
+  implementers no longer compile).
+- **Behavior changes** behind an unchanged signature.
+
 ## Public packages
 
 ### lucille-core

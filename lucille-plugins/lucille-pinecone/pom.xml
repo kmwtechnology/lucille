@@ -16,7 +16,6 @@
   <packaging>jar</packaging>
   <name>Lucille Plugins: Lucille Pinecone</name>
 
-
   <dependencies>
     <dependency>
       <groupId>com.kmwllc</groupId>
