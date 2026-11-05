@@ -64,6 +64,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
@@ -119,7 +120,7 @@ public class OpenSearchIndexerTest {
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -147,7 +148,7 @@ public class OpenSearchIndexerTest {
     doc2.addChild(childDoc2);
     childDoc2.addChild(Document.create("child_childDoc2", "test_run"));
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -171,7 +172,7 @@ public class OpenSearchIndexerTest {
     parent.addChild(child1);
     parent.addChild(child2);
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(parent);
     indexer.run(1);
 
@@ -199,7 +200,7 @@ public class OpenSearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     // blacklist.conf blacklists "id", "ignoreField1", and "ignoreField2"
     Config config = ConfigFactory.load("OpenSearchIndexerTest/blacklist.conf")
-        .withValue("opensearch.childDocumentsField", ConfigValueFactory.fromAnyRef("children"));
+        .withValue("indexer.opensearch.childDocumentsField", ConfigValueFactory.fromAnyRef("children"));
 
     Document child = Document.create("child1");
     child.setField("ignoreField1", "shouldBeRemoved");
@@ -208,7 +209,7 @@ public class OpenSearchIndexerTest {
     Document parent = Document.create("doc1");
     parent.addChild(child);
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(parent);
     indexer.run(1);
 
@@ -239,7 +240,7 @@ public class OpenSearchIndexerTest {
     Document parent = Document.create("parent1");
     parent.addChild(child);
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(parent);
     indexer.run(1);
 
@@ -266,7 +267,7 @@ public class OpenSearchIndexerTest {
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -292,7 +293,7 @@ public class OpenSearchIndexerTest {
     Document doc4 = Document.create("doc4", "test_run");
     Document doc5 = Document.create("doc5", "test_run");
 
-    OpenSearchIndexer indexer = new ErroringOpenSearchIndexer(config, messenger, mockClient, "testing");
+    OpenSearchIndexer indexer = new ErroringOpenSearchIndexer(config.getConfig("indexer"), messenger, mockClient, "testing");
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     messenger.sendForIndexing(doc3);
@@ -351,7 +352,7 @@ public class OpenSearchIndexerTest {
     Document doc3 = Document.create("doc3", "test_run");
     doc3.setField("other_id", "something_else");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient2);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient2);
     Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
     assertEquals(2, failedDocs.size());
     assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc)));
@@ -366,15 +367,15 @@ public class OpenSearchIndexerTest {
 
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
     assertFalse(indexer.validateConnection());
     assertFalse(indexer.validateConnection());
 
-    OpenSearchIndexer bypassClientIndexer = new OpenSearchIndexer(config, messenger, true, "testing", null);
+    OpenSearchIndexer bypassClientIndexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, true, "testing", null));
     Assert.assertTrue(bypassClientIndexer.validateConnection());
 
-    OpenSearchIndexer failPingClientIndexer = new OpenSearchIndexer(config, messenger, "testing", mockFailPingClient);
+    OpenSearchIndexer failPingClientIndexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockFailPingClient);
     Assert.assertFalse(failPingClientIndexer.validateConnection());
   }
 
@@ -382,7 +383,7 @@ public class OpenSearchIndexerTest {
   public void testMultipleBatches() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf");
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
@@ -422,7 +423,7 @@ public class OpenSearchIndexerTest {
   public void testMultipleBatchesIndexField() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batchingIndexOverride.conf");
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document doc = Document.create("doc1", "test_run");
     doc.setField("index", "i1");
@@ -467,7 +468,7 @@ public class OpenSearchIndexerTest {
   public void testMultipleBatchesSeparateIndexFields() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batchingIndexOverride.conf");
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document doc = Document.create("doc1", "test_run");
     doc.setField("index", "i1");
@@ -564,7 +565,7 @@ public class OpenSearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf")
         .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(ops.size()));
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     // The model: the final state of each id is its last operation (null means deleted).
     Map<String, String> expected = new TreeMap<>();
@@ -614,7 +615,7 @@ public class OpenSearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf")
         .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(3));
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document add1 = Document.create("doc1", "test_run");
     add1.setField("version", "1");
@@ -649,7 +650,7 @@ public class OpenSearchIndexerTest {
   public void testDeletion() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf");
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
@@ -745,7 +746,7 @@ public class OpenSearchIndexerTest {
   public void testDeleteByQuery() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/testDeleteByQuery.conf");
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document doc1DelByQuery = Document.create("doc1", "test_run");
     doc1DelByQuery.setField("deleted", "true");
@@ -805,8 +806,7 @@ public class OpenSearchIndexerTest {
   // children must not delete the new children.
   @Test
   public void testDeleteByQueryKeepsBatchOrder() throws Exception {
-    OpenSearchIndexer indexer = new OpenSearchIndexer(ConfigFactory.load("OpenSearchIndexerTest/batching.conf"),
-        new TestMessenger(), "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(ConfigFactory.load("OpenSearchIndexerTest/batching.conf").getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
 
     Document oldChild = Document.create("oldChild");
     oldChild.setField("parent", "P");
@@ -836,8 +836,7 @@ public class OpenSearchIndexerTest {
   // its query, and the writes after it go in the next bulk.
   @Test
   public void testMultipleDeleteByQueriesKeepBatchOrder() throws Exception {
-    OpenSearchIndexer indexer = new OpenSearchIndexer(ConfigFactory.load("OpenSearchIndexerTest/batching.conf"),
-        new TestMessenger(), "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(ConfigFactory.load("OpenSearchIndexerTest/batching.conf").getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
 
     List<Document> batch = new ArrayList<>();
     for (String id : List.of("add1", "add2", "dbq1", "add3", "add4", "dbq2", "add5", "add6")) {
@@ -875,8 +874,7 @@ public class OpenSearchIndexerTest {
   @Test
   public void testRefreshFailureBeforeDeleteByQueryIsRetryable() throws Exception {
     when(mockIndicesClient.refresh(any(Function.class))).thenThrow(new IOException("Connection refused"));
-    OpenSearchIndexer indexer = new OpenSearchIndexer(ConfigFactory.load("OpenSearchIndexerTest/batching.conf"),
-        new TestMessenger(), "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(ConfigFactory.load("OpenSearchIndexerTest/batching.conf").getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
 
     Document doc = Document.create("doc1");
     doc.setField("deleted", "true");
@@ -894,7 +892,7 @@ public class OpenSearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf")
         .withValue("indexer.idOverrideField", ConfigValueFactory.fromAnyRef("other_id"));
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document deletedDoc = Document.create("doc-original", "test_run");
     deletedDoc.setField("other_id", "doc-override");
@@ -918,7 +916,7 @@ public class OpenSearchIndexerTest {
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf")
         .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef("file_expired"))
         .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef("true"));
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document expiredDoc = Document.create("doc-expired", "test_run");
     // deletion marker check uses getString(), so boolean true matches "true".
@@ -945,7 +943,7 @@ public class OpenSearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -979,7 +977,7 @@ public class OpenSearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1012,7 +1010,7 @@ public class OpenSearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
     doc.setField("myJsonField", jsonNode);
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1044,7 +1042,7 @@ public class OpenSearchIndexerTest {
     doc.setField("routing", "routing1");
     doc.setField("field1", "value1");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1075,7 +1073,7 @@ public class OpenSearchIndexerTest {
     doc.setField("routing", "routing1");
     doc.setField("field1", "value1");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1095,13 +1093,13 @@ public class OpenSearchIndexerTest {
   public void testDocumentVersioningWithVersionField() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf")
-        .withValue("indexer.versionField", ConfigValueFactory.fromAnyRef("my_version_field"));
+        .withValue("indexer.opensearch.versionField", ConfigValueFactory.fromAnyRef("my_version_field"));
 
     Document doc = Document.create("doc1");
     doc.setField("my_version_field", 12345L);
     doc.setField("field1", "value1");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
@@ -1123,12 +1121,12 @@ public class OpenSearchIndexerTest {
   public void testDocumentVersioningWithVersionFieldMissingInDoc() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf")
-        .withValue("indexer.versionField", ConfigValueFactory.fromAnyRef("my_version_field"));
+        .withValue("indexer.opensearch.versionField", ConfigValueFactory.fromAnyRef("my_version_field"));
 
     Document doc = Document.create("doc1");
     doc.setField("field1", "value1");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
@@ -1147,9 +1145,9 @@ public class OpenSearchIndexerTest {
   @Test
   public void testConstructorWithVersionFieldAndNoVersionType() {
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf")
-        .withValue("indexer.versionField", ConfigValueFactory.fromAnyRef("my_version_field"));
+        .withValue("indexer.opensearch.versionField", ConfigValueFactory.fromAnyRef("my_version_field"));
     TestMessenger messenger = new TestMessenger();
-    assertThrows(IllegalArgumentException.class, () -> new OpenSearchIndexer(config, messenger, "testing", mockClient));
+    assertThrows(IllegalArgumentException.class, () -> new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient));
   }
 
   @Test
@@ -1163,7 +1161,7 @@ public class OpenSearchIndexerTest {
             .put("field1", "value1"));
     doc.setKafkaMetadata("testing", 0, 100, null);
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
@@ -1193,7 +1191,7 @@ public class OpenSearchIndexerTest {
             .put("field1", "value1"));
     doc.setKafkaMetadata("testing", 0, 100, null);
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
@@ -1211,15 +1209,15 @@ public class OpenSearchIndexerTest {
 
   private static Config versionedDeleteConfig() {
     return ConfigFactory.load("OpenSearchIndexerTest/versioning.conf")
-        .withValue("indexer.versionField", ConfigValueFactory.fromAnyRef("my_version_field"))
+        .withValue("indexer.opensearch.versionField", ConfigValueFactory.fromAnyRef("my_version_field"))
         .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef("deleted"))
         .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef("true"));
   }
 
-  // A delete by id carries the document's indexer.versionField value, with indexer.versionType.
+  // A delete by id carries the document's opensearch.versionField value, with opensearch.versionType.
   @Test
   public void testVersionedDeleteById() throws Exception {
-    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig().getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
 
     Document doc = Document.create("doc1");
     doc.setField("my_version_field", 12345L);
@@ -1234,11 +1232,11 @@ public class OpenSearchIndexerTest {
     assertEquals(VersionType.ExternalGte, delete.versionType());
   }
 
-  // A delete without indexer.versionField is unversioned, and never takes its version from the Kafka offset, which is
+  // A delete without opensearch.versionField is unversioned, and never takes its version from the Kafka offset, which is
   // not comparable to a versionField value.
   @Test
   public void testUnversionedDeleteById() throws Exception {
-    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig().getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
 
     Document doc = Document.create("doc1");
     doc.setField("deleted", "true");
@@ -1259,11 +1257,11 @@ public class OpenSearchIndexerTest {
     }
   }
 
-  // Without indexer.versionType, a delete is unversioned even when the document has a version-like field.
+  // Without opensearch.versionType, a delete is unversioned even when the document has a version-like field.
   @Test
   public void testDeleteByIdWithoutVersionType() throws Exception {
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf");
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, new TestMessenger(), "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
 
     Document doc = Document.create("doc1");
     doc.setField("my_version_field", 12345L);
@@ -1301,7 +1299,7 @@ public class OpenSearchIndexerTest {
   @Test
   public void testStaleVersionedDeleteSucceeds() throws Exception {
     rejectDeleteWith(409);
-    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig().getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
 
     assertTrue(indexer.sendToIndex(List.of(deleteDoc(1L))).isEmpty());
   }
@@ -1310,7 +1308,7 @@ public class OpenSearchIndexerTest {
   @Test
   public void testVersionedDeleteOtherErrorFails() throws Exception {
     rejectDeleteWith(400);
-    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig().getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
 
     assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(deleteDoc(1L))));
   }
@@ -1319,7 +1317,7 @@ public class OpenSearchIndexerTest {
   @Test
   public void testUnversionedDeleteConflictFails() throws Exception {
     rejectDeleteWith(409);
-    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig().getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
 
     assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(deleteDoc(null))));
   }
@@ -1353,13 +1351,13 @@ public class OpenSearchIndexerTest {
 
     TestMessenger messenger = new TestMessenger();
     Config config = versionedDeleteConfig()
-        .withValue("indexer.versionType", ConfigValueFactory.fromAnyRef("External"))
+        .withValue("indexer.opensearch.versionType", ConfigValueFactory.fromAnyRef("External"))
         .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2))
         .withValue("indexer.deleteByFieldField", ConfigValueFactory.fromAnyRef("field"))
         .withValue("indexer.deleteByFieldValue", ConfigValueFactory.fromAnyRef("value"))
         .withValue("indexer.maxRetries", ConfigValueFactory.fromAnyRef(1))
         .withValue("indexer.retryWaitDurationMs", ConfigValueFactory.fromAnyRef(1));
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", replayClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), replayClient);
 
     Document delete = Document.create("doc1", "test_run");
     delete.setField("my_version_field", 5L);
@@ -1421,7 +1419,7 @@ public class OpenSearchIndexerTest {
     Document doc2 = Document.create("doc2", "test_run");
     Document doc3 = Document.create("doc3", "test_run");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient2);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient2);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     messenger.sendForIndexing(doc3);
@@ -1456,7 +1454,7 @@ public class OpenSearchIndexerTest {
     doc.setField("ignoreField2", "value2");
     doc.setField("normalField", "normalValue");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1485,7 +1483,7 @@ public class OpenSearchIndexerTest {
     doc.setField("includeField2", "value2");
     doc.setField("normalField", "normalValue");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1516,7 +1514,7 @@ public class OpenSearchIndexerTest {
     doc.setField("includeField2", "value2");
     doc.setField("normalField", "normalValue");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1555,7 +1553,7 @@ public class OpenSearchIndexerTest {
     doc.setField("normalField", "normalValue");
     doc.setField("other_id", "otherId");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1583,7 +1581,7 @@ public class OpenSearchIndexerTest {
     doc.setField("whitelistField", "whitelistValue");
     doc.setField("other_id", "otherId");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1616,7 +1614,7 @@ public class OpenSearchIndexerTest {
     doc.setField("normalField", "normalValue");
     doc.setField("other_id", "otherId");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1644,7 +1642,7 @@ public class OpenSearchIndexerTest {
     doc.setField("normalField", "normalValue");
     doc.setField("other_id", "otherId");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1675,7 +1673,7 @@ public class OpenSearchIndexerTest {
 
     doc.setField("other_id", "otherId");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1702,16 +1700,16 @@ public class OpenSearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", null);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), null);
     // will print out to the logs but no errors despite null client.
     indexer.closeConnection();
 
     // only the call to check if it is null
-    indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     indexer.closeConnection();
     verify(mockClient, times(1))._transport();
 
-    indexer = new OpenSearchIndexer(config, messenger, "testing", mockTransportClient);
+    indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockTransportClient);
     indexer.closeConnection();
     // call to check if null (it isn't) and then a call to close.
     verify(mockTransportClient, times(2))._transport();
@@ -1751,7 +1749,7 @@ public class OpenSearchIndexerTest {
     Document doc1 = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", retryClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), retryClient);
     messenger.sendForIndexing(doc1);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -1789,7 +1787,7 @@ public class OpenSearchIndexerTest {
     Document doc2 = Document.create("doc2", "test_run");
     Document doc3 = Document.create("doc3", "test_run");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", retryClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), retryClient);
     messenger.sendForIndexing(doc1);
     messenger.sendForIndexing(doc2);
     messenger.sendForIndexing(doc3);
@@ -1821,7 +1819,7 @@ public class OpenSearchIndexerTest {
     Document doc2 = Document.create("doc2", "test_run");
 
     // Use a subclass that throws IndexerRetryableException with status 503 (not in retryableStatusCodes)
-    OpenSearchIndexer indexer = new Status503OpenSearchIndexer(config, messenger, mockClient, "testing");
+    OpenSearchIndexer indexer = new Status503OpenSearchIndexer(config.getConfig("indexer"), messenger, mockClient, "testing");
     messenger.sendForIndexing(doc1);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -1877,7 +1875,7 @@ public class OpenSearchIndexerTest {
 
     Document doc1 = Document.create("doc1", "test_run");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", retryClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), retryClient);
     messenger.sendForIndexing(doc1);
     indexer.run(1);
 
@@ -1922,7 +1920,7 @@ public class OpenSearchIndexerTest {
 
     Document doc1 = Document.create("doc1", "test_run");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", retryClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), retryClient);
     messenger.sendForIndexing(doc1);
     indexer.run(1);
 
@@ -1976,7 +1974,7 @@ public class OpenSearchIndexerTest {
     Document doc1 = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", retryClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), retryClient);
     messenger.sendForIndexing(doc1);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -2025,12 +2023,12 @@ public class OpenSearchIndexerTest {
     server.start();
 
     Config config = ConfigFactory.load("OpenSearchIndexerTest/retry.conf").
-        withValue("opensearch.url", ConfigValueFactory.fromAnyRef("http://localhost:" + server.getAddress().getPort()));
+        withValue("indexer.opensearch.url", ConfigValueFactory.fromAnyRef("http://localhost:" + server.getAddress().getPort()));
     TestMessenger messenger = new TestMessenger();
     Document doc = Document.create("doc1");
 
     try {
-      OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, false, "testing", "run1");
+      OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", "run1"));
       messenger.sendForIndexing(doc);
       indexer.run(1);
     } finally {
@@ -2077,13 +2075,13 @@ public class OpenSearchIndexerTest {
     server.start();
 
     Config config = ConfigFactory.load("OpenSearchIndexerTest/retry.conf")
-        .withValue("opensearch.url", ConfigValueFactory.fromAnyRef("http://localhost:" + server.getAddress().getPort()))
-        .withValue("opensearch.socketTimeoutMs", ConfigValueFactory.fromAnyRef(300));
+        .withValue("indexer.opensearch.url", ConfigValueFactory.fromAnyRef("http://localhost:" + server.getAddress().getPort()))
+        .withValue("indexer.opensearch.socketTimeoutMs", ConfigValueFactory.fromAnyRef(300));
     TestMessenger messenger = new TestMessenger();
     Document doc = Document.create("doc1");
 
     long start = System.nanoTime();
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, false, "testing", "run1");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", "run1"));
     try {
       messenger.sendForIndexing(doc);
       indexer.run(1);
@@ -2122,7 +2120,7 @@ public class OpenSearchIndexerTest {
 
     Document doc1 = Document.create("doc1", "test_run");
 
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", retryClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), retryClient);
     messenger.sendForIndexing(doc1);
     indexer.run(1);
 
@@ -2145,7 +2143,7 @@ public class OpenSearchIndexerTest {
         .withValue("indexer.retryableStatusCodes", ConfigValueFactory.fromIterable(List.of()));
 
     assertThrows(IllegalArgumentException.class, () ->
-        new OpenSearchIndexer(config, messenger, "testing", mockClient));
+        new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient));
   }
 
   /**
@@ -2158,7 +2156,7 @@ public class OpenSearchIndexerTest {
         .withValue("indexer.maxRetries", ConfigValueFactory.fromAnyRef(0));
 
     assertThrows(IllegalArgumentException.class, () ->
-        new OpenSearchIndexer(config, messenger, "testing", mockClient));
+        new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient));
   }
 
   /**
@@ -2171,7 +2169,7 @@ public class OpenSearchIndexerTest {
         .withValue("indexer.retryWaitDurationMs", ConfigValueFactory.fromAnyRef(500));
 
     assertThrows(IllegalArgumentException.class, () ->
-        new OpenSearchIndexer(config, messenger, "testing", mockClient));
+        new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient));
   }
 
   /**
@@ -2184,7 +2182,7 @@ public class OpenSearchIndexerTest {
         .withValue("indexer.retryableStatusCodes", ConfigValueFactory.fromIterable(List.of(429)));
 
     assertThrows(IllegalArgumentException.class, () ->
-        new OpenSearchIndexer(config, messenger, "testing", mockClient));
+        new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient));
   }
 
   /**
@@ -2197,7 +2195,7 @@ public class OpenSearchIndexerTest {
         .withValue("indexer.retryMaxWaitDurationMs", ConfigValueFactory.fromAnyRef(5000));
 
     assertThrows(IllegalArgumentException.class, () ->
-        new OpenSearchIndexer(config, messenger, "testing", mockClient));
+        new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient));
   }
 
   /**
@@ -2210,7 +2208,7 @@ public class OpenSearchIndexerTest {
         .withValue("indexer.retryRandomizationFactor", ConfigValueFactory.fromAnyRef(0.3));
 
     assertThrows(IllegalArgumentException.class, () ->
-        new OpenSearchIndexer(config, messenger, "testing", mockClient));
+        new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient));
   }
 
   /**
@@ -2227,7 +2225,7 @@ public class OpenSearchIndexerTest {
         .withValue("indexer.retryableStatusCodes", ConfigValueFactory.fromIterable(List.of(429, 503)));
 
     // Should not throw — all parameters are valid
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     assertTrue(indexer.validateConnection());
   }
 
@@ -2245,7 +2243,7 @@ public class OpenSearchIndexerTest {
         .withValue("indexer.retryRandomizationFactor", ConfigValueFactory.fromAnyRef(0.0));
 
     // Should not throw — custom values are valid
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     assertTrue(indexer.validateConnection());
   }
 
@@ -2256,7 +2254,7 @@ public class OpenSearchIndexerTest {
 
     public ErroringOpenSearchIndexer(Config config, IndexerMessenger messenger,
         OpenSearchClient client, String metricsPrefix) {
-      super(config, messenger, "testing", client);
+      super(config, new IndexerContext(messenger, false, "testing", null), client);
     }
 
     @Override
@@ -2276,7 +2274,7 @@ public class OpenSearchIndexerTest {
 
     public Status503OpenSearchIndexer(Config config, IndexerMessenger messenger,
         OpenSearchClient client, String metricsPrefix) {
-      super(config, messenger, metricsPrefix, client);
+      super(config, new IndexerContext(messenger, false, metricsPrefix, null), client);
     }
 
     @Override
@@ -2321,7 +2319,7 @@ public class OpenSearchIndexerTest {
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf")
         .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2))
         .withValue("indexer.maxConcurrentBatches", ConfigValueFactory.fromAnyRef(maxConcurrentBatches));
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     for (int i = 0; i < 6; i++) {
       messenger.sendForIndexing(Document.create("doc" + i, "test_run"));
     }
@@ -2391,7 +2389,7 @@ public class OpenSearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf")
         .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2));
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     for (int i = 0; i < 6; i++) {
       messenger.sendForIndexing(Document.create("doc" + i, "test_run"));
     }

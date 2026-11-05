@@ -9,13 +9,17 @@ export function shortClassName(className?: string): string {
   return parts[parts.length - 1] ?? className
 }
 
-/** Human-friendly label for a config's indexer: short class name, else type, else a fallback. */
+/** Human-friendly label for a config's indexer: short class name, else type, else the nested block's name, else a fallback. */
 export function indexerLabel(config: ConfigObject): string {
   const indexer = config.indexer
   if (!indexer) return "None"
   if (typeof indexer.class === "string" && indexer.class) return shortClassName(indexer.class)
   if (typeof indexer.type === "string" && indexer.type) return shortClassName(indexer.type)
-  return "Custom"
+  const block = Object.keys(indexer).find((k) => {
+    const value = indexer[k]
+    return typeof value === "object" && value !== null && !Array.isArray(value)
+  })
+  return block ?? "Custom"
 }
 
 /** Summary chips (connectors / pipelines / indexer) shared by the list and detail views. */

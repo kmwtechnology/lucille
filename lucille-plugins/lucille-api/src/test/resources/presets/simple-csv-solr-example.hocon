@@ -20,9 +20,9 @@ pipelines: [
 
 indexer {
   type: "CSV"
-}
 
-csv {
-  path: "output.csv"
-  columns: ["id"]
+  csv {
+    path: "output.csv"
+    columns: ["id"]
+  }
 }

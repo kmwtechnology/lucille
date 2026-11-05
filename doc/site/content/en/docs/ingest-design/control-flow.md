@@ -259,7 +259,7 @@ Keep resource cleanup (closing connections, releasing file handles) in `close()`
 
 **Config + Code** | **When to use:** You need to perform preparatory work — creating a collection, running a database migration, clearing an index, calling an external API — before a publishing connector runs. You want this work to be part of the run so that failures prevent downstream connectors from executing.
 
-**How it works:** Omit the `pipeline` field from the connector config. When a connector has no pipeline, the framework skips creating a Publisher, WorkerPool, and Indexer. It calls `execute()` synchronously with a `null` publisher. The connector's `execute()` method performs its work and returns. If it throws, the run is aborted and subsequent connectors do not execute.
+**How it works:** Omit the `pipeline` field from the connector config. When a connector has no pipeline, the framework skips creating a Publisher, WorkerPool, and Indexer. It calls `execute()` synchronously with a `null` publisher. The connector's `execute()` method performs its work and returns. If it throws, the run is aborted and subsequent connectors do not execute. A config where no connector has a pipeline doesn't need to select an indexer.
 
 ```hocon
 connectors: [

@@ -74,7 +74,7 @@ connectors: [
 | `userName` | String | No | Basic auth username. Must be set together with `password`; if only one is set, an error is logged and no authentication is used. |
 | `password` | String | No | Basic auth password. |
 | `acceptInvalidCert` | Boolean | No | If `true`, the client trusts any TLS certificate and skips the host name check. For test setups only. A client certificate in `javax.net.ssl.keyStore` is then not sent; to use one, trust the Solr certificate through `javax.net.ssl.trustStore` instead. Default: `false`. |
-| `javax.net.ssl.keyStore` | String | No | Sets the JVM system property of the same name when the client is created, unless it is already set. The same key at the top level of the connector config is also read and takes precedence, but the connector's Spec rejects it there, so set it in `solr`. |
+| `javax.net.ssl.keyStore` | String | No | Sets the JVM system property of the same name when the client is created, unless it is already set. |
 | `javax.net.ssl.keyStorePassword` | String | No | Same as `javax.net.ssl.keyStore`. |
 | `javax.net.ssl.trustStore` | String | No | Same as `javax.net.ssl.keyStore`. |
 | `javax.net.ssl.trustStorePassword` | String | No | Same as `javax.net.ssl.keyStore`. |

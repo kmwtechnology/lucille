@@ -3,9 +3,9 @@ package com.kmwllc.lucille.indexer;
 import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import java.util.List;
 import java.util.Set;
@@ -25,12 +25,8 @@ public class NopIndexer extends Indexer {
 
   private static final Logger log = LoggerFactory.getLogger(NopIndexer.class);
 
-  public NopIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, bypass, metricsPrefix, localRunId);
-  }
-
-  public NopIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
-    this(config, messenger, bypass, metricsPrefix, null);
+  public NopIndexer(Config config, IndexerContext context) {
+    super(config, context);
   }
 
   @Override

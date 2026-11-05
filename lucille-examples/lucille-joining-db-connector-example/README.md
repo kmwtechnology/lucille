@@ -75,7 +75,7 @@ You can add more statements to `otherSQLs` (and a matching entry in `otherJoinFi
 ## Setup
 
 1. Edit `conf/joining-db-connector-example.conf` and set `connectionString`, `jdbcUser`, and `jdbcPassword` for your database.
-2. Point `solr.url` at your Solr collection, or change the indexer block if you want a different destination.
+2. Point `indexer.solr.url` at your Solr collection, or change the indexer block if you want a different destination.
 3. Confirm both SQL statements `ORDER BY` the join key, and that `otherJoinFields` names the child-side join column.
 
 ## Run

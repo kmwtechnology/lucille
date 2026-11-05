@@ -239,7 +239,8 @@ this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAU
 Used by:
 - Publisher (in `waitForCompletion`)
 - WorkerPool watcher
-- Indexer (in `sendToIndexWithAccounting`)
+- WorkerIndexerPool (its status log timer)
+- Indexer (in `sendToIndexWithAccounting`). An Indexer's config is only the `indexer` block, so `IndexerFactory` reads `log.seconds` and passes it on the `IndexerContext`.
 
 Setting this lower gives more frequent visibility; setting it higher reduces log noise.
 

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.kmwllc</groupId>
+    <artifactId>lucille-parent</artifactId>
+    <version>0.13.0-SNAPSHOT</version>
+    <relativePath>../lucille-parent/pom.xml</relativePath>
+  </parent>
+
+  <artifactId>lucille-logging</artifactId>
+  <packaging>jar</packaging>
+  <name>Lucille: Logging Runtime</name>
+
+  <description>
+    Lucille's runtime logging backend, packaged as a separate, opt-in artifact.
+
+    This jar carries the log4j2 backend bindings plus the default logging config (lucille-log4j2.xml) and
+    EcsLayout.json on its classpath. The config is deliberately NOT named log4j2.xml, so log4j2 does not
+    auto-discover it merely because this jar is on the classpath — an embedder that pulls in lucille-logging
+    does not get Lucille's logging config forced on it. Lucille's runnable artifacts select it explicitly with
+    -Dlog4j2.configurationFile (the Docker entrypoint and the example run scripts point at an editable
+    conf/log4j2.xml, falling back to classpath:lucille-log4j2.xml).
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>${slf4j.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j2-impl</artifactId>
+      <version>${log4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-api</artifactId>
+      <version>${log4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+      <version>${log4j.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-layout-template-json</artifactId>
+      <version>2.26.0</version>
+    </dependency>
+
+    <!-- Optional OpenSearch appender, referenced (commented out) in lucille-log4j2.xml. -->
+    <dependency>
+      <groupId>com.chavaillaz</groupId>
+      <artifactId>opensearch-log4j-appender</artifactId>
+      <version>1.1.3</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <finalName>lucille-logging</finalName>
+        </configuration>
+      </plugin>
+      <!-- Copy this module's runtime dependencies (the log4j2 backend) into target/lib, so the core Docker
+           image / distribution can assemble a working logging runtime from lucille-logging alongside
+           lucille-core. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.1.1</version>
+        <executions>
+          <execution>
+            <id>copy-dependencies</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/lib</outputDirectory>
+              <includeScope>runtime</includeScope>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
