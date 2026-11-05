@@ -341,10 +341,13 @@ public abstract class BaseStorageClient implements StorageClient {
    * when <code>traversalThreads</code> is above 1. Not called for a flat listing, which sees no directories.
    *
    * @param directory The directory's URI.
+   * @param publisher The traversal's Publisher, for publishing a document for the directory. Such a document counts toward
+   *                  <code>maxDocuments</code>, and isn't recorded in state.
    * @param params Parameters for the traversal.
    * @return Whether to descend. By default, always {@link DirectoryVerdict#DESCEND}.
+   * @throws ConnectorException To stop the traversal and fail the run.
    */
-  protected DirectoryVerdict onDirectory(URI directory, TraversalParams params) {
+  protected DirectoryVerdict onDirectory(URI directory, Publisher publisher, TraversalParams params) throws ConnectorException {
     return DirectoryVerdict.DESCEND;
   }
 
@@ -387,7 +390,7 @@ public abstract class BaseStorageClient implements StorageClient {
 
       // Without a trailing '/' the start is a raw prefix, not a directory: "logs" also covers "logs-old/". A pathsToSkip
       // entry for "logs/" is applied when the listing returns that as a child, and must not end the whole traversal.
-      if ((start.isEmpty() || start.endsWith("/")) && verdictFor(params.getURI(), params) == DirectoryVerdict.SKIP) {
+      if ((start.isEmpty() || start.endsWith("/")) && verdictFor(params.getURI(), target, params) == DirectoryVerdict.SKIP) {
         log.info("Not traversing '{}': the directory is skipped.", params.getURI());
         return;
       }
@@ -410,8 +413,8 @@ public abstract class BaseStorageClient implements StorageClient {
     return traversalThreads == 1 && params.getPathsToSkip().isEmpty() ? defaultListingMode() : ListingMode.HIERARCHICAL;
   }
 
-  private DirectoryVerdict verdictFor(URI directory, TraversalParams params) {
-    return isSkippedDirectory(directory, params) ? DirectoryVerdict.SKIP : onDirectory(directory, params);
+  private DirectoryVerdict verdictFor(URI directory, Publisher publisher, TraversalParams params) throws ConnectorException {
+    return isSkippedDirectory(directory, params) ? DirectoryVerdict.SKIP : onDirectory(directory, publisher, params);
   }
 
   // Publishes the files in the listing and returns its directories. A file is reached only if the limit wasn't.
@@ -436,13 +439,14 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   // Returns the children to descend into. The visited set guards against a provider returning a prefix as its own descendant.
-  private List<String> childrenToDescend(List<String> children, Set<String> visited, TraversalParams params) {
+  private List<String> childrenToDescend(List<String> children, Set<String> visited, Publisher publisher, TraversalParams params)
+      throws ConnectorException {
     List<String> toDescend = new ArrayList<>();
 
     for (String child : children) {
       if (!visited.add(child)) {
         log.warn("Directory '{}' of '{}' was already visited in this traversal, so it isn't visited again.", child, params.getURI());
-      } else if (verdictFor(directoryURI(child, params), params) == DirectoryVerdict.DESCEND) {
+      } else if (verdictFor(directoryURI(child, params), publisher, params) == DirectoryVerdict.DESCEND) {
         toDescend.add(child);
       }
     }
@@ -450,7 +454,8 @@ public abstract class BaseStorageClient implements StorageClient {
     return toDescend;
   }
 
-  private void descendSequentially(String start, Publisher publisher, TraversalParams params, FileStateTracker stateMgr, BooleanSupplier limitReached) {
+  private void descendSequentially(String start, Publisher publisher, TraversalParams params, FileStateTracker stateMgr, BooleanSupplier limitReached)
+      throws ConnectorException {
     Set<String> visited = ConcurrentHashMap.newKeySet();
     visited.add(start);
 
@@ -460,7 +465,7 @@ public abstract class BaseStorageClient implements StorageClient {
     while (!stack.isEmpty() && !limitReached.getAsBoolean()) {
       String prefix = stack.pop();
       List<String> children = publishEntries(listDirectory(prefix, params), publisher, params, stateMgr, limitReached);
-      List<String> toDescend = childrenToDescend(children, visited, params);
+      List<String> toDescend = childrenToDescend(children, visited, publisher, params);
 
       // so that the first child listed is the next one visited
       for (int i = toDescend.size() - 1; i >= 0; i--) {
@@ -550,6 +555,9 @@ public abstract class BaseStorageClient implements StorageClient {
       if (thrown instanceof Error error) {
         throw error;
       }
+      if (thrown instanceof ConnectorException connectorException) {
+        throw connectorException;
+      }
       if (thrown != null) {
         throw new ConnectorException("Error occurred while traversing " + params.getURI() + ".", thrown);
       }
@@ -594,12 +602,12 @@ public abstract class BaseStorageClient implements StorageClient {
       }
     }
 
-    private void processDirectory(String prefix, TraversalParams threadParams) {
+    private void processDirectory(String prefix, TraversalParams threadParams) throws ConnectorException {
       try {
         List<String> children = publishEntries(listDirectory(prefix, threadParams), publisher, threadParams, stateMgr,
             () -> finishing || limitReached.getAsBoolean());
 
-        for (String child : childrenToDescend(children, visited, threadParams)) {
+        for (String child : childrenToDescend(children, visited, publisher, threadParams)) {
           pending.incrementAndGet();
           // at the front, so the queue stays small by finishing a subtree before starting another
           queue.addFirst(child);
@@ -846,6 +854,40 @@ public abstract class BaseStorageClient implements StorageClient {
   protected abstract InputStream getFileContentStreamFromStorage(URI uri) throws IOException;
 
   /**
+   * Builds the Document published for a file that no FileHandler, archive or decompression step applies to. Override this to
+   * change those documents, such as to add fields. By default, {@link FileReference#asDoc(TraversalParams)}. Called from
+   * several threads when <code>traversalThreads</code> is above 1.
+   *
+   * @param fileReference The file.
+   * @param params Parameters for the traversal.
+   * @return The Document for the file.
+   * @throws IOException If an error occurs reading the file's content.
+   */
+  protected Document buildDocument(FileReference fileReference, TraversalParams params) throws IOException {
+    return fileReference.asDoc(params);
+  }
+
+  /**
+   * Applies a traversal's filters to one file and builds its Document, without publishing it, updating state, or moving the
+   * file. For use outside a traversal, for example by a stage that emits the Document as a child. The client must be
+   * started if the file's content is needed. Does not apply FileHandlers or unpack archives or compressed files.
+   *
+   * @param fileReference The file.
+   * @param params Parameters holding the filters and file options to apply.
+   * @param lastPublished When the file was last published, for an incremental <code>params</code>. May be null.
+   * @return The file's Document, or null if the file is not valid or the filters exclude it.
+   * @throws IOException If an error occurs reading the file's content.
+   */
+  public final Document buildDocumentIfIncluded(FileReference fileReference, TraversalParams params, Instant lastPublished) throws IOException {
+    if (!fileReference.isValidFile()
+        || !params.includeFile(fileReference.getFilterName(), fileReference.getLastModified(), lastPublished)) {
+      return null;
+    }
+
+    return buildDocument(fileReference, params);
+  }
+
+  /**
    * If the file is valid, it will be processed and published. Also, perform any preprocessing, error handling, and post-processing.
    */
   protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, FileStateTracker stateMgr) {
@@ -962,7 +1004,7 @@ public abstract class BaseStorageClient implements StorageClient {
       }
 
       // handle normal files
-      Document doc = fileReference.asDoc(params);
+      Document doc = buildDocument(fileReference, params);
       if (docLogger.isInfoEnabled()) {
         try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
           docLogger.info("StorageClient to publish Document {}.", doc.getId());

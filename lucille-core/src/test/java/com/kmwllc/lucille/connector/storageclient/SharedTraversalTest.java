@@ -187,7 +187,7 @@ public class SharedTraversalTest {
     Set<String> asked = ConcurrentHashMap.newKeySet();
     TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("start/1.txt", "start/a/2.txt", "start/b/3.txt", "start/c/4.txt"), Map.of())) {
       @Override
-      protected DirectoryVerdict onDirectory(URI directory, TraversalParams params) {
+      protected DirectoryVerdict onDirectory(URI directory, Publisher publisher, TraversalParams params) {
         asked.add(directory.toString());
         return directory.toString().endsWith("/a/") ? DirectoryVerdict.SKIP : DirectoryVerdict.DESCEND;
       }
@@ -203,12 +203,77 @@ public class SharedTraversalTest {
   public void testStartDirectoryCallbackCanSkipTheTraversal() throws Exception {
     TreeStorageClient client = new TreeStorageClient(clientConfig(manyKeys(), Map.of())) {
       @Override
-      protected DirectoryVerdict onDirectory(URI directory, TraversalParams params) {
+      protected DirectoryVerdict onDirectory(URI directory, Publisher publisher, TraversalParams params) {
         return DirectoryVerdict.SKIP;
       }
     };
 
     assertEquals(List.of(), traverse(client, params(ROOT)));
+  }
+
+  // The callback can publish a document for a directory, which counts toward maxDocuments like any other.
+  @Test
+  public void testDirectoryCallbackCanPublishDirectoryDocuments() throws Exception {
+    for (int threads : List.of(1, 4)) {
+      TestMessenger messenger = new TestMessenger();
+      TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("a/1.txt", "b/2.txt"), Map.of("traversalThreads", threads))) {
+        @Override
+        protected DirectoryVerdict onDirectory(URI directory, Publisher publisher, TraversalParams params) throws ConnectorException {
+          try {
+            publisher.publish(Document.create("directory:" + directory));
+          } catch (PublisherException e) {
+            throw new ConnectorException("Error publishing the directory.", e);
+          }
+          return DirectoryVerdict.DESCEND;
+        }
+      };
+      client.start();
+      client.traverse(new PublisherImpl(ConfigFactory.empty(), messenger, "run", "pipeline"), params(ROOT), null);
+      client.stop();
+
+      List<String> ids = messenger.getDocsSentForProcessing().stream().map(Document::getId).collect(Collectors.toList());
+      assertEquals(5, ids.size());
+      assertTrue(ids.toString(), ids.containsAll(List.of("directory:" + ROOT, "directory:" + ROOT + "a/", "directory:" + ROOT + "b/")));
+    }
+  }
+
+  @Test
+  public void testDirectoryDocumentsCountTowardMaxDocuments() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("a/1.txt", "b/2.txt"), Map.of("maxDocuments", 2))) {
+      @Override
+      protected DirectoryVerdict onDirectory(URI directory, Publisher publisher, TraversalParams params) throws ConnectorException {
+        try {
+          publisher.publish(Document.create("directory:" + directory));
+        } catch (PublisherException e) {
+          throw new ConnectorException("Error publishing the directory.", e);
+        }
+        return DirectoryVerdict.DESCEND;
+      }
+    };
+    client.start();
+    client.traverse(new PublisherImpl(ConfigFactory.empty(), messenger, "run", "pipeline"), params(ROOT), null);
+    client.stop();
+
+    assertEquals(2, messenger.getDocsSentForProcessing().size());
+  }
+
+  @Test
+  public void testACallbackFailureFailsTheTraversal() {
+    for (int threads : List.of(1, 4)) {
+      ConnectorException failure = new ConnectorException("Callback failed.");
+      TreeStorageClient client = new TreeStorageClient(clientConfig(manyKeys(), Map.of("traversalThreads", threads))) {
+        @Override
+        protected DirectoryVerdict onDirectory(URI directory, Publisher publisher, TraversalParams params) throws ConnectorException {
+          if (directory.toString().endsWith("/b/")) {
+            throw failure;
+          }
+          return DirectoryVerdict.DESCEND;
+        }
+      };
+
+      assertSame(failure, assertThrows(ConnectorException.class, () -> traverse(client, params(ROOT))));
+    }
   }
 
   // One step visits one level, publishing its files and returning its children, with no descent.

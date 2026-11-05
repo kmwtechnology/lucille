@@ -86,10 +86,56 @@ public class S3StorageClient extends BaseStorageClient {
         builder = builder.credentialsProvider(StaticCredentialsProvider.create(awsCred));
       }
 
-      s3 = builder.build();
+      s3 = configureClientBuilder(builder).build();
     } catch (Exception e) {
       throw new IOException("Error occurred building S3Client", e);
     }
+  }
+
+  /**
+   * Called with the builder for the S3Client when this client starts, after the settings from config are applied. Override
+   * this to set anything else, such as an endpoint or an HTTP client.
+   *
+   * @param builder The builder.
+   * @return The builder to build the S3Client from.
+   */
+  protected S3ClientBuilder configureClientBuilder(S3ClientBuilder builder) {
+    return builder;
+  }
+
+  /**
+   * Called with each LIST request before it is sent, flat or hierarchical. Override this to set request options. Called from
+   * several threads when <code>traversalThreads</code> is above 1.
+   *
+   * @param builder The request, with its bucket, prefix and page size set, and its delimiter if it is hierarchical.
+   * @return The request to send.
+   */
+  protected ListObjectsV2Request.Builder customizeListRequest(ListObjectsV2Request.Builder builder) {
+    return builder;
+  }
+
+  /**
+   * Called with each GET request before it is sent, including for {@link #getFileContentStream(URI)}. Override this to set
+   * request options. Called from several threads when <code>traversalThreads</code> is above 1.
+   *
+   * @param builder The request, with its bucket and key set.
+   * @return The request to send.
+   */
+  protected GetObjectRequest.Builder customizeGetRequest(GetObjectRequest.Builder builder) {
+    return builder;
+  }
+
+  /**
+   * Builds the FileReference for one listed object. Override this to return a subclass of {@link S3FileReference}. If this
+   * throws, the traversal logs the error and skips only this object. Called from several threads when
+   * <code>traversalThreads</code> is above 1.
+   *
+   * @param s3Obj The object, as listed.
+   * @param params Parameters for the traversal.
+   * @return The object's FileReference.
+   */
+  protected FileReference createFileReference(S3Object s3Obj, TraversalParams params) {
+    return new S3FileReference(s3Obj, params);
   }
 
   @Override
@@ -116,7 +162,7 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   protected Stream<ListingEntry> listDirectory(String prefix, TraversalParams params) {
-    ListObjectsV2Request request = listRequest(params, prefix).delimiter("/").build();
+    ListObjectsV2Request request = customizeListRequest(listRequest(params, prefix).delimiter("/")).build();
 
     return s3.listObjectsV2Paginator(request).stream().flatMap(resp -> Stream.concat(
         fileEntries(resp, params),
@@ -125,7 +171,7 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   protected Stream<ListingEntry> listFlat(String prefix, TraversalParams params) {
-    return s3.listObjectsV2Paginator(listRequest(params, prefix).build()).stream().flatMap(resp -> fileEntries(resp, params));
+    return s3.listObjectsV2Paginator(customizeListRequest(listRequest(params, prefix)).build()).stream().flatMap(resp -> fileEntries(resp, params));
   }
 
   @Override
@@ -141,7 +187,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   private Stream<ListingEntry> fileEntries(ListObjectsV2Response resp, TraversalParams params) {
-    return resp.contents().stream().map(obj -> ListingEntry.file(obj.key(), () -> new S3FileReference(obj, params)));
+    return resp.contents().stream().map(obj -> ListingEntry.file(obj.key(), () -> createFileReference(obj, params)));
   }
 
   private URI uriForDirectory(String prefix, TraversalParams params) {
@@ -159,8 +205,11 @@ public class S3StorageClient extends BaseStorageClient {
     String bucketName = uri.getAuthority();
     String objectKey = uri.getPath().substring(1);
 
-    GetObjectRequest request = GetObjectRequest.builder().bucket(bucketName).key(objectKey).build();
-    return s3.getObject(request);
+    return s3.getObject(getRequest(bucketName, objectKey));
+  }
+
+  private GetObjectRequest getRequest(String bucket, String key) {
+    return customizeGetRequest(GetObjectRequest.builder().bucket(bucket).key(key)).build();
   }
 
   @Override
@@ -189,7 +238,13 @@ public class S3StorageClient extends BaseStorageClient {
     s3.deleteObject(deleteRequest);
   }
 
-  private String getBucketOrContainerName(TraversalParams params) {
+  /**
+   * Returns the bucket a traversal lists and reads from: by default, the authority of the traversal's URI.
+   *
+   * @param params Parameters for the traversal.
+   * @return The bucket's name.
+   */
+  protected String getBucketOrContainerName(TraversalParams params) {
     return params.getURI().getAuthority();
   }
 
@@ -199,7 +254,11 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
 
-  private class S3FileReference extends BaseFileReference {
+  /**
+   * The FileReference for a listed S3 object. Extend this and return it from {@link #createFileReference} to change, for
+   * example, the Document built for an object.
+   */
+  protected class S3FileReference extends BaseFileReference {
 
     private final S3Object s3Obj;
 
@@ -228,16 +287,12 @@ public class S3StorageClient extends BaseStorageClient {
 
     @Override
     public InputStream getContentStream(TraversalParams params) {
-      String objKey = s3Obj.key();
-      GetObjectRequest objectRequest = GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(objKey).build();
-      return s3.getObject(objectRequest);
+      return s3.getObject(getRequest(getBucketOrContainerName(params), s3Obj.key()));
     }
 
     @Override
     protected byte[] getFileContent(TraversalParams params) {
-      return s3.getObjectAsBytes(
-          GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(s3Obj.key()).build()
-      ).asByteArray();
+      return s3.getObjectAsBytes(getRequest(getBucketOrContainerName(params), s3Obj.key())).asByteArray();
     }
 
     private static URI getFullPathHelper(S3Object s3Obj, TraversalParams params) {

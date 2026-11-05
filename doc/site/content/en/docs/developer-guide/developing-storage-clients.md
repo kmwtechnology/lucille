@@ -60,6 +60,34 @@ public class MyS3StorageClient extends S3StorageClient {
 }
 ```
 
+### Hooks
+
+`S3StorageClient` and `AzureStorageClient` have protected methods for customizing one thing at a time, so your subclass keeps the built-in traversal and its fixes. Each changes only what it targets, and the defaults change nothing. For example, to add a request option to every S3 GET:
+
+```java
+@Override
+protected GetObjectRequest.Builder customizeGetRequest(GetObjectRequest.Builder builder) {
+  return builder.requestPayer(RequestPayer.REQUESTER);
+}
+```
+
+| Hook | Client | What it customizes |
+|---|---|---|
+| `configureClientBuilder(builder)` | S3, Azure | The SDK client builder, after the settings from config. On Azure, this applies whether the client uses a connection string or an account name and key. |
+| `customizeListRequest(builder)` | S3 | Each LIST request, flat or hierarchical. |
+| `customizeListOptions(options)` | Azure | The options of each listing, flat or hierarchical. |
+| `customizeGetRequest(builder)` | S3 | Each GET request, including from `getFileContentStream()`. |
+| `openBlobStream(blobClient)`, `downloadBlobContent(blobClient)` | Azure | How a blob's content is read, as a stream (including from `getFileContentStream()`) or whole. Override both. |
+| `createFileReference(object, params)` | S3, Azure | The `FileReference` for a listed object. Return a subclass of `S3FileReference` or `AzureFileReference`. |
+| `buildDocument(fileReference, params)` | Any `BaseStorageClient` | The Document for a file. Applies to files published as one Document, not to those a FileHandler processes, or to archive entries or decompressed files. |
+| `onDirectory(directory, publisher, params)` | Any using `traverseByListing()` | Whether to descend into a directory: return `DirectoryVerdict.DESCEND` or `SKIP`. Called after `pathsToSkip`. To publish a document for a directory, use the given `publisher`. That document counts toward `maxDocuments`, and isn't recorded in state. A flat listing has no directories, so set `listingMode: hierarchical` to use this on S3. |
+| `getStartingDirectory(params)` | Any `BaseStorageClient` | The key a traversal starts from. |
+| `getBucketOrContainerName(params)` | S3, Azure | The bucket or container a traversal lists and reads from. `getFileContentStream()` and `moveFile()` still use the bucket or container in their URIs. |
+
+All of these except `configureClientBuilder()` run during a traversal, so with `traversalThreads` above `1` they are called from several threads and must be thread-safe.
+
+To build a file's Document outside a traversal, for example in a stage that emits it as a child, call `buildDocumentIfIncluded(fileReference, params, lastPublished)`. It applies the filters and `buildDocument()`, and returns null if the file is excluded. It doesn't publish, update state, move the file, or apply FileHandlers.
+
 ---
 
 ## What BaseStorageClient Does for You
