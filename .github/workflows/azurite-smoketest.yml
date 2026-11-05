@@ -3,13 +3,12 @@ name: Azure Storage Client Smoketest (Azurite)
 # Exercises AzureStorageClientIT against a live Azurite (Azure Blob Storage emulator). Unlike the mocked
 # AzureStorageClientTest, this builds the real Azure SDK client, which wires up azure-core-http-netty ->
 # reactor-netty -> Netty's event loop. It guards against a reactor-netty / Netty version split reintroducing
-# NoClassDefFoundError: io.netty.channel.MultiThreadIoEventLoopGroup (FC-01 / DEP-01).
+# NoClassDefFoundError: io.netty.channel.MultiThreadIoEventLoopGroup.
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  schedule:
+    # runs at 00:00 UTC every day, 20:00 EST
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:
