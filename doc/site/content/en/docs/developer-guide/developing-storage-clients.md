@@ -73,6 +73,7 @@ To create a StorageClient, extend `BaseStorageClient`. The base class manages th
 - **FileHandler delegation** — Routes files to the correct FileHandler based on extension and publishes the resulting Documents.
 - **Incremental mode** — Reads and updates the `FileStateTracker` the `FileConnector` passes to `traverse()`, to track which files have been processed and skip unchanged files on subsequent runs.
 - **Success/error directory handling** — Moves files to configured success or error directories after processing.
+- **Shared traversal** — If your backend has a directory-like listing, `traverseByListing()` handles the descent, `pathsToSkip`, `traversalThreads`, `listingMode`, and `maxDocuments`. See [Using the Shared Traversal](#using-the-shared-traversal).
 
 ---
 
@@ -87,6 +88,10 @@ To create a StorageClient, extend `BaseStorageClient`. The base class manages th
 | `getFileContentStreamFromStorage(URI uri)` | Yes | Open and return an `InputStream` for a single file at the given URI. |
 | `moveFile(URI filePath, URI folder)` | Yes | Move a file to a different location (used for success/error directories). Throw `UnsupportedOperationException` if your backend doesn't support moves; see [Errors](#errors). |
 | `moveTargetInsidePath(URI path, URI folder)` | No | Whether files moved to the folder would land back inside the path being traversed. A move folder for which this returns `true` fails at startup. By default, whether `containsPath(path, folder)`. Override it if your `moveFile()` keeps part of the source path under the folder. |
+
+`traverse()` and `traverseStorageClient()` declare `IOException` and `ConnectorException`. Wrap any other checked exception, such as a `PublisherException` from publishing directly, in a `ConnectorException`.
+
+If your client has settings that can't work with some traversals, override `validateTraversal(TraversalParams params, boolean stateEnabled, boolean collapsing)` and throw an `IllegalArgumentException`. The `FileConnector` calls it at startup for each path. If you extend `BaseStorageClient`, call `super.validateTraversal()`.
 
 Constants for the Document field names and config keys are on `StorageClientFields` and `StorageClientOptions` in `com.kmwllc.lucille.connector.storageclient`. Import them from there rather than from `FileConnector`, which keeps aliases of them.
 
@@ -109,6 +114,43 @@ storageClients: {
 ```
 
 ...your constructor receives a Config containing `class`, `host`, `port`, `username`, and `privateKeyPath`. It does not contain the connector config or the full Lucille config. Lucille doesn't validate the settings in the entry beyond `class`, so check them in `validateOptions()`.
+
+---
+
+## Using the Shared Traversal
+
+If your backend can list one directory at a time, you don't need to write the descent. Implement `traverseStorageClient()` by calling `traverseByListing()`, and override the listing methods:
+
+| Method | Required | Purpose |
+|---|---|---|
+| `listDirectory(String prefix, TraversalParams params)` | Yes | Return a `Stream<ListingEntry>` of the files and child directories directly under the prefix: `ListingEntry.file(name, referenceSupplier)` or `ListingEntry.directory(prefix)`. Make it lazy, fetching pages as it is consumed, because the traversal stops consuming it at `maxDocuments`. |
+| `directoryURI(String prefix, TraversalParams params)` | Yes | Return the URI of a directory, which `pathsToSkip` is compared against. |
+| `listFlat(String prefix, TraversalParams params)` | No | Return every file under the prefix, for `listingMode: flat`. Throws `UnsupportedOperationException` by default. |
+| `getStartingDirectory(TraversalParams params)` | No | Return the key to start from. By default, the URI's path without its leading `/`. |
+| `defaultListingMode()` | No | The mode when `listingMode` isn't configured. By default, `HIERARCHICAL`. |
+
+```java
+@Override
+protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr)
+    throws ConnectorException {
+  traverseByListing(publisher, params, stateMgr);
+}
+
+@Override
+protected Stream<ListingEntry> listDirectory(String prefix, TraversalParams params) {
+  return client.list(prefix).stream().map(item -> item.isDirectory()
+      ? ListingEntry.directory(item.key())
+      : ListingEntry.file(item.key(), () -> new MyFileReference(item, params)));
+}
+```
+
+The traversal reads `traversalThreads`, `maxDocuments`, and `listingMode` from your entry in `storageClients`. They have no effect on a client that doesn't call `traverseByListing()`. With `traversalThreads` above `1`:
+
+- `listDirectory()`, `directoryURI()`, `getContentStream()`, and `moveFile()` are called from several threads, so your backend's client must be safe to share, or you must keep one per thread.
+- A `FileStateTracker` passed to `traverse()` must implement `ThreadBoundFileStateTracker`, which opens and closes state for each traversal thread. A plain `FileStateTracker` fails the traversal, since it may not be thread-safe. `FileConnector`'s does.
+- `stop()` interrupts the traversal's threads and waits for them to end, and the traversal fails, since it didn't reach every file.
+
+To visit a single level without descending, call `traverseOneDirectory(prefix, publisher, params, stateMgr)`. It publishes the directory's files and returns its child directories.
 
 ---
 
@@ -209,7 +251,7 @@ If the full path of a file changes between runs, the file is published under a n
 - If `moveToAfterProcessing` or `moveToErrorFolder` is set and your `moveFile()` throws `UnsupportedOperationException`, the traversal stops with an `UnsupportedOperationException` naming the option, since every file would fail the same way.
 - A path longer than `state.pathLength` stops the traversal.
 
-An exception thrown by `traverseStorageClient()` itself, for example when a listing call fails, stops the traversal and fails the run.
+An exception thrown by `traverseStorageClient()` itself, for example when a listing call fails, stops the traversal and fails the run. So does an exception from a listing during `traverseByListing()`, on any thread. A file whose `ListingEntry` reference can't be built is logged and skipped.
 
 ---
 
@@ -287,12 +329,18 @@ public class SftpStorageClient extends BaseStorageClient {
 
   @Override
   protected void traverseStorageClient(Publisher publisher, TraversalParams params,
-      FileStateTracker stateMgr) throws Exception {
+      FileStateTracker stateMgr) throws IOException {
     String path = params.getURI().getPath();
     String directoryPath = path.endsWith("/") ? path : path + "/";
 
-    @SuppressWarnings("unchecked")
-    Vector<ChannelSftp.LsEntry> entries = channel.ls(directoryPath);
+    Vector<ChannelSftp.LsEntry> entries;
+    try {
+      @SuppressWarnings("unchecked")
+      Vector<ChannelSftp.LsEntry> listed = channel.ls(directoryPath);
+      entries = listed;
+    } catch (SftpException e) {
+      throw new IOException("Error listing " + directoryPath, e);
+    }
 
     for (ChannelSftp.LsEntry entry : entries) {
       if (entry.getFilename().startsWith(".")) continue;
@@ -381,5 +429,5 @@ You can test a StorageClient without a `FileConnector`, a database, or a live ba
 
 - Build `TraversalParams` directly with `new TraversalParams(config, uri, docIdPrefix)`, where `config` holds any `fileOptions` and `filterOptions` you want to test.
 - Publish to a `TestMessenger` (in `com.kmwllc.lucille.message`) through a `PublisherImpl`, and check `getDocsSentForProcessing()`.
-- To test incremental mode, implement `FileStateTracker` in memory (four methods) and pass it to `traverse(publisher, params, state)`. Run the traversal twice to check that unchanged files are skipped.
+- To test incremental mode with one thread, implement `FileStateTracker` in memory (four methods) and pass it to `traverse(publisher, params, state)`. Run the traversal twice to check that unchanged files are skipped.
 - To test against a mock of your backend's SDK client, inject the mock and call `initializeForTesting()`, which marks the client as started without calling `initializeStorageClient()`.

@@ -22,6 +22,8 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -189,7 +191,7 @@ public class FileConnectorTest {
 
       Connector conn = new FileConnector(config);
       // the try catch block in FileConnector will catch any Exception class and throw a ConnectorException
-      doThrow(new Exception("Failed to publish files")).when(mockCloudClient).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
+      doThrow(new IOException("Failed to publish files")).when(mockCloudClient).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
       assertThrows(ConnectorException.class, () -> conn.execute(publisher));
       conn.close();
       // verify that shutdown is called, even after a traversal fails
@@ -1427,6 +1429,107 @@ public class FileConnectorTest {
 
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
     assertTrue(e.getMessage().contains("collapse"));
+  }
+
+  // traversalThreads uses concurrent publish() calls just as maxThreads does, even with a single path
+  @Test
+  public void testPreventTraversalThreadsAndCollapse() {
+    Config config = cloudTraversalConfig(Map.of("traversalThreads", 2)).withValue("collapse", ConfigValueFactory.fromAnyRef(true));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage(), e.getMessage().contains("collapse"));
+  }
+
+  // A capped traversal doesn't reach every file, and the rest would be tombstoned and removed from state.
+  @Test
+  public void testPreventMaxDocumentsAndState() {
+    Config config = cloudTraversalConfig(Map.of("maxDocuments", 10))
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:maxDocumentsAndState"));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage(), e.getMessage().contains("can't be combined with state"));
+  }
+
+  @Test
+  public void testMaxDocumentsAllowedWithDisabledState() throws Exception {
+    new FileConnector(cloudTraversalConfig(Map.of("maxDocuments", 10)).withValue("state.enabled", ConfigValueFactory.fromAnyRef(false))).close();
+  }
+
+  @Test
+  public void testPreventFlatListingAndPathsToSkip() {
+    Config config = cloudTraversalConfig(Map.of("listingMode", "flat"))
+        .withValue("filterOptions.pathsToSkip", ConfigValueFactory.fromIterable(List.of("s3://bucket/data/skip/")));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage(), e.getMessage().contains("pathsToSkip"));
+  }
+
+  @Test
+  public void testPreventFlatListingAndTraversalThreads() {
+    Config config = cloudTraversalConfig(Map.of("listingMode", "flat", "traversalThreads", 2));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage(), e.getMessage().contains("can't be divided among threads"));
+  }
+
+  @Test
+  public void testTraversalSettingsAreAcceptedInEveryProviderBlock() throws Exception {
+    Map<String, Object> settings = Map.of("traversalThreads", 2, "maxDocuments", 10, "listingMode", "hierarchical");
+    Map<String, Map<String, Object>> blocks = Map.of(
+        "s3", Map.of("region", "us-east-1"),
+        "gcp", Map.of("pathToServiceKey", "key.json"),
+        "azure", Map.of("connectionString", "connectionString"));
+
+    for (Map.Entry<String, Map<String, Object>> block : blocks.entrySet()) {
+      Map<String, Object> options = new HashMap<>(block.getValue());
+      options.putAll(settings);
+      Config config = ConfigFactory.parseMap(Map.of("name", "connector", "pipeline", "pipeline", "class", FileConnector.class.getName(),
+          "paths", List.of("/tmp/local"), block.getKey(), options));
+
+      FileConnector.SPEC.validate(config, "FileConnector");
+    }
+  }
+
+  private static Config cloudTraversalConfig(Map<String, Object> s3Settings) {
+    Map<String, Object> s3 = new HashMap<>(s3Settings);
+    s3.put("region", "us-east-1");
+    return ConfigFactory.parseMap(Map.of("name", "connector", "pipeline", "pipeline", "paths", List.of("s3://bucket/data/"), "s3", s3));
+  }
+
+  private static Config traversalThreadsStateConfig(List<String> keys, String database) {
+    return ConfigFactory.parseMap(Map.of(
+        "name", "connector",
+        "pipeline", "pipeline",
+        "paths", List.of("tree://bucket/"),
+        "filterOptions", Map.of("publishMode", "incremental", "sendTombstones", true),
+        "state", Map.of("connectionString", "jdbc:h2:mem:" + database + ";DB_CLOSE_DELAY=-1"),
+        "storageClients", Map.of("tree", Map.of(
+            "class", "com.kmwllc.lucille.connector.storageclient.TreeStorageClient",
+            "keys", keys,
+            "traversalThreads", 4))));
+  }
+
+  // Each pool thread needs its own connection to the real state database. If per-file calls failed on those threads, they
+  // would be swallowed per file: the first run would publish nothing, or the second would publish everything again.
+  @Test
+  public void testTraversalThreadsWithState() throws Exception {
+    List<String> keys = new ArrayList<>();
+    for (int i = 0; i < 20; i++) {
+      keys.add("dir" + (i % 5) + "/file" + i + ".txt");
+    }
+
+    List<Document> firstRun = publishedDocuments(traversalThreadsStateConfig(keys, "traversalThreadsState"));
+    assertEquals(20, firstRun.size());
+    assertEquals(20, documentIds(firstRun).size());
+
+    // every file is unchanged and known, so nothing is republished and nothing is tombstoned
+    assertEquals(List.of(), publishedDocuments(traversalThreadsStateConfig(keys, "traversalThreadsState")));
+
+    // only the file that went away is tombstoned
+    List<Document> thirdRun = publishedDocuments(traversalThreadsStateConfig(keys.subList(1, 20), "traversalThreadsState"));
+    assertEquals(1, thirdRun.size());
+    assertTrue(thirdRun.get(0).getBoolean(FileConnector.EXPIRED));
+    assertEquals("tree://bucket/" + keys.get(0), thirdRun.get(0).getString(FileConnector.FILE_PATH));
   }
 
   // Verifies that overlapping paths are rejected for a concurrent traversal, but still allowed for a sequential one.

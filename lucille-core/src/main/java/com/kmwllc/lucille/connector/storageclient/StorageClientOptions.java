@@ -33,6 +33,12 @@ public final class StorageClientOptions {
   public static final String GOOGLE_SERVICE_KEY = "pathToServiceKey";
   /** Any cloud client: the number of results returned per listing request (page size). */
   public static final String MAX_RESULTS_PER_PAGE = "maxResultsPerPage";
+  /** Any cloud client: the number of threads that traverse one path's directories. Defaults to 1. */
+  public static final String TRAVERSAL_THREADS = "traversalThreads";
+  /** Any cloud client: the most documents to publish per traversed path. No limit by default. */
+  public static final String MAX_DOCUMENTS = "maxDocuments";
+  /** Any cloud client: how to list a path, <code>hierarchical</code> or <code>flat</code>. The default depends on the client. */
+  public static final String LISTING_MODE = "listingMode";
 
   // -- Custom storage clients --
 

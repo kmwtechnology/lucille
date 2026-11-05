@@ -5,6 +5,7 @@ import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.DE
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.STORAGE_CLIENTS;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.STORAGE_CLIENT_CLASS;
 
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigObject;
@@ -43,9 +44,10 @@ public interface StorageClient {
    * FilterOptions.lastPublishedCutoff will not be enforced, if specified.
    * @param publisher The Publisher you want to publish documents to.
    * @param params Parameters / options regarding the traversal of the client's file system.
-   * @throws Exception If an error occurs during traversal.
+   * @throws IOException If an error occurs reading from storage during traversal.
+   * @throws ConnectorException If any other error stops the traversal.
    */
-  void traverse(Publisher publisher, TraversalParams params) throws Exception;
+  void traverse(Publisher publisher, TraversalParams params) throws IOException, ConnectorException;
 
   /**
    * Traverses through the storage client and publish files to Lucille pipeline. Updates the given state as files are encountered
@@ -54,9 +56,21 @@ public interface StorageClient {
    * @param params Parameters / options regarding the traversal of the client's file system.
    * @param stateMgr The state to read and update for each file, keyed by its full path. May be null, in which case state is
    *                 not used.
-   * @throws Exception If an error occurs during traversal.
+   * @throws IOException If an error occurs reading from storage during traversal.
+   * @throws ConnectorException If any other error stops the traversal.
    */
-  void traverse(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception;
+  void traverse(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws IOException, ConnectorException;
+
+  /**
+   * Rejects a traversal that this client's settings can't run correctly. FileConnector calls this at startup for each
+   * path, so that a bad combination fails before any file is published. Does not require this client to be initialized,
+   * and does not contact the provider. By default, accepts every traversal.
+   * @param params Parameters for the traversal. Its URI may not be set.
+   * @param stateEnabled Whether the traversal will update state.
+   * @param collapsing Whether the Publisher will collapse documents, which is not safe for concurrent publish() calls.
+   * @throws IllegalArgumentException If the traversal can't run as configured.
+   */
+  default void validateTraversal(TraversalParams params, boolean stateEnabled, boolean collapsing) { }
 
   /**
    * Returns whether a traversal of the given parent would also visit the files under the given child, based on this

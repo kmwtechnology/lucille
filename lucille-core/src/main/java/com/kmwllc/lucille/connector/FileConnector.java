@@ -98,6 +98,13 @@ import com.typesafe.config.Config;
  *   <li>s3.maxResultsPerPage (Int, Optional) : Maximum number of results returned per S3 LIST call (page size). Defaults to 1000, which is also
  *   the most S3 will return per call; larger values have no further effect. Without filterOptions.pathsToSkip, every key under the
  *   path is listed in one paginated listing, so files may be published in a different order than a directory-by-directory walk.</li>
+ *   <li>gcp, s3, azure .traversalThreads (Int, Optional) : Number of threads that traverse one path's directories. Must be at
+ *   least 1, and can't be above 1 with collapse. Up to maxThreads times this many threads can run. Defaults to 1.</li>
+ *   <li>gcp, s3, azure .maxDocuments (Long, Optional) : The most documents to publish per path. Counts documents from file
+ *   handlers and archives. Must be at least 1. Can't be combined with state. No limit by default.</li>
+ *   <li>gcp, s3, azure .listingMode (String, Optional) : 'hierarchical' lists each directory; 'flat' lists every key under the
+ *   path at once, and can't be combined with traversalThreads above 1 or filterOptions.pathsToSkip. Defaults to 'flat' on
+ *   s3 when neither of those is set, and otherwise to 'hierarchical'.</li>
  *   <li>azure.connectionString (String, Optional) : Azure connection string.</li>
  *   <li>azure.accountName (String, Optional) : Azure account name.</li>
  *   <li>azure.accountKey (String, Optional) : Azure account key.</li>
@@ -141,6 +148,9 @@ public class FileConnector extends AbstractConnector {
   public static final String S3_ANONYMOUS = StorageClientOptions.S3_ANONYMOUS;
   public static final String GOOGLE_SERVICE_KEY = StorageClientOptions.GOOGLE_SERVICE_KEY;
   public static final String MAX_RESULTS_PER_PAGE = StorageClientOptions.MAX_RESULTS_PER_PAGE;
+  public static final String TRAVERSAL_THREADS = StorageClientOptions.TRAVERSAL_THREADS;
+  public static final String MAX_DOCUMENTS = StorageClientOptions.MAX_DOCUMENTS;
+  public static final String LISTING_MODE = StorageClientOptions.LISTING_MODE;
   public static final String STORAGE_CLIENT_CLASS = StorageClientOptions.STORAGE_CLIENT_CLASS;
   public static final String STORAGE_CLIENTS = StorageClientOptions.STORAGE_CLIENTS;
 
@@ -155,15 +165,18 @@ public class FileConnector extends AbstractConnector {
   // parent specs for cloud provider configs
   private static final Spec GCP_PARENT_SPEC = SpecBuilder.withoutDefaults()
       .requiredString("pathToServiceKey")
-      .optionalNumber(MAX_RESULTS_PER_PAGE).build();
+      .optionalString(LISTING_MODE)
+      .optionalNumber(MAX_RESULTS_PER_PAGE, TRAVERSAL_THREADS, MAX_DOCUMENTS).build();
   private static final Spec S3_PARENT_SPEC = SpecBuilder.withoutDefaults()
       .optionalString("accessKeyId", "secretAccessKey", "region")
       .optionalBoolean("anonymous")
-      .optionalNumber(MAX_RESULTS_PER_PAGE).build();
+      .optionalString(LISTING_MODE)
+      .optionalNumber(MAX_RESULTS_PER_PAGE, TRAVERSAL_THREADS, MAX_DOCUMENTS).build();
   private static final Spec AZURE_PARENT_SPEC = SpecBuilder.withoutDefaults()
       .optionalString("connectionString", "accountName", "accountKey")
       .optionalList(AZURE_ALLOWED_HOSTS, new TypeReference<List<String>>(){})
-      .optionalNumber(MAX_RESULTS_PER_PAGE).build();
+      .optionalString(LISTING_MODE)
+      .optionalNumber(MAX_RESULTS_PER_PAGE, TRAVERSAL_THREADS, MAX_DOCUMENTS).build();
 
   /**
    * The storage configuration accepted by every component that reads files through StorageClients: the gcp, azure,
@@ -285,6 +298,13 @@ public class FileConnector extends AbstractConnector {
 
     if (concurrent) {
       validateNonOverlappingPaths();
+    }
+
+    for (URI uri : storageURIs) {
+      StorageClient client = StorageClient.clientFor(uri, storageClientMap, config);
+      if (client != null) {
+        client.validateTraversal(startupParams, stateManager != null, requiresCollapsingPublisher());
+      }
     }
 
     // lastPublishedCutoff is only applied in incremental mode with state; anywhere else it would be silently ignored
