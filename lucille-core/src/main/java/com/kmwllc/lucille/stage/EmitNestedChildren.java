@@ -69,12 +69,14 @@ public class EmitNestedChildren extends Stage {
             log.debug("Field '{}' not found in parent document", sourceField);
             continue;
           }
-          // handle multivalued fields if needed; treat values as Json to preserve types
+          // handle multivalued fields if needed; treat values as Json to preserve types. Copy so a later edit to the parent
+          // or one child doesn't show up in the others.
           String destField = fieldsToCopy.get(sourceField).toString();
           if (doc.isMultiValued(sourceField)) {
-            child.update(destField, updateMode, doc.getJsonList(sourceField).toArray(new JsonNode[0]));
+            JsonNode[] values = doc.getJsonList(sourceField).stream().map(JsonNode::deepCopy).toArray(JsonNode[]::new);
+            child.update(destField, updateMode, values);
           } else {
-            child.update(destField, updateMode, doc.getJson(sourceField));
+            child.update(destField, updateMode, doc.getJson(sourceField).deepCopy());
           }
         }
       }

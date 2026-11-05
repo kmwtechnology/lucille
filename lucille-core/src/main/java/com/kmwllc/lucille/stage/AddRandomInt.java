@@ -37,8 +37,9 @@ public class AddRandomInt extends Stage {
     this.rangeStart = ConfigUtils.getOrDefault(config, "rangeStart", 0);
     this.rangeEnd = ConfigUtils.getOrDefault(config, "rangeEnd", 1000000);
 
-    if (rangeStart > rangeEnd) {
-      throw new StageException("Provided rangeStart is greater than the rangeEnd.");
+    // the bound is exclusive, so equal values leave nothing to pick and would fail every document
+    if (rangeStart >= rangeEnd) {
+      throw new StageException("Provided rangeStart must be less than the rangeEnd.");
     }
   }
 

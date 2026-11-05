@@ -121,8 +121,9 @@ public class MatchQuery extends Stage {
 
       // add each configured field to the lucene document
       for (String field : this.fieldsList) {
-        if (doc.has(field)) {
-          luceneDoc.add(new TextField(field, doc.getString(field), Field.Store.YES));
+        String value = doc.getString(field);
+        if (value != null) {
+          luceneDoc.add(new TextField(field, value, Field.Store.YES));
         }
       }
 

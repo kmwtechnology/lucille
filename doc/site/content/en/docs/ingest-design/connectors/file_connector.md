@@ -277,6 +277,7 @@ Streams an XML file and publishes one Document per element found at `xmlRootPath
 | `skipEmptyId` | Boolean | No | Skip an element whose ID is empty or blank. When `false`, such an element gets a random UUID as its ID. Default: `false`. |
 | `docIdPrefix` | String | No | Prefix prepended to every Document ID. |
 | `maxRecordBytes` | Integer | No | Maximum number of bytes held in memory while reading a single record. Must be positive. If exceeded, processing of the file stops with an error; records before it are still published. The limit is approximate (bytes read ahead by the parser count too) and also applies to content before the first record. No limit by default. |
+| `allowDoctype` | Boolean | No | Accept files that contain a DOCTYPE. External DTDs and external entities are never loaded, even when allowed. A record that uses an entity declared in the DOCTYPE is published with a DOCTYPE declaring just those entities, so it still parses on its own; XPathExtractor then needs its own `allowDoctype`. Default: `false`, so a file with a DOCTYPE fails to parse. |
 
 Exactly one of `xmlIdPath` and `xpathIdPath` must be set. Each Document holds only its ID and `outputField`; no source file field is added. A parse error partway through a file fails that file, but Documents already published from it are not withdrawn.
 

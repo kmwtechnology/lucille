@@ -13,7 +13,8 @@ Parses the values in `source` and writes each as an ISO-8601 instant string, suc
 |---|---|---|---|
 | `source` | List\<String\> | Yes | Fields containing date strings. |
 | `dest` | List\<String\> | Yes | Destination fields. Give one per `source` field, or a single field for all of them. With a single field, each source field's result is written to it in turn under `updateMode`, so use `append` to keep the results from every source. |
-| `formatStrs` | List\<String\> | No | `DateTimeFormatter` patterns to try, in order. A pattern only has to match the start of a value; trailing text is ignored. A missing hour defaults to midnight. |
+| `formatStrs` | List\<String\> | No | `DateTimeFormatter` patterns to try, in order. A pattern only has to match the start of a value; trailing text is ignored. A pattern without a time parses to midnight, and one with only a year, or a month and year (`yyyy`, `MMMM yyyy`), parses to the first day of that year or month. |
 | `formatters` | List\<Object\> | No | Formatter classes to try after `formatStrs`, each given as `{class: "..."}`. A class must implement `BiFunction<String, ZoneId, ZonedDateTime>` and have a no-argument constructor. Built-in formatters are in `com.kmwllc.lucille.stage.dateformatters`. |
 | `timeZoneId` | String | No | Time zone used when parsing, such as `America/New_York`. Default: the system time zone. |
+| `locale` | String | No | BCP 47 language tag, such as `en-US` or `fr`, used for month and day names in `formatStrs`. An invalid tag, such as `en_US`, fails the stage at startup. Default: the JVM locale. |
 | `updateMode` | String | No | `overwrite`, `append`, or `skip`. Default: `overwrite`. |

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import java.util.Map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import java.util.Arrays;
@@ -75,5 +76,14 @@ public class ComputeFieldSizeTest {
     stage.processDocument(doc1);
 
     assertEquals(10, doc1.getInt("destination").intValue());
+  }
+
+  @Test
+  public void testNonBinaryErrorNamesField() throws Exception {
+    Stage stage = factory.get(Map.of("source", "count", "dest", "size"));
+    Document doc = Document.create("doc");
+    doc.setField("count", 5);
+    StageException e = assertThrows(StageException.class, () -> stage.processDocument(doc));
+    assertEquals("Field: count is not a byte array", e.getMessage());
   }
 }
