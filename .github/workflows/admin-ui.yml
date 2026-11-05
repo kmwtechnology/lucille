@@ -1,12 +1,10 @@
 # Builds and tests the admin UI independently of the Java build (no JDK/Maven).
-# No `paths:` filter: a skipped run would leave a required check missing and block merges.
+# Runs on merges to main and nightly, not on every PR. Can also be triggered manually.
 name: Admin UI CI
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  schedule:
+    - cron: '0 0 * * *'
 
 defaults:
   run:
