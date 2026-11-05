@@ -141,7 +141,7 @@ public class SolrIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    if (!isBypass() && solrClient != null) {
+    if (solrClient != null) {
       try {
         solrClient.close();
       } catch (Exception e) {

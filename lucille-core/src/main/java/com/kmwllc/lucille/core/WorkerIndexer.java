@@ -83,7 +83,7 @@ public class WorkerIndexer {
 
     indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassSearchEngine, pipelineName, null);
 
-    if (!bypassSearchEngine && !indexer.validateConnection()) {
+    if (!indexer.validateConnection()) {
       throw new IndexerException("Indexer could not connect");
     }
 

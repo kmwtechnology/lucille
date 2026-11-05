@@ -161,14 +161,12 @@ public class IndexerBatchAccountingTest {
   }
 
   @Test
-  public void testRetryAccessors() {
+  public void testIsRetryable() {
     FailingIndexer noRetries = new FailingIndexer(BATCH_OF_TWO, new TestMessenger(), "noRetries", batch -> List.of());
-    assertEquals(0, noRetries.getMaxRetries());
     assertFalse(noRetries.isRetryable(new IndexerRetryableException(503, "unavailable", null)));
 
     FailingIndexer retries = new FailingIndexer(
         ConfigFactory.parseString("maxRetries: 2, retryableStatusCodes: [503]"), new TestMessenger(), "retries", batch -> List.of());
-    assertEquals(2, retries.getMaxRetries());
     assertTrue(retries.isRetryable(new IndexerRetryableException(503, "unavailable", null)));
     assertFalse(retries.isRetryable(new IndexerRetryableException(400, "bad request", null)));
     assertFalse(retries.isRetryable(new IndexerException("permanent")));

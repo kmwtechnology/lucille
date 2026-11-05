@@ -523,7 +523,7 @@ public class ElasticsearchIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    if (!isBypass() && client != null && client._transport() != null) {
+    if (client != null && client._transport() != null) {
       try {
         client._transport().close();
       } catch (Exception e) {

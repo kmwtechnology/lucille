@@ -2405,4 +2405,63 @@ public class OpenSearchIndexerTest {
   private static Map<String, Object> asSent(Object document) {
     return new ObjectMapper().convertValue(document, new TypeReference<Map<String, Object>>() {});
   }
+
+  private static BulkResponseItem bulkItem(String id, boolean rejected) {
+    BulkResponseItem item = Mockito.mock(BulkResponseItem.class);
+    when(item.id()).thenReturn(id);
+    if (rejected) {
+      when(item.error()).thenReturn(new ErrorCause.Builder().reason("rejected " + id).type("mock-type").build());
+      when(item.status()).thenReturn(400);
+    }
+    return item;
+  }
+
+  private static Document docInIndex(String id, String index) {
+    Document doc = Document.create(id, "test_run");
+    doc.setField("index", index);
+    return doc;
+  }
+
+  private static OpenSearchIndexer indexerReturning(BulkResponseItem... items) throws Exception {
+    BulkResponse response = Mockito.mock(BulkResponse.class);
+    when(response.items()).thenReturn(List.of(items));
+    OpenSearchClient client = Mockito.mock(OpenSearchClient.class);
+    when(client.bulk(any(BulkRequest.class))).thenReturn(response);
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/batchingIndexOverride.conf");
+    return new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), client);
+  }
+
+  @Test
+  public void testRejectionIsAttributedToTheDocumentInItsIndex() throws Exception {
+    Document unrelated = docInIndex("unrelated", "idx-a");
+    Document inB = docInIndex("shared", "idx-b");
+    Document inA = docInIndex("shared", "idx-a");
+
+    OpenSearchIndexer indexer = indexerReturning(bulkItem("unrelated", false), bulkItem("shared", true), bulkItem("shared", false));
+    List<IndexerFailure> failures = indexer.sendToIndex(List.of(unrelated, inB, inA));
+
+    assertEquals(1, failures.size());
+    assertTrue(failures.get(0).document() == inB);
+  }
+
+  @Test
+  public void testRejectionsOfDocumentsSharingAnIdLeaveOthersAlone() throws Exception {
+    Document unrelated = docInIndex("unrelated", "idx-a");
+    Document inB = docInIndex("shared", "idx-b");
+    Document inA = docInIndex("shared", "idx-a");
+
+    OpenSearchIndexer indexer = indexerReturning(bulkItem("unrelated", false), bulkItem("shared", true), bulkItem("shared", true));
+    List<IndexerFailure> failures = indexer.sendToIndex(List.of(unrelated, inB, inA));
+
+    assertEquals(2, failures.size());
+    assertTrue(failures.get(0).document() == inB);
+    assertTrue(failures.get(1).document() == inA);
+  }
+
+  @Test
+  public void testRejectionThatDoesNotLineUpFailsTheBatch() throws Exception {
+    Document doc = docInIndex("doc1", "idx-a");
+    OpenSearchIndexer indexer = indexerReturning(bulkItem("other", true));
+    assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(doc)));
+  }
 }

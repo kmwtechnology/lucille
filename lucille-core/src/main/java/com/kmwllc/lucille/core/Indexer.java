@@ -293,7 +293,7 @@ public abstract class Indexer implements Runnable {
     // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
     validateIndexerConfigs(config);
 
-    // This Indexer is the dispatcher's BatchProcessor: it supplies the two steps the dispatcher schedules,
+    // Processor is the dispatcher's BatchProcessor: it supplies the two steps the dispatcher schedules,
     // sendWithRetry (may run on a pool) and completeBatch (indexer thread, in dispatch order).
     this.dispatcher = maxConcurrentBatches == 1
         ? new SynchronousDispatcher(new Processor())
@@ -405,8 +405,7 @@ public abstract class Indexer implements Runnable {
    * <p> If retries are configured (indexer.maxRetries), a retry calls this method again with the entire batch, including
    * documents the destination has already accepted. That is safe for a destination where writing the same document twice
    * has the same effect as writing it once. An Indexer for an append-only destination or one that uses external versions
-   * must not report retryable failures unless it can handle being sent those documents again. A retried batch is the
-   * same List instance, so an Indexer can track what it has already sent for that batch; see {@link #getMaxRetries()}.
+   * must not report retryable failures unless it can handle being sent those documents again.
    *
    * <p> Not called in bypass mode.
    *
@@ -774,14 +773,6 @@ public abstract class Indexer implements Runnable {
    */
   protected final boolean isRetryable(Throwable e) {
     return e instanceof IndexerRetryableException retryable && retryableStatusCodes.contains(retryable.getStatusCode());
-  }
-
-  /**
-   * The configured indexer.maxRetries, or 0 when retries are disabled. A retried batch is passed to
-   * {@link #sendToIndex} again as the same List instance, up to this many times.
-   */
-  protected final int getMaxRetries() {
-    return maxRetries;
   }
 
   /**

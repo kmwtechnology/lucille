@@ -155,7 +155,7 @@ public class OpenSearchIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    if (!isBypass() && client != null && client._transport() != null) {
+    if (client != null && client._transport() != null) {
       try {
         client._transport().close();
       } catch (Exception e) {
@@ -396,7 +396,7 @@ public class OpenSearchIndexer extends Indexer {
       return List.of();
     }
 
-    Map<String, Document> uploadedDocuments = new HashMap<>();
+    List<Map.Entry<Pair<String, String>, Document>> uploads = new ArrayList<>(documentsToUpload.entrySet());
     BulkRequest.Builder br = new BulkRequest.Builder();
 
     for (Map.Entry<Pair<String, String>, Document> entry : documentsToUpload.entrySet()) {
@@ -406,8 +406,6 @@ public class OpenSearchIndexer extends Indexer {
 
       // removing fields in the blacklist or not in the whitelist in configurations
       Map<String, Object> indexerDoc = getRawIndexerDoc(doc);
-
-      uploadedDocuments.put(docId, doc);
 
       // only add id if our fieldFilter allows it (based on our blacklist and whitelist)
       // - Case 1: id and idOverride filtered out -> idOverride used by Indexer, both removed from Document (tested in testBlacklistWithOverride)
@@ -470,12 +468,16 @@ public class OpenSearchIndexer extends Indexer {
     }
 
     if (response != null) {
-      for (BulkResponseItem item : response.items()) {
+      // The bulk API returns one item per operation, in request order. Documents in different indexes can share an id,
+      // so the position identifies the document rather than the id.
+      List<BulkResponseItem> items = response.items();
+      for (int i = 0; i < items.size(); i++) {
+        BulkResponseItem item = items.get(i);
         if (item.error() != null) {
-          // For the error - if the id is a document's id, then it failed, and we add it to the set.
+          // For the error - if the item lines up with a document we sent, then it failed, and we add it to the list.
           // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
-          if (uploadedDocuments.containsKey(item.id())) {
-            Document failedDoc = uploadedDocuments.get(item.id());
+          if (i < uploads.size() && uploads.get(i).getKey().getRight().equals(item.id())) {
+            Document failedDoc = uploads.get(i).getValue();
             // item.status() is always an HTTP status code. The OpenSearch bulk API defines the per-item
             // status field as the HTTP status of that individual operation (e.g. 200, 201, 400, 409, 429,
             // 503). This is consistent across all OpenSearch client libraries and confirmed by the

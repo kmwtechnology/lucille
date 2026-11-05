@@ -17,7 +17,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 - **Field filtering** — Applies whitelist/blacklist filtering before documents reach `sendToIndex()`. Use `getConvertedIndexerDoc(doc)` to get the filtered field map as plain Java values, or `getRawIndexerDoc(doc)` when your client serializes it to JSON with Jackson.
 - **Batching** — Configurable batch size and timeout, with support for per-document index routing via `indexOverrideField`.
 - **Concurrent sends** — When `indexer.maxConcurrentBatches` is above 1, sends several batches to the destination at once while keeping writes to the same document id in order and completing batches in dispatch order. See [Concurrent Sends](#concurrent-sends) below.
-- **Retry with backoff** — When `indexer.maxRetries` is configured, retries failed batches with exponential backoff and jitter. Your `sendToIndex()` returns per-document failures; the base class decides whether to retry based on status codes. A retry sends the entire batch again, including documents the destination already accepted. That is safe where writing a document twice has the same effect as writing it once. An append-only destination, or one using external versions, must not report retryable failures unless it can handle receiving those documents again. A retried batch is the same `List` instance, and `getMaxRetries()` and `isRetryable(e)` are available if you need to track attempts yourself.
+- **Retry with backoff** — When `indexer.maxRetries` is configured, retries failed batches with exponential backoff and jitter. Your `sendToIndex()` returns per-document failures; the base class decides whether to retry based on status codes. A retry sends the entire batch again, including documents the destination already accepted. That is safe where writing a document twice has the same effect as writing it once. An append-only destination, or one using external versions, must not report retryable failures unless it can handle receiving those documents again.
 - **Event accounting** — Sends FINISH or FAIL events for each document so the Runner can track run completion.
 - **Metrics** — Tracks documents indexed, throughput rate, and batch latency automatically.
 - **ID and index overrides** — Supports `idOverrideField` and `indexOverrideField` for routing documents to different IDs or indices. Use `getDocIdOverride(doc)` and `getIndexOverride(doc)` in your `sendToIndex()`.
@@ -152,7 +152,6 @@ Registering lets the nested block's name, or `indexer.type: "..."`, select your 
 import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
-import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.indexer.IndexerType;
 
 @AutoService(Indexer.class)
