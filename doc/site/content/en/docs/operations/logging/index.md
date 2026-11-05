@@ -12,20 +12,22 @@ resources:
 
 ## Lucille Logs
 
-Lucille uses Log4j2 (via SLF4J) for all logging. A default `log4j2.xml` is included in `lucille-core/src/main/resources/`.
+Lucille uses Log4j2 (via SLF4J) for all logging. `lucille-core` itself ships only the SLF4J API, not a logging backend or configuration.
+The Log4j2 backend and the default configuration live in the `lucille-logging` module, which Lucille's runnable artifacts (the Docker images and the examples) depend on. 
+The default configuration is shipped as `lucille-log4j2.xml` on `lucille-logging`'s classpath. It is intentionally **not** named `log4j2.xml`, so it is not auto-discovered just because the jar is present.
 
 ### Using a Custom Log4j2 Configuration
 
-To override the default logging configuration, pass the standard Log4j2 system property on the Java command line:
+Lucille's Docker entrypoint and example run scripts point Log4j2 at a configuration file with the standard system property; you can do the same, or override it to use your own file:
 
 ```bash
-java -Dlog4j.configurationFile=/path/to/my-log4j2.xml \
+java -Dlog4j2.configurationFile=/path/to/my-log4j2.xml \
      -Dconfig.file=my-pipeline.conf \
      -cp 'target/lib/*' \
      com.kmwllc.lucille.core.Runner
 ```
 
-This applies to all Lucille components (Runner, Worker, Indexer, WorkerIndexer). If you don't provide this property, Log4j2 uses whatever `log4j2.xml` it finds on the classpath.
+This applies to all Lucille components (Runner, Worker, Indexer, WorkerIndexer). To use the bundled default instead of your own file, point the property at `classpath:lucille-log4j2.xml`. If you provide no configuration at all, Log4j2 falls back to its own built-in default (status messages to the console), since Lucille's config is not auto-discovered.
 
 Common reasons to provide a custom configuration:
 - Route the DocLogger to a separate file (to avoid mixing per-document lifecycle events with operational logs)
