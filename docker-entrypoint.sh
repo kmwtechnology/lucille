@@ -51,9 +51,19 @@ esac
 
 # JAVA_OPTS: JVM-level flags (heap, GC, etc.)
 # LUCILLE_OPTS: Lucille Runner CLI flags (e.g. -distributed, -external)
+# LUCILLE_LOG4J_CONF: log4j2 config file (defaults to the editable /lucille/conf/log4j2.xml). lucille-core
+#   ships no log4j2 config of its own ; we point log4j2 at the external file here. Setting it to empty
+#   falls back to the non-auto-discovered copy bundled in lucille-logging.jar.
 # exec replaces the shell so Java is PID 1 and receives signals (SIGTERM, SIGINT) directly
+if [ -n "$LUCILLE_LOG4J_CONF" ]; then
+  LOG4J_OPT="-Dlog4j2.configurationFile=${LUCILLE_LOG4J_CONF}"
+else
+  LOG4J_OPT="-Dlog4j2.configurationFile=classpath:lucille-log4j2.xml"
+fi
+
 exec java \
   ${JAVA_OPTS} \
+  "${LOG4J_OPT}" \
   -Dconfig.file="${LUCILLE_CONF}" \
   -cp '/lucille/lib/*' \
   "$MAIN_CLASS" \

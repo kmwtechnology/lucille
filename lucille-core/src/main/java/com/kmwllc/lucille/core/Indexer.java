@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.LogUtils;
@@ -101,8 +102,6 @@ import org.slf4j.MDC.MDCCloseable;
  *   failures, will not be retried. Include the sentinel value {@code -1} to also retry failures where no HTTP status code
  *   is available (e.g. network timeouts). When this parameter is omitted, the default {@code [429, 503, -1]} is used.
  *   An empty list is rejected as invalid configuration. Only allowed when maxRetries is also set.</li>
- *   <li>indexer.versionType (String, Optional) : The type of versioning to use for indexing documents. Specific indexer implementations may support different version types. The default version type is implementation-specific.</li>
- *   <li>indexer.versionField (String, Optional) : The field name to use for versioning. This field must be present in the document and must be of a type that supports versioning with that specific indexer implementation (e.g., numeric, string).</li>
  *   <li>indexer.maxConcurrentBatches (Integer, Optional) : Maximum number of batches that may be in flight to the destination
  *   at once. Defaults to {@value #DEFAULT_MAX_CONCURRENT_BATCHES}, which sends each batch synchronously on the indexer thread.
  *   Values greater than 1 are only accepted by implementations whose {@link #supportsConcurrentSends()} returns true.
@@ -372,6 +371,13 @@ public abstract class Indexer implements Runnable {
    * @return the key / parent name of this Indexer in a Config.
    */
   protected abstract String getIndexerConfigKey();
+
+  /**
+   * Returns the key of this Indexer's block in the indexer block, as given by {@link #getIndexerConfigKey()}.
+   */
+  public final String getConfigKey() {
+    return getIndexerConfigKey();
+  }
 
   /**
    * Return true if connection to the destination search engine is valid and the relevant index or
@@ -935,7 +941,8 @@ public abstract class Indexer implements Runnable {
     String indexerConfigKey = getIndexerConfigKey();
     Config genericConfig = config;
 
-    // Every object in the block is an implementation's block; the generic settings are all scalars and lists.
+    // The generic settings are all scalars and lists, so an object is either this indexer's block or another indexer's,
+    // which indexer.type may be choosing among. Anything else is a mistake.
     for (Map.Entry<String, ConfigValue> entry : config.root().entrySet()) {
       if (entry.getValue().valueType() != ConfigValueType.OBJECT) {
         continue;
@@ -947,6 +954,12 @@ public abstract class Indexer implements Runnable {
       }
       if (key.equalsIgnoreCase(indexerConfigKey)) {
         throw new IllegalArgumentException("Config block indexer." + key + " must be named indexer." + indexerConfigKey + ".");
+      }
+      List<String> registeredTypes = IndexerFactory.getRegisteredTypes();
+      if (registeredTypes.stream().noneMatch(key::equalsIgnoreCase)) {
+        throw new IllegalArgumentException("Unknown config block indexer." + key + ", which " + getClass().getSimpleName()
+            + " does not use. Available types on the classpath: " + registeredTypes
+            + ". Remove the block, or ensure the module providing this indexer is on the classpath.");
       }
       log.warn("Ignoring config block indexer.{}, which {} does not use.", key, getClass().getSimpleName());
     }

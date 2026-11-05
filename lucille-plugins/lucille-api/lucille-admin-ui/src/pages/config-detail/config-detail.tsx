@@ -155,10 +155,13 @@ function isBlock(value: unknown): boolean {
 
 function IndexerCard({ config }: { config: ConfigObject }) {
   const indexer = config.indexer
-  // Backend settings are the object nested in the indexer block; with several, indexer.type names the one in use.
+  // Backend settings are the object nested in the indexer block. indexer.type names the one in use, and with neither
+  // type nor class set, the only block selects the indexer. indexer.class doesn't say which block it reads.
   const blocks = Object.keys(indexer ?? {}).filter((k) => isBlock(indexer?.[k]))
   const connectionKey =
-    blocks.find((k) => k.toLowerCase() === String(indexer?.type).toLowerCase()) ?? blocks[0]
+    indexer?.type === undefined && indexer?.class === undefined
+      ? blocks[0]
+      : blocks.find((k) => k.toLowerCase() === String(indexer?.type).toLowerCase())
   const connection = connectionKey ? (indexer?.[connectionKey] as Record<string, unknown>) : undefined
 
   return (

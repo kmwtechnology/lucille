@@ -76,7 +76,6 @@ public class WeaviateIndexer extends Indexer {
     this(config, context, getClient(config, context.bypass()));
   }
 
-  // Convenience Constructors
   @Override
   protected String getIndexerConfigKey() { return "weaviate"; }
 
