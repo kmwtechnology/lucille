@@ -3,6 +3,7 @@ package com.kmwllc.lucille.solr.connector;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import com.fasterxml.jackson.databind.node.BinaryNode;
 import com.fasterxml.jackson.databind.node.BooleanNode;
@@ -218,6 +219,27 @@ public class SolrConnectorTest {
   }
 
   @Test
+  public void testLowercaseFieldsIgnoresTheDefaultLocale() throws Exception {
+    Locale original = Locale.getDefault();
+    // in Turkish, "I".toLowerCase() is a dotless "ı", so "ID" would become "ıd" and get past the reserved check
+    Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+    try {
+      SolrDocument solrDoc = new SolrDocument();
+      solrDoc.setField(Document.ID_FIELD, "doc1");
+      solrDoc.setField("ID", "other");
+      solrDoc.setField("TITLE", "t1");
+
+      Document doc = publishOne(lowercase(true), solrDoc);
+
+      assertEquals("doc1", doc.getId());
+      assertFalse(doc.has("\u0131d"));
+      assertEquals("t1", doc.getString("title"));
+    } finally {
+      Locale.setDefault(original);
+    }
+  }
+
+  @Test
   public void testMixedCaseIdFieldIsNotCopied() throws Exception {
     SolrDocument solrDoc = new SolrDocument();
     solrDoc.setField("docKey", "k1");
@@ -294,7 +316,7 @@ public class SolrConnectorTest {
     solrDoc.setField(Document.RUNID_FIELD, "oldRun");
     solrDoc.setField("RUN_ID", "otherRun");
     solrDoc.setField(Document.DROP_FIELD, "yes");
-    solrDoc.setField("___DROPPED", "yes");
+    solrDoc.setField(Document.DROP_FIELD.toUpperCase(Locale.ROOT), "yes");
     solrDoc.setField(Document.CHILDREN_FIELD, "child");
     solrDoc.setField(Document.SKIP_FIELD, "yes");
     solrDoc.setField("name", "n1");
