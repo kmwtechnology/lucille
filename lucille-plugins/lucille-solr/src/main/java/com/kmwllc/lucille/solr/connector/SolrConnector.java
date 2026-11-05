@@ -32,7 +32,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -166,9 +165,8 @@ public class SolrConnector extends AbstractConnector {
         for (String fieldName : solrDoc.getFieldNames()) {
           // TODO : we might want an option to preserve the id under its original field name
           // TODO : Add configurable field blacklist (not necessarily here)
-          // read the field by its own name; only the name it is given on the Document may be lower-cased.
-          // Locale.ROOT, so that "ID" becomes "id" in every locale (in Turkish it would become "ıd")
-          String docFieldName = lowercaseFields ? fieldName.toLowerCase(Locale.ROOT) : fieldName;
+          // read the field by its own name; only the name it is given on the Document may be lower-cased
+          String docFieldName = lowercaseFields ? fieldName.toLowerCase() : fieldName;
           // reserved names (such as id, or the run_id Lucille indexes) cannot be set on a Document. The check is on the
           // name the field would be given, so "ID" is skipped only when it would become "id"
           if (fieldName.equals(idField) || Document.RESERVED_FIELDS.contains(docFieldName)) {
