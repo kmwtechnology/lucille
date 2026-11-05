@@ -130,9 +130,10 @@ public class FileConnectorStateManager implements FileStateTracker {
   // Prefix on every generated table name. It is also a letter, so a generated name never starts with a digit, and it is
   // never a reserved word, so a connector name such as "order" still gives a valid unquoted identifier.
   static final String TABLE_NAME_PREFIX = "STATE_";
-  // Characters kept from a name that had to be rewritten, before the hash suffix is appended.
-  private static final int MAX_TABLE_NAME_BASE_LENGTH = 32;
   private static final int HASH_SUFFIX_BYTES = 4;
+  // Characters kept from a name that had to be rewritten: whatever the total budget leaves after the prefix, the "_"
+  // before the hash, and the hash itself.
+  private static final int MAX_TABLE_NAME_BASE_LENGTH = MAX_TABLE_NAME_LENGTH - TABLE_NAME_PREFIX.length() - 1 - 2 * HASH_SUFFIX_BYTES;
 
   /**
    * Converts a connector name into a valid, unquoted SQL table name. Every generated name starts with
@@ -157,7 +158,13 @@ public class FileConnectorStateManager implements FileStateTracker {
     if (base.length() > MAX_TABLE_NAME_BASE_LENGTH) {
       base = base.substring(0, MAX_TABLE_NAME_BASE_LENGTH);
     }
-    return TABLE_NAME_PREFIX + base + "_" + hashSuffix(upper);
+    String mapped = TABLE_NAME_PREFIX + base + "_" + hashSuffix(upper);
+    // guaranteed by the base cap above; checked anyway so a future constant change cannot exceed the identifier limit
+    if (mapped.length() > MAX_TABLE_NAME_LENGTH) {
+      throw new IllegalStateException("Generated state table name is " + mapped.length() + " characters, over the limit of "
+          + MAX_TABLE_NAME_LENGTH + ": " + mapped);
+    }
+    return mapped;
   }
 
   // Hex of the first bytes of the SHA-256 of the upper-cased name, so the suffix is stable and matches the case-insensitive naming used before.
