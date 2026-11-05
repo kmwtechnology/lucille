@@ -86,8 +86,6 @@ Each Solr result becomes a Document whose ID is `docIdPrefix` (if set) followed 
 
 With `lowercaseFields: true`, each field name is lowercased before it is set on the Document, and the reserved-field check applies to the lowercased name. A field such as `ID` then becomes `id` and is not copied. Fields whose names differ only in case end up with the same name, and the last one overwrites the others.
 
-**Migrating from earlier versions:** the connector used to lowercase every field name. If your pipeline or indexer mapping depends on lowercased names (for example `author` for a Solr field `Author`), set `lowercaseFields: true`.
-
 Solr returns `_version_` with every document. Remove it with a `DeleteFields` stage before indexing the documents into Solr, or Solr rejects each one with a 409 version conflict.
 
 ## Query Parameters (`solrParams`)

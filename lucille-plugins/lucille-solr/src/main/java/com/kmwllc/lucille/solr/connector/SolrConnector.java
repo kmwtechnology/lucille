@@ -50,7 +50,7 @@ import java.util.stream.Collectors;
  *   <li>useXml (Boolean, Optional) : Send XML requests instead of JSON. Defaults to false.</li>
  *   <li>idField (String, Optional) : Field to use for document IDs when publishing. Defaults to "id".</li>
  *   <li>lowercaseFields (Boolean, Optional) : Lower-case field names when publishing. Fields whose names differ only in
- *   case then overwrite each other. Primarily intended for pipelines written against the connector's old behavior. Defaults to false.</li>
+ *   case then overwrite each other. Defaults to false.</li>
  * </ul>
  * <p> <b>Limitations:</b> Child / nested (block-join) documents are not read. Each Solr result is published as a
  * single flat Document; a parent's children are not returned.
