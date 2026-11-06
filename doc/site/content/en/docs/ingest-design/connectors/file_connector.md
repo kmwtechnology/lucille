@@ -42,7 +42,7 @@ The URI scheme of each path selects the storage backend:
 
 A local filesystem client is always available. A path whose provider block (`s3`, `gcp`, `azure`) is missing fails the run when the connector reaches it. An `https` path whose host isn't in `azure.allowedHosts` fails at startup. With `maxThreads: 1` (the default), paths are traversed in order, and a path that fails stops the run before the remaining paths are traversed.
 
-On S3, GCS, and Azure, a path is a raw key prefix, so `s3://bucket/data` also traverses keys under `data2/`. End the path with `/` to limit it to one folder. For S3 paths, percent-encode special characters (e.g., `s3://bucket/folder%20with%20spaces`). When no `pathsToSkip` filter is set, S3 paths are listed in one flat listing rather than directory by directory, so files are published in S3 key order.
+On S3, GCS, and Azure, a path is a raw key prefix, so `s3://bucket/data` also traverses keys under `data2/`. End the path with `/` to limit it to one folder. For S3 paths, percent-encode special characters (e.g., `s3://bucket/folder%20with%20spaces`). When no `pathsToSkip` filter is set, S3 paths are listed in one flat listing rather than directory by directory, so files are published in S3 key order (see [Large Traversals](#large-traversals)).
 
 ```hocon
 paths: ["file:///local/data", "s3://my-bucket/prefix", "https://myaccount.blob.core.windows.net/container/path"]
@@ -52,7 +52,7 @@ paths: ["file:///local/data", "s3://my-bucket/prefix", "https://myaccount.blob.c
 
 ## Cloud Storage Configuration
 
-When traversing cloud storage, provide credentials in a block named `s3`, `gcp`, or `azure` inside the connector config. Each provider also accepts `maxResultsPerPage`, the number of results returned per listing request (default 100; 1000 for S3, which is also the most S3 returns per request).
+When traversing cloud storage, provide credentials in a block named `s3`, `gcp`, or `azure` inside the connector config. Each provider also accepts `maxResultsPerPage`, the number of results returned per listing request (default 100; 1000 for S3, which is also the most S3 returns per request), and the settings in [Large Traversals](#large-traversals).
 
 ### azure
 
@@ -171,6 +171,33 @@ Multiple `paths` are traversed one after another by default. Set `maxThreads` (s
 paths: ["s3://bucket/a", "s3://bucket/b", "s3://bucket/c", "s3://bucket/d"]
 maxThreads: 2
 ```
+
+To traverse the directories of one path at once, see [Large Traversals](#large-traversals).
+
+## Large Traversals
+
+These settings go in the `s3`, `gcp`, or `azure` block, or in a [custom client's](#custom-storage-clients) entry in `storageClients` if that client uses the shared traversal. They don't apply to local paths.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `traversalThreads` | Integer | No | Number of threads that traverse the directories of one path. Must be at least `1`. Above `1`, `collapse` can't be used (checked at startup). Default: `1`. |
+| `maxDocuments` | Long | No | The most documents to publish for each entry in `paths`. Must be at least `1`. Can't be combined with an enabled `state` block (checked at startup). No limit by default. |
+| `listingMode` | String | No | `hierarchical` lists each directory separately. `flat` lists every key under the path at once, in fewer requests. `flat` can't be combined with `traversalThreads` above `1` or with `pathsToSkip` (both checked at startup). Default: `flat` on S3 unless `traversalThreads` is above `1` or `pathsToSkip` is set, and otherwise `hierarchical`. |
+
+```hocon
+paths: ["s3://bucket/a/", "s3://bucket/b/"]
+maxThreads: 2
+s3: {
+  region: "us-east-1"
+  traversalThreads: 8
+}
+```
+
+**Threads.** `maxThreads` sets how many `paths` run at once, and `traversalThreads` sets how many threads work on each one, so up to `maxThreads` × `traversalThreads` threads can run. The example above can use 16. Each of them makes its own listing and content requests, so size any connection limits to suit. With an enabled `state` block, each also holds its own connection to the state database, and `moveToAfterProcessing` and `moveToErrorFolder` moves happen on these threads.
+
+A traversal with several threads publishes the same documents as one with a single thread, but in no fixed order. With one thread, a directory's files are published first, then each of its child directories in listing order. If a thread fails, for example when a listing fails, the others stop and the run fails. Each thread uses its own instances of the configured File Handlers.
+
+**`maxDocuments`.** Every published document counts, including each one from a File Handler or archive, so a CSV file can use up many. Once the limit is reached, listing stops and the traversal ends without failing; other entries in `paths` still get their own limit. A file whose documents were cut off by the limit isn't moved to `moveToAfterProcessing` or `moveToErrorFolder`. A limit can't be used with `state`, because files the traversal doesn't reach would look deleted and would be tombstoned and removed from state.
 
 ---
 
@@ -390,7 +417,7 @@ Filter options control which files are processed and published. They go under `f
 |---|---|---|---|
 | `includes` | List\<String\> | No | Regex patterns. Only files whose name matches at least one pattern are processed. |
 | `excludes` | List\<String\> | No | Regex patterns. Files whose name matches any pattern are skipped. |
-| `pathsToSkip` | List\<String\> | No | Directories that are not traversed at all. See the note below. |
+| `pathsToSkip` | List\<String\> | No | Directories that are not traversed at all, at any depth, including the path being traversed. See the note below. |
 | `lastModifiedCutoff` | String | No | Duration (e.g., `"24h"`, `"7d"`). Only files modified within this period are processed. |
 | `lastPublishedCutoff` | String | No | Duration. Files published by Lucille within this period are skipped. Requires an enabled `state` block and `publishMode: incremental`; without either, the connector fails at startup. |
 | `publishMode` | String | No | `full` or `incremental` (case-insensitive). In `incremental` mode, only new or modified files are published. `incremental` requires a `state` block that is not disabled with `enabled: false`, checked at startup; any other value also fails at startup. Default: `full`. |
@@ -413,6 +440,8 @@ filterOptions: {
 **Note** on `pathsToSkip`: while you could create an `excludes` regex detailing directories you do not want to publish files for, there 
 are performance benefits to using `pathsToSkip` instead. With this parameter, the `FileConnector` will _not actually_ traverse the path and its contents.
 If you use `excludes`, the path _will_ be traversed, but the individual documents are not processed & published.
+
+A cloud path without a trailing `/` is a raw prefix rather than a directory, so an entry for `s3://bucket/logs/` applied to the path `s3://bucket/logs` skips the `logs/` directory and still traverses `logs-old/`.
 
 Each entry may be a URI with a scheme (for example `s3://bucket/path`, `gs://bucket/path`, or `file:///path/to/dir`). As a convenience,
 local file system paths may also be provided without a scheme - either absolute (e.g. `/path/to/dir`) or relative to the working directory

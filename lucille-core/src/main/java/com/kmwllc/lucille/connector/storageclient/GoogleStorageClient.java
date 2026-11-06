@@ -10,6 +10,7 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.Storage.CopyRequest;
 import com.google.cloud.storage.StorageOptions;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.FileInputStream;
@@ -19,7 +20,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.channels.Channels;
 import java.nio.file.NoSuchFileException;
-import java.util.Objects;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,30 +58,36 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception {
-    traversePrefix(publisher, params, stateMgr, getStartingDirectory(params));
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws ConnectorException {
+    traverseByListing(publisher, params, stateMgr);
   }
 
-  private void traversePrefix(Publisher publisher, TraversalParams params, FileStateTracker stateMgr, String prefix) {
-    storage.list(getBucketOrContainerName(params),
+  @Override
+  protected Stream<ListingEntry> listDirectory(String prefix, TraversalParams params) {
+    return storage.list(getBucketOrContainerName(params),
             BlobListOption.prefix(prefix),
             BlobListOption.currentDirectory(),
             BlobListOption.pageSize(maxResultsPerPage))
         .streamAll()
-        .forEachOrdered(blob -> {
-          if (blob.isDirectory()) {
-            URI dirUri = uriForDirectory(blob.getName(), params);
+        .map(blob -> blob.isDirectory() ? ListingEntry.directory(blob.getName()) : fileEntry(blob, params));
+  }
 
-            if (!isSkippedDirectory(dirUri, params)) {
-              traversePrefix(publisher, params, stateMgr, blob.getName());
-            }
-          } else {
-            FileReference fileRef = buildReferenceOrSkip(blob.getName(), () -> new GoogleFileReference(blob, params));
-            if (fileRef != null) {
-              processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
-            }
-          }
-        });
+  @Override
+  protected Stream<ListingEntry> listFlat(String prefix, TraversalParams params) {
+    return storage.list(getBucketOrContainerName(params),
+            BlobListOption.prefix(prefix),
+            BlobListOption.pageSize(maxResultsPerPage))
+        .streamAll()
+        .map(blob -> fileEntry(blob, params));
+  }
+
+  private ListingEntry fileEntry(Blob blob, TraversalParams params) {
+    return ListingEntry.file(blob.getName(), () -> new GoogleFileReference(blob, params));
+  }
+
+  @Override
+  protected URI directoryURI(String prefix, TraversalParams params) {
+    return uriForDirectory(prefix, params);
   }
 
   private URI uriForDirectory(String prefix, TraversalParams params) {
@@ -110,15 +117,6 @@ public class GoogleStorageClient extends BaseStorageClient {
 
     ReadChannel blobReadChannel = blob.reader();
     return Channels.newInputStream(blobReadChannel);
-  }
-
-  private String getStartingDirectory(TraversalParams params) {
-    URI pathURI = params.getURI();
-    String startingDirectory = Objects.equals(pathURI.getPath(), "/") ? "" : pathURI.getPath();
-    if (startingDirectory.startsWith("/")) {
-      return startingDirectory.substring(1);
-    }
-    return startingDirectory;
   }
 
   private String getBucketOrContainerName(TraversalParams params) {

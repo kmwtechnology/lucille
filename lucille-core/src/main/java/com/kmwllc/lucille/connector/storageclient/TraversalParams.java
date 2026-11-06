@@ -61,6 +61,7 @@ public class TraversalParams {
   private final PublishMode publishMode;
 
   // FileHandlers
+  private final Config fileHandlersConfig;
   private final Map<String, FileHandler> fileHandlers;
 
   public TraversalParams(Config config, URI pathToStorage, String docIdPrefix) {
@@ -123,8 +124,36 @@ public class TraversalParams {
     this.lastPublishedCutoff = filterOptions.hasPath("lastPublishedCutoff") ? filterOptions.getDuration("lastPublishedCutoff") : null;
 
     // fileHandlers - create a map from fileExtensions to fileHandlers. The method will handle json / jsonl.
-    Config fileHandlersConfig = config.hasPath("fileHandlers") ? config.getConfig("fileHandlers") : ConfigFactory.empty();
+    this.fileHandlersConfig = config.hasPath("fileHandlers") ? config.getConfig("fileHandlers") : ConfigFactory.empty();
     this.fileHandlers = FileHandler.createFromConfig(fileHandlersConfig);
+  }
+
+  // Everything but the FileHandlers is immutable, and so is safe to share across threads.
+  private TraversalParams(TraversalParams other) {
+    this.uri = other.uri;
+    this.docIdPrefix = other.docIdPrefix;
+    this.getFileContent = other.getFileContent;
+    this.handleArchivedFiles = other.handleArchivedFiles;
+    this.handleCompressedFiles = other.handleCompressedFiles;
+    this.maxSizeBytes = other.maxSizeBytes;
+    this.moveToAfterProcessing = other.moveToAfterProcessing;
+    this.moveToErrorFolder = other.moveToErrorFolder;
+    this.excludes = other.excludes;
+    this.includes = other.includes;
+    this.pathsToSkip = other.pathsToSkip;
+    this.lastModifiedCutoff = other.lastModifiedCutoff;
+    this.lastPublishedCutoff = other.lastPublishedCutoff;
+    this.publishMode = other.publishMode;
+    this.fileHandlersConfig = other.fileHandlersConfig;
+    this.fileHandlers = FileHandler.createFromConfig(fileHandlersConfig);
+  }
+
+  /**
+   * Returns a copy of these params with its own FileHandler instances, for a traversal thread. A FileHandler is not
+   * thread-safe, so threads must not share one.
+   */
+  TraversalParams withOwnFileHandlers() {
+    return new TraversalParams(this);
   }
 
   /**

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -17,13 +18,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.kmwllc.lucille.connector.storageclient.FileStateTracker;
+import com.kmwllc.lucille.connector.storageclient.ThreadBoundFileStateTracker;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.typesafe.config.Config;
 
 /**
  * <p> Holds / manages a connection to a JDBC database used to maintain state regarding FileConnector traversals and the last
- * time files were processed and published by Lucille. StorageClients see it as a {@link FileStateTracker}.
+ * time files were processed and published by Lucille. StorageClients see it as a {@link com.kmwllc.lucille.connector.storageclient.FileStateTracker}.
  * <p> Build a connection to a JDBC-compatible database (can be embedded or not)
  *
  * <p> Call {@link #init()} and {@link #shutdown()} to connect / disconnect to the database.
@@ -55,7 +56,7 @@ import com.typesafe.config.Config;
  * <p> Regardless, only one FileConnectorStateManager within the same JVM may use a given <code>connectionString</code> and
  * <code>tableName</code> at a time. {@link #init()} fails if another FileConnectorStateManager is already using them.
  */
-public class FileConnectorStateManager implements FileStateTracker {
+public class FileConnectorStateManager implements ThreadBoundFileStateTracker {
 
   // connectionString:tableName keys of the state tables currently in use in this JVM.
   private static final Set<String> tablesInUse = ConcurrentHashMap.newKeySet();
@@ -208,6 +209,20 @@ public class FileConnectorStateManager implements FileStateTracker {
     if (state.connection() != jdbcConnection) {
       closeConnection(state.connection());
     }
+  }
+
+  @Override
+  public void openForThread() throws IOException {
+    try {
+      openStateForThread();
+    } catch (ClassNotFoundException | SQLException e) {
+      throw new IOException("Unable to open a connection to the state database for thread " + Thread.currentThread().getName() + ".", e);
+    }
+  }
+
+  @Override
+  public void closeForThread() {
+    closeStateForThread();
   }
 
   // Returns the calling thread's TraversalState. Every per-file operation goes through here.

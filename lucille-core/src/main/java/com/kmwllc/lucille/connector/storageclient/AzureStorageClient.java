@@ -13,6 +13,7 @@ import com.azure.storage.blob.models.BlobCopyInfo;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.common.StorageSharedKeyCredential;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -21,6 +22,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Objects;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,21 +55,78 @@ public class AzureStorageClient extends BaseStorageClient {
   @Override
   protected void initializeStorageClient() throws IOException {
     try {
+      BlobServiceClientBuilder builder = new BlobServiceClientBuilder();
+
       if (config.hasPath(AZURE_CONNECTION_STRING)) {
-        serviceClient = new BlobServiceClientBuilder()
-            .connectionString(config.getString(AZURE_CONNECTION_STRING))
-            .buildClient();
+        builder = builder.connectionString(config.getString(AZURE_CONNECTION_STRING));
       } else {
         String accountName = config.getString(AZURE_ACCOUNT_NAME);
         String accountKey = config.getString(AZURE_ACCOUNT_KEY);
 
-        serviceClient = new BlobServiceClientBuilder()
-            .credential(new StorageSharedKeyCredential(accountName, accountKey))
-            .buildClient();
+        builder = builder.credential(new StorageSharedKeyCredential(accountName, accountKey));
       }
+
+      serviceClient = configureClientBuilder(builder).buildClient();
     } catch (Exception e) {
       throw new IOException("Error occurred building AzureStorageClient", e);
     }
+  }
+
+  /**
+   * Called with the builder for the BlobServiceClient when this client starts, whether it was given a connection string or
+   * an account name and key, and after those are applied. Override this to set anything else, such as an HTTP client.
+   *
+   * @param builder The builder.
+   * @return The builder to build the BlobServiceClient from.
+   */
+  protected BlobServiceClientBuilder configureClientBuilder(BlobServiceClientBuilder builder) {
+    return builder;
+  }
+
+  /**
+   * Called with the options of each listing before it is sent, flat or hierarchical. Override this to set further options,
+   * such as what details to retrieve. Called from several threads when <code>traversalThreads</code> is above 1.
+   *
+   * @param options The options, with the prefix and page size set.
+   * @return The options to list with.
+   */
+  protected ListBlobsOptions customizeListOptions(ListBlobsOptions options) {
+    return options;
+  }
+
+  /**
+   * Opens a stream to a blob's content, including for {@link #getFileContentStream(URI)}. Override this to read it another
+   * way, such as with request conditions. Called from several threads when <code>traversalThreads</code> is above 1.
+   *
+   * @param blobClient The client for the blob.
+   * @return A stream to the blob's content.
+   */
+  protected InputStream openBlobStream(BlobClient blobClient) {
+    return blobClient.openInputStream();
+  }
+
+  /**
+   * Downloads a blob's whole content, which a traversal does when it reads a file's content into a Document with no
+   * <code>maxSizeBytes</code>. Override this along with {@link #openBlobStream(BlobClient)}.
+   *
+   * @param blobClient The client for the blob.
+   * @return The blob's content.
+   */
+  protected byte[] downloadBlobContent(BlobClient blobClient) {
+    return blobClient.downloadContent().toBytes();
+  }
+
+  /**
+   * Builds the FileReference for one listed blob. Override this to return a subclass of {@link AzureFileReference}. If this
+   * throws, the traversal logs the error and skips only this blob. Called from several threads when
+   * <code>traversalThreads</code> is above 1.
+   *
+   * @param blobItem The blob, as listed.
+   * @param params Parameters for the traversal.
+   * @return The blob's FileReference.
+   */
+  protected FileReference createFileReference(BlobItem blobItem, TraversalParams params) {
+    return new AzureFileReference(blobItem, params);
   }
 
   @Override
@@ -77,28 +136,42 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception {
-    traversePrefix(publisher, params, stateMgr, getStartingDirectory(params));
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws ConnectorException {
+    traverseByListing(publisher, params, stateMgr);
   }
 
-  private void traversePrefix(Publisher publisher, TraversalParams params, FileStateTracker stateMgr, String prefix) {
-    serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
-        .listBlobsByHierarchy("/", new ListBlobsOptions().setPrefix(prefix).setMaxResultsPerPage(maxResultsPerPage), Duration.ofSeconds(10))
+  @Override
+  protected Stream<ListingEntry> listDirectory(String prefix, TraversalParams params) {
+    return serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
+        .listBlobsByHierarchy("/", listOptions(prefix), Duration.ofSeconds(10))
         .stream()
-        .forEachOrdered(blob -> {
-          if (blob.isPrefix()) {
-            URI dirUri = uriForDirectory(blob.getName(), params);
+        .map(blob -> isPrefix(blob) ? ListingEntry.directory(blob.getName()) : fileEntry(blob, params));
+  }
 
-            if (!isSkippedDirectory(dirUri, params)) {
-              traversePrefix(publisher, params, stateMgr, blob.getName());
-            }
-          } else {
-            FileReference fileRef = buildReferenceOrSkip(blob.getName(), () -> new AzureFileReference(blob, params));
-            if (fileRef != null) {
-              processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
-            }
-          }
-        });
+  @Override
+  protected Stream<ListingEntry> listFlat(String prefix, TraversalParams params) {
+    return serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
+        .listBlobs(listOptions(prefix), Duration.ofSeconds(10))
+        .stream()
+        .map(blob -> fileEntry(blob, params));
+  }
+
+  private ListBlobsOptions listOptions(String prefix) {
+    return customizeListOptions(new ListBlobsOptions().setPrefix(prefix).setMaxResultsPerPage(maxResultsPerPage));
+  }
+
+  private ListingEntry fileEntry(BlobItem blob, TraversalParams params) {
+    return ListingEntry.file(blob.getName(), () -> createFileReference(blob, params));
+  }
+
+  // a flat listing doesn't set this
+  private static boolean isPrefix(BlobItem blob) {
+    return Boolean.TRUE.equals(blob.isPrefix());
+  }
+
+  @Override
+  protected URI directoryURI(String prefix, TraversalParams params) {
+    return uriForDirectory(prefix, params);
   }
 
   private URI uriForDirectory(String prefix, TraversalParams params) {
@@ -141,7 +214,7 @@ public class AzureStorageClient extends BaseStorageClient {
     BlobLocation location = BlobLocation.fromURI(uri);
 
     BlobContainerClient containerClient = serviceClient.getBlobContainerClient(location.containerName);
-    return containerClient.getBlobClient(location.blobName).openInputStream();
+    return openBlobStream(containerClient.getBlobClient(location.blobName));
   }
 
   @Override
@@ -162,14 +235,21 @@ public class AzureStorageClient extends BaseStorageClient {
     sourceBlobClient.delete();
   }
 
-  private String getStartingDirectory(TraversalParams params) {
+  @Override
+  protected String getStartingDirectory(TraversalParams params) {
     String path = params.getURI().getPath();
     // path is in the format /containerName/folder1/folder2/... so need to return folder1/folder2/...
     String[] subPaths = path.split("/", 3);
     return subPaths.length > 2 ? subPaths[2] : "";
   }
 
-  private static String getBucketOrContainerName(TraversalParams params) {
+  /**
+   * Returns the container a traversal lists and reads from: by default, the first segment of the path of the traversal's URI.
+   *
+   * @param params Parameters for the traversal.
+   * @return The container's name.
+   */
+  protected String getBucketOrContainerName(TraversalParams params) {
     return BlobLocation.fromURI(params.getURI()).containerName;
   }
 
@@ -213,19 +293,27 @@ public class AzureStorageClient extends BaseStorageClient {
     }
   }
 
+  private URI fullPathFor(BlobItem blobItem, TraversalParams params) {
+    return buildBlobURI(params.getURI(), getBucketOrContainerName(params), blobItem.getName());
+  }
+
   // Only for testing
   void setServiceClientForTesting(BlobServiceClient serviceClient) {
     this.serviceClient = serviceClient;
   }
 
 
-  private class AzureFileReference extends BaseFileReference {
+  /**
+   * The FileReference for a listed Azure blob. Extend this and return it from {@link #createFileReference} to change, for
+   * example, the Document built for a blob.
+   */
+  protected class AzureFileReference extends BaseFileReference {
 
     private final BlobItem blobItem;
 
     public AzureFileReference(BlobItem blobItem, TraversalParams params) {
       // These are inexpensive calls - information is stored in the BlobItem.
-      super(getFullPathHelper(blobItem, params),
+      super(fullPathFor(blobItem, params),
           blobItem.getProperties().getLastModified().toInstant(),
           blobItem.getProperties().getContentLength(),
           blobItem.getProperties().getCreationTime().toInstant());
@@ -245,26 +333,21 @@ public class AzureStorageClient extends BaseStorageClient {
 
     @Override
     public boolean isValidFile() {
-      return !blobItem.isPrefix();
+      return !isPrefix(blobItem);
     }
 
     @Override
     public InputStream getContentStream(TraversalParams params) {
-      return serviceClient
+      return openBlobStream(serviceClient
           .getBlobContainerClient(getBucketOrContainerName(params))
-          .getBlobClient(blobItem.getName()).openInputStream();
+          .getBlobClient(blobItem.getName()));
     }
 
     @Override
     protected byte[] getFileContent(TraversalParams params) {
-      return serviceClient
+      return downloadBlobContent(serviceClient
           .getBlobContainerClient(getBucketOrContainerName(params))
-          .getBlobClient(blobItem.getName())
-          .downloadContent().toBytes();
-    }
-
-    private static URI getFullPathHelper(BlobItem blobItem, TraversalParams params) {
-      return buildBlobURI(params.getURI(), getBucketOrContainerName(params), blobItem.getName());
+          .getBlobClient(blobItem.getName()));
     }
   }
 }
