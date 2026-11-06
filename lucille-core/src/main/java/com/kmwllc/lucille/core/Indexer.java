@@ -14,6 +14,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.UndeserializableRecordException;
 import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
@@ -33,7 +34,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -490,9 +490,9 @@ public abstract class Indexer implements Runnable {
       // blocking poll with a timeout which we assume to be in the range of
       // several milliseconds to several seconds
       doc = messenger.pollDocToIndex();
-    } catch (RecordDeserializationException e) {
-      // already logged with the record's location by the messenger
-      log.error("Indexer stopping: could not deserialize record {}@{}", e.topicPartition(), e.offset());
+    } catch (UndeserializableRecordException e) {
+      // already logged in full by the messenger
+      log.error("Indexer stopping: {}", e.getMessage());
       terminate();
       return;
     } catch (Exception e) {

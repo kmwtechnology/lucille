@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p>Behavior is controlled by {@code kafka.onDeserializationError}:
  * <ul>
- *   <li>{@code fail} (default): log the record's topic, partition, offset and key at ERROR and rethrow so the
+ *   <li>{@code fail} (default): log the record's topic, partition, offset and key at ERROR and throw so the
  *   consumer stops. Restarting will hit the same record again.</li>
  *   <li>{@code skip}: log the same location at ERROR and seek past the record. If
  *   {@code kafka.maxConsecutiveDeserializationErrors} (default 10) poison records arrive in a row on one
@@ -78,13 +78,13 @@ class DeserializationErrorHandler {
 
   /**
    * Handles a {@link RecordDeserializationException} from a poison record, either by skipping the record or by
-   * rethrowing the exception.
+   * throwing an {@link UndeserializableRecordException}.
    *
-   * <p>In skip mode, logs the record's location, positions the consumer after it and returns normally. Rethrows
-   * {@code e} in fail mode, and also in skip mode once the partition reaches
+   * <p>In skip mode, logs the record's location, positions the consumer after it and returns normally. Throws in fail
+   * mode, and also in skip mode once the partition reaches
    * {@code kafka.maxConsecutiveDeserializationErrors} consecutive undeserializable records.
    */
-  void handleOrRethrow(RecordDeserializationException e) throws RecordDeserializationException {
+  void handleOrThrow(RecordDeserializationException e) throws UndeserializableRecordException {
     TopicPartition tp = e.topicPartition();
     String location = "topic=" + tp.topic() + ", partition=" + tp.partition() + ", offset=" + e.offset()
         + ", key=" + bufferToString(e.keyBuffer());
@@ -95,13 +95,13 @@ class DeserializationErrorHandler {
     if (!skip) {
       log.error("Could not deserialize record ({}); stopping the consumer. The record will be redelivered on "
           + "restart; set kafka.onDeserializationError: skip to skip it and continue.", location, e);
-      throw e;
+      throw new UndeserializableRecordException("Could not deserialize record (" + location + ")", e);
     }
     if (escalate) {
       log.error("Could not deserialize record ({}). This is the {}th consecutive undeserializable record on "
           + "this partition, which reaches kafka.maxConsecutiveDeserializationErrors; stopping the consumer.",
           location, consecutive, e);
-      throw e;
+      throw new UndeserializableRecordException("Could not deserialize record (" + location + ")", e);
     }
 
     log.error("Could not deserialize record ({}); skipping it. It remains in the topic at that offset, "

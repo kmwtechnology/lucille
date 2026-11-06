@@ -9,11 +9,14 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.kmwllc.lucille.indexer.NopIndexer;
 import com.kmwllc.lucille.message.HybridWorkerMessenger;
+import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.kmwllc.lucille.message.KafkaWorkerMessenger;
 import com.kmwllc.lucille.message.MessengerException;
+import com.kmwllc.lucille.message.UndeserializableRecordException;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.util.StoringAppender;
 import com.typesafe.config.Config;
@@ -42,6 +45,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.RecordDeserializationException;
+import org.mockito.Mockito;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -187,18 +191,22 @@ public class PoisonRecordKafkaTest {
     return null;
   }
 
-  /** Polls until the poll throws a RecordDeserializationException. */
-  private static RecordDeserializationException pollUntilPoison(PollFn poll) throws Exception {
+  /** Polls until the poll throws an UndeserializableRecordException. */
+  private static UndeserializableRecordException pollUntilPoison(PollFn poll) throws Exception {
     long deadline = System.currentTimeMillis() + 60000;
     while (System.currentTimeMillis() < deadline) {
       try {
         assertNull("no document should be returned past the poison record", poll.poll());
-      } catch (RecordDeserializationException e) {
+      } catch (UndeserializableRecordException e) {
         return e;
       }
     }
-    fail("poll did not throw RecordDeserializationException within 60s");
+    fail("poll did not throw UndeserializableRecordException within 60s");
     return null;
+  }
+
+  private static long offsetOf(UndeserializableRecordException e) {
+    return ((RecordDeserializationException) e.getCause()).offset();
   }
 
   private interface PollFn {
@@ -264,13 +272,14 @@ public class PoisonRecordKafkaTest {
     try {
       assertEquals("doc1", pollUntilDoc(messenger::pollDocToProcess).getId());
 
-      RecordDeserializationException poison = pollUntilPoison(messenger::pollDocToProcess);
-      assertEquals(1L, poison.offset());
+      UndeserializableRecordException poison = pollUntilPoison(messenger::pollDocToProcess);
+      assertEquals(1L, offsetOf(poison));
+      assertTrue(poison.getMessage(), poison.getMessage().contains("offset=1"));
 
       // the position was not advanced: the same record fails again
-      RecordDeserializationException again =
-          assertThrows(RecordDeserializationException.class, messenger::pollDocToProcess);
-      assertEquals(1L, again.offset());
+      UndeserializableRecordException again =
+          assertThrows(UndeserializableRecordException.class, messenger::pollDocToProcess);
+      assertEquals(1L, offsetOf(again));
     } finally {
       messenger.close();
     }
@@ -284,6 +293,17 @@ public class PoisonRecordKafkaTest {
    * Default (fail) mode with a real Worker: the worker stops on the poison record, closes its messenger,
    * and the group's committed offset stays before the poison record.
    */
+  @Test(timeout = 60000)
+  public void testFailModeStopsIndexer() throws Exception {
+    IndexerMessenger messenger = Mockito.mock(IndexerMessenger.class);
+    Mockito.when(messenger.pollDocToIndex()).thenThrow(new UndeserializableRecordException("Could not deserialize record", null));
+
+    new NopIndexer(ConfigFactory.empty(), new IndexerContext(messenger, false, "testing", null)).run();
+
+    Mockito.verify(messenger, Mockito.times(1)).pollDocToIndex();
+    Mockito.verify(messenger).close();
+  }
+
   @Test(timeout = 180000)
   public void testFailModeStopsWorker() throws Exception {
     String pipelineName = "poison_fail_worker";
@@ -299,7 +319,7 @@ public class PoisonRecordKafkaTest {
 
     workerThread.join(120000);
     assertFalse("worker should stop on the poison record", workerThread.isAlive());
-    assertTrue(messenger.lastPollFailure instanceof RecordDeserializationException);
+    assertTrue(messenger.lastPollFailure instanceof UndeserializableRecordException);
     assertTrue("worker should close its messenger on the way out", messenger.closed);
 
     assertEquals(1L, committedOffset(config, groupId, sourceTopic));
@@ -358,8 +378,8 @@ public class PoisonRecordKafkaTest {
       // poison2 is skipped; doc3 resets the streak
       assertEquals("doc3", pollUntilDoc(messenger::pollDocToProcess).getId());
       // poison4 is skipped, poison5 is the second in a row and escalates
-      RecordDeserializationException e = pollUntilPoison(messenger::pollDocToProcess);
-      assertEquals(4L, e.offset());
+      UndeserializableRecordException e = pollUntilPoison(messenger::pollDocToProcess);
+      assertEquals(4L, offsetOf(e));
     } finally {
       messenger.close();
     }
