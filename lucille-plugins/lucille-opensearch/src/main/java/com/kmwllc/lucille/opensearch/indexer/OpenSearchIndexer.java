@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.KafkaDocument;
@@ -16,12 +17,10 @@ import com.typesafe.config.Config;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.client.opensearch.OpenSearchClient;
@@ -117,7 +116,7 @@ public class OpenSearchIndexer extends Indexer {
     this(config, context, null);
     // built after super() and this class's config checks, so a constructor that throws can't leak the client's
     // connection pool and threads; nothing after this line can throw
-    this.client = getClient(config, bypass);
+    this.client = getClient(config, isBypass());
   }
 
   @Override
@@ -139,10 +138,7 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   @Override
-  public boolean validateConnection() {
-    if (bypass) {
-      return true;
-    }
+  protected boolean checkConnection() {
     boolean response;
     try {
       response = client.ping().value();
@@ -159,7 +155,7 @@ public class OpenSearchIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    if (!bypass && client != null && client._transport() != null) {
+    if (client != null && client._transport() != null) {
       try {
         client._transport().close();
       } catch (Exception e) {
@@ -169,17 +165,12 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
-    // skip indexing if there is no indexer client
-    if (bypass) {
-      return Set.of();
-    }
-
+  protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
     Map<Pair<String, String>, Document> documentsToUpload = new LinkedHashMap<>();
     // the document that marked each (index, id) for deletion, so deleteById can send its version
     Map<Pair<String, String>, Document> idsToDelete = new LinkedHashMap<>();
     Map<Pair<String, String>, List<String>> termsToDeleteByQuery = new LinkedHashMap<>();
-    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
+    List<IndexerFailure> failedDocs = new ArrayList<>();
 
     // populate which collection each document belongs to
     // upload if document is not marked for deletion
@@ -214,11 +205,11 @@ public class OpenSearchIndexer extends Indexer {
           failedDocs.addAll(sendWriteSegment(documentsToUpload, idsToDelete));
           //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
           // deletion, so we need to do doc.getString(deleteByFieldField).
-          Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, doc.getString(deleteByFieldField));
+          Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, doc.getString(getDeleteByFieldField()));
           if (!termsToDeleteByQuery.containsKey(indexAndDeleteByField)) {
             termsToDeleteByQuery.put(indexAndDeleteByField, new ArrayList<>());
           }
-          termsToDeleteByQuery.get(indexAndDeleteByField).add(doc.getString(deleteByFieldValue));
+          termsToDeleteByQuery.get(indexAndDeleteByField).add(doc.getString(getDeleteByFieldValue()));
         }
       }
     }
@@ -232,9 +223,9 @@ public class OpenSearchIndexer extends Indexer {
 
   // Sends and clears the pending uploads and deletes by id. They never share an (index, id), so their order between
   // each other doesn't matter.
-  private Set<Pair<Document, Exception>> sendWriteSegment(Map<Pair<String, String>, Document> documentsToUpload,
+  private List<IndexerFailure> sendWriteSegment(Map<Pair<String, String>, Document> documentsToUpload,
       Map<Pair<String, String>, Document> idsToDelete) throws IndexerException {
-    Set<Pair<Document, Exception>> failedDocs = uploadDocuments(documentsToUpload);
+    List<IndexerFailure> failedDocs = uploadDocuments(documentsToUpload);
     deleteById(idsToDelete);
     documentsToUpload.clear();
     idsToDelete.clear();
@@ -399,13 +390,13 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private Set<Pair<Document, Exception>> uploadDocuments(Map<Pair<String, String>, Document> documentsToUpload) throws IndexerException {
+  private List<IndexerFailure> uploadDocuments(Map<Pair<String, String>, Document> documentsToUpload) throws IndexerException {
 
     if (documentsToUpload.isEmpty()) {
-      return Set.of();
+      return List.of();
     }
 
-    Map<String, Document> uploadedDocuments = new HashMap<>();
+    List<Map.Entry<Pair<String, String>, Document>> uploads = new ArrayList<>(documentsToUpload.entrySet());
     BulkRequest.Builder br = new BulkRequest.Builder();
 
     for (Map.Entry<Pair<String, String>, Document> entry : documentsToUpload.entrySet()) {
@@ -416,15 +407,13 @@ public class OpenSearchIndexer extends Indexer {
       // removing fields in the blacklist or not in the whitelist in configurations
       Map<String, Object> indexerDoc = getRawIndexerDoc(doc);
 
-      uploadedDocuments.put(docId, doc);
-
       // only add id if our fieldFilter allows it (based on our blacklist and whitelist)
       // - Case 1: id and idOverride filtered out -> idOverride used by Indexer, both removed from Document (tested in testBlacklistWithOverride)
       // - Case 2: id is filtered, idOverride exists -> idOverride used by Indexer, only id field removed from Document (tested in testBlacklistWithOverride2)
       // - Case 3: id is filtered, idOverride null -> id used by Indexer, id also removed from Document (tested in testRouting)
       // - Case 4: both unfiltered, idOverride exists -> idOverride used by Indexer, id and idOverride field exist in Document (tested in testOverride)
       // - Case 5: both unfiltered, idOverride null -> document id remains and used by Indexer (Default case & tested)
-      if (fieldFilter.shouldInclude(Document.ID_FIELD)) {
+      if (getFieldFilter().shouldInclude(Document.ID_FIELD)) {
         indexerDoc.put(Document.ID_FIELD, docId);
       }
 
@@ -465,7 +454,7 @@ public class OpenSearchIndexer extends Indexer {
       }
     }
 
-    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
+    List<IndexerFailure> failedDocs = new ArrayList<>();
 
     BulkResponse response;
     try {
@@ -479,17 +468,21 @@ public class OpenSearchIndexer extends Indexer {
     }
 
     if (response != null) {
-      for (BulkResponseItem item : response.items()) {
+      // The bulk API returns one item per operation, in request order. Documents in different indexes can share an id,
+      // so the position identifies the document rather than the id.
+      List<BulkResponseItem> items = response.items();
+      for (int i = 0; i < items.size(); i++) {
+        BulkResponseItem item = items.get(i);
         if (item.error() != null) {
-          // For the error - if the id is a document's id, then it failed, and we add it to the set.
+          // For the error - if the item lines up with a document we sent, then it failed, and we add it to the list.
           // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
-          if (uploadedDocuments.containsKey(item.id())) {
-            Document failedDoc = uploadedDocuments.get(item.id());
+          if (i < uploads.size() && uploads.get(i).getKey().getRight().equals(item.id())) {
+            Document failedDoc = uploads.get(i).getValue();
             // item.status() is always an HTTP status code. The OpenSearch bulk API defines the per-item
             // status field as the HTTP status of that individual operation (e.g. 200, 201, 400, 409, 429,
             // 503). This is consistent across all OpenSearch client libraries and confirmed by the
             // OpenSearch REST API documentation and source — there are no documented non-HTTP values.
-            failedDocs.add(Pair.of(failedDoc, new IndexerRetryableException(item.status(),
+            failedDocs.add(new IndexerFailure(failedDoc, new IndexerRetryableException(item.status(),
                 "OpenSearch bulk item error (status " + item.status() + "): " + item.error().reason(), null)));
           } else {
             throw new IndexerException(item.error().reason());

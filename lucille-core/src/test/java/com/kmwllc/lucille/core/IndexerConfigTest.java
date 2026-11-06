@@ -14,7 +14,6 @@ import com.typesafe.config.ConfigFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Test;
 
 /**
@@ -122,7 +121,7 @@ public class IndexerConfigTest {
     }
 
     @Override
-    public boolean validateConnection() {
+    protected boolean checkConnection() {
       return true;
     }
 
@@ -131,8 +130,8 @@ public class IndexerConfigTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) {
-      return Set.of();
+    protected List<IndexerFailure> sendToIndex(List<Document> documents) {
+      return List.of();
     }
   }
 

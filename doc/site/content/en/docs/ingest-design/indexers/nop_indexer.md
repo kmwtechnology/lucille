@@ -29,7 +29,7 @@ Documents still go through the normal indexer loop (batching, metrics, and compl
 
 ## Comparison with sendEnabled: false
 
-Setting `indexer.sendEnabled: false` starts the configured indexer in bypass mode. What bypass mode does is up to each indexer. For example, SolrIndexer creates no client and skips sending, while CSVIndexer still writes its file. NopIndexer discards documents regardless and does not need a backend-specific config block:
+Setting `indexer.sendEnabled: false` starts the configured indexer in bypass mode. In bypass mode, the framework skips sending and the connection check for every indexer, and documents still complete. For example, SolrIndexer creates no client and CSVIndexer creates no file. NopIndexer discards documents regardless and does not need a backend-specific config block:
 
 ```hocon
 # Option 1: NopIndexer
@@ -47,7 +47,7 @@ indexer { type: "Solr", sendEnabled: false }
 
 ## Use in RunType.TEST
 
-`Runner.runInTestMode()` does not use NopIndexer. Instead, it creates the configured indexer in bypass mode, the same as `sendEnabled: false`. This means your test config still needs a valid `indexer` block, and the result depends on how that indexer handles bypass mode. If you want to avoid configuring a backend entirely in test configs, use NopIndexer explicitly:
+`Runner.runInTestMode()` does not use NopIndexer. Instead, it creates the configured indexer in bypass mode, the same as `sendEnabled: false`. This means your test config still needs a valid `indexer` block. If you want to avoid configuring a backend entirely in test configs, use NopIndexer explicitly:
 
 ```hocon
 indexer { class: "com.kmwllc.lucille.indexer.NopIndexer" }

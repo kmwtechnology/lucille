@@ -116,12 +116,12 @@ Each batch's send is timed, and the sample is recorded when the batch is complet
 ```java
 // sendWithRetry: may run on a send-pool thread when maxConcurrentBatches > 1
 long start = System.nanoTime();
-Set<Pair<Document, Exception>> failedDocPairs = /* sendToIndex(batchedDocs), with any retries */;
+List<IndexerFailure> failures = /* sendToIndex(batchedDocs), with any retries */;
 long elapsedNanos = System.nanoTime() - start;
 
 // completeBatch: always on the indexer thread, for a send that did not throw
 histogram.update(elapsedNanos / batchedDocs.size());  // Per-doc latency
-meter.mark(batchedDocs.size());                       // Throughput
+meter.mark(succeededDocs.size());                     // Throughput: documents that did not fail
 ```
 
 The histogram records **time per document** (the send's time / batch size), giving a normalized view of backend performance regardless of batch size. The time includes retries and their backoff waits.

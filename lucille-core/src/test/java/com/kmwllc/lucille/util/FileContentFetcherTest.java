@@ -229,4 +229,22 @@ public class FileContentFetcherTest {
       assertEquals("Content of fetched content from custom fetcher should be \"Test.\"", "Test.", IOUtils.toString(io, "UTF-8"));
     }
   }
+
+  // A Windows drive path used to be read as a URI with the scheme "C", failing with "No Storage Client available". It is
+  // now read from the local file system, so a missing file is reported as missing.
+  @Test
+  public void testDrivePathIsLocal() throws Exception {
+    FileContentFetcher fetcher = new DefaultFileContentFetcher(ConfigFactory.empty());
+    fetcher.start();
+    try {
+      IOException e = assertThrows(IOException.class, () -> fetcher.getInputStream("C:/no/such/dir/report.csv"));
+      assertTrue(e.getMessage(), !e.getMessage().contains("No Storage Client"));
+    } finally {
+      fetcher.stop();
+    }
+
+    IOException e = assertThrows(IOException.class,
+        () -> FileContentFetcher.getOneTimeInputStream("C:/no/such/dir/report.csv", ConfigFactory.empty()));
+    assertTrue(e.getMessage(), !e.getMessage().contains("Error setting up"));
+  }
 }

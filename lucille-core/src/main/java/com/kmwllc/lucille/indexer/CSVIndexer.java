@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -13,8 +14,6 @@ import com.opencsv.CSVWriterBuilder;
 import com.opencsv.ICSVWriter;
 import com.typesafe.config.Config;
 import java.io.File;
-import java.util.Set;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,7 +66,7 @@ public class CSVIndexer extends Indexer {
 
   private CSVIndexer(Config config, IndexerContext context, ICSVWriter writer, String path) {
     super(config, context);
-    if (this.indexOverrideField != null) {
+    if (getIndexOverrideField() != null) {
       // a writer passed in has already opened its output; close it so the file isn't left locked
       if (writer != null) {
         try {
@@ -79,7 +78,7 @@ public class CSVIndexer extends Indexer {
       throw new IllegalArgumentException(
           "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
     }
-    if (this.deletionMarkerField != null || this.deleteByFieldField != null) {
+    if (getDeletionMarkerField() != null || getDeleteByFieldField() != null) {
       log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be written as regular rows.");
     }
     
@@ -121,11 +120,7 @@ public class CSVIndexer extends Indexer {
   }
 
   @Override
-  public boolean validateConnection() {
-    // in bypass mode nothing is written, so the output file is never opened
-    if (bypass) {
-      return true;
-    }
+  protected boolean checkConnection() {
     ICSVWriter writer = getOrOpenWriter();
     if (writer == null) {
       return false;
@@ -137,10 +132,7 @@ public class CSVIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
-    if (bypass) {
-      return Set.of();
-    }
+  protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
     ICSVWriter writer = getOrOpenWriter();
     if (writer == null) {
       throw new IndexerException("CSVIndexer could not open its output file: " + path);
@@ -150,7 +142,7 @@ public class CSVIndexer extends Indexer {
     }
     writer.flushQuietly();
 
-    return Set.of();
+    return List.of();
   }
 
   private String[] getLine(Document doc) {

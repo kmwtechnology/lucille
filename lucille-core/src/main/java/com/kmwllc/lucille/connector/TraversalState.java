@@ -93,15 +93,33 @@ class TraversalState {
     // file:///tmp/archive.zip!entry1.txt or file:///tmp/archive.zip!subdir/entry2.txt.
     // the LIKE operator allows us to target entries which don't match our parameter, but contain it.
     // So the parameter/prefix could be "file:///tmp/archive.zip!" and those aforementioned paths would get updated.
-    String updateSQL = "UPDATE " + tableName + " SET encountered=true WHERE name LIKE ?";
+    String updateSQL = "UPDATE " + tableName + " SET encountered=true WHERE name LIKE ? ESCAPE '" + LIKE_ESCAPE + "'";
     try (PreparedStatement ps = jdbcConnection.prepareStatement(updateSQL)) {
       // the "%" says anything can come after the prefix in a given DB entry and it will still match
-      ps.setString(1, prefix + "%");
+      ps.setString(1, escapeLike(prefix) + "%");
       int rowsChanged = ps.executeUpdate();
       log.debug("Marked {} archive entries as encountered for prefix '{}'", rowsChanged, prefix);
     } catch (SQLException e) {
       log.warn("Error marking archive entries as encountered for prefix '{}'.", prefix, e);
     }
+  }
+
+  // Not a backslash: MySQL treats a backslash in a string literal as an escape, so a backslash escape isn't portable.
+  private static final char LIKE_ESCAPE = '!';
+
+  /**
+   * Escapes the LIKE wildcards in the given string so it matches only itself: '%' and '_', and '[' which SQL Server
+   * treats as the start of a character class, plus the escape character itself.
+   */
+  static String escapeLike(String s) {
+    StringBuilder escaped = new StringBuilder(s.length());
+    for (char c : s.toCharArray()) {
+      if (c == LIKE_ESCAPE || c == '%' || c == '_' || c == '[') {
+        escaped.append(LIKE_ESCAPE);
+      }
+      escaped.append(c);
+    }
+    return escaped.toString();
   }
 
   /**

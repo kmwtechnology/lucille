@@ -422,7 +422,7 @@ public class FileConnectorTest {
         .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"));
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
     assertTrue(e.getMessage().contains("incremental"));
-    assertTrue(e.getMessage().contains("state configuration"));
+    assertTrue(e.getMessage().contains("requires state to be configured and enabled"));
   }
 
   @Test
@@ -440,7 +440,7 @@ public class FileConnectorTest {
         .withValue("filterOptions.lastPublishedCutoff", ConfigValueFactory.fromAnyRef("1h"));
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
     assertTrue(e.getMessage().contains("lastPublishedCutoff"));
-    assertTrue(e.getMessage().contains("state configuration"));
+    assertTrue(e.getMessage().contains("requires state to be configured and enabled"));
   }
 
   @Test
@@ -799,6 +799,295 @@ public class FileConnectorTest {
     } finally {
       FileUtils.deleteDirectory(tempDir);
     }
+  }
+
+  // state { enabled: false } turns state off, so options that need state fail at startup instead of being ignored
+  @Test
+  public void testDisabledStateRejectsOptionsThatNeedState() {
+    Config base = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of("src/test/resources/FileConnectorTest/example"),
+        "state", Map.of("enabled", false),
+        "filterOptions", Map.of("publishMode", "incremental")));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(base));
+    assertTrue(e.getMessage().contains("enabled"));
+
+    Config cutoff = base.withValue("filterOptions.lastPublishedCutoff", ConfigValueFactory.fromAnyRef("1h"));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(cutoff));
+  }
+
+  // Every fileHandlers block, and the other traversal options, are validated at startup, even for an extension that no
+  // file in the traversal has.
+  @Test
+  public void testTraversalOptionsValidatedAtStartup() {
+    Config base = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of("src/test/resources/FileConnectorTest/example")));
+
+    // the xml handler requires xmlRootPath
+    Config badHandler = base.withValue("fileHandlers.xml", ConfigValueFactory.fromMap(Map.of("xmlIdPath", "/id")));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(badHandler));
+
+    Config unknownClass = base.withValue("fileHandlers.foo", ConfigValueFactory.fromMap(Map.of("class", "com.example.NoSuchHandler")));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(unknownClass));
+
+    Config badMaxSize = base.withValue("fileOptions.maxSizeBytes", ConfigValueFactory.fromAnyRef(0));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(badMaxSize));
+  }
+
+  // Extensions are matched without regard to case: DATA.CSV goes through the csv handler and backup.ZIP is unpacked.
+  @Test
+  public void testUpperCaseExtensions() throws Exception {
+    File root = tempFolder.newFolder("upper");
+    Files.writeString(new File(root, "DATA.CSV").toPath(), "id,name\n1,a\n2,b\n");
+    try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(new File(root, "backup.ZIP").toPath()))) {
+      zip.putNextEntry(new ZipEntry("inner.txt"));
+      zip.write("inner".getBytes());
+    }
+
+    Config config = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of(root.getPath()),
+        "fileOptions", Map.of("handleArchivedFiles", true),
+        "fileHandlers", Map.of("CSV", Map.of())));
+
+    TestMessenger messenger = new TestMessenger();
+    Connector conn = new FileConnector(config);
+    conn.execute(new PublisherImpl(config, messenger, "run", "pipeline1"));
+    conn.close();
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(3, docs.size());
+    assertEquals(2, docs.stream().filter(doc -> doc.has("csvLineNumber")).count());
+    // CSV row docs carry no file_path, so the check must be null-safe and not depend on traversal order
+    assertTrue(docs.stream().map(doc -> doc.getString(FILE_PATH)).anyMatch(path -> path != null && path.endsWith("backup.ZIP!inner.txt")));
+  }
+
+  // A move folder the traversal would visit is rejected at startup, since moved files would be published again.
+  @Test
+  public void testMoveTargetInsideTraversedPathRejected() throws Exception {
+    File root = tempFolder.newFolder("incoming");
+    Config local = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of(root.getPath())));
+
+    for (String option : List.of("moveToAfterProcessing", "moveToErrorFolder")) {
+      Config inside = local.withValue("fileOptions." + option, ConfigValueFactory.fromAnyRef(new File(root, "done").getPath()));
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(inside));
+      assertTrue(e.getMessage().contains(option));
+
+      Config outside = local.withValue("fileOptions." + option,
+          ConfigValueFactory.fromAnyRef(new File(tempFolder.getRoot(), "done").getPath()));
+      new FileConnector(outside).close();
+    }
+
+    Config s3 = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of("s3://b/incoming"), "s3", Map.of("region", "us-east-1")));
+    // a raw prefix: s3://b/incoming also lists incoming-done/
+    for (String inside : List.of("s3://b/incoming/done/", "s3://b/incoming-done/")) {
+      Config config = s3.withValue("fileOptions.moveToAfterProcessing", ConfigValueFactory.fromAnyRef(inside));
+      assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    }
+    new FileConnector(s3.withValue("fileOptions.moveToAfterProcessing", ConfigValueFactory.fromAnyRef("s3://b/done/"))).close();
+    new FileConnector(s3.withValue("fileOptions.moveToAfterProcessing", ConfigValueFactory.fromAnyRef("s3://other/incoming/"))).close();
+
+    // The folder itself is outside the path, but the moved key isn't: s3://b/incoming lands a file at
+    // incoming/incoming/a.csv, and s3://b lands it on its own key.
+    Config slashed = s3.withValue("paths", ConfigValueFactory.fromIterable(List.of("s3://b/incoming/")));
+    for (String landsInside : List.of("s3://b/incoming", "s3://b", "s3://b/")) {
+      for (String option : List.of("moveToAfterProcessing", "moveToErrorFolder")) {
+        Config config = slashed.withValue("fileOptions." + option, ConfigValueFactory.fromAnyRef(landsInside));
+        assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+      }
+    }
+    new FileConnector(slashed.withValue("fileOptions.moveToAfterProcessing", ConfigValueFactory.fromAnyRef("s3://b/done"))).close();
+  }
+
+  // Cloud paths are raw key prefixes: s3://b/logs also traverses s3://b/logs-old, so concurrent traversal of the two is
+  // rejected. With trailing slashes they are separate folders.
+  @Test
+  public void testOverlappingCloudPrefixesRejectedForConcurrentTraversal() throws Exception {
+    Config base = ConfigFactory.parseMap(Map.of(
+        "name", "file-connector", "pipeline", "pipeline1", "maxThreads", 2,
+        "s3", Map.of("region", "us-east-1")));
+
+    Config overlapping = base.withValue("paths", ConfigValueFactory.fromIterable(List.of("s3://b/logs", "s3://b/logs-old")));
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(overlapping));
+    assertTrue(e.getMessage().contains("overlapping"));
+
+    Config separate = base.withValue("paths", ConfigValueFactory.fromIterable(List.of("s3://b/logs/", "s3://b/logs-old/")));
+    new FileConnector(separate).close();
+  }
+
+  // A root that is missing on one run (e.g. an unmounted share) fails that run without publishing tombstones or deleting
+  // state, so the next run sees the files as unchanged rather than re-publishing them.
+  @Test
+  public void testMissingRootDoesNotTombstoneOrDeleteState() throws Exception {
+    File root = tempFolder.newFolder("mount");
+    File unmounted = new File(tempFolder.getRoot(), "unmounted");
+    Files.writeString(new File(root, "file1.txt").toPath(), "Content 1");
+    Files.writeString(new File(root, "file2.txt").toPath(), "Content 2");
+
+    try {
+      Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")
+          .withValue("paths", ConfigValueFactory.fromIterable(List.of(root.toURI().toString())))
+          .withValue("state.connectionString", ConfigValueFactory.fromAnyRef(STATE_CONNECTION_STRING))
+          .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
+          .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"));
+
+      TestMessenger messenger1 = new TestMessenger();
+      Connector conn = new FileConnector(config);
+      conn.execute(new PublisherImpl(config, messenger1, "run1", "pipeline1"));
+      conn.close();
+      assertEquals(2, messenger1.getDocsSentForProcessing().size());
+
+      // the share is unmounted for the second run
+      assertTrue(root.renameTo(unmounted));
+      TestMessenger messenger2 = new TestMessenger();
+      Connector failingConn = new FileConnector(config);
+      assertThrows(ConnectorException.class, () -> failingConn.execute(new PublisherImpl(config, messenger2, "run2", "pipeline1")));
+      failingConn.close();
+      assertEquals(0, messenger2.getDocsSentForProcessing().size());
+
+      // remounted: nothing changed, so nothing is published and nothing is tombstoned
+      assertTrue(unmounted.renameTo(root));
+      TestMessenger messenger3 = new TestMessenger();
+      conn = new FileConnector(config);
+      conn.execute(new PublisherImpl(config, messenger3, "run3", "pipeline1"));
+      conn.close();
+      assertEquals(0, messenger3.getDocsSentForProcessing().size());
+    } finally {
+      FileUtils.deleteDirectory(STATE_DIR);
+    }
+  }
+
+  // An archive entry whose name is not a valid URI (here, it contains a space) is tombstoned like any other file once the
+  // archive is deleted. It used to make listing the expired files throw, and every tombstone of that run was then lost.
+  @Test
+  public void testArchiveEntryWithSpaceIsTombstoned() throws Exception {
+    File root = tempFolder.newFolder("archives");
+    File zipFile = new File(root, "a.zip");
+    try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(zipFile.toPath()))) {
+      zip.putNextEntry(new ZipEntry("my file.txt"));
+      zip.write("spaced".getBytes());
+      zip.putNextEntry(new ZipEntry("100%[x]#.txt"));
+      zip.write("special".getBytes());
+    }
+    File plainFile = new File(root, "plain.txt");
+    Files.writeString(plainFile.toPath(), "plain");
+
+    try {
+      Config config = tombstoneConfig(root)
+          .withValue("fileOptions.handleArchivedFiles", ConfigValueFactory.fromAnyRef(true));
+
+      assertEquals(3, runOnce(config, new TestMessenger()).size());
+
+      Files.delete(zipFile.toPath());
+      Files.delete(plainFile.toPath());
+
+      Set<String> tombstonePaths = runOnce(config, new TestMessenger()).stream()
+          .filter(doc -> Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
+          .map(doc -> doc.getString(FILE_PATH))
+          .collect(Collectors.toSet());
+
+      String zipPath = zipFile.toPath().toUri().toString();
+      assertTrue(tombstonePaths.contains(zipPath + "!my file.txt"));
+      assertTrue(tombstonePaths.contains(zipPath + "!100%[x]#.txt"));
+      assertTrue(tombstonePaths.contains(plainFile.toPath().toUri().toString()));
+
+      // the expired rows were deleted after their tombstones were published
+      assertEquals(0, runOnce(config, new TestMessenger()).size());
+    } finally {
+      FileUtils.deleteDirectory(STATE_DIR);
+    }
+  }
+
+  // If a tombstone can't be published, the expired rows are kept, and their tombstones are published on the next run
+  // rather than the rows being deleted with no tombstone sent.
+  @Test
+  public void testFailedTombstonesArePublishedNextRun() throws Exception {
+    File root = tempFolder.newFolder("tombstone-retry");
+    File file1 = new File(root, "file1.txt");
+    Files.writeString(file1.toPath(), "Content 1");
+    Files.writeString(new File(root, "file2.txt").toPath(), "Content 2");
+
+    try {
+      Config config = tombstoneConfig(root);
+      assertEquals(2, runOnce(config, new TestMessenger()).size());
+
+      Files.delete(file1.toPath());
+
+      Publisher failingPublisher = mock(Publisher.class);
+      doThrow(new RuntimeException("index unavailable")).when(failingPublisher).publish(any());
+      Connector failingConn = new FileConnector(config);
+      assertThrows(ConnectorException.class, () -> failingConn.execute(failingPublisher));
+      failingConn.close();
+
+      List<Document> retried = runOnce(config, new TestMessenger());
+      assertEquals(1, retried.size());
+      assertTrue(retried.get(0).getBoolean(FileConnector.EXPIRED));
+      assertEquals(file1.toPath().toUri().toString(), retried.get(0).getString(FILE_PATH));
+    } finally {
+      FileUtils.deleteDirectory(STATE_DIR);
+    }
+  }
+
+  // A run that fails doesn't delete the rows an earlier run kept: their tombstones are still published by the next run
+  // that finishes.
+  @Test
+  public void testFailedRunKeepsRowsAwaitingTombstones() throws Exception {
+    File root = tempFolder.newFolder("tombstone-then-outage");
+    File unmounted = new File(tempFolder.getRoot(), "tombstone-then-outage-unmounted");
+    File file1 = new File(root, "file1.txt");
+    Files.writeString(file1.toPath(), "Content 1");
+    Files.writeString(new File(root, "file2.txt").toPath(), "Content 2");
+
+    try {
+      Config config = tombstoneConfig(root);
+      assertEquals(2, runOnce(config, new TestMessenger()).size());
+
+      // the tombstone can't be published, so its row is kept
+      Files.delete(file1.toPath());
+      Publisher failingPublisher = mock(Publisher.class);
+      doThrow(new RuntimeException("index unavailable")).when(failingPublisher).publish(any());
+      Connector failingPublish = new FileConnector(config);
+      assertThrows(ConnectorException.class, () -> failingPublish.execute(failingPublisher));
+      failingPublish.close();
+
+      // the next run fails during traversal
+      assertTrue(root.renameTo(unmounted));
+      Connector failingTraversal = new FileConnector(config);
+      assertThrows(ConnectorException.class, () -> failingTraversal.execute(mock(Publisher.class)));
+      failingTraversal.close();
+
+      assertTrue(unmounted.renameTo(root));
+      List<Document> retried = runOnce(config, new TestMessenger());
+      assertEquals(1, retried.size());
+      assertTrue(retried.get(0).getBoolean(FileConnector.EXPIRED));
+      assertEquals(file1.toPath().toUri().toString(), retried.get(0).getString(FILE_PATH));
+
+      // published, so the row is deleted now
+      assertEquals(0, runOnce(config, new TestMessenger()).size());
+    } finally {
+      FileUtils.deleteDirectory(STATE_DIR);
+    }
+  }
+
+  // an on-disk state database, in incremental mode with tombstones
+  private static Config tombstoneConfig(File root) {
+    return ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")
+        .withValue("paths", ConfigValueFactory.fromIterable(List.of(root.toURI().toString())))
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef(STATE_CONNECTION_STRING))
+        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
+        .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"));
+  }
+
+  // runs a new FileConnector built from the config once, returning the documents it published
+  private static List<Document> runOnce(Config config, TestMessenger messenger) throws Exception {
+    Connector conn = new FileConnector(config);
+    try {
+      conn.execute(new PublisherImpl(config, messenger, "run", "pipeline1"));
+    } finally {
+      conn.close();
+    }
+    return messenger.getDocsSentForProcessing();
   }
 
   // Verifies that files generate tombstones and modified files are re-published in the same incremental run (when configured). Uses

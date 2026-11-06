@@ -86,6 +86,7 @@ To create a StorageClient, extend `BaseStorageClient`. The base class manages th
 | `traverseStorageClient(Publisher, TraversalParams, FileStateTracker)` | Yes | List files in the storage system and call `processAndPublishFileIfValid()` for each one, passing the `FileStateTracker` through. It is null when state is not enabled. |
 | `getFileContentStreamFromStorage(URI uri)` | Yes | Open and return an `InputStream` for a single file at the given URI. |
 | `moveFile(URI filePath, URI folder)` | Yes | Move a file to a different location (used for success/error directories). Throw `UnsupportedOperationException` if your backend doesn't support moves; see [Errors](#errors). |
+| `moveTargetInsidePath(URI path, URI folder)` | No | Whether files moved to the folder would land back inside the path being traversed. A move folder for which this returns `true` fails at startup. By default, whether `containsPath(path, folder)`. Override it if your `moveFile()` keeps part of the source path under the folder. |
 
 Constants for the Document field names and config keys are on `StorageClientFields` and `StorageClientOptions` in `com.kmwllc.lucille.connector.storageclient`. Import them from there rather than from `FileConnector`, which keeps aliases of them.
 
