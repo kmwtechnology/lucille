@@ -33,10 +33,10 @@ The following backends are supported via the Indexer component.
 
 | Component | Version |
 |---|---|
-| kafka-clients | 4.0.0 |
-| Kafka broker | 3.x, 4.x |
+| kafka-clients | 4.2.0 |
+| Kafka broker | 4.2.0 (tested across a three-broker cluster with replication factor 3 and `min.insync.replicas=2`) |
 
-Kafka is only required when running in distributed mode (`-distributed`). Local mode uses in-memory queues and has no Kafka dependency.
+Kafka is required in external mode (`-external`) and distributed mode (`-distributed`). Local mode uses in-memory queues and has no Kafka dependency.
 
 ## Operating Systems
 
