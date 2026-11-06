@@ -287,7 +287,7 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
 
   // runs the connector over the core, expecting it to hold one document
   private Document queryWithConnector(Map<String, Object> extra) throws Exception {
-    Map<String, Object> map = baseConfig();
+    Map<String, Object> map = baseConfig("solr");
     map.put("name", "connector1");
     map.put("pipeline", "pipeline1");
     map.put("solrParams", Map.of("q", "*:*"));
