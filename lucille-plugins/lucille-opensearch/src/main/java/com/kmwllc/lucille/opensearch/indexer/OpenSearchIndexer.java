@@ -181,7 +181,7 @@ public class OpenSearchIndexer extends Indexer {
     // queries are sent before the next upload or delete by id.
     for (Document doc : documents) {
       // use doc id override if specified, otherwise delete will try to delete wrong id
-      String id = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
+      String id = getDestinationId(doc);
 
       // if an index override field has been specified, use its value as the index to send to opensearch,
       final String indexToSend = Optional.ofNullable(getIndexOverride(doc)).orElse(index);
