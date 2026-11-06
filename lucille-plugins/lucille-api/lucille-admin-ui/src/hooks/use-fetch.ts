@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { errorMessageFrom } from "@/lib/utils"
 import { API_BASE } from "@/lib/constants"
+import { authHeader, notifyUnauthorized } from "@/lib/auth-token"
 
 export type FetchState<T> =
   | { status: "loading" }
@@ -26,8 +27,9 @@ export function useFetch<T>(path: string, options: UseFetchOptions<T> = {}): Fet
 
     async function load() {
       try {
-        const res = await fetch(`${API_BASE}${path}`, { signal: controller.signal })
+        const res = await fetch(`${API_BASE}${path}`, { signal: controller.signal, headers: authHeader() })
         if (controller.signal.aborted) return
+        if (res.status === 401) notifyUnauthorized()
         if (!res.ok) throw new Error(await errorMessageFrom(res))
         const data: T = await res.json()
         if (controller.signal.aborted) return

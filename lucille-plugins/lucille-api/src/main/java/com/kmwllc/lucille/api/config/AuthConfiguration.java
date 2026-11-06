@@ -22,9 +22,10 @@ public final class AuthConfiguration {
    */
   public enum AuthType {
     /**
-     * Basic authentication using a username and password.
+     * Authentication is required; requests may authenticate with either HTTP Basic credentials or a
+     * Bearer token (issued by the login endpoint). Both are accepted interchangeably.
      */
-    BASIC_AUTH,
+    BASIC_AND_BEARER,
     /**
      * No authentication required.
      */
@@ -32,12 +33,13 @@ public final class AuthConfiguration {
   }
 
   /**
-   * The authentication type to use. Defaults to NO_AUTH if empty and must be BASIC_AUTH when authentication is enabled.
+   * The authentication type to use. Defaults to NO_AUTH if empty and must be BASIC_AND_BEARER when
+   * authentication is enabled.
    */
   private AuthType type = AuthType.NO_AUTH;
 
   /**
-   * Password for BASIC_AUTH authentication.
+   * Password that Basic Auth requests and the login endpoint must match.
    */
   private String password;
   
@@ -56,7 +58,8 @@ public final class AuthConfiguration {
   }
 
   /**
-   * Sets the authentication type from a string. "basicAuth" sets BASIC_AUTH and null or empty sets NO_AUTH.
+   * Sets the authentication type from a string. "basicAndBearer" (and the legacy alias "basicAuth")
+   * set BASIC_AND_BEARER; null or empty sets NO_AUTH.
    * @param type the authentication type as a string
    * @throws IllegalArgumentException if AuthType is not recognized
    */
@@ -64,8 +67,8 @@ public final class AuthConfiguration {
   public void setType(String type) {
     if (type == null || type.isEmpty()) {
       this.type = AuthType.NO_AUTH;
-    } else if (type.equals("basicAuth")) {
-      this.type = AuthType.BASIC_AUTH;
+    } else if (type.equals("basicAndBearer") || type.equals("basicAuth")) {
+      this.type = AuthType.BASIC_AND_BEARER;
     } else {
       throw new IllegalArgumentException("Unsupported auth type configured for the Lucille Admin API: " + type);
     }
