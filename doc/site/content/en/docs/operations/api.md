@@ -54,21 +54,23 @@ java \
 
 ## Admin UI (optional)
 
-The `lucille-api` plugin ships an optional React admin UI for browsing configs, starting runs, and
-watching run and system status in a browser. It is **off by default** and only included when the
-`admin-ui` Maven profile is active, so a standard build does not need a Node toolchain.
+The `lucille-api` plugin has an optional React admin UI for browsing configs, starting runs, and
+watching run and system status in a browser. It ships as a separate jar, `lucille-admin-ui.jar`, and
+is served at `/admin` whenever that jar is on the API's classpath. The API jar itself never contains
+the UI, and a standard build does not need a Node toolchain.
 
-- **Without the UI** (default): build and run the API as shown above. `/admin` is not served.
-- **With the UI**: add `-Padmin-ui` to the build. The compiled assets are bundled into the API jar
-  and served at `http://localhost:8080/admin`.
+- **Without the UI**: run the API as shown above. `/admin` is not served.
+- **With the UI**: build the UI jar and put it on the classpath next to the API jar.
 
 ```bash
-mvn clean install -Pshaded-plugin-jars -Padmin-ui
+mvn clean install -Pshaded-plugin-jars
+mvn -B -f lucille-plugins/lucille-api/lucille-admin-ui/pom.xml package -DskipTests
+java -cp 'lucille-plugins/lucille-api/target/lucille-api-plugin.jar:lucille-plugins/lucille-api/lucille-admin-ui/target/lucille-admin-ui.jar' \
+  com.kmwllc.lucille.api.APIApplication server lucille-plugins/lucille-api/conf/api.yml
 ```
 
-The released `lucille-api` Docker image is built with `-Padmin-ui`, so the UI is included out of the
-box. When building the image yourself, pass `-Padmin-ui` before `docker build` if you want `/admin`
-served; omit it for an API-only image.
+The released `lucille-api` Docker image includes both jars, so the UI is available out of the box.
+To work on the UI, run the API on its own and start the UI with `npm run dev`.
 
 ---
 

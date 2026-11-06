@@ -22,5 +22,7 @@ jobs:
       # -Pshaded-plugin-jars builds the shaded lucille-api-plugin.jar that the lucille-api image runs
       - name: Build with Maven
         run: mvn -B package -DskipTests -Pshaded-plugin-jars --file pom.xml
+      - name: Build the admin UI jar
+        run: mvn -B package -DskipTests --file lucille-plugins/lucille-api/lucille-admin-ui/pom.xml
       - name: Run Lucille API Example
         run: ./lucille-examples/lucille-api-example/scripts/run-nightly.sh

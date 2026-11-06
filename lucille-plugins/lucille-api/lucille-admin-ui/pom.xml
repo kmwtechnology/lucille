@@ -16,7 +16,9 @@
   <name>Lucille Plugins: Lucille Admin UI</name>
   <description>
     React/Vite admin UI for the Lucille API. Built via frontend-maven-plugin and packaged (under
-    admin/) into a jar that lucille-api serves at /admin. Only built under the admin-ui profile.
+    admin/) into a resource-only jar. lucille-api serves it at /admin when this jar is on its classpath.
+    Not part of the main reactor; build it directly with
+    mvn -f lucille-plugins/lucille-api/lucille-admin-ui/pom.xml package
   </description>
 
   <properties>
@@ -34,6 +36,7 @@
   </properties>
 
   <build>
+    <finalName>lucille-admin-ui</finalName>
     <plugins>
       <!-- Package the Vite dist/ output into the jar under admin/. -->
       <plugin>

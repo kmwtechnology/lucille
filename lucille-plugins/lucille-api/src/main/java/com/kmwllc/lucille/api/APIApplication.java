@@ -162,7 +162,8 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
         || APIApplication.class.getClassLoader().getResource("admin/index.html") != null;
 
     if (!uiBundled) {
-      log.info("Admin UI assets not found on the classpath; /admin will not be served.");
+      log.info("Admin UI assets not found on the classpath; /admin will not be served. "
+          + "Add lucille-admin-ui.jar to the classpath to enable it.");
       return;
     }
 

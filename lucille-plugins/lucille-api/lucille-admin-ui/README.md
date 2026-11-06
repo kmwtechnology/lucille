@@ -11,13 +11,22 @@ served by the API itself at `/admin` in packaged builds.
   on your PATH.
 - The bundled **npm** (11.x) that ships with Node 24.
 
-You only need Node/npm for day-to-day UI development. To build or serve the UI as part of Lucille,
-use the Maven profile described in [Build as part of Lucille](#build-as-part-of-lucille) — that path
-installs its own Node, so no local Node is required.
+You only need Node/npm for day-to-day UI development. Building the UI jar with Maven (see
+[Build as part of Lucille](#build-as-part-of-lucille)) installs its own Node, so no local Node is
+required for that.
 
 ## Quick start (local development)
 
-From this directory (`lucille-plugins/lucille-api/lucille-admin-ui`):
+Local development needs two things running: the API, then the UI dev server.
+
+1. Start the API (any build; it does not need to include the UI). From `lucille-plugins/lucille-api`,
+   after building the jar as described in the [API README](../README.md#running-the-api):
+
+```bash
+java -Dconfig.file=conf/simple-config.conf -jar target/lucille-api-plugin.jar server conf/api.yml
+```
+
+2. Start the UI. From this directory (`lucille-plugins/lucille-api/lucille-admin-ui`):
 
 ```bash
 npm ci          # install exact dependencies from package-lock.json
@@ -41,24 +50,24 @@ So to exercise the UI against a live backend, start the Lucille API on port `808
 If your API runs somewhere other than `http://localhost:8080`, update the `proxy` target in
 `vite.config.ts`.
 
-## Run the served UI locally
+## Check the packaged UI (optional)
 
-The dev server above is for iterating on the UI. To run the **production, API-served** version
-locally — the same way it is served in a release (static assets at `/admin`, no Vite proxy) — build
-the UI into the API jar and start the API.
+Normal UI work uses the dev server above and does not need this. Do it once if your change touches
+routing, the `/admin` base path, API URLs, or auth, because the servlet, the base path and
+same-origin behavior only exist when the API serves the UI. This mirrors a release (static assets at
+`/admin`, no Vite proxy): build the API jar and the UI jar, then start the API with both on the
+classpath.
 
-From the repository root:
-
-```bash
-# 1. Build the lucille-api jar with the UI bundled in. -Padmin-ui pulls the built UI assets
-#    into the jar; frontend-maven-plugin installs its own pinned Node, so no local Node is needed.
-mvn -B -Padmin-ui -pl lucille-plugins/lucille-api -am package -DskipTests
-```
+From the repository root, build the API jar and the UI jar (Maven installs its own pinned Node for
+the UI, so no local Node is needed), then start the API with both on the classpath. `conf/api.yml`
+ships with auth disabled, so no credentials are needed.
 
 ```bash
-# 2. Start the API. conf/api.yml ships with auth disabled, so no credentials are needed.
+mvn -B -Pshaded-plugin-jars -pl lucille-plugins/lucille-api -am package -DskipTests
+mvn -B -f lucille-plugins/lucille-api/lucille-admin-ui/pom.xml package -DskipTests
 cd lucille-plugins/lucille-api
-java -jar target/lucille-api-plugin.jar server conf/api.yml
+java -cp 'target/lucille-api-plugin.jar:lucille-admin-ui/target/lucille-admin-ui.jar' \
+  com.kmwllc.lucille.api.APIApplication server conf/api.yml
 ```
 
 Then open:
@@ -71,7 +80,7 @@ Because the UI and API are now the same origin, the app's `/v1` calls hit the ru
 (no proxy involved). Deep links and refreshes such as `http://localhost:8080/admin/configs/<id>`
 work via the servlet's `index.html` fallback.
 
-To rebuild after a UI change, re-run step 1 and restart the API.
+To rebuild after a UI change, re-run the second command and restart the API.
 
 ## Scripts
 
@@ -114,14 +123,13 @@ Shared setup is in `src/test/setup.ts`; reusable helpers (a `renderWithRouter` w
 
 ## Build as part of Lucille
 
-The UI is a Maven module (`lucille-admin-ui`) that is **off by default**. A plain `mvn verify` does
-not build it, so Java-only work needs no Node toolchain. Activate it with the `admin-ui` profile.
-
-Build and test just the UI module (installs the pinned Node automatically):
+The UI is a Maven module (`lucille-admin-ui`) that is **not part of the main build**. A plain
+`mvn verify` does not build it, so Java-only work needs no Node toolchain. Build it directly from its
+pom (installs the pinned Node automatically):
 
 ```bash
 # from the repository root
-mvn -B -Padmin-ui -pl lucille-plugins/lucille-api/lucille-admin-ui verify
+mvn -B -f lucille-plugins/lucille-api/lucille-admin-ui/pom.xml verify
 ```
 
 This runs, in order: install Node 24.10.0 locally, `npm ci`, a non-blocking `npm audit`,
@@ -129,17 +137,17 @@ This runs, in order: install Node 24.10.0 locally, `npm ci`, a non-blocking `npm
 
 ## How it is served
 
-In packaged/release builds, the API bundles the UI and serves it. When the `admin-ui` profile is
-active, `lucille-api` depends on this module's jar (which carries the built assets under `admin/`),
-and `AdminUiServlet` serves them at:
+The UI is served when `lucille-admin-ui.jar` (which carries the built assets under `admin/`) is on
+the API's classpath. `AdminUiServlet` then serves them at:
 
 ```
 http://<api-host>:8080/admin
 ```
 
 The servlet falls back to `index.html` for client-side routes (for example
-`/admin/configs/<id>`), so refreshing or deep-linking into the app works. When the UI is not bundled
-(a plain Java build), the API simply does not register the servlet and `/admin` is not served.
+`/admin/configs/<id>`), so refreshing or deep-linking into the app works. When the UI jar is not on
+the classpath, the API does not register the servlet and `/admin` is not served. The released Docker
+image includes both jars.
 
 ## Project layout
 

@@ -49,12 +49,5 @@
         <shaded-plugin-jar.phase>package</shaded-plugin-jar.phase>
       </properties>
     </profile>
-    <!-- Off by default: adds the admin UI module to the reactor only when active (CI and release). -->
-    <profile>
-      <id>admin-ui</id>
-      <modules>
-        <module>lucille-api/lucille-admin-ui</module>
-      </modules>
-    </profile>
   </profiles>
 </project>
