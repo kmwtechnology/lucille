@@ -27,8 +27,18 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.attribute.PosixFilePermissions;
+import org.junit.Assume;
+import org.junit.Rule;
+import org.junit.rules.TemporaryFolder;
 
 public class LocalStorageClientTest {
+
+  @Rule
+  public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   // per-class directory names, so test classes running in parallel forks never share one
   private static final String TEMP_DIR = "localStorageClientTest-temp";
@@ -460,7 +470,7 @@ public class LocalStorageClientTest {
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(ConfigFactory.empty(), TraversalParams.parsePathOrURI(defaultAbsolutePath.toString()), "file_");
+    TraversalParams params = new TraversalParams(ConfigFactory.empty(), com.kmwllc.lucille.util.FileUtils.parsePathOrURI(defaultAbsolutePath.toString()), "file_");
     localStorageClient.start();
     localStorageClient.traverse(publisher, params);
 
@@ -621,5 +631,134 @@ public class LocalStorageClientTest {
     assertTrue(docs.stream().noneMatch(d -> d.getString(FileConnector.FILE_PATH).contains("subdir1")));
 
     localStorageClient.stop();
+  }
+
+  // A missing root (e.g. an unmounted share) must fail the traversal, not finish it having seen no files.
+  @Test
+  public void testTraverseMissingRootFails() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    URI missing = new File(tempFolder.getRoot(), "not-mounted").toURI();
+
+    LocalStorageClient client = new LocalStorageClient();
+    client.start();
+    try {
+      assertThrows(NoSuchFileException.class,
+          () -> client.traverse(publisher, new TraversalParams(ConfigFactory.empty(), missing, ""), new InMemoryFileStateTracker()));
+      assertEquals(0, messenger.getDocsSentForProcessing().size());
+    } finally {
+      client.stop();
+    }
+  }
+
+  @Test
+  public void testTraverseUnreadableRootFails() throws Exception {
+    assumePosixAndNotRoot();
+    Path root = tempFolder.newFolder("unreadable-root").toPath();
+    Files.writeString(root.resolve("a.txt"), "a");
+    Files.setPosixFilePermissions(root, PosixFilePermissions.fromString("---------"));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    LocalStorageClient client = new LocalStorageClient();
+    client.start();
+    try {
+      assertThrows(AccessDeniedException.class,
+          () -> client.traverse(publisher, new TraversalParams(ConfigFactory.empty(), root.toUri(), "")));
+    } finally {
+      Files.setPosixFilePermissions(root, PosixFilePermissions.fromString("rwx------"));
+      client.stop();
+    }
+  }
+
+  // A directory under the root that can't be read is skipped, but the files under it stay encountered in state, so they
+  // are not tombstoned. The rest of the traversal continues.
+  @Test
+  public void testUnreadableSubdirectoryIsKeptInState() throws Exception {
+    assumePosixAndNotRoot();
+    Path root = tempFolder.newFolder("partly-readable").toPath();
+    Path subdir = Files.createDirectory(root.resolve("sub"));
+    Files.writeString(root.resolve("a.txt"), "a");
+    Files.writeString(subdir.resolve("b.txt"), "b");
+    // a sibling sharing the directory's name as a prefix must not be protected by it
+    Files.writeString(root.resolve("sub.txt"), "c");
+
+    String aURI = root.resolve("a.txt").toUri().toString();
+    String bURI = subdir.resolve("b.txt").toUri().toString();
+    String siblingURI = root.resolve("sub.txt").toUri().toString();
+
+    InMemoryFileStateTracker state = new InMemoryFileStateTracker();
+    LocalStorageClient client = new LocalStorageClient();
+    client.start();
+
+    try {
+      TestMessenger messenger = new TestMessenger();
+      client.traverse(new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1"),
+          new TraversalParams(ConfigFactory.empty(), root.toUri(), ""), state);
+      assertEquals(3, messenger.getDocsSentForProcessing().size());
+
+      state.startNewRun();
+      Files.delete(root.resolve("sub.txt"));
+      Files.setPosixFilePermissions(subdir, PosixFilePermissions.fromString("---------"));
+
+      messenger = new TestMessenger();
+      client.traverse(new PublisherImpl(ConfigFactory.empty(), messenger, "run2", "pipeline1"),
+          new TraversalParams(ConfigFactory.empty(), root.toUri(), ""), state);
+
+      assertEquals(1, messenger.getDocsSentForProcessing().size());
+      assertTrue(state.getEncountered().contains(aURI));
+      assertTrue(state.getEncountered().contains(bURI));
+      assertFalse(state.getEncountered().contains(siblingURI));
+      // the directory itself is not a file, so it gets no entry of its own
+      assertFalse(state.getEncountered().contains(subdir.toUri().toString()));
+    } finally {
+      Files.setPosixFilePermissions(subdir, PosixFilePermissions.fromString("rwx------"));
+      client.stop();
+    }
+  }
+
+  // A listing that ends early leaves files unseen that would look deleted, so it fails the traversal.
+  @Test
+  public void testDirectoryListingFailurePartwayFails() throws Exception {
+    Path root = tempFolder.newFolder("listing").toPath();
+    LocalStorageClient client = new LocalStorageClient();
+    LocalStorageClient.LocalFileVisitor visitor = client.new LocalFileVisitor(null,
+        new TraversalParams(ConfigFactory.empty(), root.toUri(), ""), null);
+
+    java.io.IOException listingFailure = new java.io.IOException("mount dropped");
+    assertEquals(listingFailure, assertThrows(java.io.IOException.class, () -> visitor.postVisitDirectory(root, listingFailure)));
+    assertEquals(java.nio.file.FileVisitResult.CONTINUE, visitor.postVisitDirectory(root, null));
+  }
+
+  // A local move drops the source path, so only a folder inside the path puts files back inside it.
+  @Test
+  public void testMoveTargetInsidePath() {
+    LocalStorageClient client = new LocalStorageClient();
+
+    assertTrue(client.moveTargetInsidePath(URI.create("file:///data/in"), URI.create("file:///data/in/done")));
+    assertTrue(client.moveTargetInsidePath(URI.create("file:///data/in/"), URI.create("file:///data/in")));
+
+    assertFalse(client.moveTargetInsidePath(URI.create("file:///data/in"), URI.create("file:///data/in-done")));
+    assertFalse(client.moveTargetInsidePath(URI.create("file:///data/in"), URI.create("file:///data")));
+    assertFalse(client.moveTargetInsidePath(URI.create("file:///data/in"), URI.create("file:///")));
+  }
+
+  // A move folder whose parents don't exist yet is created, rather than failing the move after the file was published.
+  @Test
+  public void testMoveFileCreatesMissingParents() throws Exception {
+    Path source = tempFolder.newFile("a.txt").toPath();
+    Path folder = tempFolder.getRoot().toPath().resolve("processed/2024/11");
+
+    LocalStorageClient client = new LocalStorageClient();
+    client.moveFile(source.toUri(), folder.toUri());
+
+    assertFalse(Files.exists(source));
+    assertTrue(Files.exists(folder.resolve("a.txt")));
+  }
+
+  // Permission tests need POSIX permissions, and root can read anything regardless of them.
+  private static void assumePosixAndNotRoot() {
+    Assume.assumeTrue(java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
+    Assume.assumeFalse("root".equals(System.getProperty("user.name")));
   }
 }

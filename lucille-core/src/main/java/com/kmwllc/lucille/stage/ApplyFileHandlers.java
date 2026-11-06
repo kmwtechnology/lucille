@@ -16,6 +16,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
 import org.apache.commons.io.FilenameUtils;
 
@@ -111,7 +112,8 @@ public class ApplyFileHandlers extends Stage {
     }
 
     String filePath = doc.getString(filePathField);
-    String fileExtension = FilenameUtils.getExtension(filePath);
+    // handler keys are lower case (see FileHandler.createFromConfig)
+    String fileExtension = FilenameUtils.getExtension(filePath).toLowerCase(Locale.ROOT);
 
     if (!fileHandlers.containsKey(fileExtension)) {
       return null;

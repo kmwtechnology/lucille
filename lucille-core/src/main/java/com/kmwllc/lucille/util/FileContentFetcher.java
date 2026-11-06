@@ -157,15 +157,16 @@ public interface FileContentFetcher {
     // Before attempting to use a storage client, handle classpath / non URI files as a special case.
     if (path.startsWith("classpath:")) {
       return DefaultFileContentFetcher.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":") + 1));
-    } else if (!FileUtils.isValidURI(path)) {
+    }
+
+    URI pathURI = FileUtils.storageURIFor(path);
+    if (pathURI == null) {
       return new FileInputStream(path);
     }
 
-    URI pathURI;
     StorageClient clientForFile;
 
     try {
-      pathURI = URI.create(path);
       clientForFile = StorageClient.create(pathURI, config);
     } catch (IllegalArgumentException e) {
       throw new IOException("Error setting up to fetch file content.", e);

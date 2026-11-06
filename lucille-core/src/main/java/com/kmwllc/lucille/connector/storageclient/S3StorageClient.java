@@ -140,15 +140,18 @@ public class S3StorageClient extends BaseStorageClient {
   private void publishContents(Publisher publisher, TraversalParams params, FileStateTracker stateMgr,
       ListObjectsV2Response resp) {
     resp.contents().forEach(obj -> {
-      S3FileReference fileRef = new S3FileReference(obj, params);
-      processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+      FileReference fileRef = buildReferenceOrSkip(obj.key(), () -> new S3FileReference(obj, params));
+      if (fileRef != null) {
+        processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+      }
     });
   }
 
   private URI uriForDirectory(String prefix, TraversalParams params) {
     URI paramsUri = params.getURI();
     try {
-      return new URI(paramsUri.getScheme(), paramsUri.getAuthority(), "/" + prefix, null);
+      // takes the bucket as an authority, not a hostname, which could not contain the '_' older bucket names may
+      return new URI(paramsUri.getScheme(), paramsUri.getAuthority(), "/" + prefix, null, null);
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException("Unable to build S3 URI for prefix: " + prefix, e);
     }
@@ -164,12 +167,17 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
+  public boolean moveTargetInsidePath(URI path, URI folder) {
+    return movedKeyInsideBucketPath(path, folder);
+  }
+
+  @Override
   public void moveFile(URI filePath, URI folder) throws IOException {
     String sourceBucket = filePath.getAuthority();
     String sourceKey = filePath.getPath().substring(1);
 
     String destBucket = folder.getAuthority();
-    String destKey = folder.getPath().substring(1) + sourceKey;
+    String destKey = destinationKey(keyPrefix(folder), sourceKey);
 
     CopyObjectRequest copyRequest = CopyObjectRequest.builder()
         .sourceBucket(sourceBucket).sourceKey(sourceKey)
@@ -248,7 +256,7 @@ public class S3StorageClient extends BaseStorageClient {
       URI paramsURI = params.getURI();
 
       try {
-        return new URI(paramsURI.getScheme(), paramsURI.getAuthority(), "/" + s3Obj.key(), null);
+        return new URI(paramsURI.getScheme(), paramsURI.getAuthority(), "/" + s3Obj.key(), null, null);
       } catch (Exception e) {
         throw new IllegalArgumentException("Unable to build S3 URI for key: " + s3Obj.key(), e);
       }

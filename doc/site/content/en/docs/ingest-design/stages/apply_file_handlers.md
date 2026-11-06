@@ -7,7 +7,7 @@ description: Applies FileHandlers to a file referenced by a document, generating
 
 `com.kmwllc.lucille.stage.ApplyFileHandlers`
 
-Applies FileHandlers to the file referenced by `filePathField`, generating a child document for each record the handler extracts (for example, each CSV row or JSON object). The handler is chosen by the extension of the path in `filePathField`, which must match a key in `fileHandlers`. Documents without `filePathField`, or whose extension has no handler, are passed through unchanged. Only the first value of `filePathField` is used.
+Applies FileHandlers to the file referenced by `filePathField`, generating a child document for each record the handler extracts (for example, each CSV row or JSON object). The handler is chosen by the extension of the path in `filePathField`, which must match a key in `fileHandlers` (without regard to case). Documents without `filePathField`, or whose extension has no handler, are passed through unchanged. Only the first value of `filePathField` is used.
 
 The file is read from the bytes in `fileContentField` when the document has that field; otherwise it is fetched from the path, which can be a local path, a `classpath:` path, or a cloud storage URI. If the file cannot be fetched or processed, the document fails.
 

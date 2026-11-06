@@ -583,4 +583,119 @@ public class GoogleStorageClientTest {
 
     return fileBytesMap;
   }
+
+  // Object names that aren't valid in a URI (space, '%', '[', '#') used to abort the traversal. They are now published,
+  // and the published path round-trips to the object for content fetches.
+  @Test
+  public void testSpecialCharacterNamesRoundTrip() throws Exception {
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
+    TraversalParams params = new TraversalParams(ConfigFactory.empty(), URI.create("gs://special/"), "");
+
+    Map<String, String> objects = Map.of(
+        "folder with space/a b.txt", "spaced",
+        "100%[x]#.txt", "special",
+        "plain.txt", "plain");
+    objects.forEach((name, content) -> storage.create(BlobInfo.newBuilder(BlobId.of("special", name)).build(), content.getBytes()));
+
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+    googleStorageClient.traverse(publisher, params);
+
+    List<Document> documents = messenger.getDocsSentForProcessing();
+    assertEquals(3, documents.size());
+
+    for (Document doc : documents) {
+      URI published = new URI(doc.getString(FILE_PATH));
+      String name = published.getPath().substring(1);
+      assertTrue(objects.containsKey(name));
+      assertEquals(objects.get(name), new String(googleStorageClient.getFileContentStream(published).readAllBytes()));
+    }
+  }
+
+  @Test
+  public void testMoveFileFolderWithoutTrailingSlash() throws Exception {
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+    storage.create(BlobInfo.newBuilder(BlobId.of("moves", "data/a.csv")).build(), "a".getBytes());
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+
+    googleStorageClient.moveFile(URI.create("gs://moves/data/a.csv"), URI.create("gs://moves/processed"));
+
+    assertNull(storage.get(BlobId.of("moves", "data/a.csv")));
+    assertNull(storage.get(BlobId.of("moves", "processeddata/a.csv")));
+    assertEquals("a", new String(storage.get(BlobId.of("moves", "processed/data/a.csv")).getContent()));
+  }
+
+  @Test
+  public void testMoveFileFolderWithTrailingSlash() throws Exception {
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+    storage.create(BlobInfo.newBuilder(BlobId.of("moves-slash", "data/a.csv")).build(), "a".getBytes());
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+
+    googleStorageClient.moveFile(URI.create("gs://moves-slash/data/a.csv"), URI.create("gs://moves-slash/processed/"));
+
+    assertNull(storage.get(BlobId.of("moves-slash", "data/a.csv")));
+    assertEquals("a", new String(storage.get(BlobId.of("moves-slash", "processed/data/a.csv")).getContent()));
+  }
+
+  // A bucket on its own is the root of that bucket, with or without a trailing '/'.
+  @Test
+  public void testMoveFileToRootOfAnotherBucket() throws Exception {
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+
+    for (String folder : List.of("gs://root-dest", "gs://root-dest/")) {
+      storage.create(BlobInfo.newBuilder(BlobId.of("root-source", "data/a.csv")).build(), "a".getBytes());
+      googleStorageClient.moveFile(URI.create("gs://root-source/data/a.csv"), URI.create(folder));
+
+      assertNull(storage.get(BlobId.of("root-source", "data/a.csv")));
+      assertEquals("a", new String(storage.get(BlobId.of("root-dest", "data/a.csv")).getContent()));
+      storage.delete(BlobId.of("root-dest", "data/a.csv"));
+    }
+  }
+
+  // The root of the path's own bucket would land each file on its own key, and the move's delete would then destroy it.
+  @Test
+  public void testMoveTargetInsidePath() {
+    GoogleStorageClient client = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+
+    assertTrue(client.moveTargetInsidePath(URI.create("gs://b/data/"), URI.create("gs://b")));
+    assertTrue(client.moveTargetInsidePath(URI.create("gs://b/data/"), URI.create("gs://b/")));
+    assertTrue(client.moveTargetInsidePath(URI.create("gs://b/data/"), URI.create("gs://b/data")));
+    assertTrue(!client.moveTargetInsidePath(URI.create("gs://b/data/"), URI.create("gs://b/done")));
+    assertTrue(!client.moveTargetInsidePath(URI.create("gs://b/data/"), URI.create("gs://other")));
+  }
+
+  @Test
+  public void testMissingObjectThrowsIOException() throws Exception {
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+
+    assertThrows(IOException.class, () -> googleStorageClient.getFileContentStream(URI.create("gs://nowhere/missing.txt")));
+  }
+
+  // GCS bucket names may contain '_', which a hostname can't, so URIs are built from the authority.
+  @Test
+  public void testBucketNameWithUnderscore() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+    storage.create(BlobInfo.newBuilder(BlobId.of("my_bucket", "folder/a b.txt")).build(), "a".getBytes());
+
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+    googleStorageClient.traverse(publisher, new TraversalParams(ConfigFactory.empty(), URI.create("gs://my_bucket/"), ""));
+
+    List<Document> documents = messenger.getDocsSentForProcessing();
+    assertEquals(1, documents.size());
+    URI published = new URI(documents.get(0).getString(FILE_PATH));
+    assertEquals("my_bucket", published.getAuthority());
+    assertEquals("a", new String(googleStorageClient.getFileContentStream(published).readAllBytes()));
+  }
 }

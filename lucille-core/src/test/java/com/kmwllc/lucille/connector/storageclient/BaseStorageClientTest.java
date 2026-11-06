@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector.storageclient;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -215,5 +216,57 @@ public class BaseStorageClientTest {
     public Document asDoc(TraversalParams params) throws IOException {
       return super.asDoc(params);
     }
+  }
+
+  @Test
+  public void testDestinationKey() {
+    // the folder's trailing '/' is optional, and never doubled
+    assertEquals("processed/data/a.csv", BaseStorageClient.destinationKey("processed", "data/a.csv"));
+    assertEquals("processed/data/a.csv", BaseStorageClient.destinationKey("processed/", "data/a.csv"));
+    assertEquals("done/2024/a.csv", BaseStorageClient.destinationKey("done/2024", "a.csv"));
+    // an empty folder is the root of the bucket or container
+    assertEquals("data/a.csv", BaseStorageClient.destinationKey("", "data/a.csv"));
+  }
+
+  // An object-store path is a raw key prefix, so a parent contains every path whose key starts with its own.
+  @Test
+  public void testContainsPathUsesRawPrefixes() {
+    S3StorageClient client = new S3StorageClient(ConfigFactory.empty());
+
+    assertTrue(client.containsPath(URI.create("s3://b/logs"), URI.create("s3://b/logs/2024")));
+    assertTrue(client.containsPath(URI.create("s3://b/logs"), URI.create("s3://b/logs-old")));
+    assertTrue(client.containsPath(URI.create("s3://b/logs"), URI.create("s3://b/logs")));
+    assertTrue(client.containsPath(URI.create("s3://b/logs/"), URI.create("s3://b/logs/2024/")));
+    assertTrue(client.containsPath(URI.create("s3://b"), URI.create("s3://b/anything")));
+    assertTrue(client.containsPath(URI.create("s3://b/"), URI.create("s3://b/anything")));
+
+    assertFalse(client.containsPath(URI.create("s3://b/logs/"), URI.create("s3://b/logs-old/")));
+    // "logs" also lists "logs-old", which "logs/" doesn't
+    assertFalse(client.containsPath(URI.create("s3://b/logs/"), URI.create("s3://b/logs")));
+    assertFalse(client.containsPath(URI.create("s3://b/logs"), URI.create("s3://other/logs")));
+    assertFalse(client.containsPath(URI.create("s3://b/logs"), URI.create("gs://b/logs")));
+  }
+
+  // Decided by where a moved file lands, the folder and then the object's full key, not by where the folder is.
+  @Test
+  public void testMoveTargetInsidePath() {
+    S3StorageClient client = new S3StorageClient(ConfigFactory.empty());
+
+    // the folder is inside the path
+    assertTrue(client.moveTargetInsidePath(URI.create("s3://b/in"), URI.create("s3://b/in/done")));
+    assertTrue(client.moveTargetInsidePath(URI.create("s3://b/in"), URI.create("s3://b/in-done/")));
+    assertTrue(client.moveTargetInsidePath(URI.create("s3://b/in/"), URI.create("s3://b/in/")));
+    assertTrue(client.moveTargetInsidePath(URI.create("s3://b"), URI.create("s3://b/done")));
+
+    // the folder is outside the path, but the moved key isn't
+    assertTrue(client.moveTargetInsidePath(URI.create("s3://b/in/"), URI.create("s3://b/in"))); // in/in/a.csv
+    assertTrue(client.moveTargetInsidePath(URI.create("s3://b/a/a"), URI.create("s3://b/a"))); // a/a/a/x.csv
+    assertTrue(client.moveTargetInsidePath(URI.create("s3://b/in/"), URI.create("s3://b"))); // in/a.csv, its own key
+    assertTrue(client.moveTargetInsidePath(URI.create("s3://b/in/"), URI.create("s3://b/")));
+
+    assertFalse(client.moveTargetInsidePath(URI.create("s3://b/in/"), URI.create("s3://b/done")));
+    assertFalse(client.moveTargetInsidePath(URI.create("s3://b/aa"), URI.create("s3://b/a"))); // a/aa/x.csv
+    assertFalse(client.moveTargetInsidePath(URI.create("s3://b/in/"), URI.create("s3://other")));
+    assertFalse(client.moveTargetInsidePath(URI.create("s3://b/in/"), URI.create("s3://other/in/")));
   }
 }

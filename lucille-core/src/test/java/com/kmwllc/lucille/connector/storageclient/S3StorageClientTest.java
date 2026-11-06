@@ -928,4 +928,55 @@ public class S3StorageClientTest {
 
     return mockedStreams;
   }
+
+  // A moveToAfterProcessing folder without a trailing '/' used to be joined to the key with no separator
+  // (processeddata/a.csv).
+  @Test
+  public void testMoveFileFolderWithoutTrailingSlash() throws Exception {
+    S3StorageClient s3StorageClient = new S3StorageClient(ConfigFactory.empty());
+    S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
+    s3StorageClient.setS3ClientForTesting(mockClient);
+    s3StorageClient.initializeForTesting();
+
+    for (String folder : List.of("s3://bucket/processed", "s3://bucket/processed/")) {
+      s3StorageClient.moveFile(URI.create("s3://bucket/data/a.csv"), URI.create(folder));
+    }
+    s3StorageClient.moveFile(URI.create("s3://bucket/data/a.csv"), URI.create("s3://other"));
+
+    org.mockito.ArgumentCaptor<CopyObjectRequest> captor = org.mockito.ArgumentCaptor.forClass(CopyObjectRequest.class);
+    verify(mockClient, org.mockito.Mockito.times(3)).copyObject(captor.capture());
+    assertEquals(List.of("processed/data/a.csv", "processed/data/a.csv", "data/a.csv"),
+        captor.getAllValues().stream().map(CopyObjectRequest::destinationKey).toList());
+    assertEquals("other", captor.getAllValues().get(2).destinationBucket());
+  }
+
+  // A bucket name may contain '_' (allowed in older buckets), which a hostname can't, so URIs are built from the authority.
+  @Test
+  public void testBucketNameWithUnderscore() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    S3StorageClient s3StorageClient = new S3StorageClient(ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(ConfigFactory.empty(), URI.create("s3://my_bucket/"), "");
+
+    S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
+    s3StorageClient.setS3ClientForTesting(mockClient);
+    ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
+    ListObjectsV2Response page = mock(ListObjectsV2Response.class);
+    when(page.contents()).thenReturn(List.of(
+        S3Object.builder().key("folder/a b.txt").size(1L).lastModified(Instant.now()).build()));
+    when(page.commonPrefixes()).thenReturn(List.of());
+    when(response.stream()).thenReturn(Stream.of(page));
+    when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
+    when(mockClient.getObjectAsBytes((GetObjectRequest) any()))
+        .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{1}));
+
+    s3StorageClient.initializeForTesting();
+    s3StorageClient.traverse(publisher, params);
+
+    List<Document> documents = messenger.getDocsSentForProcessing();
+    assertEquals(1, documents.size());
+    URI published = new URI(documents.get(0).getString(FILE_PATH));
+    assertEquals("my_bucket", published.getAuthority());
+    assertEquals("/folder/a b.txt", published.getPath());
+  }
 }
