@@ -20,6 +20,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,14 +93,47 @@ public class AzureStorageClient extends BaseStorageClient {
               traversePrefix(publisher, params, stateMgr, blob.getName());
             }
           } else {
-            AzureFileReference fileRef = new AzureFileReference(blob, params);
-            processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+            FileReference fileRef = buildReferenceOrSkip(blob.getName(), () -> new AzureFileReference(blob, params));
+            if (fileRef != null) {
+              processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+            }
           }
         });
   }
 
   private URI uriForDirectory(String prefix, TraversalParams params) {
     return buildBlobURI(params.getURI(), getBucketOrContainerName(params), prefix);
+  }
+
+  /**
+   * {@inheritDoc}
+   * <p> The container is the first segment of the path and must match exactly. Within it, a blob prefix is a raw
+   * prefix, so <code>.../container/data</code> contains <code>.../container/data2</code>.
+   */
+  @Override
+  public boolean containsPath(URI parent, URI child) {
+    if (!Objects.equals(parent.getScheme(), child.getScheme()) || !Objects.equals(parent.getAuthority(), child.getAuthority())) {
+      return false;
+    }
+
+    BlobLocation parentLocation = BlobLocation.fromURI(parent.normalize());
+    BlobLocation childLocation = BlobLocation.fromURI(child.normalize());
+
+    return parentLocation.containerName.equals(childLocation.containerName)
+        && childLocation.blobName.startsWith(parentLocation.blobName);
+  }
+
+  @Override
+  public boolean moveTargetInsidePath(URI path, URI folder) {
+    if (!Objects.equals(path.getScheme(), folder.getScheme()) || !Objects.equals(path.getAuthority(), folder.getAuthority())) {
+      return false;
+    }
+
+    BlobLocation pathLocation = BlobLocation.fromURI(path.normalize());
+    BlobLocation folderLocation = BlobLocation.fromURI(folder.normalize());
+
+    return pathLocation.containerName.equals(folderLocation.containerName)
+        && movedKeyInsidePrefix(pathLocation.blobName, folderLocation.blobName);
   }
 
   @Override
@@ -115,15 +149,7 @@ public class AzureStorageClient extends BaseStorageClient {
     BlobLocation source = BlobLocation.fromURI(filePath);
     BlobLocation dest = BlobLocation.fromURI(folder);
 
-    // Special handling for if the "folder" we want to place the file into is just the bucket itself.
-    String destBlob;
-    if (dest.blobName.isEmpty()) {
-      destBlob = source.blobName;
-    } else if (dest.blobName.endsWith("/")) {
-      destBlob = dest.blobName + source.blobName;
-    } else {
-      destBlob = dest.blobName + "/" + source.blobName;
-    }
+    String destBlob = destinationKey(dest.blobName, source.blobName);
 
     BlobClient sourceBlobClient = serviceClient.getBlobContainerClient(source.containerName).getBlobClient(source.blobName);
     BlobClient destBlobClient = serviceClient.getBlobContainerClient(dest.containerName).getBlobClient(destBlob);

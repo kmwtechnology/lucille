@@ -32,6 +32,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -49,6 +50,8 @@ import java.util.stream.Collectors;
  *   <li>solrParams (Map&lt;String, Object&gt;, Optional) : Query parameters to use when a pipeline is configured.</li>
  *   <li>useXml (Boolean, Optional) : Send XML requests instead of JSON. Defaults to false.</li>
  *   <li>idField (String, Optional) : Field to use for document IDs when publishing. Defaults to "id".</li>
+ *   <li>lowercaseFields (Boolean, Optional) : Lower-case field names when publishing. Fields whose names differ only in
+ *   case then overwrite each other. Defaults to false.</li>
  * </ul>
  * <p> <b>Limitations:</b> Child / nested (block-join) documents are not read. Each Solr result is published as a
  * single flat Document; a parent's children are not returned.
@@ -68,13 +71,14 @@ public class SolrConnector extends AbstractConnector {
   private final Map<String, List<String>> solrParams;
   private final String idField;
   private final String actionFormat;
+  private final boolean lowercaseFields;
 
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredParent("solr", SolrUtils.SOLR_PARENT_SPEC)
       .optionalParent("solrParams", new TypeReference<Map<String, Object>>(){})
       .optionalList("preActions", new TypeReference<List<String>>(){})
       .optionalList("postActions", new TypeReference<List<String>>(){})
-      .optionalBoolean("useXml")
+      .optionalBoolean("useXml", "lowercaseFields")
       .optionalString("idField").build();
 
   public SolrConnector(Config config) {
@@ -96,6 +100,7 @@ public class SolrConnector extends AbstractConnector {
     Set<Map.Entry<String, ConfigValue>> paramSet =
         config.hasPath("pipeline") && config.hasPath("solrParams") ? config.getConfig("solrParams").entrySet() : new HashSet<>();
     this.idField = ConfigUtils.getOrDefault(config, "idField", Document.ID_FIELD);
+    this.lowercaseFields = ConfigUtils.getOrDefault(config, "lowercaseFields", false);
     this.replacedPreActions = new ArrayList<>();
     this.replacedPostActions = new ArrayList<>();
 
@@ -160,9 +165,11 @@ public class SolrConnector extends AbstractConnector {
         for (String fieldName : solrDoc.getFieldNames()) {
           // TODO : we might want an option to preserve the id under its original field name
           // TODO : Add configurable field blacklist (not necessarily here)
-          // read the field by its own name; only the name it is given on the Document is lower-cased
-          String docFieldName = fieldName.toLowerCase();
-          // reserved names (such as ID, or the run_id Lucille indexes) cannot be set on a Document
+          // read the field by its own name; only the name it is given on the Document may be lower-cased.
+          // Locale.ROOT, so that "ID" becomes "id" in every locale (in Turkish it would become "ıd")
+          String docFieldName = lowercaseFields ? fieldName.toLowerCase(Locale.ROOT) : fieldName;
+          // reserved names (such as id, or the run_id Lucille indexes) cannot be set on a Document. The check is on the
+          // name the field would be given, so "ID" is skipped only when it would become "id"
           if (fieldName.equals(idField) || Document.RESERVED_FIELDS.contains(docFieldName)) {
             continue;
           }

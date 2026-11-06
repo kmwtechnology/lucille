@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.connector;
 
-import java.net.URI;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -79,6 +78,9 @@ public class FileConnectorStateManager implements FileStateTracker {
 
   private Instant traversalInstant;
 
+  // set when this run failed or its tombstones could not be listed, so shutdown() keeps the expired rows for the next run
+  private volatile boolean retainExpiredRows = false;
+
   // Used for the whole-table operations. Kept separate from the per-thread connections because it has to outlive them.
   private Connection jdbcConnection;
 
@@ -129,6 +131,7 @@ public class FileConnectorStateManager implements FileStateTracker {
     claimedTable.set(true);
 
     traversalInstant = Instant.now();
+    retainExpiredRows = false;
 
     jdbcConnection = openConnection();
 
@@ -268,7 +271,11 @@ public class FileConnectorStateManager implements FileStateTracker {
       // jdbcConnection is null if init() never ran or failed before connecting - e.g. FileConnector.close() is
       // still called when preExecute fails
       if (performDeletions && jdbcConnection != null) {
-        deleteExpiredFilesAndResetTable();
+        if (retainExpiredRows) {
+          log.warn("This run did not finish or could not publish its tombstones, so expired files are kept in state for the next run.");
+        } else {
+          deleteExpiredFilesAndResetTable();
+        }
       }
     } finally {
       // close even if the deletion failed, so the connection isn't leaked
@@ -280,17 +287,32 @@ public class FileConnectorStateManager implements FileStateTracker {
     }
   }
   
-  public List<URI> listExpiredFiles() throws SQLException {
+  /**
+   * Returns the names of the files that have not been encountered for <code>runsBeforeExpiration</code> runs. Names are
+   * returned as stored: a file's full path, or for an archive entry the archive's full path, the archive separator and
+   * the entry's name, which need not be a valid URI.
+   */
+  public List<String> listExpiredFiles() throws SQLException {
     String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE encountered=FALSE AND runs_not_encountered >= ?";
-    List<URI> fileUris = new ArrayList<>();
+    List<String> names = new ArrayList<>();
     try (PreparedStatement ps = jdbcConnection.prepareStatement(selectSQL)) {
       ps.setInt(1, runsBeforeExpiration);
-      ResultSet rs = ps.executeQuery();
-      while (rs.next()) {
-        fileUris.add(URI.create(rs.getString("name")));
+      try (ResultSet rs = ps.executeQuery()) {
+        while (rs.next()) {
+          names.add(rs.getString("name"));
+        }
       }
     }
-    return fileUris;
+    return names;
+  }
+
+  /**
+   * Keeps the expired rows when {@link #shutdown()} would otherwise delete them, because the run failed or their
+   * tombstones could not be listed. They are listed again, and their tombstones published, on the next run that
+   * finishes. Reset by {@link #init()}.
+   */
+  void retainExpiredRows() {
+    retainExpiredRows = true;
   }
 
   private void deleteExpiredFilesAndResetTable() throws SQLException {

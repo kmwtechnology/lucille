@@ -68,6 +68,20 @@ public interface StorageClient {
   boolean containsPath(URI parent, URI child);
 
   /**
+   * Returns whether files that {@link #moveFile(URI, URI)} moves to the given folder during a traversal of the given path
+   * would land back inside that path, where the traversal could find them again or a file could overwrite itself. Used
+   * to validate move folders at startup. Does not require this client to be initialized, and does not contact the provider.
+   * <p> By default, whether the path contains the folder. Override this if your moveFile keeps part of the source path
+   * under the folder, so that a file can land inside the path even when the folder itself is outside it.
+   * @param path A URI to the path being traversed.
+   * @param folder A URI to the folder that files are moved to.
+   * @return Whether a moved file would land inside the path.
+   */
+  default boolean moveTargetInsidePath(URI path, URI folder) {
+    return containsPath(path, folder);
+  }
+
+  /**
    * Opens and returns an InputStream for a file's contents, located at the given URI.
    * @param uri A URI to the file whose contents you want to extract.
    * @return An InputStream for the file's contents.
