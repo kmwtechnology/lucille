@@ -68,7 +68,7 @@ CSVIndexer logs a warning if `deletionMarkerField` or `deleteByFieldField` are c
 
 ## sendEnabled
 
-CSVIndexer does not skip writing when `indexer.sendEnabled` is `false` (bypass mode). The file is still created and rows are still written.
+When `indexer.sendEnabled` is `false` (bypass mode), CSVIndexer writes nothing and does not create the file. Documents still complete.
 
 ---
 

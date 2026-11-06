@@ -26,7 +26,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.After;
 import org.junit.Test;
 
@@ -1091,7 +1090,7 @@ public class IndexerConcurrencyTest {
     }
 
     @Override
-    public boolean validateConnection() {
+    protected boolean checkConnection() {
       return true;
     }
 
@@ -1100,7 +1099,7 @@ public class IndexerConcurrencyTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
+    protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
       String docId = documents.get(0).getId();
       sendAttempts.computeIfAbsent(docId, k -> new AtomicInteger()).incrementAndGet();
       peakConcurrentSends.accumulateAndGet(concurrentSends.incrementAndGet(), Math::max);
@@ -1140,12 +1139,12 @@ public class IndexerConcurrencyTest {
           throw new IndexerException("send failed for " + docId, exception);
         }
         applyToDestination(documents);
-        // Report any configured per-document failures as returned pairs (not thrown), as a real sendToIndex does for
+        // Report any configured per-document failures as returned failures (not thrown), as a real sendToIndex does for
         // documents the destination rejected individually.
         return documents.stream()
             .filter(d -> failedDocIds.contains(d.getId()))
-            .map(d -> Pair.<Document, Exception>of(d, new IndexerException("rejected " + d.getId())))
-            .collect(Collectors.toSet());
+            .map(d -> new IndexerFailure(d, new IndexerException("rejected " + d.getId())))
+            .collect(Collectors.toList());
       } catch (InterruptedException e) {
         // the send pool is interrupted when the indexer closes without waiting for in-flight sends
         Thread.currentThread().interrupt();

@@ -8,6 +8,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -29,7 +30,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -518,7 +518,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    public boolean validateConnection() {
+    protected boolean checkConnection() {
       return true;
     }
 
@@ -527,9 +527,9 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) {
+    protected List<IndexerFailure> sendToIndex(List<Document> documents) {
       documents.forEach(doc -> sent.add(doc.getId()));
-      return Collections.emptySet();
+      return List.of();
     }
   }
 
@@ -557,7 +557,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) {
+    protected List<IndexerFailure> sendToIndex(List<Document> documents) {
       if (documents.stream().anyMatch(doc -> doc.getId().equals(gatedId))) {
         gatedSendStarted = true;
         try {
@@ -595,7 +595,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    public boolean validateConnection() {
+    protected boolean checkConnection() {
       return true;
     }
 
@@ -604,11 +604,11 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
+    protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
       peakConcurrent.accumulateAndGet(concurrent.incrementAndGet(), Math::max);
       try {
         Thread.sleep(ThreadLocalRandom.current().nextInt(20, 120));
-        return Collections.emptySet();
+        return List.of();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new IndexerException("Interrupted while sending", e);
@@ -659,7 +659,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    public boolean validateConnection() {
+    protected boolean checkConnection() {
       return true;
     }
 
@@ -668,7 +668,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
+    protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
       peakConcurrent.accumulateAndGet(concurrent.incrementAndGet(), Math::max);
       try {
         Thread.sleep(ThreadLocalRandom.current().nextInt(1, 4));
@@ -683,7 +683,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
             applied.computeIfAbsent(destId, k -> new ArrayList<>()).add(doc.getId());
           }
         }
-        return Collections.emptySet();
+        return List.of();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new IndexerException("Interrupted while sending", e);

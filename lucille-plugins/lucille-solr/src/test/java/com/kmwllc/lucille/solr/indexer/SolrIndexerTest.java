@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -15,7 +16,6 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.solr.client.solrj.RemoteSolrException;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -774,7 +774,7 @@ public class SolrIndexerTest {
     Document doc4 = Document.create("doc4", "test_run");
     Document doc5 = Document.create("doc5", "test_run");
 
-    Indexer indexer = new ErroringIndexer(config.getConfig("indexer"), messenger, true);
+    Indexer indexer = new ErroringIndexer(config.getConfig("indexer"), messenger);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     messenger.sendForIndexing(doc3);
@@ -821,14 +821,14 @@ public class SolrIndexerTest {
 
     SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "", null), solrClient);
 
-    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
     assertEquals(2, failedDocs.size());
-    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc)));
+    assertTrue(failedDocs.stream().anyMatch(p -> p.document().equals(doc)));
 
     // not sure what is, internally to solr, controlling the ordering behind which document is sent first/not.
     // so, will just check that both of them do not have the same status (failed/succeeded)
-    assertNotEquals(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc2)),
-        failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc3)));
+    assertNotEquals(failedDocs.stream().anyMatch(p -> p.document().equals(doc2)),
+        failedDocs.stream().anyMatch(p -> p.document().equals(doc3)));
   }
 
   @Test
@@ -1092,15 +1092,15 @@ public class SolrIndexerTest {
     when(solrClient.add(any(Collection.class))).thenThrow(solrError);
 
     SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "", null), solrClient);
-    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc1, doc2, doc3));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc1, doc2, doc3));
 
     // each document is reported once, with the error Solr returned
-    assertEquals(Set.of(doc1, doc2, doc3), failedDocs.stream().map(Pair::getLeft).collect(Collectors.toSet()));
+    assertEquals(Set.of(doc1, doc2, doc3), failedDocs.stream().map(IndexerFailure::document).collect(Collectors.toSet()));
     assertEquals(3, failedDocs.size());
-    for (Pair<Document, Exception> failed : failedDocs) {
-      assertTrue(failed.getRight() instanceof IndexerRetryableException);
-      assertEquals(400, ((IndexerRetryableException) failed.getRight()).getStatusCode());
-      assertSame(solrError, failed.getRight().getCause());
+    for (IndexerFailure failed : failedDocs) {
+      assertTrue(failed.cause() instanceof IndexerRetryableException);
+      assertEquals(400, ((IndexerRetryableException) failed.cause()).getStatusCode());
+      assertSame(solrError, failed.cause().getCause());
     }
 
     // the id, or its override, is set even though the whitelist leaves it out
@@ -1194,10 +1194,10 @@ public class SolrIndexerTest {
     when(solrClient.add(any(Collection.class))).thenThrow(new IOException("connection refused"));
 
     SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "", null), solrClient);
-    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc));
 
     assertEquals(1, failedDocs.size());
-    Exception e = failedDocs.iterator().next().getRight();
+    Exception e = failedDocs.get(0).cause();
     assertTrue("IOException should be wrapped as IndexerRetryableException", e instanceof IndexerRetryableException);
     assertEquals(IndexerRetryableException.UNKNOWN_STATUS_CODE, ((IndexerRetryableException) e).getStatusCode());
   }
@@ -1217,10 +1217,10 @@ public class SolrIndexerTest {
     when(solrClient.add(any(Collection.class))).thenThrow(new SolrServerException("no live SolrServers available"));
 
     SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "", null), solrClient);
-    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc));
 
     assertEquals(1, failedDocs.size());
-    Exception e = failedDocs.iterator().next().getRight();
+    Exception e = failedDocs.get(0).cause();
     assertTrue("SolrServerException should be wrapped as IndexerRetryableException", e instanceof IndexerRetryableException);
     assertEquals(IndexerRetryableException.UNKNOWN_STATUS_CODE, ((IndexerRetryableException) e).getStatusCode());
   }
@@ -1241,10 +1241,10 @@ public class SolrIndexerTest {
         .thenThrow(new RemoteSolrException("localhost", 503, "Service Unavailable", null));
 
     SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "", null), solrClient);
-    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc));
 
     assertEquals(1, failedDocs.size());
-    Exception e = failedDocs.iterator().next().getRight();
+    Exception e = failedDocs.get(0).cause();
     assertTrue("RemoteSolrException should be wrapped as IndexerRetryableException", e instanceof IndexerRetryableException);
     assertEquals(503, ((IndexerRetryableException) e).getStatusCode());
   }
@@ -1267,10 +1267,10 @@ public class SolrIndexerTest {
         .thenThrow(new RemoteSolrException("localhost", 400, "Bad Request", null));
 
     SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "", null), solrClient);
-    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc));
 
     assertEquals(1, failedDocs.size());
-    Exception e = failedDocs.iterator().next().getRight();
+    Exception e = failedDocs.get(0).cause();
     assertTrue(e instanceof IndexerRetryableException);
     assertEquals(400, ((IndexerRetryableException) e).getStatusCode());
   }
@@ -1365,12 +1365,12 @@ public class SolrIndexerTest {
 
     public static final Spec SPEC = SolrIndexer.SPEC;
 
-    public ErroringIndexer(Config config, IndexerMessenger messenger, boolean bypass) {
-      super(config, new IndexerContext(messenger, bypass, "", null));
+    public ErroringIndexer(Config config, IndexerMessenger messenger) {
+      super(config, new IndexerContext(messenger, false, "", null), mock(SolrClient.class));
     }
 
     @Override
-    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws IndexerException {
+    public List<IndexerFailure> sendToIndex(List<Document> docs) throws IndexerException {
       throw new IndexerException("Test that errors when sending to Solr are correctly handled");
     }
   }

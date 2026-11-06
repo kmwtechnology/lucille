@@ -18,6 +18,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.KafkaDocument;
@@ -30,11 +31,8 @@ import com.typesafe.config.Config;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -110,7 +108,7 @@ public class ElasticsearchIndexer extends Indexer {
   public ElasticsearchIndexer(Config config, IndexerContext context, ElasticsearchClient client) {
     super(config, context);
 
-    if (this.indexOverrideField != null) {
+    if (getIndexOverrideField() != null) {
       throw new IllegalArgumentException(
           "Cannot create ElasticsearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by ElasticsearchIndexer.");
     }
@@ -167,7 +165,7 @@ public class ElasticsearchIndexer extends Indexer {
     this(config, context, null);
     // built after super() and this class's config checks, so a constructor that throws can't leak the client's
     // connection pool and threads; nothing after this line can throw
-    this.client = getClient(config, bypass);
+    this.client = getClient(config, isBypass());
   }
 
   @Override
@@ -189,10 +187,7 @@ public class ElasticsearchIndexer extends Indexer {
   }
 
   @Override
-  public boolean validateConnection() {
-    if (bypass) {
-      return true;
-    }
+  protected boolean checkConnection() {
     BooleanResponse response;
     try {
       response = client.ping();
@@ -208,17 +203,12 @@ public class ElasticsearchIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
-    // skip indexing if there is no indexer client
-    if (bypass) {
-      return Set.of();
-    }
-
+  protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
     Map<String, Document> documentsToUpload = new LinkedHashMap<>();
     // the document that marked each id for deletion, so deleteById can send its version
     Map<String, Document> idsToDelete = new LinkedHashMap<>();
     Map<String, List<String>> termsToDeleteByQuery = new LinkedHashMap<>();
-    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
+    List<IndexerFailure> failedDocs = new ArrayList<>();
 
     // populate which collection each document belongs to
     // upload if document is not marked for deletion
@@ -248,11 +238,11 @@ public class ElasticsearchIndexer extends Indexer {
           failedDocs.addAll(sendWriteSegment(documentsToUpload, idsToDelete));
           //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
           // deletion, so we need to do doc.getString(deleteByFieldField).
-          String deleteField = doc.getString(deleteByFieldField);
+          String deleteField = doc.getString(getDeleteByFieldField());
           if (!termsToDeleteByQuery.containsKey(deleteField)) {
             termsToDeleteByQuery.put(deleteField, new ArrayList<>());
           }
-          termsToDeleteByQuery.get(deleteField).add(doc.getString(deleteByFieldValue));
+          termsToDeleteByQuery.get(deleteField).add(doc.getString(getDeleteByFieldValue()));
         }
       }
     }
@@ -266,9 +256,9 @@ public class ElasticsearchIndexer extends Indexer {
 
   // Sends and clears the pending uploads and deletes by id. They never share an id, so their order between each other
   // doesn't matter.
-  private Set<Pair<Document, Exception>> sendWriteSegment(Map<String, Document> documentsToUpload,
+  private List<IndexerFailure> sendWriteSegment(Map<String, Document> documentsToUpload,
       Map<String, Document> idsToDelete) throws IndexerException {
-    Set<Pair<Document, Exception>> failedDocs = uploadDocuments(documentsToUpload.values());
+    List<IndexerFailure> failedDocs = uploadDocuments(documentsToUpload.values());
     deleteById(idsToDelete);
     documentsToUpload.clear();
     idsToDelete.clear();
@@ -416,9 +406,9 @@ public class ElasticsearchIndexer extends Indexer {
     }
   }
 
-  private Set<Pair<Document, Exception>> uploadDocuments(Collection<Document> documentsToUpload) throws IndexerException {
+  private List<IndexerFailure> uploadDocuments(Collection<Document> documentsToUpload) throws IndexerException {
     if (documentsToUpload.isEmpty()) {
-      return Set.of();
+      return List.of();
     }
 
     // building a map so we can quickly retrieve documents later on, if they fail during indexing.
@@ -434,7 +424,7 @@ public class ElasticsearchIndexer extends Indexer {
       documentsUploaded.put(docId, doc);
 
       // written to the request, not the Document, so a retried batch doesn't find it already set
-      joinData.populateJoinData(doc, indexerDoc, fieldFilter);
+      joinData.populateJoinData(doc, indexerDoc, getFieldFilter());
 
       // only add id if our fieldFilter allows it (based on our blacklist and whitelist)
       // - Case 1: id and idOverride filtered out -> idOverride used by Indexer, both removed from Document (tested in testBlacklistWithOverride)
@@ -442,7 +432,7 @@ public class ElasticsearchIndexer extends Indexer {
       // - Case 3: id is filtered, idOverride null -> id used by Indexer, id also removed from Document (tested in testRouting)
       // - Case 4: both unfiltered, idOverride exists -> idOverride used by Indexer, id and idOverride field exist in Document (tested in testOverride)
       // - Case 5: both unfiltered, idOverride null -> document id remains and used by Indexer (Default case & tested)
-      if (fieldFilter.shouldInclude(Document.ID_FIELD)) {
+      if (getFieldFilter().shouldInclude(Document.ID_FIELD)) {
         indexerDoc.put(Document.ID_FIELD, docId);
       }
 
@@ -495,7 +485,7 @@ public class ElasticsearchIndexer extends Indexer {
       }
     }
 
-    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
+    List<IndexerFailure> failedDocs = new ArrayList<>();
 
     BulkResponse response;
     try {
@@ -519,7 +509,7 @@ public class ElasticsearchIndexer extends Indexer {
             // status field as the HTTP status of that individual operation (e.g. 200, 201, 400, 409, 429,
             // 503). Wrapping it as an IndexerRetryableException lets the base Indexer apply the retry policy
             // per-document, retrying only those whose status code is in the configured retryable set.
-            failedDocs.add(Pair.of(failedDoc, new IndexerRetryableException(item.status(),
+            failedDocs.add(new IndexerFailure(failedDoc, new IndexerRetryableException(item.status(),
                 "Elasticsearch bulk item error (status " + item.status() + "): " + item.error().reason(), null)));
           } else {
             throw new IndexerException(item.error().reason());
@@ -533,7 +523,7 @@ public class ElasticsearchIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    if (!bypass && client != null && client._transport() != null) {
+    if (client != null && client._transport() != null) {
       try {
         client._transport().close();
       } catch (Exception e) {
