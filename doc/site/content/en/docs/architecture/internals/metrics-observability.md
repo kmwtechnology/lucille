@@ -135,6 +135,24 @@ log.info(String.format(
     meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean() / 1000000));
 ```
 
+## Hybrid Worker Metrics
+
+In hybrid mode (`WorkerIndexer` / `WorkerIndexerPool`), each worker reads from Kafka and hands documents to its paired Indexer through an in-memory queue. These metrics cover the Kafka side and that queue. There is no run ID in hybrid mode, so the prefix is the pipeline name. All the WorkerIndexer pairs for a pipeline in one JVM share these metrics, so each value covers every pair.
+
+**These names are stable**: dashboards and alerts can rely on them.
+
+| Metric Name | Type | Registered by | Meaning |
+|-------------|------|---------------|---------|
+| `{pipeline}.hybrid.worker.pollTime` | Timer | `HybridWorkerMessenger` | Time spent in each poll of the source topic. A poll that finds no record waits for the full poll interval (`kafka.pollIntervalMs`), so an idle worker shows poll times close to that interval. |
+| `{pipeline}.hybrid.worker.commitTime` | Timer | `HybridWorkerMessenger` | Time spent in each `commitSync` of completed offsets. Calls with nothing to commit are not timed. |
+| `{pipeline}.hybrid.worker.commitFailures` | Meter | `HybridWorkerMessenger` | Offset commits that threw. The exception is still rethrown, and the Worker logs it. |
+| `{pipeline}.hybrid.indexerQueue.full` | Meter | `HybridWorkerMessenger` | Documents that found the indexer queue full, so the worker had to wait for the indexer. |
+| `{pipeline}.hybrid.indexerQueue.remainingCapacity` | Gauge | `WorkerIndexerPool` | The lowest remaining capacity of any pair's indexer queue (capacity 10000). `0` means at least one worker is blocked waiting for its indexer. Registered when the pool starts and removed when it stops. |
+
+When a worker finds its indexer queue full, it also logs a warning, at most once a minute per worker, and then waits for space. If the queue is full most of the time, the indexer (or the search engine behind it) is the bottleneck, not the pipeline.
+
+Poll and commit timers are not labelled by topic. A worker that subscribes to a topic pattern reports all of its topics under the same names.
+
 ## The WorkerPool Watcher Thread
 
 The `WorkerPool` starts a scheduled watcher that runs every 500ms:

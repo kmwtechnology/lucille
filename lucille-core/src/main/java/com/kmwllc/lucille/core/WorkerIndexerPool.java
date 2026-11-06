@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.util.LogUtils;
@@ -8,12 +9,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.BlockingQueue;
 
 public class WorkerIndexerPool {
+
+  /**
+   * Suffix of the Gauge, registered while the pool is running, whose name is the pipeline name followed by this suffix.
+   * Its value is the lowest remaining capacity of any WorkerIndexer pair's indexer queue: 0 means at least one worker is
+   * blocked waiting for its indexer. The name is stable.
+   */
+  public static final String INDEXER_QUEUE_REMAINING_CAPACITY_SUFFIX = ".hybrid.indexerQueue.remainingCapacity";
 
   public static final int DEFAULT_POOL_SIZE = 1;
 
@@ -70,6 +81,8 @@ public class WorkerIndexerPool {
       }
     }
 
+    registerIndexerQueueGauge();
+
     // Timer to log a status message every minute
     // the Timer should use a daemon thread so it doesn't prevent the jvm from exiting
     logTimer = new Timer("WorkerIndexerPoolTimer", true);
@@ -91,6 +104,8 @@ public class WorkerIndexerPool {
     if (logTimer != null) {
       logTimer.cancel();
     }
+    // the gauge holds the pairs' queues; remove it so it does not report on (or keep) queues that are no longer in use
+    SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).remove(indexerQueueGaugeName());
     for (WorkerIndexer workerIndexer : workerIndexers) {
       // stop each WorkerIndexer, one at a time;
       // make sure the indexer is stopped before the worker, so that the
@@ -105,6 +120,28 @@ public class WorkerIndexerPool {
     if (!workerIndexers.isEmpty()) {
       workerIndexers.get(0).getWorker().logMetrics();
     }
+  }
+
+  private String indexerQueueGaugeName() {
+    return pipelineName + INDEXER_QUEUE_REMAINING_CAPACITY_SUFFIX;
+  }
+
+  private void registerIndexerQueueGauge() {
+    List<BlockingQueue<Document>> queues = new ArrayList<>();
+    for (WorkerIndexer workerIndexer : workerIndexers) {
+      queues.add(workerIndexer.getIndexerQueue());
+    }
+    MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+    // registering a name twice throws; replace a gauge left behind by a pool for this pipeline that was not stopped
+    metrics.remove(indexerQueueGaugeName());
+    metrics.register(indexerQueueGaugeName(), (Gauge<Integer>) () -> minRemainingCapacity(queues));
+  }
+
+  /**
+   * @return The lowest remaining capacity among the given queues (null entries are ignored), or 0 if there are none.
+   */
+  static int minRemainingCapacity(Collection<? extends BlockingQueue<?>> queues) {
+    return queues.stream().filter(Objects::nonNull).mapToInt(BlockingQueue::remainingCapacity).min().orElse(0);
   }
 
   public int getNumWorkers() {
