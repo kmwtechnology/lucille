@@ -29,6 +29,8 @@
     <module>lucille-api-example</module>
     <module>lucille-simple-csv-solr-example</module>
     <module>lucille-opensearch-ingest-example</module>
+    <module>lucille-opensearch-smoketest-example</module>
+    <module>lucille-elasticsearch-smoketest-example</module>
     <module>lucille-s3-ingest-example</module>
     <module>lucille-rss-example</module>
     <module>lucille-document-generation-example</module>

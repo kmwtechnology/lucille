@@ -1,0 +1,19 @@
+name: lucille-opensearch-smoketest
+
+services:
+  # Single-node OpenSearch with the security plugin off, so the runs and verifiers can use plain HTTP.
+  # Lucille itself runs on the host (see scripts/run-nightly.sh), so only OpenSearch is containerized.
+  opensearch:
+    image: opensearchproject/opensearch:3.7.0
+    environment:
+      - discovery.type=single-node
+      - DISABLE_SECURITY_PLUGIN=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "${OPENSEARCH_HOST_PORT:-9201}:9200"
+    # the index is created only once the cluster is green, so the runs don't race a starting node
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS 'http://localhost:9200/_cluster/health?wait_for_status=green&timeout=5s' >/dev/null"]
+      interval: 3s
+      timeout: 10s
+      retries: 60

@@ -1,0 +1,29 @@
+name: Elasticsearch Smoke Test
+
+# Runs lucille-elasticsearch-smoketest-example against a single-node Elasticsearch in Docker: bulk indexing, delete by id,
+# and delete by query. Scheduled with the other nightly smoke tests, and runnable by hand.
+
+on:
+  schedule:
+    # runs at 00:00 UTC every day, 20:00 EST
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  elasticsearch-smoketest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      # The script runs the example's jars and compiled verifiers from target/, so build them first.
+      - name: Build the example and its dependencies (skip unit tests)
+        run: mvn -B -pl lucille-examples/lucille-elasticsearch-smoketest-example -am package -DskipTests --file pom.xml
+      - name: Run the Elasticsearch smoke test
+        run: ./lucille-examples/lucille-elasticsearch-smoketest-example/scripts/run-nightly.sh
