@@ -1,12 +1,17 @@
 package com.kmwllc.lucille.core;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.message.KafkaDocumentDeserializer;
 import com.kmwllc.lucille.message.KafkaDocumentSerializer;
 import java.util.List;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertTrue;
 
 public class KafkaDocumentTest {
 
@@ -17,21 +22,14 @@ public class KafkaDocumentTest {
     String json2 = "{\"id\":\"123\", \"field2\":\"val2\", \"field1\":\"val1\" }";
     String json3 = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val3\"}";
 
-    KafkaDocument doc1 = new KafkaDocument(
-        new ConsumerRecord("topic1", 0, 0, "123", json1));
-    KafkaDocument doc2 = new KafkaDocument(
-        new ConsumerRecord("topic1", 0, 0, "123", json2));
-    KafkaDocument doc3 = new KafkaDocument(
-        new ConsumerRecord("topic1", 0, 0, "123", json3));
+    KafkaDocument doc1 = kafkaDoc("topic1", 0, 0, "123", json1);
+    KafkaDocument doc2 = kafkaDoc("topic1", 0, 0, "123", json2);
+    KafkaDocument doc3 = kafkaDoc("topic1", 0, 0, "123", json3);
 
-    KafkaDocument doc4 = new KafkaDocument(
-        new ConsumerRecord("topic1a", 0, 0, "123", json1));
-    KafkaDocument doc5 = new KafkaDocument(
-        new ConsumerRecord("topic1", 1, 0, "123", json1));
-    KafkaDocument doc6 = new KafkaDocument(
-        new ConsumerRecord("topic1", 0, 1, "123", json1));
-    KafkaDocument doc7 = new KafkaDocument(
-        new ConsumerRecord("topic1", 0, 0, "124", json1));
+    KafkaDocument doc4 = kafkaDoc("topic1a", 0, 0, "123", json1);
+    KafkaDocument doc5 = kafkaDoc("topic1", 1, 0, "123", json1);
+    KafkaDocument doc6 = kafkaDoc("topic1", 0, 1, "123", json1);
+    KafkaDocument doc7 = kafkaDoc("topic1", 0, 0, "124", json1);
 
     assertTrue(doc1.equals(doc1));
     assertTrue(doc1.equals(doc2));
@@ -41,9 +39,9 @@ public class KafkaDocumentTest {
     assertTrue(!doc1.equals(new Object()));
     assertEquals(doc1.hashCode(), doc2.hashCode());
 
-    assertEquals(doc1.hashCode(), doc1.clone().hashCode());
-    assertTrue(doc1.clone().equals(doc1));
-    assertTrue(doc1.equals(doc1.clone()));
+    assertEquals(doc1.hashCode(), doc1.deepCopy().hashCode());
+    assertTrue(doc1.deepCopy().equals(doc1));
+    assertTrue(doc1.equals(doc1.deepCopy()));
 
     assertFalse(doc1.equals(doc4));
     assertFalse(doc1.equals(doc5));
@@ -61,10 +59,30 @@ public class KafkaDocumentTest {
   }
 
   @Test
+  public void testDeepCopyKeepsKafkaMetadata() throws Exception {
+    KafkaDocument original = kafkaDoc("topic1", 2, 3, "key1", "{\"id\":\"123\", \"field1\":\"val1\"}");
+
+    // deepCopy() is declared on Document; the copy must still be a KafkaDocument with the same metadata
+    Document copy = original.deepCopy();
+    assertTrue(copy instanceof KafkaDocument);
+    KafkaDocument kafkaCopy = (KafkaDocument) copy;
+    assertEquals("topic1", kafkaCopy.getTopic());
+    assertEquals(2, kafkaCopy.getPartition());
+    assertEquals(3, kafkaCopy.getOffset());
+    assertEquals("key1", kafkaCopy.getKey());
+    assertEquals(original, copy);
+    assertEquals(original.hashCode(), copy.hashCode());
+
+    // and it is independent of the original
+    copy.setField("field1", "changed");
+    assertEquals("val1", original.getString("field1"));
+    assertNotEquals(original, copy);
+  }
+
+  @Test
   public void testGettersAndSetters() throws Exception {
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":[1.2, 3.4, 5.6]}";
-    KafkaDocument doc = new KafkaDocument(
-        new ConsumerRecord("topic1", 2, 3, "key1", json));
+    KafkaDocument doc = kafkaDoc("topic1", 2, 3, "key1", json);
 
     // getters specific to KafkaDocument
     assertEquals("topic1", doc.getTopic());
@@ -78,13 +96,10 @@ public class KafkaDocumentTest {
     assertArrayEquals(List.of(1.2f, 3.4f, 5.6f).toArray(), doc.getFloatList("field2").toArray());
 
     String json2 = "{\"id\":\"456\", \"field1\":\"val10\"}";
-    ConsumerRecord consumerRecord =
-        new ConsumerRecord("topic2", 12, 13, "key2", json2);
-
-    // setKafkaMetadata() is intended to be called with the ConsumerRecord that contained the
-    // document's json; here we are calling setKafkaMetadata() with a ConsumerRecord for a different
-    // document, which is a nonstandard usage, but it allows us to test the effect of the setter
-    doc.setKafkaMetadata(consumerRecord);
+    // setKafkaMetadata() is intended to be called with the metadata of the ConsumerRecord that contained the
+    // document's json; here we are calling it with different metadata, which is a nonstandard usage, but it
+    // allows us to test the effect of the setter
+    doc.setKafkaMetadata("topic2", 12, 13, "key2");
 
     // getters specific to KafkaDocument: the kafka metadata is updated
     assertEquals("topic2", doc.getTopic());
@@ -145,8 +160,7 @@ public class KafkaDocumentTest {
     // however, because KafkaDocument extends Document this usage
     // is not prohibited; this test illustrates what happens when we serialize and
     // deserialize a KafkaDocument: it "works" but the Kafka metadata is lost
-    KafkaDocument originalDoc = new KafkaDocument(
-        new ConsumerRecord("topic1", 2, 3, "key1", json));
+    KafkaDocument originalDoc = kafkaDoc("topic1", 2, 3, "key1", json);
     assertEquals("123", originalDoc.getId());
     assertEquals("val1", originalDoc.getString("field1"));
     assertEquals("topic1", originalDoc.getTopic());
@@ -169,5 +183,21 @@ public class KafkaDocumentTest {
     assertEquals(0, deserializedDoc.getOffset());
     assertEquals(null, deserializedDoc.getKey());
     assertEquals(originalDoc.asMap(), deserializedDoc.asMap());
+  }
+
+  private static KafkaDocument kafkaDoc(String topic, int partition, long offset, String key, String json) throws Exception {
+    KafkaDocument doc = new KafkaDocument((ObjectNode) new ObjectMapper().readTree(json));
+    doc.setKafkaMetadata(topic, partition, offset, key);
+    return doc;
+  }
+
+  @Test
+  public void testEqualsIsSymmetricWithJsonDocument() throws Exception {
+    String json = "{\"id\":\"123\", \"field1\":\"val1\"}";
+    Document jsonDoc = Document.createFromJson(json);
+    KafkaDocument kafkaDoc = kafkaDoc("topic1", 0, 0, "123", json);
+
+    assertNotEquals(jsonDoc, kafkaDoc);
+    assertNotEquals(kafkaDoc, jsonDoc);
   }
 }

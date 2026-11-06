@@ -80,7 +80,7 @@ final class FakeBatchProcessor implements BatchProcessor {
         throw new IllegalStateException("send of " + label + " threw");
       }
       Throwable failure = sendFailures.get(label);
-      outcome = failure != null ? new SendOutcome(null, failure, 1) : new SendOutcome(Set.of(), null, 1);
+      outcome = failure != null ? new SendOutcome(null, failure, 1) : new SendOutcome(List.of(), null, 1);
     } catch (InterruptedException e) {
       interruptedSends.add(label);
       outcome = new SendOutcome(null, e, 1);

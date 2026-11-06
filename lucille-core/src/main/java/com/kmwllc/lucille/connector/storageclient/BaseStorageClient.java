@@ -1,25 +1,31 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
-import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
-import static com.kmwllc.lucille.connector.FileConnector.MAX_RESULTS_PER_PAGE;
-import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
-import static com.kmwllc.lucille.connector.FileConnector.SIZE;
-import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.ARCHIVE_FILE_SEPARATOR;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.CONTENT;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.FILE_PATH;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.MODIFIED;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.SIZE;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_RESULTS_PER_PAGE;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_AFTER_PROCESSING;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_ERROR_FOLDER;
 
-import com.kmwllc.lucille.connector.FileConnectorStateManager;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.connector.StatePathTooLongException;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandler.FileHandler;
+import com.kmwllc.lucille.core.filehandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.FileUtils.ContentTooLargeException;
 import com.typesafe.config.Config;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.function.Supplier;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveException;
@@ -35,8 +41,8 @@ import org.slf4j.MDC;
 import org.slf4j.MDC.MDCCloseable;
 
 /**
- * The base implementation for StorageClients. Must be initialized before traversal / getting a file's contents using
- * {@link BaseStorageClient#init()}. Call {@link BaseStorageClient#traverse(Publisher, TraversalParams)} to process and publish
+ * The base implementation for StorageClients. Must be started before traversal / getting a file's contents using
+ * {@link BaseStorageClient#start()}. Call {@link BaseStorageClient#traverse(Publisher, TraversalParams)} to process and publish
  * Documents. Call {@link BaseStorageClient#getFileContentStream(URI)} to get the contents of a single file at the given URI.
  */
 public abstract class BaseStorageClient implements StorageClient {
@@ -66,7 +72,7 @@ public abstract class BaseStorageClient implements StorageClient {
     this.config = config;
 
     // only matters for traversals
-    this.maxResultsPerPage = config.hasPath(MAX_RESULTS_PER_PAGE) ? config.getInt(MAX_RESULTS_PER_PAGE) : defaultMaxResultsPerPage;
+    this.maxResultsPerPage = ConfigUtils.getIntOrDefault(config, MAX_RESULTS_PER_PAGE, defaultMaxResultsPerPage);
   }
 
   /**
@@ -77,29 +83,29 @@ public abstract class BaseStorageClient implements StorageClient {
    */
   protected void validateOptions(Config config) { }
 
-  // Wrapping around init, shutdown, and traverse to manage "initialized" before / after doing the actual operations in a
+  // Wrapping around start, stop, and traverse to manage "initialized" before / after doing the actual operations in a
   // StorageClient-specific way.
 
   @Override
-  public final void init() throws IOException {
+  public final void start() throws IOException {
     if (!initialized) {
       initializeStorageClient();
       initialized = true;
     }
   }
 
-  // StorageClient-specific initialization operations
+  // StorageClient-specific operations for start()
   protected abstract void initializeStorageClient() throws IOException;
 
   @Override
-  public final void shutdown() throws IOException {
+  public final void stop() throws IOException {
     if (initialized) {
       initialized = false;
       shutdownStorageClient();
     }
   }
 
-  // StorageClient-specific shutdown operations
+  // StorageClient-specific operations for stop()
   protected abstract void shutdownStorageClient() throws IOException;
 
   public boolean isInitialized() {
@@ -113,22 +119,22 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   @Override
-  public final void traverse(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+  public final void traverse(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception {
     if (!isInitialized()) {
-      throw new IllegalStateException("This StorageClient has not been initialized.");
+      throw new IllegalStateException("This StorageClient has not been started. Call start() first.");
     }
 
     traverseStorageClient(publisher, params, stateMgr);
   }
 
-  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
+  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception;
 
   /**
    * {@inheritDoc}
-   * <p> Compares the URIs by path segment, so <code>s3://bucket/data</code> contains <code>s3://bucket/data/2024</code>.
-   * A URI with an empty path is the root of its bucket or container, and contains everything in it.
-   * <p> Object storage prefixes are raw strings rather than path segments, so overlaps that do not fall on a segment
-   * boundary are missed, implementations may override to catch them.
+   * <p> For object stores, where a path is a raw key prefix: the parent contains the child when the child's key prefix
+   * starts with the parent's. So <code>s3://bucket/data</code> contains both <code>s3://bucket/data/2024</code> and
+   * <code>s3://bucket/data2</code>, while <code>s3://bucket/data/</code> contains only the first. A URI with an empty
+   * path is the root of its bucket, and contains everything in it.
    */
   @Override
   public boolean containsPath(URI parent, URI child) {
@@ -140,24 +146,45 @@ public abstract class BaseStorageClient implements StorageClient {
       return false;
     }
 
-    return isUnder(normalizedChild.getPath(), normalizedParent.getPath());
+    return keyPrefix(normalizedChild).startsWith(keyPrefix(normalizedParent));
   }
 
-  // Returns whether the child path is the parent path, or sits underneath it, treating both as '/'-delimited.
-  private static boolean isUnder(String childPath, String parentPath) {
-    String parent = stripTrailingSlash(parentPath);
-    String child = stripTrailingSlash(childPath);
+  /**
+   * Returns the object-store key a URI names: its path without the leading '/'. This is the key prefix a traversal path
+   * lists, or the folder key a move uses (see {@link #destinationKey}). Empty for the root of the bucket or container,
+   * with or without a trailing '/'.
+   */
+  static String keyPrefix(URI uri) {
+    String path = uri.getPath();
 
-    // an empty path is the root of a bucket / container, which contains everything in it
-    return parent.isEmpty() || child.equals(parent) || child.startsWith(parent + "/");
-  }
-
-  private static String stripTrailingSlash(String path) {
     if (path == null || path.isEmpty()) {
       return "";
     }
 
-    return path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+    return path.startsWith("/") ? path.substring(1) : path;
+  }
+
+  /**
+   * Implements {@link #moveTargetInsidePath(URI, URI)} for object stores that move files by {@link #destinationKey}.
+   * Different buckets never overlap.
+   */
+  static boolean movedKeyInsideBucketPath(URI path, URI folder) {
+    URI normalizedPath = path.normalize();
+    URI normalizedFolder = folder.normalize();
+
+    return Objects.equals(normalizedPath.getScheme(), normalizedFolder.getScheme())
+        && Objects.equals(normalizedPath.getAuthority(), normalizedFolder.getAuthority())
+        && movedKeyInsidePrefix(keyPrefix(normalizedPath), keyPrefix(normalizedFolder));
+  }
+
+  /**
+   * Returns whether objects listed under the given key prefix would still be under it after moving to the given folder.
+   * Every listed key starts with the prefix, so the destination of the prefix itself decides for all of them. This covers
+   * a folder under the prefix, the prefix without its trailing '/' (the file lands at <code>incoming/incoming/a.csv</code>)
+   * and the root of the bucket (the file lands on its own key).
+   */
+  static boolean movedKeyInsidePrefix(String prefix, String folderKey) {
+    return destinationKey(folderKey, prefix).startsWith(prefix);
   }
 
   /**
@@ -180,7 +207,7 @@ public abstract class BaseStorageClient implements StorageClient {
   @Override
   public final InputStream getFileContentStream(URI uri) throws IOException {
     if (!isInitialized()) {
-      throw new IllegalStateException("This StorageClient has not been initialized.");
+      throw new IllegalStateException("This StorageClient has not been started. Call start() first.");
     }
 
     return getFileContentStreamFromStorage(uri);
@@ -192,7 +219,7 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * If the file is valid, it will be processed and published. Also, perform any preprocessing, error handling, and post-processing.
    */
-  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, FileConnectorStateManager stateMgr) {
+  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, FileStateTracker stateMgr) {
     URI fullPath = fileReference.getFullPath();
     String fileExtension = fileReference.getFileExtension();
 
@@ -210,7 +237,7 @@ public abstract class BaseStorageClient implements StorageClient {
       }
 
       // Skip files that don't pass the filter options
-      if (!params.includeFile(fileReference.getName(), fileReference.getLastModified(), lastPublished)) {
+      if (!params.includeFile(fileReference.getFilterName(), fileReference.getLastModified(), lastPublished)) {
         // If this is a previously-published archive or compressed file, its entries won't be traversed
         // this run. Mark all entries as encountered so they are not incorrectly marked as tombstones
         if (stateMgr != null && lastPublished != null) {
@@ -319,8 +346,10 @@ public abstract class BaseStorageClient implements StorageClient {
       }
 
       afterProcessingFile(fullPath, params);
-    } catch (UnsupportedOperationException e) {
-      throw new UnsupportedOperationException("Encountered unsupported operation", e);
+    } catch (MoveNotSupportedException e) {
+      // every file would fail the same way, so stop the traversal. Any other UnsupportedOperationException is
+      // handled like other errors processing a single file, below.
+      throw e;
     } catch (StatePathTooLongException e) {
       throw e;
     } catch (Exception e) {
@@ -330,6 +359,40 @@ public abstract class BaseStorageClient implements StorageClient {
         log.error("Error occurred while performing error operations on file '{}'", fullPath, ex);
       }
       log.error("Unable to publish document '{}', SKIPPING", fullPath, e);
+    }
+  }
+
+  /**
+   * Returns the key an object moves to under the given folder key, for object stores: the folder, a '/', then the
+   * object's full key. An empty folder key is the root of the bucket or container. A folder key ending in '/' gets no
+   * second one.
+   *
+   * @param folderKey The destination folder's key, without a leading '/'. May be empty.
+   * @param sourceKey The full key of the object being moved.
+   * @return The destination key.
+   */
+  static String destinationKey(String folderKey, String sourceKey) {
+    if (folderKey.isEmpty()) {
+      return sourceKey;
+    }
+
+    return folderKey.endsWith("/") ? folderKey + sourceKey : folderKey + "/" + sourceKey;
+  }
+
+  /**
+   * Builds the FileReference for one listed object, or returns null, logging the error, if it can't be built (e.g. the
+   * object's name can't form a URI). The caller skips that object, so one bad object doesn't fail the whole traversal.
+   * It is never published or marked encountered in state, because it has no full path to record it under. So if an
+   * object with that name was published by an earlier run, its row is treated like any file not encountered: once it
+   * has gone unencountered for <code>state.runsBeforeExpiration</code> runs, it is tombstoned (with
+   * <code>sendTombstones</code>) and deleted from state.
+   */
+  static FileReference buildReferenceOrSkip(String objectName, Supplier<FileReference> builder) {
+    try {
+      return builder.get();
+    } catch (Exception e) {
+      log.error("Unable to build a reference to '{}', SKIPPING", objectName, e);
+      return null;
     }
   }
 
@@ -349,7 +412,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * @throws IOException If an error regarding file I/O occurs
    * @throws ConnectorException If an error occurs handling subsequent archive entries.
    */
-  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, URI fullPathURI, TraversalParams params, FileConnectorStateManager stateMgr) throws ArchiveException, IOException, ConnectorException {
+  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, URI fullPathURI, TraversalParams params, FileStateTracker stateMgr) throws ArchiveException, IOException, ConnectorException {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
@@ -367,8 +430,10 @@ public abstract class BaseStorageClient implements StorageClient {
         }
 
         Instant archiveLastPublished = stateMgr == null ? null : stateMgr.getLastPublished(entryFullPathStr);
+        // some archive formats and entries have no modification date
+        Instant entryLastModified = entry.getLastModifiedDate() == null ? null : entry.getLastModifiedDate().toInstant();
         // checking validity only for the entries
-        if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant(), archiveLastPublished)) {
+        if (!entry.isDirectory() && params.includeFile(entry.getName(), entryLastModified, archiveLastPublished)) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
           if (params.supportsFileExtension(entryExtension)) {
             handleStreamExtensionFiles(publisher, entryExtension, params, in, entryFullPathStr);
@@ -377,12 +442,25 @@ public abstract class BaseStorageClient implements StorageClient {
             // note that if there exists a file within the same parent directory with the same name as the entries, it will have the same id
             Document doc = Document.create(StorageClient.createDocId(DigestUtils.md5Hex(entryFullPathStr), params));
             doc.setField(FILE_PATH, entryFullPathStr);
-            doc.setField(MODIFIED, entry.getLastModifiedDate().toInstant());
+            if (entryLastModified != null) {
+              doc.setField(MODIFIED, entryLastModified);
+            }
             // entry does not have creation date
             // note that some ArchiveEntry implementations may not have a size so will return -1
             doc.setField(SIZE, entry.getSize());
             if (params.shouldGetFileContent()) {
-              doc.setField(CONTENT, in.readAllBytes());
+              Long maxSizeBytes = params.getMaxSizeBytes();
+              try {
+                if (maxSizeBytes != null && entry.getSize() > maxSizeBytes) {
+                  throw new ContentTooLargeException(
+                      String.format("Entry of %d bytes exceeds maxSizeBytes of %d.", entry.getSize(), maxSizeBytes));
+                }
+                doc.setField(CONTENT, FileUtils.readAllBytes(in, maxSizeBytes));
+              } catch (ContentTooLargeException e) {
+                // skip just this entry rather than failing the whole archive
+                log.error("Skipping entry '{}' in '{}'. {}", entry.getName(), fullPathURI, e.getMessage());
+                continue;
+              }
             }
             try {
               if (docLogger.isInfoEnabled()) {
@@ -475,7 +553,7 @@ public abstract class BaseStorageClient implements StorageClient {
   private void afterProcessingFile(URI filePath, TraversalParams params) throws IOException {
     if (params.getMoveToAfterProcessing() != null) {
       // move to processed folder
-      moveFile(filePath, params.getMoveToAfterProcessing());
+      moveFileOrFail(filePath, params.getMoveToAfterProcessing(), MOVE_TO_AFTER_PROCESSING);
     }
   }
 
@@ -487,7 +565,28 @@ public abstract class BaseStorageClient implements StorageClient {
   private void errorProcessingFile(URI filePath, TraversalParams params) throws IOException {
     if (params.getMoveToErrorFolder() != null) {
       // move to error folder
-      moveFile(filePath, params.getMoveToErrorFolder());
+      moveFileOrFail(filePath, params.getMoveToErrorFolder(), MOVE_TO_ERROR_FOLDER);
+    }
+  }
+
+  // Moves the file, throwing a MoveNotSupportedException, which stops the traversal, if this client doesn't support
+  // moving files.
+  private void moveFileOrFail(URI filePath, URI folder, String option) throws IOException {
+    try {
+      moveFile(filePath, folder);
+    } catch (UnsupportedOperationException e) {
+      throw new MoveNotSupportedException(getClass().getName() + " does not support moving files, which fileOptions."
+          + option + " requires.", e);
+    }
+  }
+
+  /**
+   * Thrown when fileOptions.moveToAfterProcessing or fileOptions.moveToErrorFolder is set but this client's
+   * {@link #moveFile(URI, URI)} throws an UnsupportedOperationException. Stops the traversal.
+   */
+  private static class MoveNotSupportedException extends UnsupportedOperationException {
+    MoveNotSupportedException(String message, Throwable cause) {
+      super(message, cause);
     }
   }
 
@@ -496,7 +595,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
    */
   private boolean isSupportedCompressedFileType(String pathStr) {
-    return pathStr.endsWith(".gz");
+    return pathStr.toLowerCase(Locale.ROOT).endsWith(".gz");
     // string.endsWith(".bz2") ||
     // string.endsWith(".xz") ||
     // string.endsWith(".lzma") ||
@@ -511,8 +610,9 @@ public abstract class BaseStorageClient implements StorageClient {
    * note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
    */
   private boolean isSupportedArchiveFileType(String pathStr) {
-    return pathStr.endsWith(".tar") ||
-        pathStr.endsWith(".zip");
+    String lowerCasePath = pathStr.toLowerCase(Locale.ROOT);
+    return lowerCasePath.endsWith(".tar") ||
+        lowerCasePath.endsWith(".zip");
     // string.endsWith(".7z") ||
     // string.endsWith(".ar") ||
     // string.endsWith(".arj") ||
@@ -534,9 +634,10 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * Should only be used for testing. Sets this storage client to be initialized.
+   * Should only be used for testing. Marks this storage client as initialized without calling
+   * {@link #initializeStorageClient()}, for a test that supplies its own mock of the provider's SDK client.
    */
-  void initializeForTesting() {
+  protected void initializeForTesting() {
     this.initialized = true;
   }
 }

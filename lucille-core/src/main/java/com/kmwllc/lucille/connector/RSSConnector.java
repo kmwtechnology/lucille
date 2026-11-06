@@ -155,10 +155,10 @@ public class RSSConnector extends AbstractConnector {
   private Document createDoc(Item item) {
     Document doc;
     if (useGuidForDocID) {
-      if (item.getGuid().isPresent()) {
+      if (item.getGuid().isPresent() && Document.isValidId(item.getGuid().get())) {
         doc = Document.create(item.getGuid().get());
       } else {
-        log.warn("RSSConnector is configured to useGuid, but found an item without one. Using a UUID for docID.");
+        log.warn("RSSConnector is configured to useGuid, but found an item without a usable one. Using a UUID for docID.");
         doc = Document.create(UUID.randomUUID().toString());
       }
     } else {

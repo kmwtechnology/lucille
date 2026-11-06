@@ -8,17 +8,22 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Wrapper around LocalMessenger that stores message traffic so that it can be retrieved later.
- * Intended for use in a testing context.
+ * The recording of a test-mode run ({@link com.kmwllc.lucille.core.Runner#runInTestMode(com.typesafe.config.Config)}):
+ * the documents sent for processing and for indexing, and the events sent, in the order they occurred.
+ *
+ * <p> This class ships in lucille-core rather than a test artifact so that test mode is available wherever
+ * Lucille is, for pipeline development as well as for tests. Its supported API is
+ * {@link #getDocsSentForProcessing()}, {@link #getDocsSentForIndexing()} and {@link #getSentEvents()}; the
+ * messenger methods it implements are internal to Lucille and may change.
  */
 public class TestMessenger implements IndexerMessenger, PublisherMessenger,
     WorkerMessenger {
 
   private final LocalMessenger messenger;
 
-  private List<Event> savedEventMessages = Collections.synchronizedList(new ArrayList<Event>());
-  private List<Document> savedSourceMessages = Collections.synchronizedList(new ArrayList<Document>());
-  private List<Document> savedDestMessages = Collections.synchronizedList(new ArrayList<Document>());
+  private final List<Event> savedEventMessages = Collections.synchronizedList(new ArrayList<>());
+  private final List<Document> savedSourceMessages = Collections.synchronizedList(new ArrayList<>());
+  private final List<Document> savedDestMessages = Collections.synchronizedList(new ArrayList<>());
 
   public TestMessenger() {
     this.messenger = new LocalMessenger();
@@ -29,50 +34,50 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
   }
 
   @Override
-  public Document pollDocToIndex() throws Exception {
+  public Document pollDocToIndex() throws MessengerException {
     return messenger.pollDocToIndex();
   }
 
   @Override
-  public Document pollDocToProcess() throws Exception {
+  public Document pollDocToProcess() throws MessengerException {
     return messenger.pollDocToProcess();
   }
 
   @Override
-  public void commitPendingDocOffsets() throws Exception {
+  public void commitPendingDocOffsets() throws MessengerException {
     messenger.commitPendingDocOffsets();
   }
 
   @Override
-  public void sendForIndexing(Document document) throws Exception {
+  public void sendForIndexing(Document document) throws MessengerException {
     savedDestMessages.add(document);
     messenger.sendForIndexing(document);
   }
 
   @Override
-  public void sendFailed(Document document) throws Exception {
+  public void sendFailed(Document document) throws MessengerException {
     messenger.sendFailed(document);
   }
 
   @Override
-  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+  public void sendEvent(Document document, String message, Event.Type type) throws MessengerException {
     Event event = new Event(document, message, type);
     sendEvent(event);
   }
 
   @Override
-  public void sendEvent(Event event) throws Exception {
+  public void sendEvent(Event event) throws MessengerException {
     savedEventMessages.add(event);
     messenger.sendEvent(event);
   }
 
   @Override
-  public Event pollEvent() throws Exception {
+  public Event pollEvent() throws MessengerException {
     return messenger.pollEvent();
   }
 
   @Override
-  public void initialize(String runId, String pipelineName) throws Exception {
+  public void initialize(String runId, String pipelineName) throws MessengerException {
     messenger.initialize(runId, pipelineName);
   }
 
@@ -83,13 +88,13 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
 
 
   @Override
-  public void sendForProcessing(Document document) throws Exception {
+  public void sendForProcessing(Document document) throws MessengerException {
     savedSourceMessages.add(document);
     messenger.sendForProcessing(document);
   }
 
   @Override
-  public void sendEvents(List<Document> documents, String message, Event.Type type) throws Exception {
+  public void sendEvents(List<Document> documents, String message, Event.Type type) throws MessengerException {
     for (Document document : documents) {
       sendEvent(document, message, type);
     }
@@ -101,7 +106,7 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
   }
 
   @Override
-  public void batchComplete(List<Document> batch) throws Exception {
+  public void batchComplete(List<Document> batch) throws MessengerException {
     messenger.batchComplete(batch);
   }
 

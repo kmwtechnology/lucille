@@ -2,7 +2,6 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
@@ -40,7 +39,6 @@ import org.slf4j.LoggerFactory;
  */
 public class CopyFields extends Stage {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  private static final ObjectMapper mapper = new ObjectMapper();
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredParent("fieldMapping", new TypeReference<Map<String, Object>>() {})
@@ -51,8 +49,8 @@ public class CopyFields extends Stage {
   private final UpdateMode updateMode;
   private final boolean isNested;
 
-  private List<Pair<List<Document.Segment>,List<Document.Segment>>> nestedFieldPairs = new ArrayList<>();
-  private List<Pair<String,String>> nonNestedFieldPairs = new ArrayList<>();
+  private final List<Pair<List<Document.Segment>,List<Document.Segment>>> nestedFieldPairs = new ArrayList<>();
+  private final List<Pair<String,String>> nonNestedFieldPairs = new ArrayList<>();
 
   public CopyFields(Config config) {
     super(config);
@@ -66,7 +64,7 @@ public class CopyFields extends Stage {
 
   @Override
   public void start() throws StageException {
-    if (fieldMapping.size() == 0) {
+    if (fieldMapping.isEmpty()) {
       throw new StageException("fieldMapping must have at least one source-dest pair for Copy Fields");
     }
 
@@ -74,8 +72,8 @@ public class CopyFields extends Stage {
     if (isNested) {
       for (Entry<String, Object> entry : fieldMapping.entrySet()) {
         List<Document.Segment> source = Document.Segment.parse(entry.getKey());
-        if (entry.getValue() instanceof String) {
-          List<Document.Segment> dest = Document.Segment.parse((String) entry.getValue());
+        if (entry.getValue() instanceof String destSpec) {
+          List<Document.Segment> dest = Document.Segment.parse(destSpec);
           nestedFieldPairs.add(Pair.of(source, dest));
         } else if (entry.getValue() instanceof List) {
           for (String val : (List<String>) entry.getValue()) {
@@ -88,8 +86,8 @@ public class CopyFields extends Stage {
       }
     } else {
       for (Entry<String, Object> entry : fieldMapping.entrySet()) {
-        if (entry.getValue() instanceof String) {
-          nonNestedFieldPairs.add(Pair.of(entry.getKey(), (String) entry.getValue()));
+        if (entry.getValue() instanceof String dest) {
+          nonNestedFieldPairs.add(Pair.of(entry.getKey(), dest));
         } else if (entry.getValue() instanceof List) {
           for (String val : (List<String>) entry.getValue()) {
             nonNestedFieldPairs.add(Pair.of(entry.getKey(), val));
@@ -110,7 +108,8 @@ public class CopyFields extends Stage {
           continue;
         }
         try {
-          doc.setNestedJson(fieldPair.getValue(), sourceVal);
+          // copy, or a later in-place edit to either field would show up in the other
+          doc.setNestedJson(fieldPair.getValue(), sourceVal.deepCopy());
         } catch (IllegalArgumentException ex) {
           log.error("Failed to set field {} on doc {}.\n {}",
               Document.Segment.stringify(fieldPair.getValue()), doc.getId(), ex.getMessage());
@@ -121,7 +120,9 @@ public class CopyFields extends Stage {
         if (!doc.has(fieldPair.getKey())) {
           continue;
         }
-        doc.update(fieldPair.getValue(), updateMode, doc.getStringList(fieldPair.getKey()).toArray(new String[0]));
+        // copy as JSON so numbers, booleans and objects keep their types, and deep-copy so the fields stay independent
+        JsonNode[] values = doc.getJsonList(fieldPair.getKey()).stream().map(JsonNode::deepCopy).toArray(JsonNode[]::new);
+        doc.update(fieldPair.getValue(), updateMode, values);
       }
     }
     return null;

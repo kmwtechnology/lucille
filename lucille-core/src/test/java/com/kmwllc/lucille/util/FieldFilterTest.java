@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.util;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -7,6 +9,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.List;
@@ -183,6 +186,25 @@ public class FieldFilterTest {
   }
 
   @Test
+  public void testGetFilteredDocumentKeepsKafkaMetadata() throws Exception {
+    // the filtered copy of a KafkaDocument is still a KafkaDocument, so an indexer reading the Kafka offset or key
+    // from the copy sees the same values as on the original
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of("field2"))));
+    KafkaDocument doc = kafkaDoc("topic1", 2, 3, "key1",
+        "{\"id\":\"id1\", \"field1\":\"val1\", \"field2\":\"val2\"}");
+
+    Document filtered = filter.getFilteredDocument(doc);
+
+    assertTrue(filtered instanceof KafkaDocument);
+    assertEquals("topic1", ((KafkaDocument) filtered).getTopic());
+    assertEquals(2, ((KafkaDocument) filtered).getPartition());
+    assertEquals(3, ((KafkaDocument) filtered).getOffset());
+    assertEquals("key1", ((KafkaDocument) filtered).getKey());
+    assertEquals("val1", filtered.getString("field1"));
+    assertFalse(filtered.has("field2"));
+  }
+
+  @Test
   public void testGetFilteredDocumentInactiveFilter() throws Exception {
     FieldFilter filter = new FieldFilter(ConfigFactory.empty());
     Document doc = Document.create("id1");
@@ -192,5 +214,11 @@ public class FieldFilterTest {
 
     assertEquals("id1", filtered.getId());
     assertEquals("val1", filtered.getString("field1"));
+  }
+
+  private static KafkaDocument kafkaDoc(String topic, int partition, long offset, String key, String json) throws Exception {
+    KafkaDocument doc = new KafkaDocument((ObjectNode) new ObjectMapper().readTree(json));
+    doc.setKafkaMetadata(topic, partition, offset, key);
+    return doc;
   }
 }

@@ -37,6 +37,10 @@
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-tika</artifactId>
     </dependency>
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-opensearch</artifactId>
+    </dependency>
   </dependencies>
 
   <build>

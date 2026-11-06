@@ -9,7 +9,9 @@ import org.junit.runners.JUnit4;
 
 import java.util.Set;
 
-import static junit.framework.TestCase.*;
+import static junit.framework.TestCase.assertEquals;
+import static junit.framework.TestCase.assertFalse;
+import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertThrows;
 
 
@@ -77,5 +79,12 @@ public class MatchQueryTest {
 
     assertThrows(StageException.class,
         () -> factory.get("MatchQueryTest/blank_matched_queries.conf"));
+  }
+
+  @Test
+  public void testNullValueIsSkipped() throws Exception {
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"content\":null,\"table\":\"geotrans\",\"country\":\"jp\"}");
+    factory.get("MatchQueryTest/config.conf").processDocument(doc);
+    assertTrue(doc.getStringList("matchfield").contains("japan"));
   }
 }

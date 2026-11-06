@@ -2,6 +2,7 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.EventFieldConfig;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -9,7 +10,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
+import java.util.concurrent.ExecutionException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
@@ -28,6 +29,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final String pipelineName;
   private final Config config;
+  private final EventFieldConfig eventFieldConfig;
 
   // Tracks destination-topic offsets and commits them on batch completion (at-least-once). See OffsetCommitTracker.
   private final OffsetCommitTracker offsetCommitTracker;
@@ -64,6 +66,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
         offsetCommitTracker.rebalanceListener());
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.config = config;
+    this.eventFieldConfig = EventFieldConfig.fromConfig(config);
     this.deserializationErrorHandler =
         new DeserializationErrorHandler(config, destConsumer);
     this.pollInterval = KafkaUtils.getPollInterval(config);
@@ -73,7 +76,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
    * Polls for a document that has been processed by the pipeine and is waiting to be indexed.
    */
   @Override
-  public Document pollDocToIndex() throws Exception {
+  public Document pollDocToIndex() {
     // This is the only place the consumer is polled during a run, so it is the only place (besides close()) a rebalance
     // callback, and with it the pre-revocation hook, can run. The Indexer calls this from its run loop, never while
     // dispatching or draining a batch, so the hook never re-enters the dispatcher.
@@ -105,7 +108,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
       }
       deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
-      doc.setKafkaMetadata(record);
+      doc.setKafkaMetadata(record.topic(), record.partition(), record.offset(), record.key());
       // Record the polled offset, so the commit frontier can advance across it once its batch completes.
       offsetCommitTracker.recordPolled(new TopicPartition(record.topic(), record.partition()), record.offset());
       return doc;
@@ -153,11 +156,11 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   }
 
   @Override
-  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+  public void sendEvent(Document document, String message, Event.Type type) throws MessengerException {
     if (kafkaEventProducer == null) {
       return;
     }
-    Event event = new Event(document, message, type);
+    Event event = new Event(document, message, type, eventFieldConfig);
     sendEvent(event);
   }
 
@@ -167,17 +170,23 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
    *
    */
   @Override
-  public void sendEvent(Event event) throws Exception {
+  public void sendEvent(Event event) throws MessengerException {
     if (kafkaEventProducer == null) {
       return;
     }
     String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-    RecordMetadata result = (RecordMetadata) kafkaEventProducer.send(
-        new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    try {
+      kafkaEventProducer.send(new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    } catch (ExecutionException e) {
+      throw KafkaUtils.toMessengerException("Sending " + event.getType() + " event for document " + event.getDocumentId(), e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Sending " + event.getType() + " event for document " + event.getDocumentId() + " was interrupted", e);
+    }
   }
 
   @Override
-  public void sendEvents(List<Document> documents, String message, Event.Type type) throws Exception {
+  public void sendEvents(List<Document> documents, String message, Event.Type type) throws MessengerException {
     if (kafkaEventProducer == null || documents.isEmpty()) {
       return;
     }
@@ -185,7 +194,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     AtomicReference<Exception> sendException = new AtomicReference<>();
 
     for (Document document : documents) {
-      Event event = new Event(document, message, type);
+      Event event = new Event(document, message, type, eventFieldConfig);
       String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
       kafkaEventProducer.send(
           new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString()),
@@ -201,12 +210,12 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
 
     Exception e = sendException.get();
     if (e != null) {
-      throw new Exception("Failed to send one or more events", e);
+      throw new MessengerException("Failed to send one or more events", e);
     }
   }
 
   @Override
-  public void close() throws Exception {
+  public void close() {
     // Commit offsets of batches completed but not yet committed, so a clean shutdown does not force their re-delivery.
     offsetCommitTracker.commitOnClose();
     destConsumer.close();
@@ -218,7 +227,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
    * {@link OffsetCommitTracker}.
    */
   @Override
-  public void batchComplete(List<Document> batch) throws Exception {
+  public void batchComplete(List<Document> batch) {
     if (batch.isEmpty()) {
       return;
     }

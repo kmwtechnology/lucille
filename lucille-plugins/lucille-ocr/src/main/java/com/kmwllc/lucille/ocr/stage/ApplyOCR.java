@@ -45,7 +45,7 @@ import com.typesafe.config.ConfigBeanFactory;
  * <b>lang</b> (String) : The language to use for OCR.
  * </p>
  * <p>
- * <b>pathField</b> (String, Optional) : Field on document containing a path to the image used for extraction. The
+ * <b>pathField</b> (String, Required) : Field on document containing a path to the image used for extraction. The
  * extension is used to determine if the image is a pdf. If the document does not contain this field it is skipped.
  *  </p>
  * <p>
@@ -116,9 +116,9 @@ public class ApplyOCR extends Stage {
     super(config);
 
     lang = config.getString("lang");
-    pathField = ConfigUtils.getOrDefault(config, "pathField", null);
-    pagesField = ConfigUtils.getOrDefault(config, "pagesField", null);
-    extractAllDest = ConfigUtils.getOrDefault(config, "extractAllDest", null);
+    pathField = ConfigUtils.getStringOrDefault(config, "pathField", null);
+    pagesField = ConfigUtils.getStringOrDefault(config, "pagesField", null);
+    extractAllDest = ConfigUtils.getStringOrDefault(config, "extractAllDest", null);
 
     if (config.hasPath("extractionTemplates")) {
       extractionTemplates = new LinkedHashMap<>();
@@ -212,7 +212,7 @@ public class ApplyOCR extends Stage {
     return results;
   }
 
-  private void extractPagesToDoc(Map<Integer, String> pages, ArrayList<BufferedImage> images, Document doc) {
+  private void extractPagesToDoc(Map<Integer, String> pages, List<BufferedImage> images, Document doc) {
 
     for (Map.Entry<Integer, String> entry : pages.entrySet()) {
       Map<String, List<String>> extractedText;
@@ -248,7 +248,7 @@ public class ApplyOCR extends Stage {
 
 
     // doing pdf extraction
-    ArrayList<BufferedImage> images = new ArrayList<>();
+    List<BufferedImage> images = new ArrayList<>();
     try {
       if (type.equals("pdf")) {
         images = FormUtils.loadPdf(path);

@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -73,7 +74,7 @@ public class ApplyJSoup extends Stage {
     super(config);
 
     this.destinationFields = config.getConfig("destinationFields").root().unwrapped();
-    this.charset = ConfigUtils.getOrDefault(config, "charset", null);
+    this.charset = ConfigUtils.getStringOrDefault(config, "charset", null);
 
     boolean a = config.hasPath("filePathField");
     boolean b = config.hasPath("byteArrayField");
@@ -110,6 +111,10 @@ public class ApplyJSoup extends Stage {
       if (!map.containsKey("selector")) {
         throw new StageException("selector map must contain a `selector` field");
       }
+      if (!Set.of("text", "attribute", "html", "outerHtml").contains(map.get("type"))) {
+        throw new StageException("selector `type` for " + entry.getKey() + " must be one of text, attribute, html, outerHtml; was \""
+            + map.get("type") + "\"");
+      }
       if (map.get("type").equals("attribute") && !map.containsKey("attribute")) {
         throw new StageException("`attribute` field must be provided when doing attribute extraction");
       }
@@ -118,7 +123,12 @@ public class ApplyJSoup extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    if (!doc.has(activeField)) {
+    // check the first value, which is what gets parsed; hasNonNull passes for [null, ...]
+    if (inputType == InputType.BYTE) {
+      if (doc.getBytes(activeField) == null) {
+        return null;
+      }
+    } else if (doc.getString(activeField) == null) {
       return null;
     }
 

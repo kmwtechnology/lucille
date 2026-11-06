@@ -5,88 +5,135 @@ date: 2025-06-09
 description: Configuration reference for the Elasticsearch Indexer, including join field support.
 ---
 
-`com.kmwllc.lucille.indexer.ElasticsearchIndexer`
+`com.kmwllc.lucille.elasticsearch.indexer.ElasticsearchIndexer`
 
-Config block: `elastic { ... }`
+Config block: `indexer.elasticsearch { ... }`. The block selects the indexer when `lucille-elasticsearch` is on the classpath.
 
-Supports all OpenSearch parameters, plus parent-child join support:
+**Maven dependency:**
+```xml
+<dependency>
+  <groupId>com.kmwllc</groupId>
+  <artifactId>lucille-elasticsearch</artifactId>
+  <version>${lucille.version}</version>
+</dependency>
+```
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `url` | String | Yes | Elasticsearch endpoint URL. |
+| `url` | String or List\<String\> | Yes | Elasticsearch endpoint URL, or a list of endpoints for the same cluster; with a list, requests are spread across the hosts. Credentials in the URL (`https://user:password@host:9200`) are used for basic auth for that host. Only the scheme, host, and port are used; a path in the URL is ignored. |
 | `index` | String | Yes | Target index name. |
-| `update` | Boolean | No | Use partial update API. Default: `false`. |
-| `acceptInvalidCert` | Boolean | No | Accept invalid TLS certs. Default: `false`. |
-| `connectTimeoutMs` | Long | No | Maximum time to establish a connection, in ms. Default: `5000`. |
-| `socketTimeoutMs` | Long | No | Maximum time to wait for data on an open connection, including a response, in ms. Applies to delete-by-query too, so raise it above the slowest expected request, or set `-1` for no limit. Default: `30000`. |
-| `connectionTimeToLiveMs` | Long | No | Maximum lifetime of a pooled connection, in ms, so long-running clients behind a load balancer or Kubernetes Service reconnect and reach new nodes. Lower it to rebalance faster. Default: `300000` (5 minutes). |
-| `parentName` | String | No | Parent relation name for join field mappings. |
-
-**Join field support** (for parent-child mappings):
+| `update` | Boolean | No | Send partial update operations instead of full index operations; a document missing from the index is created. Default: `false`. |
+| `acceptInvalidCert` | Boolean | No | Accept invalid TLS certificates and skip hostname verification. Default: `false`. |
+| `useCompression` | Boolean | No | Enable request compression in the HTTP client. Default: `false`. |
+| `connectTimeoutMs` | Long | No | Maximum time to establish a connection, including the TLS handshake, in ms. Must be at least 1. Default: `5000`. |
+| `socketTimeoutMs` | Long | No | Maximum time to wait for data on an open connection, including a response, in ms. Applies to delete-by-query too, so raise it above the slowest expected request, or set `-1` for no limit. Any other value below 1 fails at startup. A timeout is a transport failure (status `-1`), retried when `indexer.maxRetries` is set; Elasticsearch may still complete the request. Default: `30000`. |
+| `connectionTimeToLiveMs` | Long | No | Maximum lifetime of a pooled connection, in ms, so long-running clients behind a load balancer or Kubernetes Service reconnect and reach new nodes. Lower it to rebalance faster. Expiry is checked when a connection is next used, so it never interrupts a request. Must be at least 1. Default: `300000` (5 minutes). |
+| `maxConnectionsPerRoute` | Integer | No | Maximum pooled connections to each host. Must be at least 1. Default: the larger of `5` and `indexer.maxConcurrentBatches` + 1. |
+| `maxConnectionsTotal` | Integer | No | Maximum pooled connections across all hosts. Must be at least 1. Default: the larger of `25` and `maxConnectionsPerRoute`. |
+| `childDocumentsField` | String | No | Field in the indexed document that holds attached child documents. If not set, attached children are not indexed. |
+| `versionType` | String | No | Versioning type for writes. Takes a client `VersionType` name, case-insensitive, as the constant name (`External`, `ExternalGte`, `Internal`, `Force`) or its JSON spelling (`external`, `external_gte`, `internal`, `force`); any other value fails at startup. Only `External` and `ExternalGte` are sent with writes; `Internal` and `Force` are accepted but no version or version type is sent. |
+| `versionField` | String | No | Document field holding a numeric version. Used when the document has it, else the Kafka offset of a document read from Kafka, else no version. A delete by ID uses only this field, never the Kafka offset. Fails at startup if it is set without `versionType`. |
+| `routingField` | String | No | Document field whose value is sent as the routing key. |
+| `join` | Object | No | Parent-child join settings. See [Join Field Support](#join-field-support). |
 
 ```hocon
-elastic {
-  url: "http://localhost:9200"
-  index: "my-index"
-  join: {
-    joinFieldName: "my_join_field"
-    isChild: true
-    childName: "my_child"
-    parentDocumentIdSource: "parent_id_field"
-  }
-}
 indexer {
-  type: "Elasticsearch"
-  routingField: "routing_field"
+  elasticsearch {
+    url: "http://localhost:9200"
+    index: "my-index"
+    join: {
+      joinFieldName: "my_join_field"
+      isChild: true
+      childName: "my_child"
+      parentDocumentIdSource: "parent_id_field"
+    }
+    routingField: "parent_id_field"
+  }
 }
 ```
 
+An invalid connection setting (for example a timeout or connection limit below 1) fails at startup when the client is built. The startup connection check only pings the cluster; it does not check that `index` exists. With `indexer.sendEnabled: false`, no client is built and these checks are skipped.
+
+The indexer supports `indexer.maxConcurrentBatches` greater than 1. All sends share one client, and the connection pool defaults above grow with the concurrency so sends do not wait for a connection. If you set `maxConnectionsPerRoute` yourself, keep it above `indexer.maxConcurrentBatches`.
+
 ---
 
-## Join Field Support (Detailed)
+## Join Field Support
 
-Elasticsearch's join field allows parent-child relationships within a single index. The ElasticsearchIndexer supports this via the `elastic.join` config block:
+Elasticsearch's join field allows parent-child relationships within a single index. The indexer sets the join field on each uploaded document from the `elasticsearch.join` block:
 
-| Parameter | Description |
-|---|---|
-| `joinFieldName` | The name of the join field in your Elasticsearch mapping. |
-| `isChild` | Whether documents indexed by this indexer are children in the join relationship. |
-| `childName` | The relation name for the child (must match your mapping). |
-| `parentDocumentIdSource` | The document field that holds the parent's ID. Used to set the `_routing` parameter (required for joins). |
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `joinFieldName` | String | Yes | Name of the join field in your Elasticsearch mapping. Required when `join` is set. |
+| `isChild` | Boolean | No | Whether documents indexed by this indexer are children in the join relation. Default: `false`. |
+| `childName` | String | No | Child relation name (must match your mapping). Required when `isChild` is `true`. |
+| `parentDocumentIdSource` | String | No | Document field that holds the parent document's ID. Required when `isChild` is `true`. |
+| `parentName` | String | No | Parent relation name (must match your mapping). Required when `isChild` is `false`. |
 
-When `isChild: true`, the indexer adds a join field to each document with the child relation name and sets routing to the parent's ID. Elasticsearch requires parent and child documents to be on the same shard, so `indexer.routingField` should also be set to the same field as `parentDocumentIdSource`.
+A missing required join key fails at startup.
+
+- When `isChild` is `false`, the join field is set to the `parentName` string.
+- When `isChild` is `true`, the join field is set to `{ "name": <childName>, "parent": <value of parentDocumentIdSource> }`. If the document lacks that field, `parent` is null.
+
+The join field is added to the request sent to Elasticsearch, not to the Lucille document. It still follows `indexer.whitelist` and `indexer.blacklist`: include `joinFieldName` in a whitelist or it is not sent. It is applied in partial update mode too.
+
+If a document already has a field named `joinFieldName`, the indexer throws and the whole batch fails without being retried.
+
+The join settings do not set routing. Elasticsearch requires a child to be on the same shard as its parent, so set `routingField` to the same field as `parentDocumentIdSource`.
 
 ---
 
 ## Routing and Versioning
 
-Same as OpenSearch: supports `indexer.routingField` for custom shard routing and `indexer.versionType` for optimistic concurrency control using Kafka offsets in distributed mode.
+These go in the `elasticsearch` block:
+
+- `routingField`: the value of this document field (first value, if multi-valued) is sent as the `_routing` parameter. A document without the field is sent without routing. Routing is not sent with deletes by ID or delete-by-query.
+- `versionType`: an Elasticsearch `VersionType`, as the constant name (`External`, `ExternalGte`, `Internal`, `Force`) or the JSON spelling (`external`, `external_gte`, `internal`, `force`), case-insensitive. Any other value fails at startup. Only `External` and `ExternalGte` send a version; `Internal` and `Force` send none.
+- `versionField`: with `External` or `ExternalGte`, the version is this field's value (first value, if multi-valued) read as a Long when it is set and present on the document; a value that is not numeric is read as `0`. Otherwise the Kafka offset is used for a document read from Kafka (distributed mode), and a document with neither is indexed without a version. A delete by ID is sent with this field's value too, but never with the Kafka offset, which is not comparable to it; a delete document without the field is sent without a version. A delete that Elasticsearch rejects for its version (409) is reported as succeeded, because the index already holds that version or a newer one: either a newer document superseded the delete, or a retry of the batch resent a delete that was already applied. For as long as the index keeps deleted versions (`index.gc_deletes`, 60 seconds by default), Elasticsearch also rejects an upload with an older version than the delete. Delete-by-query is never versioned. Setting `versionField` without `versionType` fails at startup.
 
 ---
 
 ## Partial Update Mode
 
-When `update: true`, documents are sent as partial updates (doc-as-upsert) rather than full index operations. Same behavior as the OpenSearch Indexer.
+When `update: true`, each document is sent as a bulk `update` operation with the document's fields as the partial doc, instead of an `index` operation. The update is sent with `doc_as_upsert`, so a document whose ID is not in the index is created from its fields.
 
 ---
 
-## Differences from OpenSearch Indexer
+## Child Documents
 
-- **No retry support** — ElasticsearchIndexer does not wrap failures as `IndexerRetryableException`. The base class retry machinery will not trigger for Elasticsearch failures. If retries are needed, configure them at the Elasticsearch client or load balancer level.
-- **No `indexOverrideField` support** — All documents are sent to the single configured `index`. You cannot route documents to different indices within the same batch.
-- **Child documents** — The code iterates attached children but does not currently add them to the indexed document (this is a known TODO). Use emitted children (separate documents) instead of attached children if you need child documents indexed in Elasticsearch.
+When `childDocumentsField` is set, attached children are written into that field of the parent as a list of objects. They are not indexed as separate Elasticsearch documents. The whitelist and blacklist apply to each child, and children of children are dropped. Map the field as `nested` if you need to query children individually.
+
+If a document has children and `childDocumentsField` is not set, the children are not indexed and a warning is logged.
+
+---
+
+## Index Override
+
+`indexer.indexOverrideField` is not supported. Setting it fails at startup. All documents go to the configured `index`.
+
+---
+
+## Retry Behavior
+
+Retries follow the generic `indexer.maxRetries` settings (see [Retries]({{< relref "docs/ingest-design/indexers#retries" >}})). For this indexer:
+
+- A request that fails with an HTTP error carries that status code; a transport failure (connection refused, socket timeout) carries `-1`. The batch is retried if the code is in `indexer.retryableStatusCodes`, and otherwise fails as a whole.
+- A document rejected in the bulk response carries the item's HTTP status code. If any rejected document's status is retryable (for example 429 but not 400), the whole batch is resent; once retries run out, or if none is retryable, only the rejected documents fail.
+- A bulk response error whose ID does not match a document in the batch fails the whole batch and is not retried.
+- With `versionType: External`, a retry resends uploads the destination already accepted, and each is rejected with a 409 because its version is already there. Those documents get FAIL events even though they were indexed. `ExternalGte` accepts an equal version, so it is not affected.
+- An error on any delete-by-ID item, or any failure reported by delete-by-query, fails the whole batch and is not retried. A 409 on a versioned delete is not an error (see [Routing and Versioning](#routing-and-versioning)). Documents uploaded earlier in the same send were already indexed but still get FAIL events.
 
 ---
 
 ## Deletion Support
 
-The ElasticsearchIndexer supports three deletion mechanisms:
+The ElasticsearchIndexer supports both generic deletion mechanisms.
 
 **Delete by ID:** When a document is marked with `deletionMarkerField`/`deletionMarkerFieldValue` (and does not also have `deleteByFieldField`/`deleteByFieldValue`), the Indexer issues a bulk delete-by-ID operation for that document.
 
-**Delete by query:** When a document is marked for deletion AND contains both `deleteByFieldField` and `deleteByFieldValue`, the Indexer issues a `_delete_by_query` request. The `deleteByFieldField` value on the document identifies which Elasticsearch field to query, and the `deleteByFieldValue` value identifies the terms to match. Multiple delete-by-query documents in a batch are combined into a single bool/should query.
+**Delete by query:** When a document is marked for deletion AND contains both `deleteByFieldField` and `deleteByFieldValue`, the Indexer issues a `_delete_by_query` request. The `deleteByFieldField` value on the document identifies which Elasticsearch field to query, and the `deleteByFieldValue` value identifies the term to match (first value, if multi-valued). Multiple delete-by-query documents in a batch are combined into a single `terms` bool/should query, so a document matching any of them is deleted.
 
-**Batch ordering:** Within a batch, if the same document ID appears in both an upload and a delete operation, the last occurrence wins. This allows a batch to contain both updates and deletions for the same logical entity.
+**Batch ordering:** Delete-by-query documents are sent in batch order: the uploads and deletes by ID before a delete-by-query document are sent before its query, and the ones after it are sent after. Consecutive delete-by-query documents are combined into one delete-by-query. Between two delete-by-query documents, only the last document for a given ID is acted on: if the same ID appears in both an upload and a delete by ID, the last occurrence wins, and earlier documents with that ID are not sent but are still reported as succeeded. A document marked for delete-by-query also cancels an earlier upload with the same ID since the previous delete-by-query document. Each run of uploads and deletes by ID is sent as one bulk request for uploads and one for deletes by ID. Before each delete-by-query, the indexer refreshes the target index, because delete-by-query only matches refreshed documents. So a delete-by-query deletes matching documents uploaded before it, in the same batch or an earlier one, but not documents after it in the batch, such as new children sent after a delete of their parent's old children. Each delete-by-query adds a refresh and more bulk requests to the send, so frequent delete-by-query documents on a large index are slow.
 
 ```hocon
 indexer {
@@ -107,7 +154,7 @@ indexer {
 Ensure your Elasticsearch index mapping includes the join field with the correct parent and child relation names. The `joinFieldName` in config must match the mapping exactly.
 
 **Routing errors with joins:**
-Parent and child documents must be on the same shard. Set `indexer.routingField` to the field containing the parent ID.
+Parent and child documents must be on the same shard. Set `routingField` to the field containing the parent ID.
 
 **"index not found":**
-The target index must exist before indexing. Create it manually or via an index template.
+The startup check only pings the cluster; Lucille does not check that the index exists and never creates it. Create the index (or an index template) before indexing so it has the mapping you need.

@@ -50,7 +50,7 @@ public class AddRandomString extends Stage {
 
   private final String inputDataPath;
   private final String fieldName;
-  private Integer rangeSize;
+  private final Integer rangeSize;
   private Integer minNumOfTerms;
   private Integer maxNumOfTerms;
   private final boolean isNested;
@@ -65,13 +65,13 @@ public class AddRandomString extends Stage {
   public AddRandomString(Config config) throws StageException {
     super(config);
 
-    this.inputDataPath = ConfigUtils.getOrDefault(config, "inputDataPath", null);
+    this.inputDataPath = ConfigUtils.getStringOrDefault(config, "inputDataPath", null);
     this.fieldName = ConfigUtils.getOrDefault(config, "fieldName", "data");
-    this.minNumOfTerms = ConfigUtils.getOrDefault(config, "minNumOfTerms", null);
-    this.maxNumOfTerms = ConfigUtils.getOrDefault(config, "maxNumOfTerms", null);
+    this.minNumOfTerms = ConfigUtils.getIntOrDefault(config, "minNumOfTerms", null);
+    this.maxNumOfTerms = ConfigUtils.getIntOrDefault(config, "maxNumOfTerms", null);
     this.isNested = ConfigUtils.getOrDefault(config, "isNested", false);
     this.concatenate = ConfigUtils.getOrDefault(config, "concatenate", false);
-    this.rangeSize = ConfigUtils.getOrDefault(config, "rangeSize", null);
+    this.rangeSize = ConfigUtils.getIntOrDefault(config, "rangeSize", null);
     this.fileData = null;
 
     if (this.minNumOfTerms == null ^ this.maxNumOfTerms == null) {
@@ -146,7 +146,7 @@ public class AddRandomString extends Stage {
   }
 
   private static List<String> getRandomIntegerStringList(int length, int rangeSize) {
-    List<String> result = new ArrayList();
+    List<String> result = new ArrayList<>();
     for (int i = 0; i < length; i++) {
       result.add(String.valueOf(ThreadLocalRandom.current().nextInt(0, rangeSize)));
     }
@@ -154,7 +154,7 @@ public class AddRandomString extends Stage {
   }
 
   private static List<String> selectRandomElements(List<String> values, int length) {
-    ArrayList<String> fieldData = new ArrayList<>();
+    List<String> fieldData = new ArrayList<>();
     for (int i = 0; i < length; i++) {
       fieldData.add(values.get(ThreadLocalRandom.current().nextInt(values.size())));
     }

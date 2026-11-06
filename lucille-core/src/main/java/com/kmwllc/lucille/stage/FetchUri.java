@@ -163,10 +163,10 @@ public class FetchUri extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    if (!doc.has(source) || doc.getString(source).isEmpty()) {
+    String url = doc.getString(source);
+    if (url == null || url.isEmpty()) {
       return null;
     }
-    String url = doc.getString(source);
 
     try {
       new URL(url).toURI();

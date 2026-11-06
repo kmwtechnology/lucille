@@ -51,6 +51,7 @@ import org.slf4j.LoggerFactory;
  *   <li>s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>storageClients (Map, Optional) : If your dictionary files are held in storage with a custom StorageClient. See FileConnector for the appropriate arguments to provide.</li>
  * </ul>
  */
 public class DictionaryLookup extends Stage {
@@ -61,7 +62,7 @@ public class DictionaryLookup extends Stage {
       .requiredString("dictPath")
       .optionalBoolean("usePayloads", "ignoreCase", "setOnly", "useAnyMatch", "ignoreMissingSource")
       .optionalString("updateMode")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC).build();
+      .include(FileConnector.STORAGE_SPEC).build();
 
   private final List<String> sourceFields;
   private final List<String> destFields;
@@ -128,11 +129,12 @@ public class DictionaryLookup extends Stage {
         }
 
         boolean currentValue = false;
-        if (!doc.has(sourceField)) {
+        List<String> values = StageUtils.getNonNullStrings(doc, sourceField);
+        if (values.isEmpty()) {
           // if ignoreMissingSource is true, set the destination field to true if the source field is missing
           currentValue = ignoreMissingSource;
         } else {
-          Stream<String> sourceStream = doc.getStringList(sourceField).stream()
+          Stream<String> sourceStream = values.stream()
               .map(ignoreCase ? String::toLowerCase : String::toString);
 
           if (useAnyMatch) {
@@ -149,12 +151,13 @@ public class DictionaryLookup extends Stage {
         doc.update(destField, updateMode, defaultValue && currentValue);
       } else {
 
-        if (!doc.has(sourceField)) {
+        List<String> values = StageUtils.getNonNullStrings(doc, sourceField);
+        if (values.isEmpty()) {
           continue;
         }
 
         List<String> outputValues = new ArrayList<>();
-        for (String value : doc.getStringList(sourceField)) {
+        for (String value : values) {
           if (ignoreCase) {
             value = value.toLowerCase();
           }

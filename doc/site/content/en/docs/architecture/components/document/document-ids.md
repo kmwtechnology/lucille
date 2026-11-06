@@ -82,7 +82,7 @@ When two documents with the same ID reach the Indexer (either because collapsing
 
 ### At the Indexer Level: Ordering Within a Batch
 
-If a batch contains both an upsert and a delete for the same ID, the Indexer implementations (SolrIndexer, OpenSearchIndexer) explicitly handle ordering — flushing pending upserts before processing a delete for the same ID, or vice versa. This ensures that the operations are applied in the correct sequence even within a single batch.
+If a batch contains both an upsert and a delete for the same ID, the Indexer implementations make sure the last one wins, even within a single batch. SolrIndexer sends them in sequence, flushing pending upserts before processing a delete for the same ID, or vice versa. OpenSearchIndexer and ElasticsearchIndexer send only the last upsert or delete for each ID and report the earlier ones as succeeded.
 
 ---
 

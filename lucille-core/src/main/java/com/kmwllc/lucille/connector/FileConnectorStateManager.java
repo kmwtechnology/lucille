@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.connector;
 
-import java.net.URI;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -11,16 +10,20 @@ import java.sql.Statement;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.kmwllc.lucille.connector.storageclient.FileStateTracker;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.typesafe.config.Config;
 
 /**
  * <p> Holds / manages a connection to a JDBC database used to maintain state regarding FileConnector traversals and the last
- * time files were processed and published by Lucille.
+ * time files were processed and published by Lucille. StorageClients see it as a {@link FileStateTracker}.
  * <p> Build a connection to a JDBC-compatible database (can be embedded or not)
  *
  * <p> Call {@link #init()} and {@link #shutdown()} to connect / disconnect to the database.
@@ -49,8 +52,13 @@ import com.typesafe.config.Config;
  *   {@link TraversalState}.</li>
  *   <li>The paths a FileConnector traverses do not overlap.</li>
  * </ol>
+ * <p> Regardless, only one FileConnectorStateManager within the same JVM may use a given <code>connectionString</code> and
+ * <code>tableName</code> at a time. {@link #init()} fails if another FileConnectorStateManager is already using them.
  */
-public class FileConnectorStateManager {
+public class FileConnectorStateManager implements FileStateTracker {
+
+  // connectionString:tableName keys of the state tables currently in use in this JVM.
+  private static final Set<String> tablesInUse = ConcurrentHashMap.newKeySet();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnectorStateManager.class);
 
@@ -70,12 +78,23 @@ public class FileConnectorStateManager {
 
   private Instant traversalInstant;
 
+  // set when this run failed or its tombstones could not be listed, so shutdown() keeps the expired rows for the next run
+  private volatile boolean retainExpiredRows = false;
+
   // Used for the whole-table operations. Kept separate from the per-thread connections because it has to outlive them.
   private Connection jdbcConnection;
 
   // Per-file operations are delegated to the calling thread's TraversalState, since a JDBC Connection is not thread-safe.
   // init() binds one for the thread that calls it, and each additional traversal thread binds its own with openStateForThread().
   private final ThreadLocal<TraversalState> threadState = new ThreadLocal<>();
+
+  private final String tableKey;
+
+  // Whether this instance has claimed tableKey in tablesInUse. shutdown() is also called when init() never ran or was
+  // rejected, and must not release a table another instance is using. Atomic because init() and shutdown() can run
+  // on different threads (Runner calls execute() on a ConnectorThread but close() on its own thread), and so the table
+  // is released at most once.
+  private final AtomicBoolean claimedTable = new AtomicBoolean(false);
 
   /**
    * Creates a FileConnectorStateManager from the given config.
@@ -95,14 +114,24 @@ public class FileConnectorStateManager {
       throw new IllegalArgumentException("state.runsBeforeExpiration must be >= 1");
     }
     this.pathLength = ConfigUtils.getOrDefault(config, "pathLength", DEFAULT_PATH_LENGTH);
+
+    this.tableKey = connectionString + ":" + tableName;
   }
 
   /**
    * Connects to the database specified by your Config, and ensure a table with tableName exists, building it with the
    * appropriate schema if it doesn't. After connecting to the table, sets encountered=FALSE for all rows.
+   * @throws IllegalStateException If another FileConnectorStateManager in this JVM is using the same table.
    */
   public void init() throws ClassNotFoundException, SQLException {
+    if (!tablesInUse.add(tableKey)) {
+      throw new IllegalStateException("State table " + tableKey + " is in use by another run in this JVM.");
+    }
+    // released in shutdown(), which is still called if the rest of init() fails
+    claimedTable.set(true);
+
     traversalInstant = Instant.now();
+    retainExpiredRows = false;
 
     jdbcConnection = openConnection();
 
@@ -236,26 +265,54 @@ public class FileConnectorStateManager {
    * Throws an exception if an error occurs.
    */
   public void shutdown() throws SQLException {
-    closeStateForThread();
+    try {
+      closeStateForThread();
 
-    if (performDeletions) {
-      deleteExpiredFilesAndResetTable();
-    }
+      // jdbcConnection is null if init() never ran or failed before connecting - e.g. FileConnector.close() is
+      // still called when preExecute fails
+      if (performDeletions && jdbcConnection != null) {
+        if (retainExpiredRows) {
+          log.warn("This run did not finish or could not publish its tombstones, so expired files are kept in state for the next run.");
+        } else {
+          deleteExpiredFilesAndResetTable();
+        }
+      }
+    } finally {
+      // close even if the deletion failed, so the connection isn't leaked
+      closeConnection(jdbcConnection);
 
-    closeConnection(jdbcConnection);
-  }
-  
-  public List<URI> listExpiredFiles() throws SQLException {
-    String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE encountered=FALSE AND runs_not_encountered >= ?";
-    List<URI> fileUris = new ArrayList<>();
-    try (PreparedStatement ps = jdbcConnection.prepareStatement(selectSQL)) {
-      ps.setInt(1, runsBeforeExpiration);
-      ResultSet rs = ps.executeQuery();
-      while (rs.next()) {
-        fileUris.add(URI.create(rs.getString("name")));
+      if (claimedTable.getAndSet(false)) {
+        tablesInUse.remove(tableKey);
       }
     }
-    return fileUris;
+  }
+  
+  /**
+   * Returns the names of the files that have not been encountered for <code>runsBeforeExpiration</code> runs. Names are
+   * returned as stored: a file's full path, or for an archive entry the archive's full path, the archive separator and
+   * the entry's name, which need not be a valid URI.
+   */
+  public List<String> listExpiredFiles() throws SQLException {
+    String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE encountered=FALSE AND runs_not_encountered >= ?";
+    List<String> names = new ArrayList<>();
+    try (PreparedStatement ps = jdbcConnection.prepareStatement(selectSQL)) {
+      ps.setInt(1, runsBeforeExpiration);
+      try (ResultSet rs = ps.executeQuery()) {
+        while (rs.next()) {
+          names.add(rs.getString("name"));
+        }
+      }
+    }
+    return names;
+  }
+
+  /**
+   * Keeps the expired rows when {@link #shutdown()} would otherwise delete them, because the run failed or their
+   * tombstones could not be listed. They are listed again, and their tombstones published, on the next run that
+   * finishes. Reset by {@link #init()}.
+   */
+  void retainExpiredRows() {
+    retainExpiredRows = true;
   }
 
   private void deleteExpiredFilesAndResetTable() throws SQLException {
@@ -272,6 +329,7 @@ public class FileConnectorStateManager {
    * Update the database to reflect that the given file was encountered during a FileConnector traversal.
    * @param fullPathStr The full path to the file you encountered during a FileConnector traversal.
    */
+  @Override
   public void markFileEncountered(String fullPathStr) {
     currentState().markFileEncountered(fullPathStr);
   }
@@ -283,6 +341,7 @@ public class FileConnectorStateManager {
    *
    * @param prefix The prefix to match against entry names (typically archivePath + ARCHIVE_FILE_SEPARATOR).
    */
+  @Override
   public void markAllEntriesEncountered(String prefix) {
     currentState().markAllEntriesEncountered(prefix);
   }
@@ -295,6 +354,7 @@ public class FileConnectorStateManager {
    * @return The instant at which this file was last known to be published by Lucille; null if there is no information
    * on this file.
    */
+  @Override
   public Instant getLastPublished(String fullPathStr) {
     return currentState().getLastPublished(fullPathStr);
   }
@@ -303,6 +363,7 @@ public class FileConnectorStateManager {
    * Updates the state database to reflect that the given file was successfully published during a FileConnector traversal.
    * @param fullPathStr The full path to the file that was successfully published.
    */
+  @Override
   public void successfullyPublishedFile(String fullPathStr) {
     currentState().successfullyPublishedFile(fullPathStr);
   }

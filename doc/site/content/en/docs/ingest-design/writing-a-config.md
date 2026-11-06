@@ -63,18 +63,17 @@ See [Stages]({{< relref "docs/ingest-design/stages" >}}) for the full catalogue 
 
 An Indexer sends processed Documents to a destination — typically a search engine. Only one Indexer can be configured per run; every pipeline uses the same indexer configuration (destination, batching, and retry settings).
 
-A full indexer configuration has two separate config blocks: the generic `indexer` block and a backend-specific block (e.g., `solr`, `opensearch`, `elastic`).
+An indexer configuration is the `indexer` block: generic settings, plus a nested backend-specific block (e.g., `solr`, `opensearch`, `elasticsearch`) whose name selects the indexer.
 
 ```hocon
 indexer {
-  type: "OpenSearch"
   batchSize: 100
   batchTimeout: 500
-}
 
-opensearch {
-  url: "https://localhost:9200"
-  index: "my-index"
+  opensearch {
+    url: "https://localhost:9200"
+    index: "my-index"
+  }
 }
 ```
 
@@ -88,7 +87,7 @@ In addition to the three required elements, you can configure other parts of a L
 
 | Block | Key Settings | Notes |
 |---|---|---|
-| `worker` | `threads`, `maxRetries`, `exitOnTimeout`, `maxProcessingSecs`, `enableHeartbeat` | Per-thread pipeline isolation. |
+| `worker` | `threads`, `maxRetries`, `exitOnTimeout`, `maxProcessingSecs`, `enableHeartbeat` | Per-thread pipeline isolation. With `exitOnTimeout`, a worker that has not polled for `maxProcessingSecs` is interrupted and reported as failed: a Runner fails the run, and a standalone worker process exits non-zero. `maxRetries` applies only to Kafka workers. |
 | `publisher` | `queueCapacity`, `maxPendingDocs` | Backpressure control. `queueCapacity` for local mode; `maxPendingDocs` for distributed. |
 | `runner` | `metricsLoggingLevel`, `connectorTimeout` | `connectorTimeout` defaults to 24 hours. |
 | `kafka` | `bootstrapServers`, `consumerGroupId`, `maxPollIntervalSecs`, `maxRequestSize`, `events`, `sourceTopic`, `eventTopic`, security properties | Required when running in distributed or external mode. See [Deployment]({{< relref "docs/operations/deployment" >}}). |
@@ -128,9 +127,11 @@ HOCON is a superset of JSON with features that make config files more readable a
 - **Environment variable substitution** — inject credentials and environment-specific values without hardcoding them:
 
 ```hocon
-opensearch {
-  url: "http://localhost:9200"
-  url: ${?OPENSEARCH_URL}   # overrides with env var if set
+indexer {
+  opensearch {
+    url: "http://localhost:9200"
+    url: ${?OPENSEARCH_URL}   # overrides with env var if set
+  }
 }
 ```
 

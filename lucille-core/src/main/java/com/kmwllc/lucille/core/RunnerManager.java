@@ -128,6 +128,18 @@ public class RunnerManager {
       throw new RunnerManagerException("RunnerManager has reached capacity of " + maxConfigs + " configs.");
     }
 
+    // validate once, here, rather than at the start of every run of this config: validation constructs every
+    // connector, stage and indexer, and an invalid config should be refused rather than stored
+    Map<String, List<Exception>> validationErrors;
+    try {
+      validationErrors = ConfigValidator.validate(config);
+    } catch (Exception e) {
+      throw new RunnerManagerException("Config could not be validated: " + e.getMessage(), e);
+    }
+    if (!validationErrors.isEmpty()) {
+      throw new RunnerManagerException(ConfigValidator.format(validationErrors, "Config"));
+    }
+
     configMap.put(desiredKey, config);
   }
 
@@ -201,10 +213,10 @@ public class RunnerManager {
         // For now, we will always use local mode without Kafka
         runDetails.setRunType(Runner.getRunType(false, false));
 
-        log.debug(config.entrySet().toString());
-
-        runDetails.setRunResult(Runner.runAndLogResult(config, runDetails.getRunType(), runId, false));
-      } catch (Exception e) {
+        // the config was validated when it was created
+        runDetails.setRunResult(Runner.runAndLogResult(config, runDetails.getRunType(), runId, false, false));
+      } catch (Throwable e) {
+        // Throwable, not Exception: an Error (e.g. NoClassDefFoundError from a plugin) should also be recorded
         log.error("Failed to run lucille with ID '{}' via the Runner Manager.", runId, e);
         runDetails.setThrowable(e);
       } finally {
@@ -255,12 +267,21 @@ public class RunnerManager {
   }
 
   /**
-   * Returns the key set for all configs
-   * 
-   * @return
+   * Returns a snapshot of the keys of all configs.
+   *
+   * @return A copy of the config key set, unaffected by later creates or deletes.
    */
   public synchronized Set<String> getConfigKeys() {
-    return configMap.keySet();
+    return new HashSet<>(configMap.keySet());
+  }
+
+  /**
+   * Returns a snapshot of all configs, keyed by config ID.
+   *
+   * @return A copy of the config map, unaffected by later creates or deletes.
+   */
+  public synchronized Map<String, Config> getConfigs() {
+    return new HashMap<>(configMap);
   }
 
   public synchronized Config getConfig(String configId) {

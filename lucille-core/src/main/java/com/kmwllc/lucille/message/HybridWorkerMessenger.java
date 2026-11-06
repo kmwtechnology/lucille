@@ -2,41 +2,55 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.EventFieldConfig;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.kafka.clients.consumer.*;
+import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.RecordDeserializationException;
+import java.util.concurrent.ExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.regex.Pattern;
 
+/**
+ * A WorkerMessenger for hybrid mode: reads documents from a Kafka source topic and hands them to a co-located Indexer
+ * through an in-memory queue, committing the offsets the Indexer queues back once their batches are complete.
+ *
+ * <p> Internal to Lucille: {@link com.kmwllc.lucille.core.WorkerIndexer} creates it, sharing its queues with a
+ * {@link HybridIndexerMessenger}. It is public only because the two are in different packages.
+ */
 public class HybridWorkerMessenger implements WorkerMessenger {
 
   private static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
   private final KafkaProducer<String, String> kafkaEventProducer;
-  private final LinkedBlockingQueue<Document> pipelineDest;
-  private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
+  private final BlockingQueue<Document> pipelineDest;
+  private final BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
 
   private final Config config;
   private final Duration pollInterval;
   private final String pipelineName;
+  private final EventFieldConfig eventFieldConfig;
   private final DeserializationErrorHandler deserializationErrorHandler;
 
-  public HybridWorkerMessenger(Config config, String pipelineName,
-      LinkedBlockingQueue<Document> pipelineDest,
-      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
-      KafkaConsumer sourceConsumer) {
+  // takes the source consumer, so tests can supply one
+  HybridWorkerMessenger(Config config, String pipelineName,
+      BlockingQueue<Document> pipelineDest,
+      BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
+      Consumer<String, KafkaDocument> sourceConsumer) {
     this.config = config;
     this.pollInterval = KafkaUtils.getPollInterval(config);
     this.pipelineName = pipelineName;
@@ -44,21 +58,22 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     this.offsets = offsets;
     this.sourceConsumer = sourceConsumer;
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    this.eventFieldConfig = EventFieldConfig.fromConfig(config);
     this.deserializationErrorHandler =
         new DeserializationErrorHandler(config, sourceConsumer);
   }
 
   public HybridWorkerMessenger(Config config, String pipelineName,
-      LinkedBlockingQueue<Document> pipelineDest,
-      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
+      BlockingQueue<Document> pipelineDest,
+      BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
     this(config, pipelineName, pipelineDest, offsets, createSourceConsumer(config, pipelineName));
   }
 
-  private static KafkaConsumer createSourceConsumer(Config config, String pipelineName) {
+  private static Consumer<String, KafkaDocument> createSourceConsumer(Config config, String pipelineName) {
     // append random string to kafka client ID to prevent kafka from issuing a warning when multiple consumers
     // with the same client ID are started in separate worker threads
     String kafkaClientId = "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
-    KafkaConsumer consumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
+    Consumer<String, KafkaDocument> consumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
     String sourceTopicName = KafkaUtils.getSourceTopicName(pipelineName, config);
     consumer.subscribe(Pattern.compile(sourceTopicName));
 
@@ -71,7 +86,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
    * Does not commit offsets.
    */
   @Override
-  public KafkaDocument pollDocToProcess() throws Exception {
+  public KafkaDocument pollDocToProcess() {
     ConsumerRecords<String, KafkaDocument> consumerRecords;
     try {
       consumerRecords = sourceConsumer.poll(pollInterval);
@@ -86,7 +101,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
-      doc.setKafkaMetadata(record);
+      doc.setKafkaMetadata(record.topic(), record.partition(), record.offset(), record.key());
       return doc;
     }
     return null;
@@ -126,7 +141,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
    * "Known boundary (hybrid + indexOverrideField)" note in docs/operations/indexing-throughput.
    */
   @Override
-  public void commitPendingDocOffsets() throws Exception {
+  public void commitPendingDocOffsets() {
     Map<TopicPartition, OffsetAndMetadata> batchOffsets = offsets.poll();
     if (batchOffsets == null) {
       return;
@@ -148,35 +163,47 @@ public class HybridWorkerMessenger implements WorkerMessenger {
    *
    */
   @Override
-  public void sendForIndexing(Document document) throws Exception {
-    pipelineDest.put(document);
+  public void sendForIndexing(Document document) throws MessengerException {
+    try {
+      pipelineDest.put(document);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Interrupted while queueing document " + document.getId() + " for indexing", e);
+    }
   }
 
   @Override
-  public void sendFailed(Document document) throws Exception {
+  public void sendFailed(Document document) {
   }
 
   @Override
-  public void sendEvent(Event event) throws Exception {
+  public void sendEvent(Event event) throws MessengerException {
     if (kafkaEventProducer == null) {
       return;
     }
     String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-    RecordMetadata result = kafkaEventProducer.send(
-        new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    try {
+      kafkaEventProducer.send(
+          new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    } catch (ExecutionException e) {
+      throw KafkaUtils.toMessengerException("Sending " + event.getType() + " event for document " + event.getDocumentId(), e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Sending " + event.getType() + " event for document " + event.getDocumentId() + " was interrupted", e);
+    }
   }
 
   @Override
-  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+  public void sendEvent(Document document, String message, Event.Type type) throws MessengerException {
     if (kafkaEventProducer == null) {
       return;
     }
-    Event event = new Event(document, message, type);
+    Event event = new Event(document, message, type, eventFieldConfig);
     sendEvent(event);
   }
 
   @Override
-  public void close() throws Exception {
+  public void close() {
     if (sourceConsumer != null) {
       sourceConsumer.close();
     }

@@ -23,7 +23,7 @@ public class ZKRetryCounter implements RetryCounter {
   private final String retryCounterPrefix;
 
   public ZKRetryCounter(Config config) {
-    this.maxRetries = config.hasPath("worker.maxRetries") ? config.getInt("worker.maxRetries") : 3;
+    this.maxRetries = ConfigUtils.getIntOrDefault(config, "worker.maxRetries", 3);
     this.retryCounterPrefix = "/LucilleCounters/" + config.getString("kafka.consumerGroupId") + "/";
 
     RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 3);
@@ -57,9 +57,13 @@ public class ZKRetryCounter implements RetryCounter {
     }
   }
 
+  @Override
+  public void close() {
+    curatorFramework.close();
+  }
+
   private String getCounterPath(Document document) {
-    if (document instanceof KafkaDocument) {
-      KafkaDocument doc = (KafkaDocument) document;
+    if (document instanceof KafkaDocument doc) {
       return retryCounterPrefix + doc.getTopic() + "/" + doc.getRunId() + "/" + doc.getKey() + "___" + doc.getPartition() + "_"
           + doc.getOffset();
     }

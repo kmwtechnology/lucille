@@ -42,11 +42,17 @@ For any Stage, you can specify `conditions` in its config to control when the St
 
 ### How matching works
 
-**With `values` or `valuesPath`:** The condition passes if any of the listed fields contains any of the listed values. Matching is type-coerced to string — a boolean field `true` matches the value `"true"`, an integer `10` matches `"10"`. `null` is a valid value entry and will match a null field value.
+`fields` must list at least one field; a condition with `fields: []` is an error when the stage is created.
+
+**With `values` or `valuesPath`:** With `operator: "must"`, the condition passes if any of the listed fields contains any of the listed values; with `operator: "must_not"`, it passes if none of them does. Matching is type-coerced to string — a boolean field `true` matches the value `"true"`, an integer `10` matches `"10"`. `null` is a valid value entry and will match a null field value.
 
 **Without `values` or `valuesPath`:** The condition checks field existence only.
 - `operator: "must"` — passes if **all** listed fields are present on the document.
 - `operator: "must_not"` — passes if **all** listed fields are absent from the document.
+
+With a single field these are opposites. With two or more fields they are not: a document that has some of the listed fields but not all of them fails both. For other combinations, use one condition per field and combine them with `conditionPolicy`:
+- **Any of the fields is present:** one `must` condition per field, with `conditionPolicy: "any"`.
+- **Not all of the fields are present:** one `must_not` condition per field, with `conditionPolicy: "any"`.
 
 ### conditionPolicy
 
@@ -208,10 +214,10 @@ Every Stage has its own page, listed alphabetically in the navigation under **St
 ### Enrichment & Lookup
 
 - [DictionaryLookup]({{< relref "docs/ingest-design/stages/dictionary_lookup" >}}) — Look up whole field values in a dictionary and write their payloads, or a match flag, to destination fields.
-- [ElasticsearchLookup]({{< relref "docs/ingest-design/stages/elasticsearch_lookup" >}}) — Look up a document in Elasticsearch by the Lucille document's ID and copy selected fields onto it.
+- [ElasticsearchLookup]({{< relref "docs/ingest-design/stages/elasticsearch_lookup" >}}) — Look up a document in Elasticsearch by the Lucille document's ID and copy selected fields onto it. *(requires `lucille-elasticsearch`)*
 - [MatchQuery]({{< relref "docs/ingest-design/stages/match_query" >}}) — Run a set of named Lucene queries against document fields in memory and record which queries match.
 - [QueryDatabase]({{< relref "docs/ingest-design/stages/query_database" >}}) — Execute a JDBC prepared statement per document and merge the result.
-- [QueryOpensearch]({{< relref "docs/ingest-design/stages/query_opensearch" >}}) — Execute an OpenSearch search template per document.
+- [QueryOpensearch]({{< relref "docs/ingest-design/stages/query_opensearch" >}}) — Execute an OpenSearch search template per document. *(requires `lucille-opensearch`)*
 
 ### AI / ML
 

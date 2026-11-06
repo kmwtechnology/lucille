@@ -6,8 +6,13 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import java.net.URI;
 
 import java.io.File;
 import java.io.StringReader;
@@ -19,7 +24,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -37,6 +44,7 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
+import org.mockito.MockedStatic;
 
 public class FileConnectorStateManagerTest {
 
@@ -52,6 +60,9 @@ public class FileConnectorStateManagerTest {
 
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql");
+
+  // Note that every FCSM shares the same (static) set of tables in use, so each test must shut down every manager it
+  // initializes.
 
   // The publish time is taken right after start, and can equal it on a coarse clock.
   private static void assertPublishedDuringTest(Instant start, Instant published) {
@@ -346,6 +357,42 @@ public class FileConnectorStateManagerTest {
     }
   }
 
+  // LIKE wildcards in the prefix ('_', '%', '[') and the escape character match only themselves.
+  @Test
+  public void testMarkAllEntriesEncounteredEscapesWildcards() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    List<String> names = List.of("file:///tmp/a_b.zip!e.txt", "file:///tmp/aXb.zip!e.txt",
+        "file:///tmp/100%.zip!e.txt", "file:///tmp/100XYZ.zip!e.txt",
+        "file:///tmp/[a].zip!e.txt", "file:///tmp/a.zip!e.txt",
+        "file:///tmp/x!y.zip!e.txt", "file:///tmp/xy.zip!e.txt");
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        Statement stmt = connection.createStatement()) {
+      for (String name : names) {
+        stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('" + name + "', NULL, FALSE, 0)");
+      }
+    }
+
+    for (String archive : List.of("a_b.zip", "100%.zip", "[a].zip", "x!y.zip")) {
+      manager.markAllEntriesEncountered("file:///tmp/" + archive + "!");
+    }
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        Statement stmt = connection.createStatement();
+        ResultSet rs = stmt.executeQuery("SELECT name FROM \"FILE\" WHERE encountered = TRUE")) {
+      Set<String> encountered = new HashSet<>();
+      while (rs.next()) {
+        encountered.add(rs.getString("name"));
+      }
+      assertEquals(Set.of("file:///tmp/a_b.zip!e.txt", "file:///tmp/100%.zip!e.txt", "file:///tmp/[a].zip!e.txt",
+          "file:///tmp/x!y.zip!e.txt"), encountered);
+    }
+
+    manager.shutdown();
+  }
+
   @Test
   public void testMarkAllEntriesEncountered() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
@@ -592,9 +639,9 @@ public class FileConnectorStateManagerTest {
     manager.markFileEncountered(infoFile);
     manager.incrementRunsNotEncountered();
 
-    List<URI> expired = manager.listExpiredFiles();
+    List<String> expired = manager.listExpiredFiles();
     assertEquals(1, expired.size());
-    assertTrue(expired.contains(URI.create(secretsFile)));
+    assertTrue(expired.contains(secretsFile));
 
     manager.shutdown();
   }
@@ -613,9 +660,187 @@ public class FileConnectorStateManagerTest {
     manager.incrementRunsNotEncountered();
 
     assertEquals(1, manager.listExpiredFiles().size());
-    assertTrue(manager.listExpiredFiles().contains(URI.create(secretsFile)));
+    assertTrue(manager.listExpiredFiles().contains(secretsFile));
 
     manager.shutdown();
+  }
+
+  // Runner calls connector.execute() (-> init) on a ConnectorThread, but connector.close() (-> shutdown) on the
+  // thread that started it, so the lock must be releasable from a different thread than the one that acquired it.
+  @Test
+  public void testInitAndShutdownOnDifferentThreads() throws Exception {
+    final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+
+    Thread initThread = new Thread(() -> {
+      try {
+        manager.init();
+        manager.markFileEncountered(helloFile);
+        manager.closeStateForThread();
+      } catch (Exception e) {
+        fail("Error in thread: " + e.getMessage());
+      }
+    });
+    initThread.start();
+    initThread.join();
+
+    manager.shutdown();
+
+    // a later run against the same table must not be rejected by a key that was never released
+    FileConnectorStateManager manager2 = new FileConnectorStateManager(config, null);
+    manager2.init();
+    manager2.shutdown();
+  }
+
+  // FileConnector.close() calls shutdown() even when init() never ran, e.g. when preExecute fails. With deletions on
+  // (the default), shutdown() must not try to delete through a connection that was never opened.
+  @Test
+  public void testShutdownWithoutInitWithDeletions() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf")
+        .withValue("performDeletions", ConfigValueFactory.fromAnyRef(true));
+
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.shutdown();
+  }
+
+  // The connection is closed even when the deletion in shutdown() fails.
+  @Test
+  public void testShutdownClosesConnectionWhenDeletionFails() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf")
+        .withValue("performDeletions", ConfigValueFactory.fromAnyRef(true));
+
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+
+    Connection connection = mock(Connection.class);
+    when(connection.getMetaData()).thenThrow(new SQLException("fake"));
+    when(connection.prepareStatement(anyString())).thenThrow(new SQLException("fake delete failure"));
+
+    try (MockedStatic<DriverManager> mocked = mockStatic(DriverManager.class)) {
+      mocked.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString())).thenReturn(connection);
+
+      // init() connects, then fails - leaving a connection for shutdown() to clean up
+      assertThrows(SQLException.class, manager::init);
+    }
+
+    assertThrows(SQLException.class, manager::shutdown);
+    verify(connection).close();
+  }
+
+  // FileConnector.close() calls shutdown() even when execute() - and so init() - never ran, e.g. when preExecute fails.
+  // That shutdown() must not release a table that another manager is using.
+  @Test
+  public void testShutdownWithoutInitDoesNotReleaseOtherClaim() throws Exception {
+    final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf")
+        .withValue("performDeletions", ConfigValueFactory.fromAnyRef(false));
+
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    FileConnectorStateManager neverInitialized = new FileConnectorStateManager(config, null);
+    neverInitialized.shutdown();
+
+    // still in use by the first manager
+    FileConnectorStateManager manager2 = new FileConnectorStateManager(config, null);
+    assertThrows(IllegalStateException.class, manager2::init);
+
+    manager.shutdown();
+  }
+
+  @Test
+  public void testRejectConcurrentConnections() throws Exception {
+    final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    FileConnectorStateManager manager2 = new FileConnectorStateManager(config, null);
+    IllegalStateException e = assertThrows(IllegalStateException.class, manager2::init);
+    assertTrue(e.getMessage().contains("is in use by another run in this JVM"));
+
+    // the rejected manager is still shut down as part of the Connector lifecycle, and must not release the first's claim
+    manager2.shutdown();
+    FileConnectorStateManager manager3 = new FileConnectorStateManager(config, null);
+    assertThrows(IllegalStateException.class, manager3::init);
+
+    manager.shutdown();
+
+    FileConnectorStateManager manager4 = new FileConnectorStateManager(config, null);
+    manager4.init();
+    manager4.shutdown();
+  }
+
+  // for the two below tests, they are allowed to run concurrently
+  @Test
+  public void testAllowConcurrentConnectionsDifferentTables() throws Exception {
+    final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    final Config altConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/diff_table.conf");
+
+    FileConnectorStateManager manager1 = new FileConnectorStateManager(config, null);
+    FileConnectorStateManager manager2 = new FileConnectorStateManager(altConfig, null);
+
+    manager1.init();
+    manager2.init();
+
+    manager1.markFileEncountered(helloFile);
+    manager2.markFileEncountered(infoFile);
+
+    manager1.shutdown();
+    manager2.shutdown();
+  }
+
+  @Test
+  public void testAllowConcurrentConnectionsDifferentConnectionString() throws Exception {
+    final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    final Config altConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/alt_conn_str.conf");
+
+    FileConnectorStateManager manager1 = new FileConnectorStateManager(config, null);
+    FileConnectorStateManager manager2 = new FileConnectorStateManager(altConfig, null);
+
+    manager1.init();
+    manager2.init();
+
+    manager1.markFileEncountered(helloFile);
+    manager2.markFileEncountered(infoFile);
+
+    manager1.shutdown();
+    manager2.shutdown();
+  }
+
+  @Test
+  public void testReconnectionAfterError() throws Exception {
+    Config config = ConfigFactory
+        .parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf")
+        // disable so we don't have to go as deep with mocking
+        .withValue("performDeletions", ConfigValueFactory.fromAnyRef(false));
+
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+
+    Connection connection = mock(Connection.class);
+
+    when(connection.getMetaData())
+        .thenThrow(new SQLException("fake"));
+
+    try (MockedStatic<DriverManager> mocked = mockStatic(DriverManager.class)) {
+      mocked.when(() ->
+              DriverManager.getConnection(anyString(), anyString(), anyString()))
+          .thenReturn(connection);
+
+      // a failure in init should result in a call to shutdown (part of Connector lifecycle)
+      assertThrows(SQLException.class, manager::init);
+    }
+
+    // the table stays in use until shutdown is called
+    FileConnectorStateManager manager2 = new FileConnectorStateManager(config, null);
+    assertThrows(IllegalStateException.class, manager2::init);
+
+    manager.shutdown();
+
+    // now, a new run should be able to start normally.
+    FileConnectorStateManager manager3 = new FileConnectorStateManager(config, null);
+    manager3.init();
+    manager3.markFileEncountered(helloFile);
+    manager3.shutdown();
   }
 
   @Test

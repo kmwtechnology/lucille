@@ -10,6 +10,8 @@ import com.kmwllc.lucille.core.Event;
  * a destination where they can wait for indexing, and 3) send Events relating to
  * Documents being processed (e.g. if a child Document is created, if a Document can't be processed, etc.)
  *
+ * <p> Internal to Lucille: not a supported extension point, and it may change in any release. The Runner chooses the
+ * messengers for a run; there is no setting for supplying another implementation.
  */
 public interface WorkerMessenger {
 
@@ -21,40 +23,57 @@ public interface WorkerMessenger {
    *
    * A Documents retrieved by pollDocToProcess() may not be "removed" or made invisible to subsequent calls
    * until commitPendingDocOffsets() has been called.
+   *
+   * @throws MessengerException if the messaging infrastructure failed, or the thread was interrupted while waiting
+   *     (its interrupt flag is restored)
    */
-  Document pollDocToProcess() throws Exception;
+  Document pollDocToProcess() throws MessengerException;
 
   /**
    * Indicates that Documents previously retrieved by pollDocToProcess() have been processed and should
    * not be returned by subsequent calls.
+   *
+   * @throws MessengerException if the messaging infrastructure failed, or the thread was interrupted while waiting
+   *     (its interrupt flag is restored)
    */
-  void commitPendingDocOffsets() throws Exception;
+  void commitPendingDocOffsets() throws MessengerException;
 
   /**
    * Submit a given Document so that it can be received by an Indexer component that
    * would call IndexerMessenger.pollCompleted()
+   *
+   * @throws MessengerException if the Document could not be sent; see {@link MessengerException#isDocumentSpecific()}
    */
-  void sendForIndexing(Document document) throws Exception;
+  void sendForIndexing(Document document) throws MessengerException;
 
   /**
    * Submit a given Document to a "Dead Letter Queue" for Documents that cannot be processed.
+   *
+   * @throws MessengerException if the Document could not be sent; see {@link MessengerException#isDocumentSpecific()}
    */
-  void sendFailed(Document document) throws Exception;
+  void sendFailed(Document document) throws MessengerException;
 
   /**
    * Create an Event from the given parameters and make it available to the Publisher or
    * any other component that is listening for Document-related Events.
+   *
+   * @throws MessengerException if the Event could not be sent; see {@link MessengerException#isDocumentSpecific()}
    */
-  void sendEvent(Document document, String message, Event.Type type) throws Exception;
+  void sendEvent(Document document, String message, Event.Type type) throws MessengerException;
 
   /**
    * Make the designated Event available to the Publisher or any other component that is listening for
    * Document-related Events.
+   *
+   * @throws MessengerException if the Event could not be sent; see {@link MessengerException#isDocumentSpecific()}
    */
-  void sendEvent(Event event) throws Exception;
+  void sendEvent(Event event) throws MessengerException;
 
   /**
    * Close any connections opened by this WorkerMessenger.
+   *
+   * <p> Declares no checked exception: it runs during shutdown, where a caller can only log a failure. An
+   * implementation logs a failure to release a resource itself, or lets an unchecked exception propagate.
    */
-  void close() throws Exception;
+  void close();
 }

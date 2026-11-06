@@ -4,6 +4,7 @@ import com.cybozu.labs.langdetect.Detector;
 import com.cybozu.labs.langdetect.DetectorFactory;
 import com.cybozu.labs.langdetect.Language;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -73,11 +74,10 @@ public class DetectLanguage extends Stage {
 
     this.sourceFields = config.getStringList("source");
     this.languageField = config.getString("languageField");
-    this.languageConfidenceField = config.hasPath("languageConfidenceField") ?
-        config.getString("languageConfidenceField") : "languageConfidence";
-    this.minLength = config.hasPath("minLength") ? config.getInt("minLength") : 50;
-    this.maxLength = config.hasPath("maxLength") ? config.getInt("maxLength") : 10_000;
-    this.minProbability = config.hasPath("minProbability") ? config.getDouble("minProbability") : .95;
+    this.languageConfidenceField = ConfigUtils.getStringOrDefault(config, "languageConfidenceField", "languageConfidence");
+    this.minLength = ConfigUtils.getIntOrDefault(config, "minLength", 50);
+    this.maxLength = ConfigUtils.getIntOrDefault(config, "maxLength", 10_000);
+    this.minProbability = ConfigUtils.getDoubleOrDefault(config, "minProbability", .95);
     this.updateMode = UpdateMode.fromConfig(config);
   }
 

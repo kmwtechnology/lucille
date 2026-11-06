@@ -5,6 +5,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
@@ -245,8 +247,8 @@ public class KafkaIndexerMessengerCommitTest {
   private static ConsumerRecord<String, KafkaDocument> record(TopicPartition partition, long offset) {
     String id = "doc-" + partition.partition() + "-" + offset;
     try {
-      KafkaDocument doc = new KafkaDocument(
-          new ConsumerRecord<>(partition.topic(), partition.partition(), offset, id, Document.create(id, "run1").toString()));
+      KafkaDocument doc = new KafkaDocument((ObjectNode) new ObjectMapper().readTree(Document.create(id, "run1").toString()));
+      doc.setKafkaMetadata(partition.topic(), partition.partition(), offset, id);
       return new ConsumerRecord<>(partition.topic(), partition.partition(), offset, id, doc);
     } catch (Exception e) {
       throw new RuntimeException(e);

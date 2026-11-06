@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.stage;
 
+import java.util.List;
+import java.util.Map;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -53,5 +55,18 @@ public class ContainsTest {
     assertEquals(
         Set.of("output", "contains", "ignoreCase", "fields", "value"),
         stage.getNonDefaultLegalProperties());
+  }
+
+  @Test
+  public void testNullValues() throws Exception {
+    Stage stage = factory.get(Map.of("contains", List.of("Hi"), "output", "o", "value", "y", "fields", List.of("f")));
+
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"f\":null}");
+    stage.processDocument(doc);
+    assertFalse(doc.has("o"));
+
+    Document mixed = Document.createFromJson("{\"id\":\"1\",\"f\":[null,\"Hi There\"]}");
+    stage.processDocument(mixed);
+    assertEquals("y", mixed.getString("o"));
   }
 }

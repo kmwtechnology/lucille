@@ -13,10 +13,12 @@ import static org.junit.Assert.fail;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import org.junit.After;
@@ -242,8 +244,7 @@ public class ConcurrentDispatcherTest {
 
     // Once A finishes, the whole finished prefix completes, in dispatch order.
     processor.release("A");
-    awaitUntil(() -> processor.hasFinishedSend("A"));
-    onIndexerThread(dispatcher::completeFinishedBatches).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    completeFinishedBatchesUntil(3);
     assertEquals(List.of("A", "B", "C"), processor.completed());
   }
 
@@ -257,12 +258,11 @@ public class ConcurrentDispatcherTest {
     awaitUntil(() -> processor.hasFinishedSend("A") && processor.hasFinishedSend("C"));
 
     // A is finished and first, so it completes; B is still in flight, so C (finished) must wait behind it.
-    onIndexerThread(dispatcher::completeFinishedBatches).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    completeFinishedBatchesUntil(1);
     assertEquals(List.of("A"), processor.completed());
 
     processor.release("B");
-    awaitUntil(() -> processor.hasFinishedSend("B"));
-    onIndexerThread(dispatcher::completeFinishedBatches).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    completeFinishedBatchesUntil(3);
     assertEquals(List.of("A", "B", "C"), processor.completed());
   }
 
@@ -453,6 +453,24 @@ public class ConcurrentDispatcherTest {
   private static void assertStaysBlocked(Future<?> call, String what) throws InterruptedException {
     Thread.sleep(BLOCKED_SETTLE_MS);
     assertFalse(what + " should still be blocked", call.isDone());
+  }
+
+  // Calls completeFinishedBatches (on the indexer thread) until the given number of batches have completed. A single call
+  // after the processor reports a send finished is a race: the processor records that just before sendWithRetry returns,
+  // and the send's future is only done a moment after that, while completeFinishedBatches completes a batch only once
+  // its future is done and never blocks. So an early call can legitimately complete nothing yet.
+  private void completeFinishedBatchesUntil(int expectedCompleted) throws InterruptedException {
+    awaitUntil(() -> {
+      try {
+        onIndexerThread(dispatcher::completeFinishedBatches).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IllegalStateException(e);
+      } catch (ExecutionException | TimeoutException e) {
+        throw new IllegalStateException(e);
+      }
+      return processor.completed().size() == expectedCompleted;
+    });
   }
 
   private static void awaitUntil(BooleanSupplier condition) throws InterruptedException {

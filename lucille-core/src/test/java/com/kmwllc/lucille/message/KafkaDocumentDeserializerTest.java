@@ -3,10 +3,14 @@ package com.kmwllc.lucille.message;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.KafkaDocument;
+import java.nio.charset.StandardCharsets;
+import org.apache.kafka.common.errors.SerializationException;
 import org.junit.Test;
 
 public class KafkaDocumentDeserializerTest {
@@ -52,6 +56,18 @@ public class KafkaDocumentDeserializerTest {
     byte[] roundTripped = parsed.getBytes("file_content");
     assertEquals(LARGE_BYTES_LEN, roundTripped.length);
     assertArrayEquals(content, roundTripped);
+  }
+
+  @Test
+  public void testDeserializeNonObjectJson() {
+    // a record whose JSON is not an object fails with the deserializer's SerializationException, caused by a
+    // DocumentException that names the problem, instead of a ClassCastException
+    for (String json : new String[] {"[1, 2]", "\"text\"", "null", ""}) {
+      SerializationException e = assertThrows(json, SerializationException.class,
+          () -> new KafkaDocumentDeserializer().deserialize("topic", json.getBytes(StandardCharsets.UTF_8)));
+      assertTrue(json, e.getCause() instanceof DocumentException);
+      assertTrue(e.getCause().getMessage(), e.getCause().getMessage().contains("must be an object"));
+    }
   }
 
   @Test

@@ -86,6 +86,7 @@ public class PromptOllamaTest {
     try (MockedConstruction<OllamaAPI> mockAPIConstruction = mockConstruction(OllamaAPI.class, (mockAPI, context) -> {
       when(mockAPI.chat(any()))
           // Verifying that "daySent", which is NOT specified in fields, is not present in the request JSON
+          // With fresh builders per document, user message is always at index 1 (system at 0, user at 1)
           .then(invocation -> {
             OllamaChatRequest request = invocation.getArgument(0, OllamaChatRequest.class);
             String recentMessageContent = request.getMessages().get(1).getContent();
@@ -98,7 +99,7 @@ public class PromptOllamaTest {
           })
           .then(invocation -> {
             OllamaChatRequest request = invocation.getArgument(0, OllamaChatRequest.class);
-            String recentMessageContent = request.getMessages().get(2).getContent();
+            String recentMessageContent = request.getMessages().get(1).getContent();
 
             if (stringJsonHasFields(recentMessageContent, "daySent")) {
               fail("The message content had fields it should not have had.");

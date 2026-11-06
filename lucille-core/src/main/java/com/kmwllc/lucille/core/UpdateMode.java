@@ -15,20 +15,26 @@ public enum UpdateMode {
   public static final String CONFIG_PATH = "updateMode";
   public static final UpdateMode DEFAULT = OVERWRITE;
 
-  private String text;
+  private final String text;
 
   UpdateMode(String text) {
     this.text = text;
   }
 
+  /**
+   * Returns the UpdateMode named by the given String, matched case-insensitively.
+   *
+   * @throws IllegalArgumentException if the String names no UpdateMode. A misspelled mode used to fall back to OVERWRITE
+   * silently, which discarded data; it is now a configuration error.
+   */
   public static UpdateMode fromString(String modeStr) {
     for (UpdateMode mode : UpdateMode.values()) {
-      if (modeStr.equals(mode.text)) {
+      if (modeStr != null && modeStr.trim().equalsIgnoreCase(mode.text)) {
         return mode;
       }
     }
-
-    return DEFAULT;
+    throw new IllegalArgumentException(
+        "Unknown " + CONFIG_PATH + " \"" + modeStr + "\"; expected one of append, overwrite, skip");
   }
 
   public static UpdateMode fromConfig(Config config) {

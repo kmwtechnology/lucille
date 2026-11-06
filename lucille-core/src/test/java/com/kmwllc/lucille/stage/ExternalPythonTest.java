@@ -3,11 +3,19 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.stage.util.Py4JRuntime;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.After;
 import org.junit.Test;
-import static org.junit.Assert.*;
+import org.mockito.Mockito;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 public class ExternalPythonTest {
 
@@ -197,5 +205,46 @@ public class ExternalPythonTest {
     assertTrue(doc.has("field1"));
     assertEquals("field1Value", doc.getString("field1"));
     assertFalse(doc.has("field2"));
+  }
+
+  @Test
+  public void testPythonStartupTimeout() throws Exception {
+    // slow_startup.py sleeps for 5 seconds before reporting readiness, so a 1 second timeout should fire first
+    Config config = ConfigFactory.parseResources("ExternalPythonTest/slow_startup.conf");
+    String scriptPath = config.getString("scriptPath");
+
+    // Mock ExternalPython.start() so the runtime it starts is built with a 1000ms startup timeout via the test constructor
+    ExternalPython externalPython = Mockito.spy(new ExternalPython(config));
+    Mockito.doAnswer(invocation -> {
+      Py4JRuntime runtime = new Py4JRuntime("python3", scriptPath, null, null, 1000);
+      runtime.start();
+      return null;
+    }).when(externalPython).start();
+
+    // Starting the stage should throw StageException due to timeout
+    StageException ex = assertThrows(StageException.class, externalPython::start);
+
+    // The timeout message is wrapped by outer exceptions, so search the cause chain for it
+    String expectedPrefix = "Python process startup exceeded timeout of 1000 ms";
+    StageException timeoutEx = findInCauseChain(ex, expectedPrefix);
+    assertNotNull("Expected a timeout StageException starting with \"" + expectedPrefix + "\" in the cause chain of: "
+        + ex, timeoutEx);
+
+    // The timeout fired after the script started, not because the launch failed before it ran
+    String timeoutMessage = timeoutEx.getMessage();
+    assertTrue("Timeout message should include captured output from the script",
+        timeoutMessage.contains("Python process started, initializing..."));
+    assertFalse("Process should not have exited before startup was reported",
+        timeoutMessage.contains("Python process exited before reporting JavaGateway startup"));
+  }
+
+  private static StageException findInCauseChain(Throwable t, String messagePrefix) {
+    for (Throwable current = t; current != null; current = current.getCause()) {
+      if (current instanceof StageException && current.getMessage() != null
+          && current.getMessage().startsWith(messagePrefix)) {
+        return (StageException) current;
+      }
+    }
+    return null;
   }
 }

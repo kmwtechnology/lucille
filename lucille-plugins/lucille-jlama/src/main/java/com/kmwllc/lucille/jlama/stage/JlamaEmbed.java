@@ -5,6 +5,7 @@ import com.github.tjake.jlama.model.ModelSupport;
 import com.github.tjake.jlama.model.functions.Generator.PoolingType;
 import com.github.tjake.jlama.safetensors.DType;
 import com.github.tjake.jlama.safetensors.SafeTensorSupport;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -83,10 +84,10 @@ public class JlamaEmbed extends Stage {
     this.pathToStoreModel = config.getString("pathToStoreModel");
     this.embeddingModel = config.getString("model");
     this.source = config.getString("source");
-    this.dest = config.hasPath("dest") ? config.getString("dest") : "embeddings";
-    this.workingMemoryType = config.hasPath("workingMemoryType") ? config.getString("workingMemoryType") : "";
-    this.workingQuantizationType = config.hasPath("workingQuantizationType") ? config.getString("workingQuantizationType") : "";
-    this.deleteModelAfter = config.hasPath("deleteModelAfter") ? config.getBoolean("deleteModelAfter") : false;
+    this.dest = ConfigUtils.getStringOrDefault(config, "dest", "embeddings");
+    this.workingMemoryType = ConfigUtils.getStringOrDefault(config, "workingMemoryType", "");
+    this.workingQuantizationType = ConfigUtils.getStringOrDefault(config, "workingQuantizationType", "");
+    this.deleteModelAfter = ConfigUtils.getBooleanOrDefault(config, "deleteModelAfter", false);
   }
 
   @Override
@@ -143,7 +144,11 @@ public class JlamaEmbed extends Stage {
     }
   }
 
+  // An unset type uses the default; a set but unrecognized type is a configuration error (it used to fall back silently).
   private DType getDType(String type, DType defaultType) {
+    if (type == null || type.isBlank()) {
+      return defaultType;
+    }
     return switch (type.trim().toUpperCase()) {
       case "BOOL" -> DType.BOOL;
       case "U8" -> DType.U8;
@@ -160,7 +165,8 @@ public class JlamaEmbed extends Stage {
       case "U64" -> DType.U64;
       case "Q4" -> DType.Q4;
       case "Q5" -> DType.Q5;
-      default -> defaultType;
+      default -> throw new IllegalArgumentException("Unknown data type \"" + type
+          + "\"; expected one of BOOL, U8, I8, I16, U16, F16, BF16, I32, U32, F32, F64, I64, U64, Q4, Q5");
     };
   }
 

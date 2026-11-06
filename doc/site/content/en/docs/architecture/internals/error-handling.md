@@ -28,7 +28,7 @@ The guiding principle: *get as much data into the search engine as possible, but
 
 ### 1. Invalid Configuration
 
-Before any run starts, `Runner.run()` calls `runInValidationMode(config)` which validates all pipelines (every Stage's SPEC), all connectors, the indexer config, and other parent configs (publisher, worker, etc.). If any validation errors are found, the run is aborted immediately — no connectors are started, no documents are processed. A `RunResult` with `status=false` is returned. All errors are reported at once (not fail-fast on the first one).
+Before any run starts, `Runner.run()` calls `ConfigValidator.validate(config)`, which validates all pipelines (every Stage's SPEC), all connectors, the indexer config, and other parent configs (publisher, worker, etc.). If any validation errors are found, the run is aborted immediately — no connectors are started, no documents are processed. A `RunResult` with `status=false` is returned. All errors are reported at once (not fail-fast on the first one).
 
 **Severity:** Fatal to the run. Nothing executes.
 
@@ -68,7 +68,7 @@ The connector runs inside a `ConnectorThread`. If `execute()` throws, the except
 
 ### 6. Stage processDocument() Throws for a Given Document
 
-The Worker catches the exception, logs it via the DocLogger (`"Document FAILED during pipeline processing: " + doc.getId()`), sends a FAIL event to the Publisher via `messenger.sendEvent(doc, null, Event.Type.FAIL)`, commits offsets, and continues processing the next document. The failed document is counted in the Publisher's `numFailed` tally. The run does NOT stop.
+The Worker catches the exception, logs it via the DocLogger (`"Document FAILED during pipeline processing: " + doc.getId()`), sends a FAIL event to the Publisher whose message is the exception's message (see [Event Messages]({{< relref "docs/architecture/components/events#event-messages" >}})), commits offsets, and continues processing the next document. The failed document is counted in the Publisher's `numFailed` tally. The run does NOT stop.
 
 **Severity:** Per-document failure. The run continues. Other documents are unaffected.
 
@@ -122,7 +122,7 @@ There are two sub-cases:
 The Indexer catches the exception, logs it, and sends a FAIL event for every document in the batch. If retries are configured (`indexer.maxRetries > 0`) and the failure's status code is in `indexer.retryableStatusCodes` (default `[429, 503, -1]`), the batch is retried with exponential backoff before being declared failed. After all retries are exhausted (or if the status code is not retryable), all documents in the batch receive FAIL events. The Indexer continues processing subsequent batches. `batchComplete()` is still called once the batch has been handled, so Kafka offsets can be committed even though the batch failed; it is skipped only after an `Error` (such as an `OutOfMemoryError`), so offsets for documents that were never indexed are not committed.
 
 **10b. The bulk API succeeds but reports per-document failures:**
-`sendToIndex()` returns a set of failed document/reason pairs. The Indexer sends FAIL events for those specific documents and FINISH events for the rest. The Indexer continues normally.
+`sendToIndex()` returns a list of `IndexerFailure`s, each holding a document and its cause. The Indexer sends FAIL events for those specific documents and FINISH events for the rest. A failure that doesn't match a document awaiting a result (a copy, or an instance reported twice) fails the rest of the batch, because there is no telling which document was rejected. The Indexer continues normally.
 
 **Severity:** Per-batch or per-document failure. The run continues. Failed documents are counted in the Publisher's accounting.
 

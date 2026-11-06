@@ -2,23 +2,46 @@
 weight: 50
 title: Testing Pipelines
 date: 2025-06-09
-description: How to write integration tests for Lucille pipelines using RunType.TEST and the TestMessenger infrastructure.
+description: How to try out pipelines and write integration tests with Lucille's test mode (RunType.TEST and TestMessenger).
 ---
 
-Lucille provides a first-class test mode that lets you run a complete pipeline end-to-end against real source data, without needing a running search backend. All documents, events, and messages are captured in memory and available for assertion after the run.
+Lucille's test mode runs a complete pipeline end to end, against real source data, without sending anything to a search backend. Every document and event that passes between components is recorded in memory, so you can inspect it or assert on it after the run.
+
+## Test mode is for pipeline development, not just tests
+
+Despite its name, test mode is a supported part of `lucille-core`, not test-only code. You don't need an extra test dependency to use it, so it's available in any project that depends on Lucille. Use it to:
+
+- **Develop a pipeline:** run it on sample data and look at the documents it would index, before any search backend is involved.
+- **Check a change:** compare what a pipeline produces before and after you edit a stage or its config.
+- **Test a pipeline:** assert on its output in a unit or integration test.
+
+When the output looks right, run the same config for real. Neither the config nor your code needs to change; only the call does:
+
+```java
+// dry run: nothing is sent to the search backend; documents and events are recorded
+Map<String, TestMessenger> history = Runner.runInTestMode(config);
+history.get("my-connector").getDocsSentForIndexing().forEach(System.out::println);
+
+// real run: the same config, indexing for real
+RunResult result = Runner.run(config, Runner.RunType.LOCAL);
+```
+
+Keep in mind:
+
+- **Only indexing is skipped.** Connectors and stages still read from and call the systems they're configured for: files, databases, S3, HTTP APIs, embedding services. Point the config at sample or test sources if that matters.
+- **Everything is kept in memory** until the run returns, so use test mode on a sample of your data, not a full load.
 
 ## RunType.TEST
 
 When a run is started with `RunType.TEST`, Lucille:
 
-- Runs all components (Connector, Workers, Indexer) as normal.
-- **Bypasses the search backend** — no actual indexing occurs.
-- **Captures all messages** flowing between components in a `TestMessenger`.
-- Returns a `RunResult` containing the captured message history for assertions.
+- Runs all components (Connector, Workers, Indexer) as in a local run.
+- **Skips sending to the search backend.** The Indexer runs its full code path (batching, events, error handling) up to the point where it would send, so no actual indexing occurs.
+- **Records all messages** flowing between components in a `TestMessenger`, one per connector.
 
 ## Running in Test Mode
 
-Use `Runner.runInTestMode(config)` or construct a `Runner` with `RunType.TEST`:
+`Runner.runInTestMode(config)` returns the recordings, keyed by connector name. If you also need the run's status, call `Runner.run(config, Runner.RunType.TEST)` instead, which returns a `RunResult`; its `getHistory()` holds the same recordings.
 
 ```java
 import com.kmwllc.lucille.core.Runner;
@@ -29,9 +52,10 @@ import com.typesafe.config.ConfigFactory;
 @Test
 public void testMyPipeline() throws Exception {
     Config config = ConfigFactory.load("my-pipeline-test.conf");
-    RunResult result = Runner.runInTestMode(config);
+    RunResult result = Runner.run(config, Runner.RunType.TEST);
 
-    assertTrue("Run should succeed", result.isSuccess());
+    assertTrue("Run should succeed", result.getStatus());
+    TestMessenger history = result.getHistory().get("my-connector");
 }
 ```
 
@@ -40,13 +64,13 @@ public void testMyPipeline() throws Exception {
 After the run, you can inspect what documents were sent for processing and what reached the (bypassed) Indexer:
 
 ```java
-RunResult result = Runner.runInTestMode(config);
+TestMessenger history = Runner.runInTestMode(config).get("my-connector");
 
 // Documents the connector published (sent for processing by Workers)
-List<Document> published = result.getDocsSentForProcessing("my-connector");
+List<Document> published = history.getDocsSentForProcessing();
 
 // Documents that completed the pipeline (sent for indexing)
-List<Document> indexed = result.getDocsSentForIndexing("my-connector");
+List<Document> indexed = history.getDocsSentForIndexing();
 
 assertEquals(100, published.size());
 assertEquals(95, indexed.size());  // 5 were dropped
@@ -60,7 +84,7 @@ assertTrue(first.has("enriched_field"));
 ## Asserting on Events
 
 ```java
-List<Event> events = result.getEvents("my-connector");
+List<Event> events = history.getSentEvents();
 
 long failCount = events.stream()
     .filter(e -> e.getType() == Event.Type.FAIL)
@@ -155,24 +179,22 @@ Or build a config inline:
 Config config = ConfigFactory.parseString(
     "connectors: [{name: c1, class: \"...\", pipeline: p1, numDocs: 10}]\n" +
     "pipelines: [{name: p1, stages: []}]\n" +
-    "indexer { type: Nop }"
+    "indexer { class: \"com.kmwllc.lucille.indexer.NopIndexer\" }"
 );
-RunResult result = Runner.runInTestMode(config);
+Map<String, TestMessenger> history = Runner.runInTestMode(config);
 ```
 
 ## TestMessenger API
 
-The `TestMessenger` captures all inter-component messages. It is accessible via `RunResult`:
+`Runner.runInTestMode(config)` returns one `TestMessenger` per connector, keyed by connector name (`RunResult.getHistory()` returns the same map). These methods are its supported API:
 
 | Method | Returns | Description |
 |---|---|---|
-| `result.getDocsSentForProcessing(connectorName)` | `List<Document>` | Documents the Connector published (sent to Workers). |
-| `result.getDocsSentForIndexing(connectorName)` | `List<Document>` | Documents that completed the pipeline (sent to Indexer). |
-| `result.getEvents(connectorName)` | `List<Event>` | All lifecycle events (CREATE, FINISH, FAIL, DROP). |
-| `result.isSuccess()` | `boolean` | Whether the run completed without connector-level failure. |
-| `result.getNumSucceeded(connectorName)` | `int` | Count of successfully indexed documents. |
-| `result.getNumFailed(connectorName)` | `int` | Count of failed documents. |
-| `result.getNumDropped(connectorName)` | `int` | Count of dropped documents. |
+| `getDocsSentForProcessing()` | `List<Document>` | Documents the Connector published (sent to Workers). |
+| `getDocsSentForIndexing()` | `List<Document>` | Documents that completed the pipeline (sent to the Indexer). |
+| `getSentEvents()` | `List<Event>` | All lifecycle events (CREATE, FINISH, FAIL, DROP), in the order they were sent. |
+
+`TestMessenger` also implements Lucille's internal messenger interfaces; those methods are not part of its supported API and may change. For the run's overall outcome, use `RunResult.getStatus()` from `Runner.run(config, Runner.RunType.TEST)`.
 
 ## JaCoCo Coverage Reports
 
@@ -242,13 +264,13 @@ public void testCsvThroughPipeline() throws Exception {
         "pipelines: [{name: p1, stages: [" +
         "  {class: \"com.kmwllc.lucille.stage.TrimWhitespace\", fields: [\"title\"]}" +
         "]}]\n" +
-        "indexer { type: Nop }"
+        "indexer { class: \"com.kmwllc.lucille.indexer.NopIndexer\" }"
     );
 
-    RunResult result = Runner.runInTestMode(config);
+    RunResult result = Runner.run(config, Runner.RunType.TEST);
 
-    assertTrue(result.isSuccess());
-    List<Document> docs = result.getDocsSentForIndexing("csv-conn");
+    assertTrue(result.getStatus());
+    List<Document> docs = result.getHistory().get("csv-conn").getDocsSentForIndexing();
     assertEquals(50, docs.size());  // 50 rows in test.csv
 
     // All titles should be trimmed

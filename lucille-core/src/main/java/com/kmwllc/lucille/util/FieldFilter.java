@@ -51,8 +51,14 @@ public class FieldFilter {
 
   /**
    * Returns a filtered deep copy of the given document. Fields are included or excluded according to this FieldFilter's
-   * whitelist and blacklist. Reserved fields are handled via their dedicated methods {@link Document#ID_FIELD} is always
+   * whitelist and blacklist. Reserved fields are handled via their dedicated methods; {@link Document#ID_FIELD} is always
    * preserved as it is required for a valid Document.
+   *
+   * <p>The result is always a new document, even when the filter is not {@link #isActive() active}, so callers may
+   * add, change and remove its fields freely regardless of configuration. The one exception is byte[] values, which the
+   * copy shares with the original (see {@link Document#deepCopy()}), so their contents should not be modified in place.
+   * A caller that only reads the result and wants to avoid the copy when nothing would be filtered should check
+   * {@link #isActive()} first and use the original document when it is false.
    *
    * @param doc the document to filter
    * @return a filtered deep copy of the document

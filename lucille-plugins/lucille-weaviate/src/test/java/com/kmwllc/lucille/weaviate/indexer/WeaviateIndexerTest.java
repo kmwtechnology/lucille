@@ -1,12 +1,16 @@
 package com.kmwllc.lucille.weaviate.indexer;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
@@ -30,7 +34,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -150,7 +153,7 @@ public class WeaviateIndexerTest {
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
 
-    WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing");
+    WeaviateIndexer indexer = new WeaviateIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -165,6 +168,27 @@ public class WeaviateIndexerTest {
   }
 
   @Test
+  public void testBypass() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("WeaviateIndexerTest/config.conf");
+
+    // in bypass mode there is no client, so nothing must be sent, and every document must still finish
+    WeaviateIndexer indexer = new WeaviateIndexer(config.getConfig("indexer"), new IndexerContext(messenger, true, "testing", null));
+    assertTrue(indexer.validateConnection());
+
+    messenger.sendForIndexing(Document.create("doc1", "test_run"));
+    messenger.sendForIndexing(Document.create("doc2", "test_run"));
+    indexer.run(2);
+
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(2, events.size());
+    for (int i = 1; i <= events.size(); i++) {
+      assertEquals("doc" + i, events.get(i - 1).getDocumentId());
+      assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
+    }
+  }
+
+  @Test
   public void testWeaviateIndexerException() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("WeaviateIndexerTest/config.conf");
@@ -175,7 +199,7 @@ public class WeaviateIndexerTest {
     Document doc4 = Document.create("doc4", "test_run");
     Document doc5 = Document.create("doc5", "test_run");
 
-    WeaviateIndexer indexer = new CorruptedWeaviateIndexer(config, messenger, mockClient, "testing");
+    WeaviateIndexer indexer = new CorruptedWeaviateIndexer(config.getConfig("indexer"), messenger, mockClient, "testing");
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     messenger.sendForIndexing(doc3);
@@ -204,20 +228,82 @@ public class WeaviateIndexerTest {
     Document failedDoc1 = Document.create("failedDoc1", "test_run");
     Document failedDoc2 = Document.create("failedDoc2", "test_run");
 
-    WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing");
-    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3, failedDoc1, failedDoc2));
+    WeaviateIndexer indexer = new WeaviateIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3, failedDoc1, failedDoc2));
 
     assertEquals(2, failedDocs.size());
 
-    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(failedDoc1)));
-    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(failedDoc2)));
+    assertTrue(failedDocs.stream().anyMatch(p -> p.document().equals(failedDoc1)));
+    assertTrue(failedDocs.stream().anyMatch(p -> p.document().equals(failedDoc2)));
+  }
+
+  // Sets up a response for each given id, in order: rejected if the matching entry is true.
+  private void respondWith(List<String> ids, List<Boolean> rejected) {
+    ObjectGetResponse[] responses = new ObjectGetResponse[ids.size()];
+    for (int i = 0; i < ids.size(); i++) {
+      responses[i] = new ObjectGetResponse();
+      responses[i].setId(WeaviateIndexer.generateDocumentUUID(ids.get(i)));
+      responses[i].setResult(new ObjectsGetResponseAO2Result());
+      if (rejected.get(i)) {
+        responses[i].getResult().setErrors(new ErrorResponse("fake error"));
+      }
+    }
+    Result<ObjectGetResponse[]> mockResponse = Mockito.mock(Result.class);
+    when(mockObjectsBatcher.run()).thenReturn(mockResponse);
+    when(mockResponse.getResult()).thenReturn(responses);
+  }
+
+  private WeaviateIndexer indexerWithConfig(String extraConfig) {
+    Config config = ConfigFactory.parseString(extraConfig)
+        .withFallback(ConfigFactory.load("WeaviateIndexerTest/config.conf").getConfig("indexer"));
+    return new WeaviateIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
+  }
+
+  @Test
+  public void testRejectedDocumentsWithSameIdAreEachReported() throws Exception {
+    Document first = Document.create("doc1", "test_run");
+    Document second = Document.create("doc1", "test_run");
+    respondWith(List.of("doc1", "doc1"), List.of(true, true));
+
+    List<IndexerFailure> failures = indexerWithConfig("").sendToIndex(List.of(first, second));
+
+    assertEquals(2, failures.size());
+    assertSame(first, failures.get(0).document());
+    assertSame(second, failures.get(1).document());
+  }
+
+  @Test
+  public void testRejectedDocumentsWithSameOverrideAreEachReported() throws Exception {
+    Document first = Document.create("doc1", "test_run");
+    first.setField("other_id", "shared");
+    Document second = Document.create("doc2", "test_run");
+    second.setField("other_id", "shared");
+    respondWith(List.of("shared", "shared"), List.of(true, true));
+
+    List<IndexerFailure> failures = indexerWithConfig("idOverrideField: \"other_id\"").sendToIndex(List.of(first, second));
+
+    assertEquals(2, failures.size());
+    assertSame(first, failures.get(0).document());
+    assertSame(second, failures.get(1).document());
+  }
+
+  @Test
+  public void testRejectionIsAttributedToTheDocumentOfItsResponse() throws Exception {
+    Document first = Document.create("doc1", "test_run");
+    Document second = Document.create("doc1", "test_run");
+    respondWith(List.of("doc1", "doc1"), List.of(false, true));
+
+    List<IndexerFailure> failures = indexerWithConfig("").sendToIndex(List.of(first, second));
+
+    assertEquals(1, failures.size());
+    assertSame(second, failures.get(0).document());
   }
 
   @Test
   public void testValidateConnection() {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("WeaviateIndexerTest/config.conf");
-    WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing");
+    WeaviateIndexer indexer = new WeaviateIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     Assert.assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
     Assert.assertFalse(indexer.validateConnection());
     Assert.assertFalse(indexer.validateConnection());
@@ -227,7 +313,7 @@ public class WeaviateIndexerTest {
   public void testMultipleBatches() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("WeaviateIndexerTest/batching.conf");
-    WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing");
+    WeaviateIndexer indexer = new WeaviateIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
@@ -267,12 +353,12 @@ public class WeaviateIndexerTest {
 
     public CorruptedWeaviateIndexer(Config config, IndexerMessenger messenger,
         WeaviateClient client, String metricsPrefix) {
-      super(config, messenger, client, "testing");
+      super(config, new IndexerContext(messenger, false, "testing", null), client);
     }
 
     @Override
-    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
-      throw new Exception("Test that errors when sending to indexer are correctly handled");
+    public List<IndexerFailure> sendToIndex(List<Document> docs) throws IndexerException {
+      throw new IndexerException("Test that errors when sending to indexer are correctly handled");
     }
   }
 }

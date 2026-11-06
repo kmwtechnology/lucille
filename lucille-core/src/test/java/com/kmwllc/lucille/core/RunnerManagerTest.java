@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 
 
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -17,15 +18,19 @@ import java.io.FileReader;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.commons.lang3.time.StopWatch;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigUtil;
 
 
 public class RunnerManagerTest {
@@ -129,7 +134,7 @@ public class RunnerManagerTest {
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
     RunnerManager runnerManager = RunnerManager.getInstance();
     String configId = runnerManager.createConfig(config).getConfigId();
-    List<String> runIds = new ArrayList();
+    List<String> runIds = new ArrayList<>();
     List<CompletableFuture<Void>> futures = new ArrayList<>();
 
     for (int i = 0; i < 5; i++) {
@@ -253,7 +258,8 @@ public class RunnerManagerTest {
       Config noopConfig = ConfigFactory.load("RunnerManagerTest/noop.conf");
       String noopId = runnerManager.createConfig(noopConfig).getConfigId();
 
-      Config badConfig = ConfigFactory.load("RunnerManagerTest/invalid.conf");
+      // a config that is valid but whose run fails; an invalid config can no longer be created
+      Config badConfig = ConfigFactory.load("RunnerManagerTest/failing.conf");
       String badId = runnerManager.createConfig(badConfig).getConfigId();
 
       // these three are run serially, so we know the order in which
@@ -290,14 +296,58 @@ public class RunnerManagerTest {
   @Test
   public void testDeleteConfig() throws Exception {
     RunnerManager runnerManager = RunnerManager.getInstance();
-    runnerManager.createConfigWithKey(ConfigFactory.empty(), "test-config");
+    runnerManager.createConfigWithKey(ConfigFactory.load("RunnerManagerTest/noop.conf"), "test-config");
 
     assertTrue(runnerManager.deleteConfig("test-config"));
     assertFalse(runnerManager.deleteConfig("test-config"));
 
-    runnerManager.createConfigWithKey(ConfigFactory.empty(), "test-config-2");
+    runnerManager.createConfigWithKey(ConfigFactory.load("RunnerManagerTest/noop.conf"), "test-config-2");
     assertFalse(runnerManager.deleteConfig("test-config"));
     assertTrue(runnerManager.deleteConfig("test-config-2"));
+  }
+
+  @Test
+  public void testRunFailingBeforeStartRecordsThrowable() throws Exception {
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    File requiredFile = File.createTempFile("RunnerManagerTest", ".txt");
+
+    Config config = ConfigFactory.load("RunnerManagerTest/noop.conf").withValue("connectors", ConfigFactory.parseString(
+        "connectors: [{class: \"com.kmwllc.lucille.connector.RequiredFileConnector\", name: \"required-file\", "
+            + "pipeline: \"pipeline1\", requiredFile: " + ConfigUtil.quoteString(requiredFile.getAbsolutePath()) + "}]")
+        .getValue("connectors"));
+
+    // validation passes while the file exists; deleting it makes the connector's constructor throw during the run
+    String configId = runnerManager.createConfig(config).getConfigId();
+    assertTrue(requiredFile.delete());
+
+    String runId = Runner.generateRunId();
+    runnerManager.runWithConfig(runId, configId);
+    runnerManager.waitForRunCompletion(runId);
+
+    RunDetails details = runnerManager.getRunDetails(runId);
+    assertNull(details.getRunResult());
+    assertTrue(details.hasThrowable());
+    assertNotNull(details.getEndTime());
+
+    Throwable rootCause = ExceptionUtils.getRootCause(details.getThrowable());
+    assertTrue(rootCause instanceof ConnectorException);
+    assertTrue(rootCause.getMessage().contains(requiredFile.getAbsolutePath()));
+  }
+
+  @Test
+  public void testConfigSnapshotsUnaffectedByDelete() throws Exception {
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    String configId = runnerManager.createConfig(ConfigFactory.load("RunnerManagerTest/noop.conf")).getConfigId();
+
+    Set<String> keys = runnerManager.getConfigKeys();
+    Map<String, Config> configs = runnerManager.getConfigs();
+    assertTrue(runnerManager.deleteConfig(configId));
+
+    // the snapshots still have the deleted config, and its value is non-null
+    assertTrue(keys.contains(configId));
+    assertNotNull(configs.get(configId));
+    assertFalse(runnerManager.getConfigKeys().contains(configId));
+    assertFalse(runnerManager.getConfigs().containsKey(configId));
   }
 
   @Test
@@ -306,14 +356,14 @@ public class RunnerManagerTest {
       RunnerManager.limitHistoriesForTesting(3);
       RunnerManager runnerManager = RunnerManager.getInstance();
 
-      String id1 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
-      String id2 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
-      String id3 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
+      String id1 = runnerManager.createConfig(ConfigFactory.load("RunnerManagerTest/noop.conf")).getConfigId();
+      String id2 = runnerManager.createConfig(ConfigFactory.load("RunnerManagerTest/noop.conf")).getConfigId();
+      String id3 = runnerManager.createConfig(ConfigFactory.load("RunnerManagerTest/noop.conf")).getConfigId();
 
       assertEquals(3, runnerManager.getConfigKeys().size());
 
       // we should be prevented from making a config bringing us beyond the limit
-      assertThrows(RunnerManagerException.class, () -> runnerManager.createConfig(ConfigFactory.empty()).getConfigId());
+      assertThrows(RunnerManagerException.class, () -> runnerManager.createConfig(ConfigFactory.load("RunnerManagerTest/noop.conf")).getConfigId());
 
       assertEquals(3, runnerManager.getConfigKeys().size());
 
@@ -323,7 +373,7 @@ public class RunnerManagerTest {
 
       // we shoudl be able to delete a config and then add another.
       runnerManager.deleteConfig(id1);
-      String id4 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
+      String id4 = runnerManager.createConfig(ConfigFactory.load("RunnerManagerTest/noop.conf")).getConfigId();
 
       assertFalse(runnerManager.getConfigKeys().contains(id1));
       assertTrue(runnerManager.getConfigKeys().contains(id2));
@@ -413,4 +463,18 @@ public class RunnerManagerTest {
 
     assertEquals(16, run3Reader.getLinesRead());
   }
+
+  @Test
+  public void testCreateConfigRejectsAnInvalidConfig() throws Exception {
+    // RUN-06: validation happens once, when the config is created, and an invalid config is refused rather than stored
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    Config badConfig = ConfigFactory.load("RunnerManagerTest/invalid.conf");
+    RunnerManagerException e = assertThrows(RunnerManagerException.class, () -> runnerManager.createConfig(badConfig));
+    assertTrue(e.getMessage().contains("invalid"), e.getMessage());
+
+    Config undefinedPipeline = ConfigFactory.load("RunnerTest/pipelineNotFound.conf");
+    e = assertThrows(RunnerManagerException.class, () -> runnerManager.createConfig(undefinedPipeline));
+    assertTrue(e.getMessage().contains("pipeline5"), e.getMessage());
+  }
+
 }
