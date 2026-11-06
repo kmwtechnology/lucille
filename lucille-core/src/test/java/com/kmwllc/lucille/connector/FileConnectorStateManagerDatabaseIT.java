@@ -43,7 +43,7 @@ import org.junit.Test;
  * </ul>
  * Each test is skipped (via JUnit {@code Assume}) when the server is unreachable, so {@code mvn verify} stays green
  * without a database. Every test uses its own table, which is dropped afterwards.
- * CI runs this against PostgreSQL and MySQL; see {@code .github/workflows/state-db-smoketest.yml}.
+ * CI runs this against PostgreSQL and MySQL; see {@code .github/workflows/smoketests.yml}.
  */
 public class FileConnectorStateManagerDatabaseIT {
 

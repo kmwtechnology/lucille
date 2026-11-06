@@ -1,0 +1,209 @@
+name: Smoke Tests
+
+# Every smoke test that runs against a real service, in one workflow. Each one is its own job, so each gets a fresh runner
+# with its own services, and the jobs run in parallel.
+#
+#   azurite               AzureStorageClientIT against a live Azurite (Azure Blob emulator). Guards against a
+#                         reactor-netty / Netty version split reintroducing NoClassDefFoundError: MultiThreadIoEventLoopGroup.
+#   api-docker            The Lucille API Docker image, driven by the API example's compose stack.
+#   distributed-mode      Kafka and Solr in Docker Compose, with Lucille in distributed mode.
+#   state-db              FileConnectorStateManagerDatabaseIT against PostgreSQL and MySQL.
+#   opensearch            Bulk indexing, delete by id, and delete by query against OpenSearch.
+#   elasticsearch         The same three checks against Elasticsearch.
+#   kafka-multibroker     An external-mode run on a three-broker Kafka cluster, with one broker stopped mid-run.
+
+on:
+  schedule:
+    # runs at 00:00 UTC every day, 20:00 EST
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # allows manual triggering of the workflow via actions tab
+
+jobs:
+  azurite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      azurite:
+        image: mcr.microsoft.com/azure-storage/azurite
+        ports:
+          - 10000:10000
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      # Build the core jar (and its dependencies) that failsafe runs the IT against, then run only the Azure IT.
+      # AZURITE_CONNECTION_STRING points the test at the Azurite service container above; without it the IT would
+      # skip. -DfailIfNoTests=false keeps the job green if the IT is ever renamed/removed.
+      - name: Build core (skip unit tests)
+        run: mvn -B -pl lucille-core -am package -DskipTests --file pom.xml
+      - name: Run Azure Storage Client IT against Azurite
+        env:
+          AZURITE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
+        run: >
+          mvn -B -pl lucille-core
+          failsafe:integration-test failsafe:verify
+          -Dit.test=AzureStorageClientIT -DfailIfNoTests=false
+          --file pom.xml
+
+  api-docker:
+    runs-on: ubuntu-latest
+    # the stack's own waits are bounded, but this stops a hang elsewhere (e.g. in Docker) running for GitHub's 6 hour default
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+      # -Pshaded-plugin-jars builds the shaded lucille-api-plugin.jar that the lucille-api image runs
+      - name: Build with Maven
+        run: mvn -B package -DskipTests -Pshaded-plugin-jars --file pom.xml
+      - name: Run Lucille API Example
+        run: ./lucille-examples/lucille-api-example/scripts/run-nightly.sh
+
+  distributed-mode:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Build with Maven
+        run: mvn -B verify -DskipTests --file pom.xml
+      - name: Run Docker Compose for Lucille Distributed Mode
+        uses: adambirds/docker-compose-action@v1.5.0
+        with:
+          compose-file: "./lucille-examples/lucille-distributed-example/docker-compose.yml"
+          test-container: "verifier"
+          test-command: "mvn test -Dtest=VerifyIngestResult -DfailIfNoTests=true"
+
+  state-db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: lucille
+          POSTGRES_USER: lucille
+          POSTGRES_PASSWORD: lucille
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lucille -d lucille"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: lucille
+          MYSQL_USER: lucille
+          MYSQL_PASSWORD: lucille
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -ulucille -plucille"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      # Build the core jar that failsafe runs the IT against, skipping unit tests.
+      - name: Build core (skip unit tests)
+        run: mvn -B -pl lucille-core -am package -DskipTests --file pom.xml
+      - name: Run state DB IT against PostgreSQL
+        env:
+          STATE_DB_URL: "jdbc:postgresql://localhost:5432/lucille"
+          STATE_DB_USER: "lucille"
+          STATE_DB_PASSWORD: "lucille"
+        run: >
+          mvn -B -pl lucille-core
+          failsafe:integration-test failsafe:verify
+          -Dit.test=FileConnectorStateManagerDatabaseIT
+          --file pom.xml
+      - name: Run state DB IT against MySQL
+        env:
+          STATE_DB_URL: "jdbc:mysql://localhost:3306/lucille"
+          STATE_DB_USER: "lucille"
+          STATE_DB_PASSWORD: "lucille"
+        run: >
+          mvn -B -pl lucille-core
+          failsafe:integration-test failsafe:verify
+          -Dit.test=FileConnectorStateManagerDatabaseIT
+          --file pom.xml
+
+  opensearch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      # The script runs the example's jars and compiled verifiers from target/, so build them first.
+      - name: Build the example and its dependencies (skip unit tests)
+        run: mvn -B -pl lucille-examples/lucille-opensearch-smoketest-example -am package -DskipTests --file pom.xml
+      - name: Run the OpenSearch smoke test
+        run: ./lucille-examples/lucille-opensearch-smoketest-example/scripts/run-nightly.sh
+
+  elasticsearch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      # The script runs the example's jars and compiled verifiers from target/, so build them first.
+      - name: Build the example and its dependencies (skip unit tests)
+        run: mvn -B -pl lucille-examples/lucille-elasticsearch-smoketest-example -am package -DskipTests --file pom.xml
+      - name: Run the Elasticsearch smoke test
+        run: ./lucille-examples/lucille-elasticsearch-smoketest-example/scripts/run-nightly.sh
+
+  kafka-multibroker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      # The script runs the example's jars and compiled verifier from target/, so build them first.
+      - name: Build the example and its dependencies (skip unit tests)
+        run: mvn -B -pl lucille-examples/lucille-kafka-multibroker-smoketest-example -am package -DskipTests --file pom.xml
+      - name: Run the multi-broker Kafka smoke test
+        run: ./lucille-examples/lucille-kafka-multibroker-smoketest-example/scripts/run-nightly.sh
