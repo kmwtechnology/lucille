@@ -4,6 +4,9 @@ name: Multi-Broker Kafka Smoke Test
 # then a run in which one broker is stopped mid-run. Scheduled with the other nightly smoke tests, and runnable by hand.
 
 on:
+  # TEMPORARY, for validating this branch before the workflow is on main. Remove before merging.
+  push:
+    branches: [ "LC-1005-smoketests" ]
   schedule:
     # runs at 00:00 UTC every day, 20:00 EST
     - cron: '0 0 * * *'
