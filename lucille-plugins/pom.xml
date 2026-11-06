@@ -19,6 +19,7 @@
   <modules>
     <module>lucille-api</module>
     <module>lucille-pinecone</module>
+    <module>lucille-relevan</module>
     <module>lucille-weaviate</module>
     <module>lucille-elasticsearch</module>
     <module>lucille-opensearch</module>
