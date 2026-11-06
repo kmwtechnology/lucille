@@ -78,9 +78,8 @@ public class SolrConnector extends AbstractConnector {
       .optionalParent("solrParams", new TypeReference<Map<String, Object>>(){})
       .optionalList("preActions", new TypeReference<List<String>>(){})
       .optionalList("postActions", new TypeReference<List<String>>(){})
-      .optionalBoolean("useXml")
-      .optionalString("idField")
-      .optionalBoolean("lowercaseFields").build();
+      .optionalBoolean("useXml", "lowercaseFields")
+      .optionalString("idField").build();
 
   public SolrConnector(Config config) {
     this(config, SolrUtils.getSolrClient(config));
