@@ -1,0 +1,39 @@
+# Builds and tests the admin UI independently of the Java build (no JDK/Maven).
+# Runs on merges to main and nightly, not on every PR. Can also be triggered manually.
+name: Admin UI CI
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # allows manual triggering of the workflow via actions tab
+  
+defaults:
+  run:
+    working-directory: lucille-plugins/lucille-api/lucille-admin-ui
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Must match node.version in the UI pom and .nvmrc.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.10.0'
+          cache: npm
+          cache-dependency-path: lucille-plugins/lucille-api/lucille-admin-ui/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit dependencies (non-blocking)
+        run: npm run audit:report
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test

@@ -3,7 +3,7 @@
 ## Running the API
 
 1. Navigate into the `lucille-api` module
-2. Run `mvn clean install -Pshaded-plugin-jars` to generate the runnable `target/lucille-api-plugin.jar` (the shaded jar is only built with the `shaded-plugin-jars` profile)
+2. Run `mvn clean install -Pshaded-plugin-jars` to generate the runnable `target/lucille-api-plugin.jar` (the shaded jar is only built with the `shaded-plugin-jars` profile). This jar never contains the admin UI.
 
 The API can be run locally or in a Docker container:
 
@@ -12,9 +12,15 @@ The API can be run locally or in a Docker container:
 1. Replace the placeholders with your config file names or export them as environment variables. See [Configuration](#configuration) for more information
 2. `java -jar target/lucille-api-plugin.jar server ${DROPWIZARD_CONF}`
 
+### Admin UI
+
+To work on the admin UI locally, run the API as above, then start the UI dev server (`npm ci` and `npm run dev` in `lucille-admin-ui`). See [`lucille-admin-ui/README.md`](lucille-admin-ui/README.md). No UI build step is needed.
+
+In a deployment the UI is a separate jar, `lucille-admin-ui.jar`, and the API serves it at `/admin` when that jar is on its classpath. The Docker image includes it.
+
 ### Dockerized Run
 
-1. Create the docker image: `docker build -t lucille-api .`
+1. Build the API jar (above) and the UI jar (`mvn -B -f lucille-admin-ui/pom.xml package -DskipTests`), then create the docker image: `docker build -t lucille-api .` The image includes the admin UI.
 2. Replace the placeholders with your config file names or export them as environment variables. See [Configuration](#configuration) for more information
 3. Run the image: `docker run --env DROPWIZARD_CONF=${DROPWIZARD_CONF} -p 8080:8080 lucille-api`
 
