@@ -436,6 +436,8 @@ The `FileConnector` can persist state to a JDBC-compatible database to track whi
 | `pathLength` | Integer | No | Maximum length of the file path column, used only when Lucille creates the table. A longer path fails the run. Default: `768`. |
 | `runsBeforeExpiration` | Integer | No | Number of consecutive runs a file must be missing before it is considered expired. Must be at least 1, checked at startup. Default: `1`. |
 
+The state table's path column is case-sensitive on every supported database: `/Readme.txt` and `/README.txt` are two files. On MySQL, Lucille creates that column with a binary collation (`utf8mb4_0900_bin`), which requires MySQL 8.0 or later. Tables created by an earlier version of Lucille are not changed.
+
 ```hocon
 state {
   enabled: true

@@ -192,6 +192,34 @@ public class FileConnectorStateManagerDatabaseIT {
     }
   }
 
+  // Paths are case-sensitive, so two paths that differ only by case are two files. MySQL's default collation ignores case,
+  // so the name column must be binary-collated there, or the second file would update the first file's row.
+  @Test
+  public void testPathsDifferingOnlyByCaseAreDistinct() throws Exception {
+    String upper = "s3://bucket/Readme.txt";
+    String lower = "s3://bucket/README.txt";
+    String connectorName = "case_paths";
+    tablesToDrop.add(tableFor(connectorName));
+
+    FileConnectorStateManager first = newManager(connectorName, null);
+    first.init();
+    first.markFileEncountered(upper);
+    first.markFileEncountered(lower);
+    first.successfullyPublishedFile(upper);
+    first.successfullyPublishedFile(lower);
+    first.incrementRunsNotEncountered();
+    first.shutdown();
+    assertEquals(Set.of(upper, lower), namesInTable(connectorName));
+
+    // The second run encounters only the lower-case file, so the upper-case file must expire.
+    FileConnectorStateManager second = newManager(connectorName, null);
+    second.init();
+    second.markFileEncountered(lower);
+    second.incrementRunsNotEncountered();
+    assertEquals(List.of(upper), second.listExpiredFiles());
+    second.shutdown();
+  }
+
   // "_" is a wildcard in a metadata search pattern. Connector "axb" creates STATE_AXB, and connector "a_b" creates STATE_A_B.
   // Looking up STATE_A_B must not match STATE_AXB, or the second connector would skip its CREATE TABLE and fail.
   @Test

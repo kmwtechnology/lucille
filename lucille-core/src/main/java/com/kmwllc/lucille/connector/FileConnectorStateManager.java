@@ -235,6 +235,17 @@ public class FileConnectorStateManager implements FileStateTracker {
     }
   }
 
+  // The type of the name column, which is the primary key and holds file paths. Paths are case-sensitive, so on MySQL the
+  // column gets a binary collation. The default collation ignores case and accents, so "/Readme.txt" and "/README.txt"
+  // would be one row. utf8mb4_0900_bin is a NO PAD collation, so trailing spaces stay significant. It exists from MySQL 8.0.
+  private String nameColumnType(DatabaseMetaData metadata) throws SQLException {
+    String type = "VARCHAR(" + pathLength + ")";
+    if ("MySQL".equalsIgnoreCase(metadata.getDatabaseProductName())) {
+      return type + " CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin";
+    }
+    return type;
+  }
+
   // Applies the database's rule for unquoted identifiers, so lookups in the metadata match what CREATE TABLE stored.
   // H2 folds to upper case, PostgreSQL to lower case, and MySQL keeps the case it was given.
   private static String foldIdentifier(String identifier, DatabaseMetaData metadata) throws SQLException {
@@ -281,8 +292,8 @@ public class FileConnectorStateManager implements FileStateTracker {
       // Identifiers are unquoted so that one statement works on H2, PostgreSQL and MySQL. last_published is epoch
       // microseconds, because TIMESTAMP WITH TIME ZONE is not valid on MySQL.
       try (Statement statement = jdbcConnection.createStatement()) {
-        statement.executeUpdate("CREATE TABLE " + tableName + " (name VARCHAR(" + pathLength
-            + ") PRIMARY KEY, last_published BIGINT, encountered BOOLEAN, runs_not_encountered INTEGER)");
+        statement.executeUpdate("CREATE TABLE " + tableName + " (name " + nameColumnType(metadata) + " PRIMARY KEY, "
+            + "last_published BIGINT, encountered BOOLEAN, runs_not_encountered INTEGER)");
       }
     }
 
