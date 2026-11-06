@@ -13,6 +13,9 @@ name: Smoke Tests
 #   kafka-multibroker     An external-mode run on a three-broker Kafka cluster, with one broker stopped mid-run.
 
 on:
+  # TEMPORARY: runs on pushes to this branch so the smoke tests can be checked before merging. Remove before merging.
+  push:
+    branches: [ "LC-1005-smoketests" ]
   schedule:
     # runs at 00:00 UTC every day, 20:00 EST
     - cron: '0 0 * * *'
