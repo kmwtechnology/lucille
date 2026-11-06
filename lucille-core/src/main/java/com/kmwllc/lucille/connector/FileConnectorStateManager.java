@@ -10,6 +10,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -113,9 +114,10 @@ public class FileConnectorStateManager implements FileStateTracker {
     this.jdbcUser = ConfigUtils.getOrDefault(config, "jdbcUser", "");
     this.jdbcPassword = ConfigUtils.getOrDefault(config, "jdbcPassword", "");
 
-    // An explicit state.tableName is used as given (upper-cased); only a table name generated from the connector is mapped.
+    // An explicit state.tableName is used as given (upper-cased) and must already be a valid identifier. Only a table name
+    // generated from the connector name is mapped, which is what makes connector names with other characters work.
     this.tableName = config.hasPath("tableName")
-        ? config.getString("tableName").toUpperCase(Locale.ROOT)
+        ? validateExplicitTableName(config.getString("tableName"))
         : toSqlTableName(connectorName);
     this.performDeletions = ConfigUtils.getOrDefault(config, "performDeletions", true);
     this.runsBeforeExpiration = ConfigUtils.getOrDefault(config, "runsBeforeExpiration", 1);
@@ -152,7 +154,7 @@ public class FileConnectorStateManager implements FileStateTracker {
   static String toSqlTableName(String name) {
     String upper = name.toUpperCase(Locale.ROOT);
     int maxBodyLength = MAX_TABLE_NAME_LENGTH - TABLE_NAME_PREFIX.length();
-    if (upper.matches("[A-Z][A-Z0-9_]*") && upper.length() <= maxBodyLength) {
+    if (isValidIdentifier(upper, maxBodyLength)) {
       return TABLE_NAME_PREFIX + upper;
     }
 
@@ -167,6 +169,59 @@ public class FileConnectorStateManager implements FileStateTracker {
           + MAX_TABLE_NAME_LENGTH + ": " + mapped);
     }
     return mapped;
+  }
+
+  // The shape a table name must have to be used unquoted on H2, PostgreSQL and MySQL: a letter, then letters, digits or
+  // underscores, within the given length. Used for generated names and for explicit names alike.
+  private static boolean isValidIdentifier(String upper, int maxLength) {
+    return upper.matches("[A-Z][A-Z0-9_]*") && upper.length() <= maxLength;
+  }
+
+  // An explicit state.tableName is not rewritten, so it has to be valid as written. Rejecting it here gives the user a
+  // clear message at startup, rather than a "Table not found" error from the database.
+  static String validateExplicitTableName(String name) {
+    String upper = name.toUpperCase(Locale.ROOT);
+    if (!isValidIdentifier(upper, MAX_TABLE_NAME_LENGTH)) {
+      throw new IllegalArgumentException("state.tableName \"" + name + "\" is not a valid table name. Use letters, digits and "
+          + "underscores, starting with a letter, at most " + MAX_TABLE_NAME_LENGTH + " characters. Hyphens and other characters "
+          + "are only accepted in connector names, which are converted to generated table names; remove state.tableName to use "
+          + "that.");
+    }
+    return upper;
+  }
+
+  // Escapes the wildcards in a name before it is used as a DatabaseMetaData search pattern. Otherwise "_" matches any
+  // character, so the name "A_B" would also match a table called "AXB".
+  private static String escapeSearchPattern(String name, DatabaseMetaData metadata) throws SQLException {
+    String escape = metadata.getSearchStringEscape();
+    if (escape == null || escape.isEmpty()) {
+      return name;
+    }
+    StringBuilder escaped = new StringBuilder(name.length());
+    for (char c : name.toCharArray()) {
+      if (c == '_' || c == '%' || escape.indexOf(c) >= 0) {
+        escaped.append(escape);
+      }
+      escaped.append(c);
+    }
+    return escaped.toString();
+  }
+
+  // Fails if the state table already exists in an older format. Such a table would otherwise fail every read and write
+  // silently, because the failures are only logged as warnings.
+  private void checkTimestampSchema(DatabaseMetaData metadata, String foldedTableName) throws SQLException {
+    String tablePattern = escapeSearchPattern(foldedTableName, metadata);
+    String columnPattern = escapeSearchPattern(foldIdentifier("last_published", metadata), metadata);
+    try (ResultSet rs = metadata.getColumns(null, null, tablePattern, columnPattern)) {
+      if (!rs.next()) {
+        throw new IllegalStateException("State table " + tableName + " has no last_published column.");
+      }
+      int dataType = rs.getInt("DATA_TYPE");
+      if (dataType != Types.BIGINT) {
+        throw new IllegalStateException("State table " + tableName + " was created by an older version of Lucille (last_published"
+            + " has SQL type " + dataType + ", expected BIGINT). Drop the table, or set state.tableName to a new name.");
+      }
+    }
   }
 
   // Hex of the first bytes of the SHA-256 of the upper-cased name, so the suffix is stable and matches the case-insensitive naming used before.
@@ -214,15 +269,20 @@ public class FileConnectorStateManager implements FileStateTracker {
     DatabaseMetaData metadata = jdbcConnection.getMetaData();
     String foldedName = foldIdentifier(tableName, metadata);
 
-    // checking if we have a table under the given name.
-    try (ResultSet rs = metadata.getTables(null, null, foldedName, null)) {
-      if (!rs.next()) {
-        // Identifiers are unquoted so that one statement works on H2, PostgreSQL and MySQL. last_published is epoch
-        // microseconds, because TIMESTAMP WITH TIME ZONE is not valid on MySQL.
-        try (Statement statement = jdbcConnection.createStatement()) {
-          statement.executeUpdate("CREATE TABLE " + tableName + " (name VARCHAR(" + pathLength
-              + ") PRIMARY KEY, last_published BIGINT, encountered BOOLEAN, runs_not_encountered INTEGER)");
-        }
+    // checking if we have a table under the given name. The name is escaped, so "_" in it can't match another table.
+    boolean exists;
+    try (ResultSet rs = metadata.getTables(null, null, escapeSearchPattern(foldedName, metadata), null)) {
+      exists = rs.next();
+    }
+
+    if (exists) {
+      checkTimestampSchema(metadata, foldedName);
+    } else {
+      // Identifiers are unquoted so that one statement works on H2, PostgreSQL and MySQL. last_published is epoch
+      // microseconds, because TIMESTAMP WITH TIME ZONE is not valid on MySQL.
+      try (Statement statement = jdbcConnection.createStatement()) {
+        statement.executeUpdate("CREATE TABLE " + tableName + " (name VARCHAR(" + pathLength
+            + ") PRIMARY KEY, last_published BIGINT, encountered BOOLEAN, runs_not_encountered INTEGER)");
       }
     }
 

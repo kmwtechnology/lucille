@@ -853,6 +853,30 @@ public class FileConnectorStateManagerTest {
   }
 
   @Test
+  public void testExplicitTableNameMustBeValid() {
+    Config config = ConfigFactory.parseMap(Map.of("connectionString", "jdbc:h2:mem:invalidname", "tableName", "my-state"));
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnectorStateManager(config, null));
+    assertTrue(e.getMessage(), e.getMessage().contains("\"my-state\""));
+  }
+
+  // A table in the old TIMESTAMP WITH TIME ZONE format must fail at init, not fail every read and write silently later.
+  @Test
+  public void testOldSchemaTableFailsAtInit() throws Exception {
+    String url = "jdbc:h2:mem:oldschema;DB_CLOSE_DELAY=-1";
+    try (Connection connection = DriverManager.getConnection(url, "", "");
+        Statement statement = connection.createStatement()) {
+      statement.executeUpdate("CREATE TABLE OLDSTATE (name VARCHAR(200) PRIMARY KEY, last_published TIMESTAMP WITH TIME ZONE, "
+          + "encountered BOOLEAN, runs_not_encountered INTEGER)");
+
+      Config config = ConfigFactory.parseMap(Map.of("connectionString", url, "tableName", "oldstate"));
+      FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+      IllegalStateException e = assertThrows(IllegalStateException.class, manager::init);
+      assertTrue(e.getMessage(), e.getMessage().contains("older version of Lucille"));
+      manager.shutdown();
+    }
+  }
+
+  @Test
   public void testToSqlTableNameKeepsValidNames() {
     assertEquals("STATE_FILE", FileConnectorStateManager.toSqlTableName("FILE"));
     assertEquals("STATE_FILE", FileConnectorStateManager.toSqlTableName("file"));

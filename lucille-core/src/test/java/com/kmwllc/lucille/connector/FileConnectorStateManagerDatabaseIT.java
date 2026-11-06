@@ -4,12 +4,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
-import java.net.URI;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -112,7 +112,7 @@ public class FileConnectorStateManagerDatabaseIT {
     second.init();
     second.markFileEncountered(KEEP);
     second.incrementRunsNotEncountered();
-    assertEquals(List.of(URI.create(GONE)), second.listExpiredFiles());
+    assertEquals(List.of(GONE), second.listExpiredFiles());
     second.shutdown();
 
     assertEquals(Set.of(KEEP), namesInTable(connectorName));
@@ -159,7 +159,7 @@ public class FileConnectorStateManagerDatabaseIT {
     second.init();
     second.markAllEntriesEncountered("s3://bucket/archive.zip!/");
     second.incrementRunsNotEncountered();
-    assertEquals(List.of(URI.create(otherEntry)), second.listExpiredFiles());
+    assertEquals(List.of(otherEntry), second.listExpiredFiles());
     second.shutdown();
   }
 
@@ -192,10 +192,35 @@ public class FileConnectorStateManagerDatabaseIT {
     }
   }
 
-  // Builds a manager pointed at the configured database, skipping the test if it is not configured or unreachable.
+  // "_" is a wildcard in a metadata search pattern. Connector "axb" creates STATE_AXB, and connector "a_b" creates STATE_A_B.
+  // Looking up STATE_A_B must not match STATE_AXB, or the second connector would skip its CREATE TABLE and fail.
+  @Test
+  public void testUnderscoreInNameDoesNotMatchAnotherTable() throws Exception {
+    tablesToDrop.add(tableFor("axb"));
+    tablesToDrop.add(tableFor("a_b"));
+
+    FileConnectorStateManager first = newManager("axb", null);
+    first.init();
+    first.markFileEncountered(KEEP);
+    first.successfullyPublishedFile(KEEP);
+    first.shutdown();
+
+    FileConnectorStateManager second = newManager("a_b", null);
+    second.init();
+    second.markFileEncountered(GONE);
+    second.successfullyPublishedFile(GONE);
+    assertNotNull(second.getLastPublished(GONE));
+    assertEquals(Set.of(GONE), namesInTable("a_b"));
+    second.shutdown();
+  }
+
+  // Builds a manager pointed at the configured database. Skips the test only when STATE_DB_URL is unset. When it is set
+  // but the database can't be reached, the test fails, so a misconfigured CI job can't pass without running anything.
   private FileConnectorStateManager newManager(String connectorName, Config overrides) {
     assumeTrue("STATE_DB_URL is not set", URL != null);
-    assumeTrue("Database not reachable at " + URL, isReachable());
+    if (!isReachable()) {
+      fail("STATE_DB_URL is set, but the database is not reachable at " + URL);
+    }
 
     Config base = ConfigFactory.parseMap(Map.of(
         "driver", driver(),
