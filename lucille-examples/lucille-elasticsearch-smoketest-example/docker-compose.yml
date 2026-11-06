@@ -1,0 +1,19 @@
+name: lucille-elasticsearch-smoketest
+
+services:
+  # Single-node Elasticsearch with security off, so the runs and verifiers can use plain HTTP.
+  # Lucille itself runs on the host (see scripts/run-nightly.sh), so only Elasticsearch is containerized.
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "${ELASTICSEARCH_HOST_PORT:-9202}:9200"
+    # the index is created only once the cluster is green, so the runs don't race a starting node
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS 'http://localhost:9200/_cluster/health?wait_for_status=green&timeout=5s' >/dev/null"]
+      interval: 3s
+      timeout: 10s
+      retries: 60
