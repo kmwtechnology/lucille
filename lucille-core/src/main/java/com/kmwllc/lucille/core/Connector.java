@@ -99,8 +99,7 @@ public interface Connector extends AutoCloseable {
     for (Config c : connectorConfigs) {
       Config named = withDefaultName(c, position);
       String name = named.getString("name");
-      // case-insensitive: names that differ only by case (e.g. "file" and "File") would map to the same state table
-      if (connectors.stream().anyMatch(x -> name.equalsIgnoreCase(x.getName()))) {
+      if (connectors.stream().anyMatch(x -> name.equals(x.getName()))) {
         throw new ConnectorException("Two connectors cannot share the same name: " + name);
       }
       connectors.add(newInstance(named));

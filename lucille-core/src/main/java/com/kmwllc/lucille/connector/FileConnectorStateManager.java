@@ -135,34 +135,26 @@ public class FileConnectorStateManager implements FileStateTracker {
   // never a reserved word, so a connector name such as "order" still gives a valid unquoted identifier.
   static final String TABLE_NAME_PREFIX = "STATE_";
   private static final int HASH_SUFFIX_BYTES = 4;
-  // Characters kept from a name that had to be rewritten: whatever the total budget leaves after the prefix, the "_"
-  // before the hash, and the hash itself.
+  // Characters kept from the connector name: whatever the total budget leaves after the prefix, the "_" before the hash,
+  // and the hash itself.
   private static final int MAX_TABLE_NAME_BASE_LENGTH = MAX_TABLE_NAME_LENGTH - TABLE_NAME_PREFIX.length() - 1 - 2 * HASH_SUFFIX_BYTES;
 
   /**
    * Converts a connector name into a valid, unquoted SQL table name. Every generated name starts with
-   * {@link #TABLE_NAME_PREFIX}, so the table for connector "file" is STATE_FILE.
-   * <ul>
-   *   <li>A name that is already a valid identifier (letters, digits and underscores, starting with a letter) is only
-   *   upper-cased and prefixed, provided the result is at most {@link #MAX_TABLE_NAME_LENGTH} characters.</li>
-   *   <li>Any other name has each invalid character replaced with an underscore, is truncated, and gets an 8-character hash
-   *   of the upper-cased name appended. The hash keeps names such as "my-conn" and "my_conn" from colliding.</li>
-   * </ul>
-   * @param name The connector name.
+   * {@link #TABLE_NAME_PREFIX}, and ends with an 8-character hash of the exact connector name. The hash makes the table
+   * depend on every character of the name, so connectors whose names differ only by case, such as "file" and "File", get
+   * different tables. The part before the hash is the name upper-cased, with each character outside letters, digits and
+   * underscores replaced by an underscore, and truncated to {@link #MAX_TABLE_NAME_BASE_LENGTH} characters.
+   * <p>For example, "file" maps to STATE_FILE_ followed by its hash.
+   * @param name The connector name, compared exactly.
    * @return A table name safe to use unquoted on H2, PostgreSQL and MySQL.
    */
   static String toSqlTableName(String name) {
-    String upper = name.toUpperCase(Locale.ROOT);
-    int maxBodyLength = MAX_TABLE_NAME_LENGTH - TABLE_NAME_PREFIX.length();
-    if (isValidIdentifier(upper, maxBodyLength)) {
-      return TABLE_NAME_PREFIX + upper;
-    }
-
-    String base = upper.replaceAll("[^A-Z0-9_]", "_");
+    String base = name.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9_]", "_");
     if (base.length() > MAX_TABLE_NAME_BASE_LENGTH) {
       base = base.substring(0, MAX_TABLE_NAME_BASE_LENGTH);
     }
-    String mapped = TABLE_NAME_PREFIX + base + "_" + hashSuffix(upper);
+    String mapped = TABLE_NAME_PREFIX + base + "_" + hashSuffix(name);
     // guaranteed by the base cap above; checked anyway so a future constant change cannot exceed the identifier limit
     if (mapped.length() > MAX_TABLE_NAME_LENGTH) {
       throw new IllegalStateException("Generated state table name is " + mapped.length() + " characters, over the limit of "
@@ -224,7 +216,8 @@ public class FileConnectorStateManager implements FileStateTracker {
     }
   }
 
-  // Hex of the first bytes of the SHA-256 of the upper-cased name, so the suffix is stable and matches the case-insensitive naming used before.
+  // Hex of the first bytes of the SHA-256 of the exact connector name. Names that differ in any character, including case,
+  // get different suffixes, so their tables differ.
   private static String hashSuffix(String name) {
     try {
       byte[] digest = MessageDigest.getInstance("SHA-256").digest(name.getBytes(StandardCharsets.UTF_8));

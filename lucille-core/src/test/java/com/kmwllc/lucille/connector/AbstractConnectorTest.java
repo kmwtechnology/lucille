@@ -80,16 +80,17 @@ public class AbstractConnectorTest {
     Connector.fromConfig(ConfigFactory.load("AbstractConnectorTest/duplicateNames.conf"));
   }
 
-  // names that differ only by case are duplicates, since they would map to the same state table
+  // Connector names are compared exactly, as they are for stages and pipelines, so names that differ only by case are
+  // different connectors. The validator and the run check for duplicates the same way.
   @Test
-  public void testDuplicateNamesIgnoreCase() {
+  public void testConnectorNamesDifferingOnlyByCaseAreDistinct() throws Exception {
     Config config = ConfigFactory.parseString("connectors: ["
         + "{class: \"com.kmwllc.lucille.connector.FileConnector\", paths: [\"src/test/resources/RunnerTest/singleDoc.csv\"], "
         + "fileHandlers: {csv: {}}, name: \"file\", pipeline: \"pipeline1\"},"
         + "{class: \"com.kmwllc.lucille.connector.FileConnector\", paths: [\"src/test/resources/RunnerTest/singleDoc.csv\"], "
         + "fileHandlers: {csv: {}}, name: \"File\", pipeline: \"pipeline2\"}]");
-    ConnectorException e = assertThrows(ConnectorException.class, () -> Connector.fromConfig(config));
-    assertTrue(e.getMessage().contains("share the same name"));
+    List<Connector> connectors = Connector.fromConfig(config);
+    assertEquals(2, connectors.size());
   }
 
   // a FileConnector without its required paths, and without a name

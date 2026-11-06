@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -49,8 +50,8 @@ import org.mockito.MockedStatic;
 
 public class FileConnectorStateManagerTest {
 
-  // Table the state manager creates for the connector named "FILE-CONNECTOR-1".
-  private static final String CONNECTOR_TABLE = FileConnectorStateManager.toSqlTableName("FILE-CONNECTOR-1");
+  // Table the state manager creates for the connector named "file-connector-1" (the name in FileConnectorTest/state.conf).
+  private static final String CONNECTOR_TABLE = FileConnectorStateManager.toSqlTableName("file-connector-1");
   private static final String helloFile = "/hello.txt";
   private static final String infoFile = "/files/info.txt";
   private static final String secretsFile = "/files/subdir/secrets.txt";
@@ -876,29 +877,36 @@ public class FileConnectorStateManagerTest {
     }
   }
 
+  // Every generated name ends in a hash of the exact connector name, so the table for a name is always distinct.
+  private static final String HASH_PATTERN = "[0-9A-F]{8}";
+
   @Test
-  public void testToSqlTableNameKeepsValidNames() {
-    assertEquals("STATE_FILE", FileConnectorStateManager.toSqlTableName("FILE"));
-    assertEquals("STATE_FILE", FileConnectorStateManager.toSqlTableName("file"));
-    assertEquals("STATE_CONNECTOR_2", FileConnectorStateManager.toSqlTableName("connector_2"));
+  public void testToSqlTableNameIsPrefixedAndHashed() {
+    assertTrue(FileConnectorStateManager.toSqlTableName("file").matches("STATE_FILE_" + HASH_PATTERN));
+    assertTrue(FileConnectorStateManager.toSqlTableName("connector_2").matches("STATE_CONNECTOR_2_" + HASH_PATTERN));
+  }
+
+  // Connector names that differ only by case are different connectors, so they must get different tables.
+  @Test
+  public void testToSqlTableNameDistinguishesCase() {
+    assertNotEquals(FileConnectorStateManager.toSqlTableName("file"), FileConnectorStateManager.toSqlTableName("File"));
+    assertNotEquals(FileConnectorStateManager.toSqlTableName("FILE"), FileConnectorStateManager.toSqlTableName("file"));
   }
 
   @Test
   public void testToSqlTableNamePrefixesReservedWords() {
     // A reserved word is valid unquoted once prefixed.
-    assertEquals("STATE_ORDER", FileConnectorStateManager.toSqlTableName("order"));
-    assertEquals("STATE_SELECT", FileConnectorStateManager.toSqlTableName("select"));
+    assertTrue(FileConnectorStateManager.toSqlTableName("order").matches("STATE_ORDER_" + HASH_PATTERN));
+    assertTrue(FileConnectorStateManager.toSqlTableName("select").matches("STATE_SELECT_" + HASH_PATTERN));
   }
 
   @Test
   public void testToSqlTableNameRewritesInvalidNames() {
     String mapped = FileConnectorStateManager.toSqlTableName("file-connector-1");
-    assertTrue(mapped, mapped.matches("STATE_FILE_CONNECTOR_1_[0-9A-F]{8}"));
-    // Case does not change the table, matching the earlier upper-casing behaviour.
-    assertEquals(mapped, FileConnectorStateManager.toSqlTableName("FILE-CONNECTOR-1"));
+    assertTrue(mapped, mapped.matches("STATE_FILE_CONNECTOR_1_" + HASH_PATTERN));
     // Names that differ only in their invalid characters must not collide.
-    assertFalse(FileConnectorStateManager.toSqlTableName("my-conn").equals(FileConnectorStateManager.toSqlTableName("my_conn")));
-    assertFalse(FileConnectorStateManager.toSqlTableName("my conn").equals(FileConnectorStateManager.toSqlTableName("my.conn")));
+    assertNotEquals(FileConnectorStateManager.toSqlTableName("my-conn"), FileConnectorStateManager.toSqlTableName("my_conn"));
+    assertNotEquals(FileConnectorStateManager.toSqlTableName("my conn"), FileConnectorStateManager.toSqlTableName("my.conn"));
   }
 
   @Test
