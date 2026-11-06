@@ -90,14 +90,14 @@ class DeserializationErrorHandler {
         + ", key=" + bufferToString(e.keyBuffer());
 
     int consecutive = consecutiveFailures.merge(tp, 1, Integer::sum);
-    boolean escalate = skip && maxConsecutive != UNLIMITED && consecutive >= maxConsecutive;
 
     if (!skip) {
       log.error("Could not deserialize record ({}); stopping the consumer. The record will be redelivered on "
           + "restart; set kafka.onDeserializationError: skip to skip it and continue.", location, e);
       throw new UndeserializableRecordException("Could not deserialize record (" + location + ")", e);
     }
-    if (escalate) {
+
+    if (maxConsecutive != UNLIMITED && consecutive >= maxConsecutive) {
       log.error("Could not deserialize record ({}). This is the {}th consecutive undeserializable record on "
           + "this partition, which reaches kafka.maxConsecutiveDeserializationErrors; stopping the consumer.",
           location, consecutive, e);

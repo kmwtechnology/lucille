@@ -27,6 +27,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -58,14 +59,6 @@ public class WeaviateIndexer extends Indexer {
   public WeaviateIndexer(Config config, IndexerContext context, WeaviateClient client) {
     super(config, context);
 
-    if (getDeletionMarkerField() != null || getDeleteByFieldField() != null) {
-      // a document marked for deletion would otherwise be indexed
-      throw new IllegalArgumentException("Deletion is not supported by WeaviateIndexer. Remove indexer.deletionMarkerField and indexer.deleteByFieldField.");
-    }
-    if (getIndexOverrideField() != null) {
-      throw new IllegalArgumentException("indexer.indexOverrideField is not supported by WeaviateIndexer.");
-    }
-
     this.weaviateClassName = ConfigUtils.getStringOrDefault(config, "weaviate.className", "Document");
     this.idDestinationName = ConfigUtils.getStringOrDefault(config, "weaviate.idDestinationName", "id_original");
 
@@ -79,6 +72,12 @@ public class WeaviateIndexer extends Indexer {
 
   @Override
   protected String getIndexerConfigKey() { return "weaviate"; }
+
+  // a document marked for deletion would otherwise be indexed
+  @Override
+  protected Set<String> getUnsupportedSettings() {
+    return Set.of("indexOverrideField", "deletionMarkerField", "deleteByFieldField");
+  }
 
   private static WeaviateClient getClient(Config config, boolean bypass) {
     if (bypass) {

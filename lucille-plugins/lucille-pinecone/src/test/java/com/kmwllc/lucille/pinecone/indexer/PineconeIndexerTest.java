@@ -693,17 +693,33 @@ public class PineconeIndexerTest {
   }
 
   @Test
-  public void testDeleteByFieldIsRejected() throws Exception {
+  public void testUnsupportedSettingsOpenNoConnection() throws Exception {
     Pinecone mockClient = Mockito.mock(Pinecone.class);
     try (MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class, (mock, context) -> {
       when(mock.build()).thenReturn(mockClient);
     })) {
-      Config config = ConfigFactory.parseString("deleteByFieldField: \"field\", deleteByFieldValue: \"value\"")
-          .withFallback(ConfigFactory.load("PineconeIndexerTest/deletion-config.conf").getConfig("indexer"));
+      for (String setting : List.of("deleteByFieldField: \"field\", deleteByFieldValue: \"value\"", "indexOverrideField: \"index\"")) {
+        Config config = ConfigFactory.parseString(setting)
+            .withFallback(ConfigFactory.load("PineconeIndexerTest/deletion-config.conf").getConfig("indexer"));
+        Exception exception = assertThrows(IllegalArgumentException.class,
+            () -> new PineconeIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null)));
+        assertTrue(exception.getMessage(), exception.getMessage().contains(setting.substring(0, setting.indexOf(':'))));
+      }
+      Mockito.verify(mockClient, Mockito.never()).getIndexConnection(anyString());
+    }
+  }
 
-      IndexerException exception = assertThrows(IndexerException.class,
+  @Test
+  public void testInvalidConfigOpensNoConnection() throws Exception {
+    Pinecone mockClient = Mockito.mock(Pinecone.class);
+    try (MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class, (mock, context) -> {
+      when(mock.build()).thenReturn(mockClient);
+    })) {
+      Config config = ConfigFactory.parseString("pinecone.mode: \"invalid\"")
+          .withFallback(ConfigFactory.load("PineconeIndexerTest/deletion-config.conf").getConfig("indexer"));
+      assertThrows(IndexerException.class,
           () -> new PineconeIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null)));
-      assertTrue(exception.getMessage(), exception.getMessage().contains("deleteByFieldField"));
+      Mockito.verify(mockClient, Mockito.never()).getIndexConnection(anyString());
     }
   }
 }

@@ -20,8 +20,7 @@ import org.slf4j.LoggerFactory;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.Set;
 
 /**
  * Stores documents in a CSV file by writing selected fields as rows.
@@ -68,24 +67,6 @@ public class CSVIndexer extends Indexer {
 
   private CSVIndexer(Config config, IndexerContext context, ICSVWriter writer, String path) {
     super(config, context);
-    // columns decides what is written, so a field filter or id override would have nothing to apply to, and a file can't
-    // delete: a document marked for deletion would be written as a row
-    List<String> unsupported = Stream.of("indexOverrideField", "idOverrideField", "whitelist", "blacklist",
-            "deletionMarkerField", "deleteByFieldField")
-        .filter(config::hasPath).collect(Collectors.toList());
-    if (!unsupported.isEmpty()) {
-      // a writer passed in has already opened its output; close it so the file isn't left locked
-      if (writer != null) {
-        try {
-          writer.close();
-        } catch (IOException e) {
-          log.warn("Error occurred when closing csv indexer writer.", e);
-        }
-      }
-      throw new IllegalArgumentException(
-          "Cannot create CSVIndexer. These indexer settings are not supported by CSVIndexer: " + unsupported + ".");
-    }
-    
     this.writer = writer;
     this.path = path;
     this.append = ConfigUtils.getBooleanOrDefault(config, "csv.append", false);
@@ -103,6 +84,13 @@ public class CSVIndexer extends Indexer {
 
   @Override
   protected String getIndexerConfigKey() { return "csv"; }
+
+  // columns decides what is written, so a field filter or id override would have nothing to apply to, and a file can't
+  // delete: a document marked for deletion would be written as a row
+  @Override
+  protected Set<String> getUnsupportedSettings() {
+    return Set.of("indexOverrideField", "idOverrideField", "whitelist", "blacklist", "deletionMarkerField", "deleteByFieldField");
+  }
 
   /**
    * Returns the writer, opening the output file first if this indexer was created from config and has not opened it

@@ -25,7 +25,7 @@ indexer {
 }
 ```
 
-**Limitations:** CSVIndexer does not support `indexer.indexOverrideField`, `indexer.idOverrideField`, `indexer.whitelist`, `indexer.blacklist`, `indexer.deletionMarkerField`, `indexer.deleteByFieldField`, or `indexer.maxConcurrentBatches` greater than 1. If any of these is set, the indexer fails at startup. Use `columns` to choose what is written. If the output file cannot be opened, an error is logged and the run stops at startup with "Indexer could not connect."
+**Limitations:** CSVIndexer does not support `indexer.indexOverrideField`, `indexer.idOverrideField`, `indexer.whitelist`, `indexer.blacklist`, `indexer.deletionMarkerField`, `indexer.deleteByFieldField`, or `indexer.maxConcurrentBatches` greater than 1. If any of these is set, the indexer fails at startup, though an empty `whitelist` or `blacklist` counts as not set. Use `columns` to choose what is written. If the output file cannot be opened, an error is logged and the run stops at startup with "Indexer could not connect."
 
 ---
 

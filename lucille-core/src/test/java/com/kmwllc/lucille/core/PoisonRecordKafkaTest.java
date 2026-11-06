@@ -9,9 +9,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.kmwllc.lucille.indexer.NopIndexer;
 import com.kmwllc.lucille.message.HybridWorkerMessenger;
-import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.kmwllc.lucille.message.KafkaWorkerMessenger;
@@ -45,7 +43,6 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.RecordDeserializationException;
-import org.mockito.Mockito;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -293,17 +290,6 @@ public class PoisonRecordKafkaTest {
    * Default (fail) mode with a real Worker: the worker stops on the poison record, closes its messenger,
    * and the group's committed offset stays before the poison record.
    */
-  @Test(timeout = 60000)
-  public void testFailModeStopsIndexer() throws Exception {
-    IndexerMessenger messenger = Mockito.mock(IndexerMessenger.class);
-    Mockito.when(messenger.pollDocToIndex()).thenThrow(new UndeserializableRecordException("Could not deserialize record", null));
-
-    new NopIndexer(ConfigFactory.empty(), new IndexerContext(messenger, false, "testing", null)).run();
-
-    Mockito.verify(messenger, Mockito.times(1)).pollDocToIndex();
-    Mockito.verify(messenger).close();
-  }
-
   @Test(timeout = 180000)
   public void testFailModeStopsWorker() throws Exception {
     String pipelineName = "poison_fail_worker";

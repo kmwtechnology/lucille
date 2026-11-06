@@ -38,6 +38,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 | `closeConnection()` | Yes | Close the client or connection to the destination. |
 | `supportsConcurrentSends()` | No | Return `true` only if `sendToIndex()` and your destination client are safe to call from several threads at once. The default is `false`, which makes the base class reject `indexer.maxConcurrentBatches` above 1. See [Concurrent Sends](#concurrent-sends). |
 | `getIndexerConfigKey()` | Yes | Return the key of your implementation-specific block inside the `indexer` block (e.g., `"solr"`, `"opensearch"`). Return `null` if your indexer takes no additional config. |
+| `getUnsupportedSettings()` | No | Return the names of generic `indexer` settings your indexer can't apply, so that setting one fails at startup instead of being ignored. The default is none. |
 
 **What you declare:**
 

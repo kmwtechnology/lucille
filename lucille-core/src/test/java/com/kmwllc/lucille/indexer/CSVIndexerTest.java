@@ -129,6 +129,12 @@ public class CSVIndexerTest {
   }
 
   @Test
+  public void testEmptyFilterListsAreAllowed() {
+    Config config = ConfigFactory.parseString("whitelist: [], blacklist: [], csv { columns: [\"id\"], path: \"target/unused.csv\" }");
+    new CSVIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null));
+  }
+
+  @Test
   public void testValidateConnection() {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/includeHeader.conf");

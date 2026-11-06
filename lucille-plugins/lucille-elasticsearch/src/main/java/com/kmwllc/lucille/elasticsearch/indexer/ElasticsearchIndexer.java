@@ -39,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 
 // TODO: upgrade the ElasticsearchIndexer to use the Elasticsearch Java API Client
@@ -107,11 +108,6 @@ public class ElasticsearchIndexer extends Indexer {
   public ElasticsearchIndexer(Config config, IndexerContext context, ElasticsearchClient client) {
     super(config, context);
 
-    if (getIndexOverrideField() != null) {
-      throw new IllegalArgumentException(
-          "Cannot create ElasticsearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by ElasticsearchIndexer.");
-    }
-
     this.client = client;
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
     this.update = ConfigUtils.getBooleanOrDefault(config, "elasticsearch.update", false);
@@ -169,6 +165,11 @@ public class ElasticsearchIndexer extends Indexer {
 
   @Override
   protected String getIndexerConfigKey() { return "elasticsearch"; }
+
+  @Override
+  protected Set<String> getUnsupportedSettings() {
+    return Set.of("indexOverrideField");
+  }
 
   // The Elasticsearch Java client is thread-safe over a shared connection pool, so concurrent sends through the single
   // shared client are safe. The pool is sized for the configured concurrency by AsyncConnectionPoolUtils.

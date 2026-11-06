@@ -70,9 +70,7 @@ public class PineconeIndexer extends Indexer {
   public PineconeIndexer(Config config, IndexerContext context) throws IndexerException {
     super(config, context);
 
-    this.client = isBypass() ? null : new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
     this.indexName = config.getString("pinecone.index");
-    this.index = isBypass() ? null : client.getIndexConnection(indexName);
     this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;
     this.metadataFields = config.hasPath("pinecone.metadataFields")
         ? new HashSet<>(config.getStringList("pinecone.metadataFields")) : new HashSet<>();
@@ -84,12 +82,6 @@ public class PineconeIndexer extends Indexer {
     if (namespaces != null && namespaces.isEmpty()) {
       throw new IndexerException("Namespaces mapping must be non-empty if provided.");
     }
-    if (getIndexOverrideField() != null) {
-      throw new IndexerException("indexer.indexOverrideField is not supported by PineconeIndexer; use pinecone.namespaces instead.");
-    }
-    if (getDeleteByFieldField() != null) {
-      throw new IndexerException("indexer.deleteByFieldField is not supported by PineconeIndexer, which deletes by id only.");
-    }
     // max upload batch is 2MB or 1000 records, whichever is reached first, so stopping run if batch size is set to more than 1000
     // larger dimensions will mean smaller batch size limit, letting API throw the error if encountered.
     if (this.getBatchCapacity() > MAX_PINECONE_BATCH_SIZE) {
@@ -97,10 +89,20 @@ public class PineconeIndexer extends Indexer {
           "Maximum batch size for Pinecone is 1000, and lower if vectors have higher dimensions. Set indexer batchSize config to"
               + "1000 or lower.");
     }
+
+    // opened last, so that an invalid config doesn't leave a connection open
+    this.client = isBypass() ? null : new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
+    this.index = isBypass() ? null : client.getIndexConnection(indexName);
   }
 
   @Override
   protected String getIndexerConfigKey() { return "pinecone"; }
+
+  // deletes by id only, and pinecone.namespaces takes the place of an index override
+  @Override
+  protected Set<String> getUnsupportedSettings() {
+    return Set.of("indexOverrideField", "deleteByFieldField");
+  }
 
   @Override
   protected boolean checkConnection() {
