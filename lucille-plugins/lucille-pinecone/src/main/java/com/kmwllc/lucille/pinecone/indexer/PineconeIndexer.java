@@ -87,6 +87,9 @@ public class PineconeIndexer extends Indexer {
     if (getIndexOverrideField() != null) {
       throw new IndexerException("indexer.indexOverrideField is not supported by PineconeIndexer; use pinecone.namespaces instead.");
     }
+    if (getDeleteByFieldField() != null) {
+      throw new IndexerException("indexer.deleteByFieldField is not supported by PineconeIndexer, which deletes by id only.");
+    }
     // max upload batch is 2MB or 1000 records, whichever is reached first, so stopping run if batch size is set to more than 1000
     // larger dimensions will mean smaller batch size limit, letting API throw the error if encountered.
     if (this.getBatchCapacity() > MAX_PINECONE_BATCH_SIZE) {
@@ -115,7 +118,7 @@ public class PineconeIndexer extends Indexer {
     Map<String, Document> deleteMap = new LinkedHashMap<>();
     Map<String, Document> uploadMap = new LinkedHashMap<>();
     for (Document doc : documents) {
-      String id = destinationId(doc);
+      String id = getDestinationId(doc);
       if (isDeletion(doc)) {
         // always add to deleteMap;
         // in the case where doc is in uploadMap and is now marked for deletion, then remove that document in uploadMap
@@ -169,7 +172,7 @@ public class PineconeIndexer extends Indexer {
           // buildUpsertVector would throw an error if embeddings is null,
           // should add dropDocument stage with stage conditions in pipeline before indexing
           .map(doc -> buildUpsertVectorWithUnsignedIndices(
-              destinationId(doc),
+              getDestinationId(doc),
               doc.getFloatList(embeddingField),
               null,
               null,
@@ -188,7 +191,7 @@ public class PineconeIndexer extends Indexer {
 
   private void deleteDocuments(List<Document> documents, String namespace) throws IndexerException {
     List<String> idsToDelete = documents.stream()
-          .map(this::destinationId)
+          .map(this::getDestinationId)
           .collect(Collectors.toList());
 
     try {
@@ -214,19 +217,13 @@ public class PineconeIndexer extends Indexer {
   private void updateDocuments(List<Document> documents, String embeddingField, String namespace) throws IndexerException {
     try {
       documents.forEach(doc -> {
-        log.debug("Updating docId: {} namespace: {} embedding: {}", destinationId(doc), namespace, doc.getFloatList(embeddingField));
+        log.debug("Updating docId: {} namespace: {} embedding: {}", getDestinationId(doc), namespace, doc.getFloatList(embeddingField));
         // does not validate the existence of IDs within the index, if no records are affected, a 200 OK status is returned
-        index.update(destinationId(doc), doc.getFloatList(embeddingField), namespace);
+        index.update(getDestinationId(doc), doc.getFloatList(embeddingField), namespace);
       });
     } catch (Exception e) {
       throw new IndexerException("Error while updating vectors.", e);
     }
-  }
-
-  // the id written to Pinecone: indexer.idOverrideField's value when configured and present, else the document id
-  private String destinationId(Document doc) {
-    String override = getDocIdOverride(doc);
-    return override != null ? override : doc.getId();
   }
 
   private boolean isDeletion(Document doc) {

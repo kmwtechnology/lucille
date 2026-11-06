@@ -161,6 +161,21 @@ public class IndexerBatchAccountingTest {
   }
 
   @Test
+  public void testGetDestinationId() {
+    FailingIndexer noOverride = new FailingIndexer(BATCH_OF_TWO, new TestMessenger(), "noOverride", batch -> List.of());
+    FailingIndexer override = new FailingIndexer(
+        ConfigFactory.parseString("idOverrideField: \"other_id\""), new TestMessenger(), "override", batch -> List.of());
+
+    Document withField = Document.create("doc1");
+    withField.setField("other_id", "overridden");
+    Document withoutField = Document.create("doc2");
+
+    assertEquals("doc1", noOverride.getDestinationId(withField));
+    assertEquals("overridden", override.getDestinationId(withField));
+    assertEquals("doc2", override.getDestinationId(withoutField));
+  }
+
+  @Test
   public void testIsRetryable() {
     FailingIndexer noRetries = new FailingIndexer(BATCH_OF_TWO, new TestMessenger(), "noRetries", batch -> List.of());
     assertFalse(noRetries.isRetryable(new IndexerRetryableException(503, "unavailable", null)));

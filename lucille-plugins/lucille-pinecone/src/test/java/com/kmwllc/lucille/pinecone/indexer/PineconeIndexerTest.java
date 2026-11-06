@@ -691,4 +691,19 @@ public class PineconeIndexerTest {
       assertThrows(IndexerException.class,() -> new PineconeIndexer(configGood.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null)));
     }
   }
+
+  @Test
+  public void testDeleteByFieldIsRejected() throws Exception {
+    Pinecone mockClient = Mockito.mock(Pinecone.class);
+    try (MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class, (mock, context) -> {
+      when(mock.build()).thenReturn(mockClient);
+    })) {
+      Config config = ConfigFactory.parseString("deleteByFieldField: \"field\", deleteByFieldValue: \"value\"")
+          .withFallback(ConfigFactory.load("PineconeIndexerTest/deletion-config.conf").getConfig("indexer"));
+
+      IndexerException exception = assertThrows(IndexerException.class,
+          () -> new PineconeIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null)));
+      assertTrue(exception.getMessage(), exception.getMessage().contains("deleteByFieldField"));
+    }
+  }
 }

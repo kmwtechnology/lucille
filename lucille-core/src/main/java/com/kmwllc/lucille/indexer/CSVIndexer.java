@@ -20,6 +20,8 @@ import org.slf4j.LoggerFactory;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Stores documents in a CSV file by writing selected fields as rows.
@@ -66,7 +68,12 @@ public class CSVIndexer extends Indexer {
 
   private CSVIndexer(Config config, IndexerContext context, ICSVWriter writer, String path) {
     super(config, context);
-    if (getIndexOverrideField() != null) {
+    // columns decides what is written, so a field filter or id override would have nothing to apply to, and a file can't
+    // delete: a document marked for deletion would be written as a row
+    List<String> unsupported = Stream.of("indexOverrideField", "idOverrideField", "whitelist", "blacklist",
+            "deletionMarkerField", "deleteByFieldField")
+        .filter(config::hasPath).collect(Collectors.toList());
+    if (!unsupported.isEmpty()) {
       // a writer passed in has already opened its output; close it so the file isn't left locked
       if (writer != null) {
         try {
@@ -76,10 +83,7 @@ public class CSVIndexer extends Indexer {
         }
       }
       throw new IllegalArgumentException(
-          "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
-    }
-    if (getDeletionMarkerField() != null || getDeleteByFieldField() != null) {
-      log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be written as regular rows.");
+          "Cannot create CSVIndexer. These indexer settings are not supported by CSVIndexer: " + unsupported + ".");
     }
     
     this.writer = writer;

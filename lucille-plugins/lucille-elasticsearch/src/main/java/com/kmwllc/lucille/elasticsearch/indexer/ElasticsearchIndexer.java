@@ -40,7 +40,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 // TODO: upgrade the ElasticsearchIndexer to use the Elasticsearch Java API Client
 
@@ -219,7 +218,7 @@ public class ElasticsearchIndexer extends Indexer {
     // queries are sent before the next upload or delete by id.
     for (Document doc : documents) {
       // use doc id override if specified, otherwise delete will try to delete wrong id
-      String id = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
+      String id = getDestinationId(doc);
 
       if (!isMarkedForDeletion(doc)) {
         // send any buffered delete-by-queries now, so they apply before this write rather than after it
@@ -420,7 +419,7 @@ public class ElasticsearchIndexer extends Indexer {
       Map<String, Object> indexerDoc = getRawIndexerDoc(doc);
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
-      String docId = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
+      String docId = getDestinationId(doc);
       documentsUploaded.put(docId, doc);
 
       // written to the request, not the Document, so a retried batch doesn't find it already set

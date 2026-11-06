@@ -776,6 +776,15 @@ public abstract class Indexer implements Runnable {
   }
 
   /**
+   * Returns the id the given document is written under at the destination: its {@link #getDocIdOverride} value when it
+   * has one, otherwise its document id.
+   */
+  protected final String getDestinationId(Document doc) {
+    String override = getDocIdOverride(doc);
+    return override != null ? override : doc.getId();
+  }
+
+  /**
    * Returns the value of the configured idOverrideField on the given document, to be used as the
    * document's ID when sending to the index in place of {@link Document#ID_FIELD}.
    * Returns null if idOverrideField is not configured, or the document does not have that field.
@@ -855,8 +864,7 @@ public abstract class Indexer implements Runnable {
   private Set<String> destinationIds(List<Document> batchedDocs) {
     Set<String> ids = new HashSet<>();
     for (Document doc : batchedDocs) {
-      String idOverride = getDocIdOverride(doc);
-      ids.add(idOverride != null ? idOverride : doc.getId());
+      ids.add(getDestinationId(doc));
       addChildIds(doc, ids);
     }
     return ids;

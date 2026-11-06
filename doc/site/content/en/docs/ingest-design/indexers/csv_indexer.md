@@ -25,7 +25,7 @@ indexer {
 }
 ```
 
-**Limitations:** CSVIndexer does not support `indexer.indexOverrideField` or `indexer.maxConcurrentBatches` greater than 1. If either is set, the indexer fails at startup. If the output file cannot be opened, an error is logged and the run stops at startup with "Indexer could not connect."
+**Limitations:** CSVIndexer does not support `indexer.indexOverrideField`, `indexer.idOverrideField`, `indexer.whitelist`, `indexer.blacklist`, `indexer.deletionMarkerField`, `indexer.deleteByFieldField`, or `indexer.maxConcurrentBatches` greater than 1. If any of these is set, the indexer fails at startup. Use `columns` to choose what is written. If the output file cannot be opened, an error is logged and the run stops at startup with "Indexer could not connect."
 
 ---
 
@@ -62,7 +62,7 @@ indexer {
 
 ## Deletion Not Supported
 
-CSVIndexer logs a warning if `deletionMarkerField` or `deleteByFieldField` are configured but does not perform any deletion. Documents marked for deletion are written as regular rows.
+CSVIndexer fails at startup if `deletionMarkerField` or `deleteByFieldField` is set. To leave documents out of the file, drop them earlier in the pipeline.
 
 ---
 
