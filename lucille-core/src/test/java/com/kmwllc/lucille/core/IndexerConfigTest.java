@@ -14,7 +14,6 @@ import com.typesafe.config.ConfigFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Test;
 
 /**
@@ -38,30 +37,30 @@ public class IndexerConfigTest {
 
   @Test
   public void testReadsExplicitValue() {
-    Config config = ConfigFactory.parseMap(Map.of("indexer.maxConcurrentBatches", 4));
+    Config config = ConfigFactory.parseMap(Map.of("maxConcurrentBatches", 4));
     assertEquals(4, Indexer.getMaxConcurrentBatches(config));
   }
 
   @Test
   public void testReadsStringValue() {
     // An environment substitution always yields a string, which getInt accepts as a number.
-    Config config = ConfigFactory.parseMap(Map.of("indexer.maxConcurrentBatches", "3"));
+    Config config = ConfigFactory.parseMap(Map.of("maxConcurrentBatches", "3"));
     assertEquals(3, Indexer.getMaxConcurrentBatches(config));
   }
 
   @Test
   public void testRejectsLessThanOne() {
-    assertThrows(IllegalArgumentException.class, () -> new ConcurrentCapableIndexer(configWith(0)));
-    assertThrows(IllegalArgumentException.class, () -> new ConcurrentCapableIndexer(configWith(-2)));
+    assertThrows(IllegalArgumentException.class, () -> new ConcurrentCapableIndexer(configWith(0).getConfig("indexer")));
+    assertThrows(IllegalArgumentException.class, () -> new ConcurrentCapableIndexer(configWith(-2).getConfig("indexer")));
   }
 
   @Test
   public void testRejectsGreaterThanOneWhenUnsupported() {
     Config config = ConfigFactory.parseMap(Map.of(
         "indexer.type", "csv", "indexer.maxConcurrentBatches", 2,
-        "csv.columns", List.of("id"), "csv.path", "target/IndexerConfigTest.csv"));
+        "indexer.csv.columns", List.of("id"), "indexer.csv.path", "target/IndexerConfigTest.csv"));
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-        () -> new CSVIndexer(config, new TestMessenger(), false, "testing"));
+        () -> new CSVIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null)));
     assertTrue(e.getMessage(), e.getMessage().contains("does not support concurrent sends"));
   }
 
@@ -69,14 +68,14 @@ public class IndexerConfigTest {
   public void testAcceptsOneWhenUnsupported() {
     Config config = ConfigFactory.parseMap(Map.of(
         "indexer.type", "csv", "indexer.maxConcurrentBatches", 1,
-        "csv.columns", List.of("id"), "csv.path", "target/IndexerConfigTest.csv"));
-    new CSVIndexer(config, new TestMessenger(), false, "testing").closeConnection();
+        "indexer.csv.columns", List.of("id"), "indexer.csv.path", "target/IndexerConfigTest.csv"));
+    new CSVIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null)).closeConnection();
   }
 
   @Test
   public void testAcceptsGreaterThanOneWhenSupported() {
     // TestMessenger supports concurrent batches; constructing without throwing is the assertion.
-    new ConcurrentCapableIndexer(configWith(2), new TestMessenger());
+    new ConcurrentCapableIndexer(configWith(2).getConfig("indexer"), new TestMessenger());
   }
 
   @Test
@@ -84,14 +83,14 @@ public class IndexerConfigTest {
     // The indexer supports concurrent sends, but the messenger commits at poll (commitsOnBatchCompletion() false), so
     // K > 1 must be rejected to avoid losing in-flight documents on a crash.
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-        () -> new ConcurrentCapableIndexer(configWith(2), new CommitAtPollMessenger()));
+        () -> new ConcurrentCapableIndexer(configWith(2).getConfig("indexer"), new CommitAtPollMessenger()));
     assertTrue(e.getMessage(), e.getMessage().contains("does not support concurrent batches"));
   }
 
   @Test
   public void testAcceptsGreaterThanOneWithNullMessenger() {
     // A null messenger (as used by some benchmarks) is not a data-loss risk, so concurrency is allowed.
-    new ConcurrentCapableIndexer(configWith(2), null);
+    new ConcurrentCapableIndexer(configWith(2).getConfig("indexer"), null);
   }
 
   private static Config configWith(int maxConcurrentBatches) {
@@ -108,7 +107,7 @@ public class IndexerConfigTest {
     }
 
     ConcurrentCapableIndexer(Config config, IndexerMessenger messenger) {
-      super(config, messenger, false, "IndexerConfigTest", null);
+      super(config, new IndexerContext(messenger, false, "IndexerConfigTest", null));
     }
 
     @Override
@@ -122,7 +121,7 @@ public class IndexerConfigTest {
     }
 
     @Override
-    public boolean validateConnection() {
+    protected boolean checkConnection() {
       return true;
     }
 
@@ -131,8 +130,8 @@ public class IndexerConfigTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) {
-      return Set.of();
+    protected List<IndexerFailure> sendToIndex(List<Document> documents) {
+      return List.of();
     }
   }
 

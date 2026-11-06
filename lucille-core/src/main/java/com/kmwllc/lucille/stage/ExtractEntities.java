@@ -198,14 +198,15 @@ public class ExtractEntities extends Stage {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField)) {
+      List<String> values = StageUtils.getNonNullStrings(doc, sourceField);
+      if (values.isEmpty()) {
         continue;
       }
 
       // Parse the matches and then convert the PayloadEmits into a List of Strings, representing the payloads for
       // each match which occurred in the input string.
       Collection<PayloadEmit<String>> results = new ArrayList<>();
-      for (String value : doc.getStringList(sourceField)) {
+      for (String value : values) {
         results.addAll(dictTrie.parseText(value));
       }
 

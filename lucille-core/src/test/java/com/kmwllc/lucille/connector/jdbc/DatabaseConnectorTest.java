@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector.jdbc;
 
+import java.time.Instant;
 import java.util.Map;
 
 import com.kmwllc.lucille.core.ConnectorException;
@@ -380,8 +381,8 @@ public class DatabaseConnectorTest {
     assertEquals(true, d1.getBoolean("boolean_col"));
     assertEquals(true, d1.getBoolean("bit_col"));
     // Date & Timestamp
-    assertEquals(Date.valueOf("2024-07-30"), d1.getDate("date_col"));
-    assertEquals(Timestamp.valueOf("1970-01-01 00:00:01.0"), d1.getTimestamp("timestamp_col"));
+    assertEquals(Instant.ofEpochMilli(Date.valueOf("2024-07-30").getTime()), d1.getInstant("date_col"));
+    assertEquals(Timestamp.valueOf("1970-01-01 00:00:01.0").toInstant(), d1.getInstant("timestamp_col"));
 
     // Null (would not be added)
     assertFalse(d1.has("nullable_int"));
@@ -432,8 +433,8 @@ public class DatabaseConnectorTest {
     assertEquals(false, d2.getBoolean("boolean_col"));
     assertEquals(false, d2.getBoolean("bit_col"));
     // Date & Timestamp
-    assertEquals(Date.valueOf("2023-01-01"), d2.getDate("date_col"));
-    assertEquals(Timestamp.valueOf("2038-01-19 03:14:07.0"), d2.getTimestamp("timestamp_col"));
+    assertEquals(Instant.ofEpochMilli(Date.valueOf("2023-01-01").getTime()), d2.getInstant("date_col"));
+    assertEquals(Timestamp.valueOf("2038-01-19 03:14:07.0").toInstant(), d2.getInstant("timestamp_col"));
     // Null (Would not be added to document)
     assertFalse(d2.has("nullable_int"));
     assertNull(d2.getString("nullable_varchar"));
@@ -993,9 +994,9 @@ public class DatabaseConnectorTest {
     java.util.Date expectedDate = sdf.parse(expectedDateStr); // this would give a date based on current timezone
 
     // check that parent and children have the same date value used for joining
-    assertEquals(expectedDate, docs.get(0).getDate("birthday"));
-    assertEquals(expectedDate, docs.get(0).getChildren().get(0).getDate("adopted_on"));
-    assertEquals(expectedDate, docs.get(0).getChildren().get(1).getDate("adopted_on"));
+    assertEquals(expectedDate.toInstant(), docs.get(0).getInstant("birthday"));
+    assertEquals(expectedDate.toInstant(), docs.get(0).getChildren().get(0).getInstant("adopted_on"));
+    assertEquals(expectedDate.toInstant(), docs.get(0).getChildren().get(1).getInstant("adopted_on"));
 
     connector.close();
   }
@@ -1277,8 +1278,8 @@ public class DatabaseConnectorTest {
       assertEquals(Double.valueOf(12.50), parent.getDouble("dec_col"));
       assertEquals(Float.valueOf(1.25f), parent.getFloat("flt_col"));
       assertEquals(Boolean.TRUE, parent.getBoolean("bool_col"));
-      assertEquals(Date.valueOf("2024-07-30"), parent.getDate("date_col"));
-      assertEquals(Timestamp.valueOf("2024-07-30 00:00:01.0"), parent.getTimestamp("ts_col"));
+      assertEquals(Instant.ofEpochMilli(Date.valueOf("2024-07-30").getTime()), parent.getInstant("date_col"));
+      assertEquals(Timestamp.valueOf("2024-07-30 00:00:01.0").toInstant(), parent.getInstant("ts_col"));
       assertArrayEquals(new byte[] {0x0A, 0x0B}, parent.getBytes("bin_col"));
       // plain TIME is lossless as a string and must not be silently dropped
       assertTrue("TIME column must be present on the parent document", parent.has("time_col"));
@@ -1291,8 +1292,8 @@ public class DatabaseConnectorTest {
       assertEquals(Double.valueOf(99.99), child.getDouble("c_dec"));
       assertEquals(Float.valueOf(4.75f), child.getFloat("c_flt"));
       assertEquals(Boolean.FALSE, child.getBoolean("c_bool"));
-      assertEquals(Date.valueOf("2023-01-01"), child.getDate("c_date"));
-      assertEquals(Timestamp.valueOf("2023-01-01 00:00:02.0"), child.getTimestamp("c_ts"));
+      assertEquals(Instant.ofEpochMilli(Date.valueOf("2023-01-01").getTime()), child.getInstant("c_date"));
+      assertEquals(Timestamp.valueOf("2023-01-01 00:00:02.0").toInstant(), child.getInstant("c_ts"));
       assertArrayEquals(new byte[] {0x0C, 0x0D}, child.getBytes("c_bin"));
       assertTrue("TIME column must be present on the child document", child.has("c_time"));
     } finally {

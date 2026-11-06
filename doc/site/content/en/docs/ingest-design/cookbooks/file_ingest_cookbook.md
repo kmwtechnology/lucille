@@ -44,12 +44,12 @@ pipelines: [
   }
 ]
 
-indexer { type: "opensearch" }
-
-opensearch {
-  url: "https://localhost:9200"
-  index: "my-docs"
-  acceptInvalidCert: true
+indexer {
+  opensearch {
+    url: "https://localhost:9200"
+    index: "my-docs"
+    acceptInvalidCert: true
+  }
 }
 ```
 

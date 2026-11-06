@@ -83,7 +83,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
-      doc.setKafkaMetadata(record);
+      doc.setKafkaMetadata(record.topic(), record.partition(), record.offset(), record.key());
       // Record the polled offset, so the commit frontier can advance across it once its batch completes.
       offsetCommitTracker.recordPolled(new TopicPartition(record.topic(), record.partition()), record.offset());
       return doc;

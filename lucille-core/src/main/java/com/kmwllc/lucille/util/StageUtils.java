@@ -1,8 +1,12 @@
 package com.kmwllc.lucille.util;
 
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.StageException;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Util class for the Stage API. Contains static methods to facilitate validation and other operations common across
@@ -54,5 +58,20 @@ public class StageUtils {
     if ((fields1.size() != fields2.size()) && (fields2.size() != 1)) {
       throw new StageException(stageName + " was supplied with an invalid number of fields in the inputted field lists");
     }
+  }
+
+  /**
+   * Returns the non-null values of the given field as Strings. JSON nulls are dropped, so a field that is missing, empty,
+   * or holds only nulls gives an empty list.
+   *
+   * @param doc the document to read from
+   * @param field the field name
+   * @return the field's non-null values, in order
+   */
+  public static List<String> getNonNullStrings(Document doc, String field) {
+    if (!doc.has(field)) {
+      return Collections.emptyList();
+    }
+    return doc.getStringList(field).stream().filter(Objects::nonNull).collect(Collectors.toList());
   }
 }

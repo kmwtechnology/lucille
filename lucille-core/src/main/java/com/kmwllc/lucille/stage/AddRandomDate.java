@@ -51,8 +51,9 @@ public class AddRandomDate extends Stage {
     rangeStartDate = rangeStartDateString.isEmpty() ? Date.from(Instant.ofEpochMilli(0)) : localDateToDate(LocalDate.parse(rangeStartDateString));
     rangeEndDate = rangeEndDateString.isEmpty() ? Date.from(Instant.now()) : localDateToDate(LocalDate.parse(rangeEndDateString));
 
-    if (rangeStartDate.after(rangeEndDate)) {
-      throw new StageException("The provided rangeStartDate is after the rangeEndDate.");
+    // the end is exclusive, so equal dates leave nothing to pick and would fail every document
+    if (!rangeStartDate.before(rangeEndDate)) {
+      throw new StageException("The provided rangeStartDate must be before the rangeEndDate.");
     }
   }
 
@@ -63,7 +64,7 @@ public class AddRandomDate extends Stage {
         rangeStartDate.getTime(), rangeEndDate.getTime()
     )));
 
-    doc.setField(fieldName,  randomDate);
+    doc.setField(fieldName, randomDate.toInstant());
 
     return null;
   }

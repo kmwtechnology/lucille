@@ -7,7 +7,7 @@ description: Configuration reference for the Pinecone Indexer, which indexes vec
 
 `com.kmwllc.lucille.pinecone.indexer.PineconeIndexer`
 
-Indexes vector embeddings into [Pinecone](https://www.pinecone.io/). Config block: `pinecone { ... }`
+Indexes vector embeddings into [Pinecone](https://www.pinecone.io/). Config block: `indexer.pinecone { ... }`
 
 **Maven dependency:**
 ```xml
@@ -29,16 +29,15 @@ Indexes vector embeddings into [Pinecone](https://www.pinecone.io/). Config bloc
 
 ```hocon
 indexer {
-  class: "com.kmwllc.lucille.pinecone.indexer.PineconeIndexer"
   deletionMarkerField: "is_deleted"
   deletionMarkerFieldValue: "true"
-}
 
-pinecone {
-  apiKey: ${PINECONE_API_KEY}
-  index: "my-index"
-  defaultEmbeddingField: "content_vector"
-  metadataFields: ["title", "category"]
+  pinecone {
+    apiKey: ${PINECONE_API_KEY}
+    index: "my-index"
+    defaultEmbeddingField: "content_vector"
+    metadataFields: ["title", "category"]
+  }
 }
 ```
 
@@ -53,12 +52,14 @@ At startup, connection validation describes the index and fails if it does not e
 When `namespaces` is configured, it is a map of namespace names to embedding field names. Each document is upserted into every configured namespace using the corresponding embedding field. This enables multi-vector indexing, for example, title embeddings in one namespace and body embeddings in another:
 
 ```hocon
-pinecone {
-  apiKey: ${PINECONE_API_KEY}
-  index: "my-index"
-  namespaces: {
-    "title-ns": "title_vector"
-    "body-ns": "body_vector"
+indexer {
+  pinecone {
+    apiKey: ${PINECONE_API_KEY}
+    index: "my-index"
+    namespaces: {
+      "title-ns": "title_vector"
+      "body-ns": "body_vector"
+    }
   }
 }
 ```
@@ -83,11 +84,13 @@ At least one of these must be set when uploading documents. If both are omitted,
 Only fields listed in `metadataFields` are sent as Pinecone metadata alongside the vector. All other document fields are ignored. Each value is sent as a string (`toString()` of the field value, so a multi-valued field becomes a string like `[a, b]`). A listed field whose value is null fails the batch. `indexer.whitelist` and `indexer.blacklist` are applied first, so a listed field they exclude is not sent. Metadata is only sent in `upsert` mode.
 
 ```hocon
-pinecone {
-  apiKey: ${PINECONE_API_KEY}
-  index: "my-index"
-  defaultEmbeddingField: "content_vector"
-  metadataFields: ["title", "category", "source_url"]
+indexer {
+  pinecone {
+    apiKey: ${PINECONE_API_KEY}
+    index: "my-index"
+    defaultEmbeddingField: "content_vector"
+    metadataFields: ["title", "category", "source_url"]
+  }
 }
 ```
 
@@ -101,9 +104,11 @@ pinecone {
 | `"update"` | Updates the vector of existing records, one request per document. Metadata is not sent. Pinecone returns success if the ID does not exist, so missing records are not reported. |
 
 ```hocon
-pinecone {
-  mode: "update"
-  // ...
+indexer {
+  pinecone {
+    mode: "update"
+    // ...
+  }
 }
 ```
 

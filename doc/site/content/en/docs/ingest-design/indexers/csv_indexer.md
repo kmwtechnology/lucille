@@ -7,7 +7,7 @@ description: Configuration reference for the CSV Indexer, which writes pipeline 
 
 `com.kmwllc.lucille.indexer.CSVIndexer`
 
-Config block: `csv { ... }`
+Config block: `indexer.csv { ... }`
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
@@ -17,10 +17,11 @@ Config block: `csv { ... }`
 | `append` | Boolean | No | Append to an existing file instead of overwriting it. Default: `false`. |
 
 ```hocon
-indexer { type: "CSV" }
-csv {
-  path: "./output.csv"
-  columns: ["id", "title", "body", "published_at"]
+indexer {
+  csv {
+    path: "./output.csv"
+    columns: ["id", "title", "body", "published_at"]
+  }
 }
 ```
 
@@ -47,11 +48,13 @@ When a document field is multi-valued, CSVIndexer writes the list's `toString()`
 When `append: true`, the file is opened in append mode. The header row is still written unless `includeHeader` is `false`, so set `includeHeader: false` when appending to avoid duplicate header rows:
 
 ```hocon
-csv {
-  path: "./output.csv"
-  columns: ["id", "title", "body"]
-  append: true
-  includeHeader: false
+indexer {
+  csv {
+    path: "./output.csv"
+    columns: ["id", "title", "body"]
+    append: true
+    includeHeader: false
+  }
 }
 ```
 
@@ -65,7 +68,7 @@ CSVIndexer logs a warning if `deletionMarkerField` or `deleteByFieldField` are c
 
 ## sendEnabled
 
-CSVIndexer does not skip writing when `indexer.sendEnabled` is `false` (bypass mode). The file is still created and rows are still written.
+When `indexer.sendEnabled` is `false` (bypass mode), CSVIndexer writes nothing and does not create the file. Documents still complete.
 
 ---
 

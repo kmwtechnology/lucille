@@ -278,4 +278,16 @@ public class DictionaryLookupTest {
     Throwable e = assertThrows(StageException.class, () -> factory.get("DictionaryLookupTest/set_config_invalid_update2.conf"));
     assertEquals("when setOnly is true, updateMode must be set to overwrite", e.getMessage());
   }
+
+  @Test
+  public void testNullValues() throws Exception {
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"input1\":null}");
+    factory.get("DictionaryLookupTest/config.conf").processDocument(doc);
+    assertFalse(doc.has("output1"));
+
+    // setOnly treats a field holding only nulls as missing
+    Document setDoc = Document.createFromJson("{\"id\":\"1\",\"field\":null}");
+    factory.get("DictionaryLookupTest/set_config.conf").processDocument(setDoc);
+    assertEquals(false, setDoc.getBoolean("setContains"));
+  }
 }

@@ -9,7 +9,7 @@ description: Removes accents and other diacritical marks from a String field.
 
 Removes diacritical marks from the value of `source` (for example, `é` becomes `e`). The text is decomposed with Unicode NFKD normalization and all combining marks are removed. NFKD also replaces compatibility characters, such as the ligature `ﬁ` with `fi`. Characters that do not decompose, such as `ø` or `ß`, are left unchanged, so the result is not necessarily ASCII.
 
-Only the first value of a multi-valued `source` field is used, and the result is written as a single value, replacing any existing value. Documents without `source` are skipped.
+Every value of `source` is processed, and the results replace any existing value of the destination. A single-valued field stays single-valued; null values are skipped. Documents without `source` are skipped.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|

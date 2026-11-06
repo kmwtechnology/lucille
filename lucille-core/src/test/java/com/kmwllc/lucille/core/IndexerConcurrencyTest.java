@@ -26,7 +26,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.After;
 import org.junit.Test;
 
@@ -62,7 +61,7 @@ public class IndexerConcurrencyTest {
   public void testCompletionFollowsDispatchOrder() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     // maxConcurrentBatches = 2, batchSize = 1, so doc1 and doc2 can be in flight at once as separate batches.
-    indexer = new ControlledIndexer(config(2), messenger);
+    indexer = new ControlledIndexer(config(2).getConfig("indexer"), messenger);
     // Hold both sends open so neither can finish until we say so.
     indexer.blockSendsFor("doc1", "doc2");
     // Add doc1 then doc2 to the messenger's in-memory FIFO queue and start the indexer thread; it polls and dispatches
@@ -93,7 +92,7 @@ public class IndexerConcurrencyTest {
   public void testCapacityLimitsBatchesInFlight() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     // Window of 2: at most two batches may be in flight at once.
-    indexer = new ControlledIndexer(config(2), messenger);
+    indexer = new ControlledIndexer(config(2).getConfig("indexer"), messenger);
     // Hold doc1, doc2, and doc3 open so we control when the window frees up.
     indexer.blockSendsFor("doc1", "doc2", "doc3");
     // Add four docs to the messenger's in-memory FIFO queue; polling them in order, the indexer fills the window with
@@ -126,7 +125,7 @@ public class IndexerConcurrencyTest {
   public void testOverlappingDestinationIdsCannotBeInFlightTogether() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     // Window of 3, so capacity is not the limiting factor here — only id overlap is.
-    indexer = new ControlledIndexer(config(3), messenger);
+    indexer = new ControlledIndexer(config(3).getConfig("indexer"), messenger);
     // parentA and parentB each write a child document with id "sharedChild", so their destination id sets overlap.
     // disjointDoc shares no id with either.
     indexer.messenger().queueDoc(docWithChild("parentA", "sharedChild"));
@@ -155,7 +154,7 @@ public class IndexerConcurrencyTest {
   @Test
   public void testGrandchildIdDeterminesOverlap() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
-    indexer = new ControlledIndexer(config(3), messenger);
+    indexer = new ControlledIndexer(config(3).getConfig("indexer"), messenger);
     // ancestorA writes a grandchild "sharedGrandchild" (doc -> child -> grandchild); ancestorB writes the same id as
     // its own direct child. Their destination id sets overlap only via the recursively-collected grandchild id.
     indexer.messenger().queueDoc(docWithGrandchild("ancestorA", "childA", "sharedGrandchild"));
@@ -179,7 +178,7 @@ public class IndexerConcurrencyTest {
   public void testIdOverrideFieldDeterminesOverlap() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     // With idOverrideField set, a document's destination id is the value of that field, not its document id.
-    indexer = new ControlledIndexer(config(3, Map.of("indexer.idOverrideField", "destId")), messenger);
+    indexer = new ControlledIndexer(config(3, Map.of("indexer.idOverrideField", "destId")).getConfig("indexer"), messenger);
     // firstDoc and secondDoc have different document ids but the same destination id ("sharedDestId"), via the
     // override field, so they must not overlap.
     Document firstDoc = Document.create("firstDoc");
@@ -215,7 +214,7 @@ public class IndexerConcurrencyTest {
     // ordering guarantee that makes a real add/delete sequence safe, not the backend's add-vs-delete semantics.)
     RecordingMessenger messenger = new RecordingMessenger();
     // Window of 4, so capacity never limits concurrency here — only the shared destination id does.
-    indexer = new ControlledIndexer(config(4, Map.of("indexer.idOverrideField", "destId")), messenger);
+    indexer = new ControlledIndexer(config(4, Map.of("indexer.idOverrideField", "destId")).getConfig("indexer"), messenger);
 
     List<String> ops = List.of("add1", "delete1", "add2", "delete2");
     for (String op : ops) {
@@ -256,7 +255,7 @@ public class IndexerConcurrencyTest {
     // not the first add's (v1) and not nothing. Sends are given delays that would make the earlier operations finish
     // last if they were allowed to run together, so only the id-overlap gate can produce the right final state.
     RecordingMessenger messenger = new RecordingMessenger();
-    indexer = new ControlledIndexer(config(3, Map.of("indexer.idOverrideField", "destId")), messenger);
+    indexer = new ControlledIndexer(config(3, Map.of("indexer.idOverrideField", "destId")).getConfig("indexer"), messenger);
     indexer.messenger().queueDoc(opDoc("add1", "sharedId", "add", "1"));
     indexer.messenger().queueDoc(opDoc("delete1", "sharedId", "delete", null));
     indexer.messenger().queueDoc(opDoc("add2", "sharedId", "add", "2"));
@@ -289,7 +288,7 @@ public class IndexerConcurrencyTest {
     for (List<String> sequence : sequences) {
       RecordingMessenger messenger = new RecordingMessenger();
       ControlledIndexer sequenceIndexer =
-          new ControlledIndexer(config(3, Map.of("indexer.idOverrideField", "destId")), messenger);
+          new ControlledIndexer(config(3, Map.of("indexer.idOverrideField", "destId")).getConfig("indexer"), messenger);
       indexer = sequenceIndexer;  // so tearDown releases and terminates it if an assertion fails
       List<String> docIds = new ArrayList<>();
       String expectedVersion = null;
@@ -327,7 +326,7 @@ public class IndexerConcurrencyTest {
     // id's own operations must stay serialized. Earlier operations are given longer sends, so any reordering of
     // same-id operations would show up in the applied order and the final content.
     RecordingMessenger messenger = new RecordingMessenger();
-    indexer = new ControlledIndexer(config(3, Map.of("indexer.idOverrideField", "destId")), messenger);
+    indexer = new ControlledIndexer(config(3, Map.of("indexer.idOverrideField", "destId")).getConfig("indexer"), messenger);
     String[] destIds = {"x", "y", "z", "w"};
     int total = 24;
     Random random = new Random(7);
@@ -372,7 +371,7 @@ public class IndexerConcurrencyTest {
     RecordingMessenger messenger = new RecordingMessenger();
     Map<String, Object> settings = new HashMap<>(deleteByQuerySettings());
     settings.put("indexer.idOverrideField", "destId");
-    indexer = new ControlledIndexer(config(3, settings), messenger);
+    indexer = new ControlledIndexer(config(3, settings).getConfig("indexer"), messenger);
     indexer.messenger().queueDoc(opDoc("addX1", "x", "add", "1"));
     indexer.messenger().queueDoc(opDoc("addY1", "y", "add", "1"));
     Document deleteByQuery = deleteByQueryDoc("dbq");
@@ -395,7 +394,7 @@ public class IndexerConcurrencyTest {
   public void testDeleteByQueryBatchRunsAlone() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     // Window of 3, so only the delete-by-query barrier — not capacity — can hold batches back.
-    indexer = new ControlledIndexer(config(3, deleteByQuerySettings()), messenger);
+    indexer = new ControlledIndexer(config(3, deleteByQuerySettings()).getConfig("indexer"), messenger);
     // A normal doc, a delete-by-query doc, then another normal doc.
     indexer.messenger().queueDoc(Document.create("normalBefore"));
     indexer.messenger().queueDoc(deleteByQueryDoc("deleteByQuery"));
@@ -431,7 +430,7 @@ public class IndexerConcurrencyTest {
   @Test
   public void testDeleteByIdIsNotABarrier() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
-    indexer = new ControlledIndexer(config(2, deleteByQuerySettings()), messenger);
+    indexer = new ControlledIndexer(config(2, deleteByQuerySettings()).getConfig("indexer"), messenger);
     // A delete-by-*id* doc (marked for deletion, but without the deleteByField fields) is not a barrier: it targets a
     // single id, so it is gated only by id overlap, like a normal write.
     indexer.messenger().queueDoc(Document.create("normalDoc"));
@@ -448,7 +447,7 @@ public class IndexerConcurrencyTest {
   @Test
   public void testInterruptWhileWaitingDoesNotAbandonInFlightBatches() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
-    indexer = new ControlledIndexer(config(2), messenger);
+    indexer = new ControlledIndexer(config(2).getConfig("indexer"), messenger);
     // doc1 and doc2 go in flight; with the window full, the indexer thread blocks dispatching doc3, waiting for doc1.
     indexer.blockSendsFor("doc1");
     queueDocsAndStartIndexer("doc1", "doc2", "doc3", "doc4");
@@ -492,7 +491,7 @@ public class IndexerConcurrencyTest {
         super.batchComplete(batch);
       }
     };
-    indexer = new ControlledIndexer(config(2), messenger);
+    indexer = new ControlledIndexer(config(2).getConfig("indexer"), messenger);
     indexer.blockSendsFor("doc1");
     queueDocsAndStartIndexer("doc1", "doc2", "doc3", "doc4");
     awaitUntil(() -> indexer.hasStartedSends("doc1", "doc2"));
@@ -507,7 +506,7 @@ public class IndexerConcurrencyTest {
   @Test
   public void testTerminateDrainsInFlightBatches() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
-    indexer = new ControlledIndexer(config(3), messenger);
+    indexer = new ControlledIndexer(config(3).getConfig("indexer"), messenger);
     indexer.blockSendsFor("doc1", "doc2", "doc3");
     queueDocsAndStartIndexer("doc1", "doc2", "doc3");
     awaitUntil(() -> indexer.hasStartedSends("doc1", "doc2", "doc3"));
@@ -529,7 +528,7 @@ public class IndexerConcurrencyTest {
   @Test
   public void testRunIterationsDrainsInFlightBatches() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
-    ControlledIndexer controlled = new ControlledIndexer(config(4), messenger);
+    ControlledIndexer controlled = new ControlledIndexer(config(4).getConfig("indexer"), messenger);
     indexer = controlled;
     // Sends are not blocked; run(n) must still drain every dispatched batch before returning.
     for (String docId : List.of("doc1", "doc2", "doc3", "doc4", "doc5")) {
@@ -543,7 +542,7 @@ public class IndexerConcurrencyTest {
   @Test
   public void testErrorFromSendSurfacesAndStopsPool() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
-    ControlledIndexer controlled = new ControlledIndexer(config(2), messenger);
+    ControlledIndexer controlled = new ControlledIndexer(config(2).getConfig("indexer"), messenger);
     indexer = controlled;
     // The send for doc1 throws an Error (e.g. OutOfMemoryError), which must propagate out of run() on the indexer
     // thread rather than be swallowed.
@@ -565,7 +564,7 @@ public class IndexerConcurrencyTest {
     // no-op and there is no offset replay to recover the batch).
     for (int maxConcurrentBatches : new int[] {1, 2}) {
       RecordingMessenger messenger = new RecordingMessenger();
-      ControlledIndexer controlled = new ControlledIndexer(config(maxConcurrentBatches), messenger);
+      ControlledIndexer controlled = new ControlledIndexer(config(maxConcurrentBatches).getConfig("indexer"), messenger);
       indexer = controlled;
       controlled.failSend("doc1", new OutOfMemoryError("boom"));
       messenger.queueDoc(Document.create("doc1"));
@@ -587,7 +586,7 @@ public class IndexerConcurrencyTest {
     // same as a thrown send, so the run terminates. (This guard is specific to the concurrent dispatcher, which is the
     // only path that invokes the id extractor; the synchronous K=1 path does not call it.)
     RecordingMessenger messenger = new RecordingMessenger();
-    ControlledIndexer controlled = new ControlledIndexer(config(2), messenger);
+    ControlledIndexer controlled = new ControlledIndexer(config(2).getConfig("indexer"), messenger);
     indexer = controlled;
     controlled.failIdExtraction("badDoc");
     messenger.queueDoc(Document.create("badDoc"));
@@ -609,7 +608,7 @@ public class IndexerConcurrencyTest {
     // order. doc1 is dispatched and held in flight; doc2's id extraction then throws. doc1 must complete (FINISH)
     // before doc2 is FAILed.
     RecordingMessenger messenger = new RecordingMessenger();
-    indexer = new ControlledIndexer(config(2), messenger);
+    indexer = new ControlledIndexer(config(2).getConfig("indexer"), messenger);
     indexer.blockSendsFor("doc1");
     indexer.failIdExtraction("doc2");
     queueDocsAndStartIndexer("doc1", "doc2");
@@ -637,7 +636,7 @@ public class IndexerConcurrencyTest {
     // must FAIL cleanly. The deletion-marker config and fields make isDeleteByQuery evaluate through to the (throwing)
     // hasDeleteByFieldValues check.
     RecordingMessenger messenger = new RecordingMessenger();
-    ControlledIndexer controlled = new ControlledIndexer(config(2, deleteByQuerySettings()), messenger);
+    ControlledIndexer controlled = new ControlledIndexer(config(2, deleteByQuerySettings()).getConfig("indexer"), messenger);
     indexer = controlled;
     controlled.failBarrierCheck("badDoc");
     messenger.queueDoc(deleteByIdDoc("badDoc"));
@@ -654,7 +653,7 @@ public class IndexerConcurrencyTest {
   @Test
   public void testErrorWithOtherSendsInFlightStopsPoolPromptly() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
-    ControlledIndexer controlled = new ControlledIndexer(config(2), messenger);
+    ControlledIndexer controlled = new ControlledIndexer(config(2).getConfig("indexer"), messenger);
     indexer = controlled;
     // doc1's send throws an Error; doc2's send stays blocked and so is still in flight when the Error propagates out of
     // run(). Closing must not wait out doc2's (never-ending) send — it must interrupt the pool and abandon it.
@@ -679,7 +678,7 @@ public class IndexerConcurrencyTest {
     RecordingMessenger messenger = new RecordingMessenger();
     // Retries enabled with a tiny wait; K=2 so both batches can be in flight while doc1 retries on the pool.
     ControlledIndexer controlled = new ControlledIndexer(
-        config(2, Map.of("indexer.maxRetries", 3, "indexer.retryWaitDurationMs", 1)), messenger);
+        config(2, Map.of("indexer.maxRetries", 3, "indexer.retryWaitDurationMs", 1)).getConfig("indexer"), messenger);
     indexer = controlled;
     // doc1's send fails retryably twice (then succeeds); doc2 is held so it is still in flight while doc1 retries.
     controlled.failSendRetryablyThenSucceed("doc1", 2);
@@ -702,7 +701,7 @@ public class IndexerConcurrencyTest {
   public void testPerDocumentFailureInConcurrentBatch() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     // batchSize 2, so okDoc and failedDoc go in the same batch; K=2 sends it on the pool.
-    ControlledIndexer controlled = new ControlledIndexer(config(2, Map.of("indexer.batchSize", 2)), messenger);
+    ControlledIndexer controlled = new ControlledIndexer(config(2, Map.of("indexer.batchSize", 2)).getConfig("indexer"), messenger);
     indexer = controlled;
     // The destination rejects failedDoc individually; okDoc succeeds in the same batch.
     controlled.failDocument("failedDoc");
@@ -718,7 +717,7 @@ public class IndexerConcurrencyTest {
   @Test
   public void testFailEventMessageIsTheReason() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
-    ControlledIndexer controlled = new ControlledIndexer(config(1), messenger);
+    ControlledIndexer controlled = new ControlledIndexer(config(1).getConfig("indexer"), messenger);
     indexer = controlled;
     // rejectedDoc is reported failed with a reason; noMessageDoc's send throws an exception that has no message
     controlled.failDocument("rejectedDoc");
@@ -746,7 +745,7 @@ public class IndexerConcurrencyTest {
   private void assertFullBatchesDespiteSlowSends(int maxConcurrentBatches) throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     ControlledIndexer controlled = new ControlledIndexer(
-        config(maxConcurrentBatches, Map.of("indexer.batchSize", 2, "indexer.batchTimeout", 50)), messenger);
+        config(maxConcurrentBatches, Map.of("indexer.batchSize", 2, "indexer.batchTimeout", 50)).getConfig("indexer"), messenger);
     indexer = controlled;
     // Each send takes far longer than the 50 ms batchTimeout.
     controlled.setSendDelayMs(200);
@@ -926,7 +925,7 @@ public class IndexerConcurrencyTest {
     private final Set<String> barrierCheckFailures = ConcurrentHashMap.newKeySet();
 
     ControlledIndexer(Config config, RecordingMessenger messenger) {
-      super(config, messenger, false, "IndexerConcurrencyTest", "IndexerConcurrencyTest");
+      super(config, new IndexerContext(messenger, false, "IndexerConcurrencyTest", "IndexerConcurrencyTest"));
       this.messenger = messenger;
     }
 
@@ -1091,7 +1090,7 @@ public class IndexerConcurrencyTest {
     }
 
     @Override
-    public boolean validateConnection() {
+    protected boolean checkConnection() {
       return true;
     }
 
@@ -1100,7 +1099,7 @@ public class IndexerConcurrencyTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
+    protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
       String docId = documents.get(0).getId();
       sendAttempts.computeIfAbsent(docId, k -> new AtomicInteger()).incrementAndGet();
       peakConcurrentSends.accumulateAndGet(concurrentSends.incrementAndGet(), Math::max);
@@ -1140,12 +1139,12 @@ public class IndexerConcurrencyTest {
           throw new IndexerException("send failed for " + docId, exception);
         }
         applyToDestination(documents);
-        // Report any configured per-document failures as returned pairs (not thrown), as a real sendToIndex does for
+        // Report any configured per-document failures as returned failures (not thrown), as a real sendToIndex does for
         // documents the destination rejected individually.
         return documents.stream()
             .filter(d -> failedDocIds.contains(d.getId()))
-            .map(d -> Pair.<Document, Exception>of(d, new IndexerException("rejected " + d.getId())))
-            .collect(Collectors.toSet());
+            .map(d -> new IndexerFailure(d, new IndexerException("rejected " + d.getId())))
+            .collect(Collectors.toList());
       } catch (InterruptedException e) {
         // the send pool is interrupted when the indexer closes without waiting for in-flight sends
         Thread.currentThread().interrupt();

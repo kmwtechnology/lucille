@@ -67,7 +67,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
-      doc.setKafkaMetadata(record);
+      doc.setKafkaMetadata(record.topic(), record.partition(), record.offset(), record.key());
       return doc;
     }
     return null;

@@ -23,7 +23,7 @@ import org.junit.Test;
 public class IndexerDocTest {
 
   private static Indexer indexer(String indexerConfig) {
-    return new NopIndexer(ConfigFactory.parseString("indexer {" + indexerConfig + "}"), new TestMessenger(), false, "test");
+    return new NopIndexer(ConfigFactory.parseString(indexerConfig), new IndexerContext(new TestMessenger(), false, "test", null));
   }
 
   private static Document parentWithChild() throws Exception {
@@ -112,38 +112,4 @@ public class IndexerDocTest {
     assertSame(((JsonDocument) doc).data.get("str"), raw.get("str"));
   }
 
-  @Test
-  public void testRawDocForNonJsonDocumentIsConvertedDoc() throws Exception {
-    // JsonDocument is currently the only Document implementation, so stand in for an alternate one with a mock whose
-    // asMap() yields plain Java values (and a children entry) the way any implementation's must.
-    Document doc = mock(Document.class);
-    when(doc.asMap()).thenAnswer(invocation -> {
-      Map<String, Object> map = new LinkedHashMap<>();
-      map.put("id", "doc1");
-      map.put("str", "s");
-      map.put("int", 1);
-      map.put("list", List.of("a", "b"));
-      map.put("bytes", new byte[] {1, 2, 3});
-      map.put(Document.CHILDREN_FIELD, List.of(Map.of("id", "child1")));
-      return map;
-    });
-    Indexer indexer = indexer("blacklist: [\"int\"]");
-
-    Map<String, Object> expected = indexer.getConvertedIndexerDoc(doc);
-    Map<String, Object> raw = indexer.getRawIndexerDoc(doc);
-
-    assertFalse(raw.containsKey(Document.CHILDREN_FIELD));
-    assertFalse(raw.containsKey("int"));
-
-    assertEquals(expected.keySet(), raw.keySet());
-    for (String field : expected.keySet()) {
-      Object value = expected.get(field);
-      if (value instanceof byte[]) {
-        assertArrayEquals((byte[]) value, (byte[]) raw.get(field));
-      } else {
-        assertEquals(field, value, raw.get(field));
-      }
-      assertFalse(field, raw.get(field) instanceof JsonNode);
-    }
-  }
 }

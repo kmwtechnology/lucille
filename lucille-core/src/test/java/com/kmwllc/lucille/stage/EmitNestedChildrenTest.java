@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.ArrayList;
 import static junit.framework.TestCase.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -159,5 +161,21 @@ public class EmitNestedChildrenTest {
 
     assertEquals(child1MapExpected, doc1.asMap());
     assertEquals(child2MapExpected, doc2.asMap());
+  }
+
+  @Test
+  public void testCopiedFieldsAreIndependent() throws Exception {
+    Stage stage = factory.get(Map.of("fieldsToCopy", Map.of("meta", "meta", "tags", "tags")));
+    Document parent = Document.createFromJson("{\"id\":\"p\",\"meta\":{\"k\":1},\"tags\":[{\"t\":1}]}");
+    parent.addChild(Document.create("c1"));
+    parent.addChild(Document.create("c2"));
+    List<Document> children = new ArrayList<>();
+    stage.processDocument(parent).forEachRemaining(children::add);
+
+    ((ObjectNode) children.get(0).getJson("meta")).put("k", 99);
+    ((ObjectNode) children.get(0).getJsonList("tags").get(0)).put("t", 99);
+    assertEquals(1, children.get(1).getJson("meta").get("k").asInt());
+    assertEquals(1, children.get(1).getJsonList("tags").get(0).get("t").asInt());
+    assertEquals(1, parent.getJson("meta").get("k").asInt());
   }
 }

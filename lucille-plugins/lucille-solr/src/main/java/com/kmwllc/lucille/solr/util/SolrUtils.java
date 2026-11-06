@@ -78,14 +78,13 @@ public class SolrUtils {
    * Generate a SolrClient from the given config file. Supports both Cloud and Http SolrClients.
    * <p>
    * This method has SIDE EFFECTS: it sets the javax.net.ssl.* system properties (key store, trust store and their
-   * passwords) found in the config, unless they are already set.
+   * passwords) found in the solr block, unless they are already set.
    *
    * @param config The configuration file to generate a client from
    * @return A SolrClient suitable for the given configuration.
    */
   public static SolrClient getSolrClient(Config config) {
-    // the SSL keys may be given at the root of the config or inside the solr block (the Solr Specs declare them there)
-    SSLUtils.setSSLSystemProperties(config);
+    // the SSL keys are given inside the solr block (the Solr Specs declare them there)
     if (config.hasPath("solr")) {
       SSLUtils.setSSLSystemProperties(config.getConfig("solr"));
     }

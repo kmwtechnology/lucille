@@ -100,12 +100,13 @@ public class NormalizeText extends Stage {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField)) {
+      List<String> values = StageUtils.getNonNullStrings(doc, sourceField);
+      if (values.isEmpty()) {
         continue;
       }
 
       List<String> outputValues = new ArrayList<>();
-      for (String value : doc.getStringList(sourceField)) {
+      for (String value : values) {
         outputValues.add(func.apply(value));
       }
 
@@ -156,6 +157,11 @@ public class NormalizeText extends Stage {
    * @return the sentence cased String
    */
   private String sentenceCaseNormalize(String value) {
+    // uppercasing the first character below throws on an empty string
+    if (value.isEmpty()) {
+      return value;
+    }
+
     // TODO : decide if we want to preserve original capitalization
     Matcher matcher = pattern.matcher(value.toLowerCase());
 

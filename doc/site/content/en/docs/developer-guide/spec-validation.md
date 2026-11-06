@@ -148,20 +148,18 @@ This means validation happens automatically when any Stage is constructed — in
 
 ### Indexers
 
-The `Indexer` base class validates both the generic `indexer` config block and the implementation-specific block:
+The `Indexer` base class validates both the generic settings in the `indexer` block and the implementation-specific block nested inside it:
 
 ```java
 private void validateIndexerConfigs(Config config) {
-    // Validate generic "indexer" block
-    Config indexerConfig = config.getConfig("indexer");
+    // Validate the generic settings; nested blocks are left out of genericConfig
     SpecBuilder.withoutDefaults()
         .optionalString("type", "class", "idOverrideField", ...)
         .optionalNumber("batchSize", "batchTimeout", ...)
         .build()
-        .validate(indexerConfig, "Indexer");
+        .validate(genericConfig, "Indexer");
 
     // Validate implementation-specific block (e.g., "solr", "elasticsearch")
-    String indexerConfigKey = getIndexerConfigKey();
     if (indexerConfigKey != null && config.hasPath(indexerConfigKey)) {
         Config specificImplConfig = config.getConfig(indexerConfigKey);
         Spec.of(getClass()).validate(specificImplConfig, indexerConfigKey);

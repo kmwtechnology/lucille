@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.pinecone.indexer;
 
+import com.google.auto.service.AutoService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -15,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.protobuf.Struct;
@@ -23,7 +23,9 @@ import com.google.protobuf.Value;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
-import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
+import com.kmwllc.lucille.indexer.IndexerType;
 import com.typesafe.config.Config;
 import io.pinecone.clients.Index;
 import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIndices;
@@ -45,6 +47,8 @@ import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIn
  *    deletionMarkerField, and deletionMarkerFieldValue as Pinecone serverless index currently does not support delete via query/metadata.
  * - defaultEmbeddingField (String, required if namespaces is not set) : the field to retrieve embeddings from
  */
+@AutoService(Indexer.class)
+@IndexerType("Pinecone")
 public class PineconeIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
@@ -63,16 +67,12 @@ public class PineconeIndexer extends Indexer {
   private final String mode;
   private final String defaultEmbeddingField;
 
-  public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) throws IndexerException {
-    this(config, messenger, false, metricsPrefix, localRunId);
-  }
+  public PineconeIndexer(Config config, IndexerContext context) throws IndexerException {
+    super(config, context);
 
-  public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
-    super(config, messenger, bypass, metricsPrefix, localRunId);
-
-    this.client = bypass ? null : new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
+    this.client = isBypass() ? null : new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
     this.indexName = config.getString("pinecone.index");
-    this.index = bypass ? null : client.getIndexConnection(indexName);
+    this.index = isBypass() ? null : client.getIndexConnection(indexName);
     this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;
     this.metadataFields = config.hasPath("pinecone.metadataFields")
         ? new HashSet<>(config.getStringList("pinecone.metadataFields")) : new HashSet<>();
@@ -84,7 +84,7 @@ public class PineconeIndexer extends Indexer {
     if (namespaces != null && namespaces.isEmpty()) {
       throw new IndexerException("Namespaces mapping must be non-empty if provided.");
     }
-    if (this.indexOverrideField != null) {
+    if (getIndexOverrideField() != null) {
       throw new IndexerException("indexer.indexOverrideField is not supported by PineconeIndexer; use pinecone.namespaces instead.");
     }
     // max upload batch is 2MB or 1000 records, whichever is reached first, so stopping run if batch size is set to more than 1000
@@ -96,23 +96,11 @@ public class PineconeIndexer extends Indexer {
     }
   }
 
-  // Convenience Constructors
-  public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) throws IndexerException {
-    this(config, messenger, metricsPrefix, null);
-  }
-
-  public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) throws IndexerException {
-    this(config, messenger, bypass, metricsPrefix, null);
-  }
-
   @Override
   protected String getIndexerConfigKey() { return "pinecone"; }
 
   @Override
-  public boolean validateConnection() {
-    if (bypass) {
-      return true;
-    }
+  protected boolean checkConnection() {
     try {
       return PineconeUtils.isClientStable(client, indexName);
     } catch (Exception e) {
@@ -122,10 +110,7 @@ public class PineconeIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
-    if (bypass) {
-      return Set.of();
-    }
+  protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
     // retrieve documents to delete & upload, mapping destination id to document
     Map<String, Document> deleteMap = new LinkedHashMap<>();
     Map<String, Document> uploadMap = new LinkedHashMap<>();
@@ -168,7 +153,7 @@ public class PineconeIndexer extends Indexer {
       }
     }
 
-    return Set.of();
+    return List.of();
   }
 
   private void validateUploadRequirements() throws IndexerException {
@@ -245,10 +230,10 @@ public class PineconeIndexer extends Indexer {
   }
 
   private boolean isDeletion(Document doc) {
-    return this.deletionMarkerField != null
-        && this.deletionMarkerFieldValue != null
-        && doc.hasNonNull(this.deletionMarkerField)
-        && doc.getString(this.deletionMarkerField).equals(this.deletionMarkerFieldValue);
+    return getDeletionMarkerField() != null
+        && getDeletionMarkerFieldValue() != null
+        && doc.hasNonNull(getDeletionMarkerField())
+        && doc.getString(getDeletionMarkerField()).equals(getDeletionMarkerFieldValue());
   }
 
   @Override

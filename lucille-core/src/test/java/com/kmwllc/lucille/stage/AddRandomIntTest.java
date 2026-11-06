@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.stage;
 
+import java.util.Map;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Document;
@@ -44,5 +46,10 @@ public class AddRandomIntTest {
     assertTrue(start <= doc1.getInt("integer") && end > doc1.getInt("integer"));
     assertTrue(start <= doc2.getInt("integer") && end > doc2.getInt("integer"));
     assertTrue(start <= doc3.getInt("integer") && end > doc3.getInt("integer"));
+  }
+
+  @Test
+  public void testEqualBoundsFailAtStartup() {
+    assertThrows(StageException.class, () -> factory.get(Map.of("rangeStart", 5, "rangeEnd", 5)));
   }
 }

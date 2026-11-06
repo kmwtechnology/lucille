@@ -158,7 +158,7 @@ You just call `publisher.publish(doc)` and the framework handles everything else
 
 **Concurrent sends.** With `indexer.maxConcurrentBatches` above 1, the framework sends several batches to your backend at once, each on its own thread, calling your `sendToIndex()` from a pool. It never has two batches in flight that write the same destination id (a document's id, its `idOverrideField` value, or its children's ids), so an upsert and a delete of the same document still reach the backend in order. A batch containing a delete-by-query runs alone, and batches are completed (events emitted, Kafka offsets committed) in the order they were dispatched. You write the same single-batch `sendToIndex()`; see [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}).
 
-**Event reporting for accounting.** After each batch, the framework sends FINISH events for successful documents and FAIL events for failed ones. You return a set of failed document/reason pairs from `sendToIndex()`; the framework handles all event communication with the Publisher.
+**Event reporting for accounting.** After each batch, the framework sends FINISH events for successful documents and FAIL events for failed ones. You return a list of `IndexerFailure`s from `sendToIndex()`; the framework handles all event communication with the Publisher.
 
 **Field filtering (whitelist/blacklist).** The `getConvertedIndexerDoc()` and `getRawIndexerDoc()` methods apply the configured field filter before you see the document. The filter treats reserved fields such as `run_id` and `___skipped` like any other field, so they reach the backend unless the whitelist leaves them out or the blacklist names them. Both always omit `___children`; an indexer that sends child documents reads them from `doc.getChildren()`. You call `getConvertedIndexerDoc(doc)` (or `getRawIndexerDoc(doc)` for a Jackson-based client) and get a clean map ready for the search backend.
 
@@ -180,7 +180,7 @@ You just call `publisher.publish(doc)` and the framework handles everything else
 
 **Bulk API construction.** Translate Lucille Documents into the search backend's bulk request format. This is backend-specific: Solr uses `SolrInputDocument`, OpenSearch uses `BulkRequest.Builder`, Pinecone uses its own upsert API. See `SolrIndexer.toSolrDoc()`, `OpenSearchIndexer.uploadDocuments()`.
 
-**Per-document failure extraction from bulk responses.** The bulk API may succeed overall but report failures for individual documents. You must parse the response, identify which documents failed, and return them as `Set<Pair<Document, String>>`. See `OpenSearchIndexer` (iterates `BulkResponseItem` checking for errors) and `SolrIndexer` (catches exceptions per-collection).
+**Per-document failure extraction from bulk responses.** The bulk API may succeed overall but report failures for individual documents. You must parse the response, identify which documents failed, and return them as a `List<IndexerFailure>`. See `OpenSearchIndexer` (iterates `BulkResponseItem` checking for errors) and `SolrIndexer` (catches exceptions per-collection).
 
 **Deletion handling.** Detect documents marked for deletion (using `deletionMarkerField`/`deletionMarkerFieldValue`) and issue the appropriate delete operation (delete-by-ID or delete-by-query). The framework provides the config values and the detection helpers `isMarkedForDeletion(doc)` and `hasDeleteByFieldValues(doc)`; you branch on them and make the delete API call. See `OpenSearchIndexer.sendToIndex()`. The base class uses the same two helpers to decide which batches are delete-by-query barriers when sends run concurrently, so use them (rather than your own check) to keep that decision consistent with yours.
 
@@ -188,7 +188,7 @@ You just call `publisher.publish(doc)` and the framework handles everything else
 
 **Thread safety of `sendToIndex()`.** With `indexer.maxConcurrentBatches` above 1, `sendToIndex()` can run on several threads at once, so the destination client must be safe for concurrent use and `sendToIndex()` must not mutate shared state on the indexer instance. Declare this by overriding `supportsConcurrentSends()` to return `true`; until you do, a `maxConcurrentBatches` above 1 is rejected at startup. The Solr, OpenSearch, and Elasticsearch indexers do. For an HTTP client, also make sure its connection pool allows at least that many concurrent requests (see [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}})).
 
-**Connection management.** Create the search engine client in the constructor, validate it in `validateConnection()`, close it in `closeConnection()`. Handle TLS, authentication, and certificate validation as needed. See `OpenSearchUtils.getOpenSearchRestClient()` for TLS/auth setup.
+**Connection management.** Create the search engine client in the constructor, validate it in `checkConnection()`, close it in `closeConnection()`. Handle TLS, authentication, and certificate validation as needed. See `OpenSearchUtils.getOpenSearchRestClient()` for TLS/auth setup.
 
 **Nested/child document transformation.** If the search backend supports nested documents (Solr does), transform Lucille's attached children into the backend's nested format. See `SolrIndexer.addChildren()`.
 

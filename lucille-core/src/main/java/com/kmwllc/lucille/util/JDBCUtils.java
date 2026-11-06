@@ -134,7 +134,7 @@ public class JDBCUtils {
           break;
         // DATE and TIMESTAMP carry no zone. Reading them as LocalDate/LocalDateTime keeps the stored wall-clock
         // value regardless of the JVM's default zone (getDate/getTimestamp would shift it by that zone's offset);
-        // the value is then labelled UTC so that Document.getInstant/getDate/getTimestamp keep working.
+        // the value is then labelled UTC so that Document.getInstant keeps working.
         case Types.DATE:
           LocalDate dateVal = rs.getObject(columnIndex, LocalDate.class);
           if (dateVal != null) {

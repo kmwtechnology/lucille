@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.LongNode;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.IndexerMessenger;
@@ -23,10 +25,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.solr.SolrTestCaseJ4;
 import org.apache.solr.SolrTestCaseJ4.SuppressSSL;
 import org.apache.solr.client.solrj.SolrClient;
@@ -85,20 +85,20 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
     return solrRule.getSolrClient(CORE);
   }
 
-  private static Map<String, Object> baseConfig() {
+  private static Map<String, Object> baseConfig(String solrBlock) {
     Map<String, Object> map = new HashMap<>();
     // the documented single-node configuration: a url, no useCloudClient
-    map.put("solr.url", List.of(solrRule.getBaseUrl()));
-    map.put("solr.defaultCollection", CORE);
+    map.put(solrBlock + ".url", List.of(solrRule.getBaseUrl()));
+    map.put(solrBlock + ".defaultCollection", CORE);
     return map;
   }
 
   private static SolrIndexer newIndexer(Map<String, Object> extra) {
-    Map<String, Object> map = baseConfig();
+    Map<String, Object> map = baseConfig("indexer.solr");
     map.put("indexer.type", "solr");
     map.put("indexer.batchSize", 100);
     map.putAll(extra);
-    return new SolrIndexer(ConfigFactory.parseMap(map), mock(IndexerMessenger.class), false, "solr", null);
+    return new SolrIndexer(ConfigFactory.parseMap(map).getConfig("indexer"), new IndexerContext(mock(IndexerMessenger.class), false, "solr", null));
   }
 
   private static List<String> idsInSolr() throws Exception {
@@ -121,7 +121,7 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
       doc1.setField("name_s", "one");
       Document doc2 = Document.create("doc2");
       doc2.setField("name_s", "two");
-      assertEquals(Set.of(), indexer.sendToIndex(List.of(doc1, doc2)));
+      assertEquals(List.of(), indexer.sendToIndex(List.of(doc1, doc2)));
 
       assertEquals(List.of("doc1", "doc2"), idsInSolr());
     } finally {
@@ -163,7 +163,7 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
       deleteById.setField("is_delete", "true");
       deletes.add(deleteById);
 
-      assertEquals(Set.of(), indexer.sendToIndex(deletes));
+      assertEquals(List.of(), indexer.sendToIndex(deletes));
       assertEquals(List.of("john", "keep", "smith"), idsInSolr());
     } finally {
       indexer.closeConnection();
@@ -180,11 +180,11 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
       Document doc1 = Document.create("doc1");
       doc1.setField("name_s", "one");
       doc1.setField("other_s", "dropped");
-      assertEquals(Set.of(), whitelist.sendToIndex(List.of(doc1)));
+      assertEquals(List.of(), whitelist.sendToIndex(List.of(doc1)));
 
       Document doc2 = Document.create("doc2");
       doc2.setField("other_id", "overridden");
-      assertEquals(Set.of(), blacklistWithOverride.sendToIndex(List.of(doc2)));
+      assertEquals(List.of(), blacklistWithOverride.sendToIndex(List.of(doc2)));
 
       assertEquals(List.of("doc1", "overridden"), idsInSolr());
     } finally {
@@ -200,14 +200,14 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
       Document bad = Document.create("bad");
       bad.setField("count_i", "not a number");
 
-      Set<Pair<Document, Exception>> failed = indexer.sendToIndex(List.of(bad));
+      List<IndexerFailure> failed = indexer.sendToIndex(List.of(bad));
 
       assertEquals(1, failed.size());
-      Pair<Document, Exception> failure = failed.iterator().next();
-      assertSame(bad, failure.getLeft());
+      IndexerFailure failure = failed.get(0);
+      assertSame(bad, failure.document());
       // Solr's own rejection of the value, not a NullPointerException from the failure accounting
-      assertTrue(failure.getRight() instanceof IndexerRetryableException);
-      assertEquals(400, ((IndexerRetryableException) failure.getRight()).getStatusCode());
+      assertTrue(failure.cause() instanceof IndexerRetryableException);
+      assertEquals(400, ((IndexerRetryableException) failure.cause()).getStatusCode());
     } finally {
       indexer.closeConnection();
     }
@@ -229,7 +229,7 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
     solrClient().add(docs);
     solrClient().commit();
 
-    Map<String, Object> map = baseConfig();
+    Map<String, Object> map = baseConfig("solr");
     map.put("name", "connector1");
     map.put("pipeline", "pipeline1");
     // fewer rows than documents, so the connector has to follow the cursor across pages
@@ -249,14 +249,61 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
         published.stream().map(Document::getId).collect(Collectors.toList()));
 
     Document doc3 = published.get(3);
-    // the destination name is lower-cased; the value keeps its Solr type (compared as JSON nodes, since the typed
-    // getters would also accept a string)
-    assertEquals(IntNode.valueOf(3), doc3.getJson("devid_i"));
+    // the field keeps its name and its Solr type (compared as JSON nodes, since the typed getters would also accept
+    // a string)
+    assertEquals(IntNode.valueOf(3), doc3.getJson("devId_i"));
+    assertFalse(doc3.has("devid_i"));
     assertEquals(DoubleNode.valueOf(3.5), doc3.getJson("price_d"));
     assertEquals(created.toInstant(), doc3.getInstant("created_dt"));
     assertEquals(JsonNodeFactory.instance.arrayNode().add(3).add(13), doc3.getJson("counts_is"));
     assertEquals(List.of("a3", "b3"), doc3.getStringList("tags_ss"));
     // Solr returns _version_ (a long) on every document, which used to fail the run
     assertTrue(doc3.getJson("_version_") instanceof LongNode);
+  }
+
+  @Test
+  public void testConnectorFieldsDifferingOnlyInCase() throws Exception {
+    SolrInputDocument input = new SolrInputDocument("id", "doc0");
+    // Solr field names are case-sensitive, so these are two fields
+    input.setField("Name_s", "upper");
+    input.setField("name_s", "lower");
+    input.setField("devId_i", 7);
+    solrClient().add(input);
+    solrClient().commit();
+
+    Document doc = queryWithConnector(Map.of());
+    assertEquals("upper", doc.getString("Name_s"));
+    assertEquals("lower", doc.getString("name_s"));
+    assertEquals(IntNode.valueOf(7), doc.getJson("devId_i"));
+
+    doc = queryWithConnector(Map.of("lowercaseFields", true));
+    assertFalse(doc.has("Name_s"));
+    assertFalse(doc.has("devId_i"));
+    assertEquals(IntNode.valueOf(7), doc.getJson("devid_i"));
+    // the two collapse into one field, holding one of their values
+    assertEquals(1, doc.getStringList("name_s").size());
+    assertTrue(List.of("upper", "lower").contains(doc.getString("name_s")));
+  }
+
+  // runs the connector over the core, expecting it to hold one document
+  private Document queryWithConnector(Map<String, Object> extra) throws Exception {
+    Map<String, Object> map = baseConfig("solr");
+    map.put("name", "connector1");
+    map.put("pipeline", "pipeline1");
+    map.put("solrParams", Map.of("q", "*:*"));
+    map.putAll(extra);
+    Config config = ConfigFactory.parseMap(map);
+
+    TestMessenger messenger = new TestMessenger();
+    SolrConnector connector = new SolrConnector(config);
+    try {
+      connector.execute(new PublisherImpl(config, messenger, "run", "pipeline1"));
+    } finally {
+      connector.close();
+    }
+
+    List<Document> published = messenger.getDocsSentForProcessing();
+    assertEquals(1, published.size());
+    return published.get(0);
   }
 }
