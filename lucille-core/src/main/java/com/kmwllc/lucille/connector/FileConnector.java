@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.kmwllc.lucille.util.ThreadNameUtils;
+import com.kmwllc.lucille.util.FileUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.storageclient.BaseFileReference;
@@ -206,6 +207,11 @@ public class FileConnector extends AbstractConnector {
   private final int maxThreads;
   private final boolean concurrent;
 
+  // Built at startup so that invalid fileOptions, filterOptions and fileHandlers fail there rather than when a
+  // traversal begins. Tombstones use it for the docIdPrefix. Each traversal builds its own, so that concurrent
+  // traversals don't share FileHandler instances.
+  private final TraversalParams startupParams;
+
   public FileConnector(Config config) throws ConnectorException {
     super(config);
 
@@ -222,7 +228,7 @@ public class FileConnector extends AbstractConnector {
 
     for (String path : paths) {
       try {
-        URI newStorageURI = TraversalParams.parsePathOrURI(path);
+        URI newStorageURI = FileUtils.parsePathOrURI(path);
         storageURIs.add(newStorageURI);
         log.debug("FileConnector to use path {} with scheme {}", path, newStorageURI.getScheme());
       } catch (URISyntaxException e) {
@@ -237,6 +243,10 @@ public class FileConnector extends AbstractConnector {
 
     this.storageClientMap = StorageClient.createClients(config);
 
+    // validates the traversal options for every path; they differ only in the path itself, which validation and
+    // tombstones never read, so with no paths there is none to give
+    this.startupParams = buildTraversalParams(storageURIs.isEmpty() ? null : storageURIs.get(0));
+
     // an https path on a host outside azure.allowedHosts would otherwise only fail once traversal starts
     for (URI uri : storageURIs) {
       if (StorageClient.clientFor(uri, storageClientMap, config) == null && storageClientMap.containsKey(clientKeyFor(uri))) {
@@ -249,8 +259,8 @@ public class FileConnector extends AbstractConnector {
     // incremental mode requires state tracking in order to function correctly
     if (config.hasPath("filterOptions.publishMode")) {
       PublishMode mode = PublishMode.fromString(config.getString("filterOptions.publishMode"));
-      if (mode == PublishMode.INCREMENTAL && !config.hasPath("state")) {
-        throw new IllegalArgumentException("filterOptions.publishMode of 'incremental' requires state configuration.");
+      if (mode == PublishMode.INCREMENTAL && stateManager == null) {
+        throw new IllegalArgumentException("filterOptions.publishMode of 'incremental' requires state to be configured and enabled.");
       }
     }
 
@@ -265,6 +275,9 @@ public class FileConnector extends AbstractConnector {
       throw new IllegalArgumentException("FileConnector does not support multiple paths and moveToAfterProcessing / moveToErrorFolder. Create individual FileConnectors.");
     }
 
+    validateMoveTargetOutsidePath(MOVE_TO_AFTER_PROCESSING);
+    validateMoveTargetOutsidePath(MOVE_TO_ERROR_FOLDER);
+
     // A collapsing Publisher is not safe for concurrent publish() calls - it would merge and drop documents silently
     if (concurrent && requiresCollapsingPublisher()) {
       throw new IllegalArgumentException("FileConnector does not support concurrent traversal and collapse. Set maxThreads to 1 or disable collapse.");
@@ -276,8 +289,8 @@ public class FileConnector extends AbstractConnector {
 
     // lastPublishedCutoff is only applied in incremental mode with state; anywhere else it would be silently ignored
     if (config.hasPath("filterOptions.lastPublishedCutoff")) {
-      if (!config.hasPath("state")) {
-        throw new IllegalArgumentException("filterOptions.lastPublishedCutoff requires state configuration.");
+      if (stateManager == null) {
+        throw new IllegalArgumentException("filterOptions.lastPublishedCutoff requires state to be configured and enabled.");
       }
       if (!config.hasPath("filterOptions.publishMode")
           || PublishMode.fromString(config.getString("filterOptions.publishMode")) == PublishMode.FULL) {
@@ -289,6 +302,21 @@ public class FileConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
+    boolean finished = false;
+
+    try {
+      runTraversalsAndTombstones(publisher);
+      finished = true;
+    } finally {
+      // A run that didn't finish deletes nothing at close, including rows an earlier run kept because their tombstones
+      // could not be published. Those tombstones are still owed.
+      if (!finished && stateManager != null) {
+        stateManager.retainExpiredRows();
+      }
+    }
+  }
+
+  private void runTraversalsAndTombstones(Publisher publisher) throws ConnectorException {
     initialize();
 
     // discover and publish all valid file candidates
@@ -329,31 +357,34 @@ public class FileConnector extends AbstractConnector {
       return;
     }
 
-    List<URI> expiredFileUris = null;
+    List<String> expiredFiles;
     try {
-      expiredFileUris = stateManager.listExpiredFiles();
+      expiredFiles = stateManager.listExpiredFiles();
     } catch (SQLException e) {
-      log.warn("Error occurred while publishing missing document tombstones.", e);
+      // keep the expired rows, so their tombstones are published next run rather than deleted without one
+      stateManager.retainExpiredRows();
+      log.warn("Error occurred while listing expired files. Their tombstones will be published on the next run.", e);
       return;
     }
 
-    if (expiredFileUris.isEmpty()) {
+    if (expiredFiles.isEmpty()) {
       return;
     }
-    int expiredFileCount = expiredFileUris.size();
+
+    int expiredFileCount = expiredFiles.size();
     int publishedTombstoneCount = 0;
     log.info("{} previously published files now missing/expired, publishing document tombstones...", expiredFileCount);
-    for (URI uri : expiredFileUris) {
-      Document doc = buildTombstoneDoc(uri);
+
+    for (String expiredFile : expiredFiles) {
+      Document doc = buildTombstoneDoc(expiredFile, startupParams);
       try {
         publisher.publish(doc);
         publishedTombstoneCount++;
       } catch (Exception e) {
-        throw new ConnectorException("Error publishing document tombstone for file: " + uri, e);
+        throw new ConnectorException("Error publishing document tombstone for file: " + expiredFile, e);
       }
     }
     log.info("Published {} of {} document tombstones for tracking and index removal", publishedTombstoneCount, expiredFileCount);
-
   }
 
   private void initialize() throws ConnectorException {
@@ -489,6 +520,37 @@ public class FileConnector extends AbstractConnector {
     }
   }
 
+  /**
+   * Rejects a fileOptions move folder that the traversal itself would visit. Files moved there during a run would be
+   * found again by the same traversal and published twice (an S3 flat listing finds them on later pages).
+   */
+  private void validateMoveTargetOutsidePath(String option) {
+    String key = "fileOptions." + option;
+    if (!config.hasPath(key) || storageURIs.size() != 1) {
+      return;
+    }
+
+    URI path = storageURIs.get(0);
+    URI target;
+    try {
+      target = FileUtils.parsePathOrURI(config.getString(key));
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Invalid " + key + ": " + config.getString(key), e);
+    }
+
+    StorageClient client = StorageClient.clientFor(path, storageClientMap, config);
+
+    // a folder on another provider can't sit under the path
+    if (client == null || client != StorageClient.clientFor(target, storageClientMap, config)) {
+      return;
+    }
+
+    if (client.moveTargetInsidePath(path, target)) {
+      throw new IllegalArgumentException(key + " (" + target + ") would put moved files back inside the path being traversed ("
+          + path + "), so they would be traversed again or overwrite themselves. Choose a folder outside it.");
+    }
+  }
+
   private static String clientKeyFor(URI pathToTraverse) {
     return pathToTraverse.getScheme() != null ? pathToTraverse.getScheme() : "file";
   }
@@ -515,15 +577,16 @@ public class FileConnector extends AbstractConnector {
   }
 
   /**
-   * Builds a tombstone Document for the given URI. The document is marked as expired and skipped,
+   * Builds a tombstone Document for the given file. The document is marked as expired and skipped,
    * so it bypasses pipeline stages and signals downstream indexers to delete the corresponding entry.
    *
-   * @param uri the URI of the file that is no longer present in storage
+   * @param fullPath the full path of the file that is no longer present in storage, as stored in state
+   * @param params the parameters supplying the docIdPrefix
    * @return a Document with {@link #EXPIRED} set to {@code true} and marked as skipped
    */
-  private Document buildTombstoneDoc(URI uri) {
+  private static Document buildTombstoneDoc(String fullPath, TraversalParams params) {
     Instant now = Instant.now();
-    Document doc = BaseFileReference.buildBaseDoc(uri.toString(), now, 0L, now, buildTraversalParams(uri));
+    Document doc = BaseFileReference.buildBaseDoc(fullPath, now, 0L, now, params);
     doc.setField(EXPIRED, true);
     doc.setSkipped(true);
     return doc;

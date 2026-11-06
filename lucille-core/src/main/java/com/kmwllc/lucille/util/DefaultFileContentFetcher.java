@@ -94,19 +94,21 @@ public class DefaultFileContentFetcher implements FileContentFetcher {
 
     if (path.startsWith("classpath:")) {
       is = DefaultFileContentFetcher.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":") + 1));
-    } else if (FileUtils.isValidURI(path)) {
-      URI pathURI = URI.create(path);
-
-      // applies azure.allowedHosts to https URIs
-      StorageClient storageClient = StorageClient.clientFor(pathURI, availableClients, config);
-
-      if (storageClient == null) {
-        throw new IOException("No Storage Client available for path " + path + ".");
-      }
-
-      is = storageClient.getFileContentStream(pathURI);
     } else {
-      is = new FileInputStream(path);
+      URI pathURI = FileUtils.storageURIFor(path);
+
+      if (pathURI == null) {
+        is = new FileInputStream(path);
+      } else {
+        // applies azure.allowedHosts to https URIs
+        StorageClient storageClient = StorageClient.clientFor(pathURI, availableClients, config);
+
+        if (storageClient == null) {
+          throw new IOException("No Storage Client available for path " + path + ".");
+        }
+
+        is = storageClient.getFileContentStream(pathURI);
+      }
     }
 
     if (is == null) {

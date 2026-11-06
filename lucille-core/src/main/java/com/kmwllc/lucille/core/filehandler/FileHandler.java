@@ -8,6 +8,7 @@ import java.lang.reflect.Constructor;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -56,9 +57,17 @@ public interface FileHandler {
   static Map<String, FileHandler> createFromConfig(Config fileHandlersConfig) {
     Map<String, FileHandler> handlerMap = new HashMap<>();
 
-    for (String fileExtension : fileHandlersConfig.root().keySet()) {
-      FileHandler handler = FileHandler.create(fileExtension, fileHandlersConfig);
-      handlerMap.put(fileExtension, handler);
+    // keys are extensions, matched without regard to case, so "CSV" and "csv" name the same handler
+    Map<String, String> configuredKeys = new HashMap<>();
+    for (String configKey : fileHandlersConfig.root().keySet()) {
+      String fileExtension = configKey.toLowerCase(Locale.ROOT);
+      String previousKey = configuredKeys.put(fileExtension, configKey);
+      if (previousKey != null) {
+        throw new IllegalArgumentException("fileHandlers has both \"" + previousKey + "\" and \"" + configKey
+            + "\". Extensions are matched without regard to case, so only one may be configured.");
+      }
+
+      handlerMap.put(fileExtension, FileHandler.create(configKey, fileHandlersConfig));
     }
 
     // only "adding" the other if it wasn't specified in the Config. Allows JSON / JSONL to be handled differently,
@@ -102,7 +111,7 @@ public interface FileHandler {
     }
 
     // No class provided, see if it is a supported type, throw an exception if it is not supported
-    switch (fileExtension) {
+    switch (fileExtension.toLowerCase(Locale.ROOT)) {
       case "json", "jsonl" -> {
         return new JsonFileHandler(fileExtensionConfig);
       }

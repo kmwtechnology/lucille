@@ -249,14 +249,61 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
         published.stream().map(Document::getId).collect(Collectors.toList()));
 
     Document doc3 = published.get(3);
-    // the destination name is lower-cased; the value keeps its Solr type (compared as JSON nodes, since the typed
-    // getters would also accept a string)
-    assertEquals(IntNode.valueOf(3), doc3.getJson("devid_i"));
+    // the field keeps its name and its Solr type (compared as JSON nodes, since the typed getters would also accept
+    // a string)
+    assertEquals(IntNode.valueOf(3), doc3.getJson("devId_i"));
+    assertFalse(doc3.has("devid_i"));
     assertEquals(DoubleNode.valueOf(3.5), doc3.getJson("price_d"));
     assertEquals(created.toInstant(), doc3.getInstant("created_dt"));
     assertEquals(JsonNodeFactory.instance.arrayNode().add(3).add(13), doc3.getJson("counts_is"));
     assertEquals(List.of("a3", "b3"), doc3.getStringList("tags_ss"));
     // Solr returns _version_ (a long) on every document, which used to fail the run
     assertTrue(doc3.getJson("_version_") instanceof LongNode);
+  }
+
+  @Test
+  public void testConnectorFieldsDifferingOnlyInCase() throws Exception {
+    SolrInputDocument input = new SolrInputDocument("id", "doc0");
+    // Solr field names are case-sensitive, so these are two fields
+    input.setField("Name_s", "upper");
+    input.setField("name_s", "lower");
+    input.setField("devId_i", 7);
+    solrClient().add(input);
+    solrClient().commit();
+
+    Document doc = queryWithConnector(Map.of());
+    assertEquals("upper", doc.getString("Name_s"));
+    assertEquals("lower", doc.getString("name_s"));
+    assertEquals(IntNode.valueOf(7), doc.getJson("devId_i"));
+
+    doc = queryWithConnector(Map.of("lowercaseFields", true));
+    assertFalse(doc.has("Name_s"));
+    assertFalse(doc.has("devId_i"));
+    assertEquals(IntNode.valueOf(7), doc.getJson("devid_i"));
+    // the two collapse into one field, holding one of their values
+    assertEquals(1, doc.getStringList("name_s").size());
+    assertTrue(List.of("upper", "lower").contains(doc.getString("name_s")));
+  }
+
+  // runs the connector over the core, expecting it to hold one document
+  private Document queryWithConnector(Map<String, Object> extra) throws Exception {
+    Map<String, Object> map = baseConfig("solr");
+    map.put("name", "connector1");
+    map.put("pipeline", "pipeline1");
+    map.put("solrParams", Map.of("q", "*:*"));
+    map.putAll(extra);
+    Config config = ConfigFactory.parseMap(map);
+
+    TestMessenger messenger = new TestMessenger();
+    SolrConnector connector = new SolrConnector(config);
+    try {
+      connector.execute(new PublisherImpl(config, messenger, "run", "pipeline1"));
+    } finally {
+      connector.close();
+    }
+
+    List<Document> published = messenger.getDocsSentForProcessing();
+    assertEquals(1, published.size());
+    return published.get(0);
   }
 }

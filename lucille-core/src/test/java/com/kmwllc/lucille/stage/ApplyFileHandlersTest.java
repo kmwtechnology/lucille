@@ -345,4 +345,23 @@ public class ApplyFileHandlersTest {
     // path to a service key.
     assertThrows(StageException.class, () -> factory.get("ApplyFileHandlersTest/allTypesAndCloud.conf"));
   }
+
+  // an upper-case extension uses the handler configured in lower case
+  @Test
+  public void testUpperCaseExtension() throws StageException {
+    Stage stage = factory.get("ApplyFileHandlersTest/allTypes.conf");
+
+    Document doc = Document.create("csv_doc");
+    doc.setField("file_path", "some/folder/TEST.CSV");
+    doc.setField("file_content", testCsvContents);
+
+    Iterator<Document> docs = stage.processDocument(doc);
+    int docsCount = 0;
+    while (docs.hasNext()) {
+      docs.next();
+      docsCount++;
+    }
+
+    assertEquals(4, docsCount);
+  }
 }

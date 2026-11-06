@@ -23,7 +23,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.function.Supplier;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveException;
@@ -129,10 +131,10 @@ public abstract class BaseStorageClient implements StorageClient {
 
   /**
    * {@inheritDoc}
-   * <p> Compares the URIs by path segment, so <code>s3://bucket/data</code> contains <code>s3://bucket/data/2024</code>.
-   * A URI with an empty path is the root of its bucket or container, and contains everything in it.
-   * <p> Object storage prefixes are raw strings rather than path segments, so overlaps that do not fall on a segment
-   * boundary are missed, implementations may override to catch them.
+   * <p> For object stores, where a path is a raw key prefix: the parent contains the child when the child's key prefix
+   * starts with the parent's. So <code>s3://bucket/data</code> contains both <code>s3://bucket/data/2024</code> and
+   * <code>s3://bucket/data2</code>, while <code>s3://bucket/data/</code> contains only the first. A URI with an empty
+   * path is the root of its bucket, and contains everything in it.
    */
   @Override
   public boolean containsPath(URI parent, URI child) {
@@ -144,24 +146,45 @@ public abstract class BaseStorageClient implements StorageClient {
       return false;
     }
 
-    return isUnder(normalizedChild.getPath(), normalizedParent.getPath());
+    return keyPrefix(normalizedChild).startsWith(keyPrefix(normalizedParent));
   }
 
-  // Returns whether the child path is the parent path, or sits underneath it, treating both as '/'-delimited.
-  private static boolean isUnder(String childPath, String parentPath) {
-    String parent = stripTrailingSlash(parentPath);
-    String child = stripTrailingSlash(childPath);
+  /**
+   * Returns the object-store key a URI names: its path without the leading '/'. This is the key prefix a traversal path
+   * lists, or the folder key a move uses (see {@link #destinationKey}). Empty for the root of the bucket or container,
+   * with or without a trailing '/'.
+   */
+  static String keyPrefix(URI uri) {
+    String path = uri.getPath();
 
-    // an empty path is the root of a bucket / container, which contains everything in it
-    return parent.isEmpty() || child.equals(parent) || child.startsWith(parent + "/");
-  }
-
-  private static String stripTrailingSlash(String path) {
     if (path == null || path.isEmpty()) {
       return "";
     }
 
-    return path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+    return path.startsWith("/") ? path.substring(1) : path;
+  }
+
+  /**
+   * Implements {@link #moveTargetInsidePath(URI, URI)} for object stores that move files by {@link #destinationKey}.
+   * Different buckets never overlap.
+   */
+  static boolean movedKeyInsideBucketPath(URI path, URI folder) {
+    URI normalizedPath = path.normalize();
+    URI normalizedFolder = folder.normalize();
+
+    return Objects.equals(normalizedPath.getScheme(), normalizedFolder.getScheme())
+        && Objects.equals(normalizedPath.getAuthority(), normalizedFolder.getAuthority())
+        && movedKeyInsidePrefix(keyPrefix(normalizedPath), keyPrefix(normalizedFolder));
+  }
+
+  /**
+   * Returns whether objects listed under the given key prefix would still be under it after moving to the given folder.
+   * Every listed key starts with the prefix, so the destination of the prefix itself decides for all of them. This covers
+   * a folder under the prefix, the prefix without its trailing '/' (the file lands at <code>incoming/incoming/a.csv</code>)
+   * and the root of the bucket (the file lands on its own key).
+   */
+  static boolean movedKeyInsidePrefix(String prefix, String folderKey) {
+    return destinationKey(folderKey, prefix).startsWith(prefix);
   }
 
   /**
@@ -336,6 +359,40 @@ public abstract class BaseStorageClient implements StorageClient {
         log.error("Error occurred while performing error operations on file '{}'", fullPath, ex);
       }
       log.error("Unable to publish document '{}', SKIPPING", fullPath, e);
+    }
+  }
+
+  /**
+   * Returns the key an object moves to under the given folder key, for object stores: the folder, a '/', then the
+   * object's full key. An empty folder key is the root of the bucket or container. A folder key ending in '/' gets no
+   * second one.
+   *
+   * @param folderKey The destination folder's key, without a leading '/'. May be empty.
+   * @param sourceKey The full key of the object being moved.
+   * @return The destination key.
+   */
+  static String destinationKey(String folderKey, String sourceKey) {
+    if (folderKey.isEmpty()) {
+      return sourceKey;
+    }
+
+    return folderKey.endsWith("/") ? folderKey + sourceKey : folderKey + "/" + sourceKey;
+  }
+
+  /**
+   * Builds the FileReference for one listed object, or returns null, logging the error, if it can't be built (e.g. the
+   * object's name can't form a URI). The caller skips that object, so one bad object doesn't fail the whole traversal.
+   * It is never published or marked encountered in state, because it has no full path to record it under. So if an
+   * object with that name was published by an earlier run, its row is treated like any file not encountered: once it
+   * has gone unencountered for <code>state.runsBeforeExpiration</code> runs, it is tombstoned (with
+   * <code>sendTombstones</code>) and deleted from state.
+   */
+  static FileReference buildReferenceOrSkip(String objectName, Supplier<FileReference> builder) {
+    try {
+      return builder.get();
+    } catch (Exception e) {
+      log.error("Unable to build a reference to '{}', SKIPPING", objectName, e);
+      return null;
     }
   }
 
@@ -538,7 +595,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
    */
   private boolean isSupportedCompressedFileType(String pathStr) {
-    return pathStr.endsWith(".gz");
+    return pathStr.toLowerCase(Locale.ROOT).endsWith(".gz");
     // string.endsWith(".bz2") ||
     // string.endsWith(".xz") ||
     // string.endsWith(".lzma") ||
@@ -553,8 +610,9 @@ public abstract class BaseStorageClient implements StorageClient {
    * note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
    */
   private boolean isSupportedArchiveFileType(String pathStr) {
-    return pathStr.endsWith(".tar") ||
-        pathStr.endsWith(".zip");
+    String lowerCasePath = pathStr.toLowerCase(Locale.ROOT);
+    return lowerCasePath.endsWith(".tar") ||
+        lowerCasePath.endsWith(".zip");
     // string.endsWith(".7z") ||
     // string.endsWith(".ar") ||
     // string.endsWith(".arj") ||
