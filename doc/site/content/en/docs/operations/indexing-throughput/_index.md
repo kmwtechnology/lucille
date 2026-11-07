@@ -51,7 +51,7 @@ In Kafka-backed modes (distributed and hybrid), you scale by adding Kafka consum
 
 ### The partition ceiling
 
-All consumers form a single Kafka consumer group, and Kafka assigns each partition to **at most one** consumer in the group. So the number of consumers that can be *active* at once is capped at the partition count of the topic they read: the **destination topic** in distributed mode, the **source topic** in hybrid mode. On a topic with W partitions, the W+1th consumer sits idle with no partition assigned.
+The consumers of a topic form a Kafka consumer group, and Kafka assigns each partition to **at most one** consumer in the group. So the number of consumers that can be *active* at once is capped at the partition count of the topic they read: the **destination topic** in distributed mode, the **source topic** in hybrid mode. On a topic with W partitions, the W+1th consumer sits idle with no partition assigned.
 
 This means **adding consumers may first require adding partitions.** If you are at "W consumers, W partitions," you cannot get more send parallelism from more consumers without repartitioning that topic, an operational change that affects every consumer and redistributes keys. Partition count is therefore the first thing to check when consumer-scaling stops helping.
 
