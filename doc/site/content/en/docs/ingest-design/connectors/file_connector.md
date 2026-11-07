@@ -138,16 +138,16 @@ storageClients {
 }
 ```
 
-Or to replace the built-in client for `s3`, `gs`, or `https`, for example with a subclass of `S3StorageClient` adapted for an S3-compatible endpoint. The entry holds both the built-in client's settings (see [s3](#s3), [gcp](#gcp), or [azure](#azure)) and any settings of the subclass's own:
+Or to replace the built-in client for `s3`, `gs`, or `https` with your own `StorageClient`. The entry holds only the settings your client reads; the built-in [s3](#s3), [gcp](#gcp), and [azure](#azure) blocks configure the built-in clients and can't also be given for that scheme:
 
 ```hocon
 paths: ["s3://bucket/prefix/"]
 storageClients {
   s3 {
     class: "com.mycompany.lucille.storage.MyS3StorageClient"
+    # settings read by MyS3StorageClient
+    endpoint: "https://s3.storage.example.internal"
     region: "us-east-1"
-    # read by MyS3StorageClient
-    endpointOverride: "https://s3.storage.example.internal"
   }
 }
 ```
