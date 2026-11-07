@@ -29,6 +29,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.BooleanSupplier;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
@@ -412,6 +413,87 @@ public class KafkaConcurrentIndexerEndToEndTest {
       }
     }
     assertEquals(ids, finished);
+  }
+
+  @Test
+  public void testRejectedDocumentReachesFailTopic() throws Exception {
+    String pipeline = newPipeline(1);
+    String failTopic = KafkaUtils.getFailTopicName(pipeline);
+    embeddedKafka.addTopics(new NewTopic(failTopic, 1, (short) 1));
+    Config config = config(pipeline, 1, Map.of("indexer.batchTimeout", 100, "indexer.sendFailedDocsToTopic", true));
+    String id = produce(config, pipeline, 0, 1, "run").get(0);
+
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline);
+    RecordingIndexer indexer = new RecordingIndexer(config.getConfig("indexer"), messenger) {
+      @Override
+      protected List<IndexerFailure> sendToIndex(List<Document> documents) {
+        return documents.stream().map(doc -> new IndexerFailure(doc, new IndexerException("rejected"))).toList();
+      }
+    };
+    Thread thread = new Thread(indexer);
+    thread.start();
+    try {
+      Document failed = readFailTopic(config, failTopic);
+      assertEquals(id, failed.getId());
+      assertEquals("indexer", failed.getString(Document.FAILURE_COMPONENT_FIELD));
+      assertTrue(failed.getString(Document.FAILURE_REASON_FIELD).contains("rejected"));
+      assertTrue(failed.has(Document.FAILURE_TIME_FIELD));
+      // the fail-topic write came first, so the offset can now be committed
+      waitFor(() -> Map.of(new TopicPartition(KafkaUtils.getDestTopicName(pipeline), 0), 1L).equals(committed(config)));
+    } finally {
+      indexer.terminate();
+      thread.join(TIMEOUT_MS);
+    }
+  }
+
+  @Test
+  public void testHybridMessengersWriteToFailTopic() throws Exception {
+    String pipeline = newPipeline(1);
+    String failTopic = KafkaUtils.getFailTopicName(pipeline);
+    embeddedKafka.addTopics(new NewTopic(failTopic, 1, (short) 1));
+
+    Config workerConfig = config(pipeline, 1, Map.of("worker.maxRetries", 1));
+    HybridWorkerMessenger workerMessenger =
+        new HybridWorkerMessenger(workerConfig, pipeline, new LinkedBlockingQueue<>(), new LinkedBlockingQueue<>());
+    try {
+      workerMessenger.sendFailed(Document.create("fromWorker", "run"));
+    } finally {
+      workerMessenger.close();
+    }
+    assertEquals("fromWorker", readFailTopic(workerConfig, failTopic).getId());
+
+    Config indexerConfig = config(pipeline, 1, Map.of("indexer.sendFailedDocsToTopic", true));
+    HybridIndexerMessenger indexerMessenger =
+        new HybridIndexerMessenger(indexerConfig, new LinkedBlockingQueue<>(), new LinkedBlockingQueue<>(), null, pipeline);
+    try {
+      indexerMessenger.sendFailed(Document.create("fromIndexer", "run"));
+    } finally {
+      indexerMessenger.close();
+    }
+    List<String> ids = new ArrayList<>();
+    try (KafkaConsumer<String, String> consumer = eventConsumer(indexerConfig)) {
+      consumer.subscribe(List.of(failTopic));
+      long deadline = System.currentTimeMillis() + TIMEOUT_MS;
+      while (ids.size() < 2 && System.currentTimeMillis() < deadline) {
+        for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofMillis(200))) {
+          ids.add(record.key());
+        }
+      }
+    }
+    assertEquals(List.of("fromWorker", "fromIndexer"), ids);
+  }
+
+  private static Document readFailTopic(Config config, String failTopic) throws Exception {
+    try (KafkaConsumer<String, String> consumer = eventConsumer(config)) {
+      consumer.subscribe(List.of(failTopic));
+      long deadline = System.currentTimeMillis() + TIMEOUT_MS;
+      while (System.currentTimeMillis() < deadline) {
+        for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofMillis(200))) {
+          return Document.createFromJson(record.value());
+        }
+      }
+    }
+    throw new AssertionError("nothing was written to " + failTopic);
   }
 
   // --- helpers ---

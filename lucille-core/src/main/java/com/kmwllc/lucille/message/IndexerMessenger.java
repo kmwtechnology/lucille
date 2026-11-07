@@ -31,6 +31,14 @@ public interface IndexerMessenger {
   Document pollDocToIndex() throws MessengerException;
 
   /**
+   * Copy the designated Document to the fail topic, a dead letter queue for Documents that could not be indexed. Only
+   * called when indexer.sendFailedDocsToTopic is set. A messenger with no fail topic does nothing.
+   *
+   * @throws MessengerException if the Document could not be sent; see {@link MessengerException#isDocumentSpecific()}
+   */
+  void sendFailed(Document document) throws MessengerException;
+
+  /**
    * Make the designated Event available to the Publisher or any other component that is listening for
    * Document-related Events.
    *

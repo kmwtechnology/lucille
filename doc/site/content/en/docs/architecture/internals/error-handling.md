@@ -190,9 +190,19 @@ When Lucille runs against Kafka (distributed or Hybrid mode), each pipeline has 
 |---|---|---|
 | Worker | Retry count exceeded (`worker.maxRetries`) — the poison-pill path | Always routes (no gate) |
 | Worker | A document throws during pipeline processing | `worker.sendFailedDocsToTopic` (default `false`) |
-| Indexer | A batch fails to index (after retries are exhausted) | `indexer.sendFailedDocsToTopic` (default `false`) |
+| Indexer | A document or batch fails to index (after retries are exhausted) | `indexer.sendFailedDocsToTopic` (default `false`) |
 
 In all cases the FAIL event and the `FailedDocuments` log are emitted regardless; routing to the fail topic is an *additional* signal, not a replacement.
+
+### When the fail topic can't take a document
+
+The document is written to the fail topic before its FAIL event is sent. If that write fails:
+
+- **The topic rejects that document** (for example, a record too large for the topic): the failure is logged and the document fails as usual, since sending it again would only repeat the rejection. It does not reach the fail topic, though the FAIL event and the `FailedDocuments` log still record it.
+- **Any other failure, in a Worker:** this is a messenger failure like any other, so the Worker stops without sending a FAIL event or committing the document's offset, and the document is redelivered.
+- **Any other failure, in an Indexer:** the FAIL event is still sent, so the run does not hang, but the batch's offsets are not committed, so its documents are re-delivered on restart rather than lost.
+
+A child document announced before its parent failed gets a FAIL event but is not copied to the fail topic.
 
 ### Failure metadata
 

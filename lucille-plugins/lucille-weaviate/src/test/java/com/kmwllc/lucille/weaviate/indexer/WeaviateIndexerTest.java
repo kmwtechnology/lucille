@@ -31,7 +31,6 @@ import io.weaviate.client.v1.data.replication.model.ConsistencyLevel;
 import io.weaviate.client.v1.misc.Misc;
 import io.weaviate.client.v1.misc.api.MetaGetter;
 import io.weaviate.client.v1.misc.model.Meta;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -196,11 +195,11 @@ public class WeaviateIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("WeaviateIndexerTest/config.conf");
 
-    Document doc = Document.create("doc1", "test_run");
-    doc.setField("title", "hello");
-    doc.setFailureMetadata("a reason", "worker", Instant.now());
+    // as read back from the fail topic
+    Document doc = Document.createFromJson("{\"id\": \"doc1\", \"run_id\": \"test_run\", \"title\": \"hello\", "
+        + "\"___failure_reason\": \"a reason\", \"___failure_component\": \"worker\", \"___failure_time\": \"1970-01-01T00:00:00Z\"}");
 
-    WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing");
+    WeaviateIndexer indexer = new WeaviateIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 

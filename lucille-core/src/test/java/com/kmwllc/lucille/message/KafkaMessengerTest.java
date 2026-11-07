@@ -39,6 +39,7 @@ public class KafkaMessengerTest {
       kafkaUtils.when(() -> {
         KafkaUtils.getFailTopicName("foo");
       }).thenReturn("foo_fail");
+      kafkaUtils.when(() -> KafkaUtils.sendToFailTopic(Mockito.any(), Mockito.any(), Mockito.any())).thenCallRealMethod();
       KafkaWorkerMessenger messenger = new KafkaWorkerMessenger(config, "foo");
       Document doc = Document.create("doc2");
       doc.setOrAdd("key1", "val1");

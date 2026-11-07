@@ -27,6 +27,8 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   private static final Logger log = LoggerFactory.getLogger(KafkaIndexerMessenger.class);
   private final Consumer<String, KafkaDocument> destConsumer;
   private final KafkaProducer<String, String> kafkaEventProducer;
+  // only created when the fail topic is enabled, so an indexer that doesn't use it needs no document producer config
+  private final KafkaProducer<String, Document> failTopicProducer;
   private final String pipelineName;
   private final Config config;
   private final EventFieldConfig eventFieldConfig;
@@ -49,6 +51,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)),
         offsetCommitTracker.rebalanceListener());
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    this.failTopicProducer = KafkaUtils.indexerFailTopicEnabled(config) ? KafkaUtils.createDocumentProducer(config) : null;
     this.config = config;
     this.eventFieldConfig = EventFieldConfig.fromConfig(config);
     this.deserializationErrorHandler =
@@ -171,10 +174,18 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   }
 
   @Override
+  public void sendFailed(Document document) throws MessengerException {
+    KafkaUtils.sendToFailTopic(failTopicProducer, pipelineName, document);
+  }
+
+  @Override
   public void close() {
     // Commit offsets of batches completed but not yet committed, so a clean shutdown does not force their re-delivery.
     offsetCommitTracker.commitOnClose();
     destConsumer.close();
+    if (failTopicProducer != null) {
+      failTopicProducer.close();
+    }
   }
 
   /**

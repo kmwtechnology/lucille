@@ -318,7 +318,7 @@ public abstract class DocumentTest {
   public void testSetFailureMetadata() {
     Document document = createDocument("123");
     Instant now = Instant.ofEpochSecond(10000);
-    document.setFailureMetadata("boom", "worker", now);
+    ((JsonDocument) document).setFailureMetadata("boom", "worker", now);
 
     assertEquals("boom", document.getString(Document.FAILURE_REASON_FIELD));
     assertEquals("worker", document.getString(Document.FAILURE_COMPONENT_FIELD));

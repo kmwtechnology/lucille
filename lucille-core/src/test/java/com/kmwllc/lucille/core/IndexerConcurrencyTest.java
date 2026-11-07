@@ -1245,7 +1245,7 @@ public class IndexerConcurrencyTest {
     }
 
     @Override
-    public void sendFailed(Document document) throws Exception {
+    public void sendFailed(Document document) throws MessengerException {
     }
 
     // Records batch completions in order and commits nothing at poll, so it is safe for concurrent batches.

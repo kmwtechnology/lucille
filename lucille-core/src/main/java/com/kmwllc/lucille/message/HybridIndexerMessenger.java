@@ -34,6 +34,8 @@ public class HybridIndexerMessenger implements IndexerMessenger {
   private final BlockingQueue<Document> pipelineDest;
   private final BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
   private final KafkaProducer<String, String> kafkaEventProducer;
+  // only created when the fail topic is enabled, so an indexer that doesn't use it needs no document producer config
+  private final KafkaProducer<String, Document> failTopicProducer;
   private final String pipelineName;
   private final Config config;
   private final EventFieldConfig eventFieldConfig;
@@ -55,6 +57,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
     this.offsets = offsets;
     this.idSet = idSet;
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    this.failTopicProducer = KafkaUtils.indexerFailTopicEnabled(config) ? KafkaUtils.createDocumentProducer(config) : null;
     this.pipelineName = pipelineName;
     this.config = config;
     this.eventFieldConfig = EventFieldConfig.fromConfig(config);
@@ -139,9 +142,17 @@ public class HybridIndexerMessenger implements IndexerMessenger {
   }
 
   @Override
+  public void sendFailed(Document document) throws MessengerException {
+    KafkaUtils.sendToFailTopic(failTopicProducer, pipelineName, document);
+  }
+
+  @Override
   public void close() {
     if (kafkaEventProducer != null) {
       kafkaEventProducer.close();
+    }
+    if (failTopicProducer != null) {
+      failTopicProducer.close();
     }
   }
 

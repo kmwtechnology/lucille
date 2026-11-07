@@ -485,7 +485,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     // through JSON. This is the JsonDocument/KafkaDocument path, which is the only path that actually reaches the
     // fail topic.
     Document document = createDocument("123");
-    document.setFailureMetadata("boom", "worker", Instant.ofEpochSecond(10000));
+    ((JsonDocument) document).setFailureMetadata("boom", "worker", Instant.ofEpochSecond(10000));
 
     Document roundTripped = createDocumentFromJson(document.toString());
     assertEquals("boom", roundTripped.getString(Document.FAILURE_REASON_FIELD));

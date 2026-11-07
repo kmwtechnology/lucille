@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.message;
 
+import com.kmwllc.lucille.core.Document;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.time.Duration;
@@ -371,5 +372,10 @@ public class KafkaUtilsTest {
         ConfigFactory.parseString("indexer.sendFailedDocsToTopic: true")));
     assertFalse(KafkaUtils.indexerFailTopicEnabled(
         ConfigFactory.parseString("indexer.sendFailedDocsToTopic: false")));
+  }
+
+  @Test
+  public void testSendToFailTopicRequiresTheFailTopicToBeEnabled() {
+    assertThrows(IllegalStateException.class, () -> KafkaUtils.sendToFailTopic(null, "pipeline1", Document.create("doc1")));
   }
 }
