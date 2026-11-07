@@ -1,80 +1,194 @@
 package com.kmwllc.lucille.message;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.MockConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.consumer.OffsetResetStrategy;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.ArgumentCaptor;
 
+/**
+ * Tests how HybridWorkerMessenger commits source offsets on behalf of its paired Indexer, and how it handles partitions
+ * it gives up, using a MockConsumer, which tracks committed offsets and drives rebalances.
+ */
 public class HybridWorkerMessengerTest {
 
-  private final TopicPartition a0 = new TopicPartition("a", 0);
-  private final TopicPartition a1 = new TopicPartition("a", 1);
-  private final TopicPartition b0 = new TopicPartition("b", 0);
+  private static final String TOPIC = "pipeline1_source";
+  private static final TopicPartition P0 = new TopicPartition(TOPIC, 0);
+  private static final TopicPartition P1 = new TopicPartition(TOPIC, 1);
 
-  private KafkaConsumer consumer;
-  private LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
+  private final AtomicInteger commits = new AtomicInteger();
+  // MockConsumer reports 0 as the committed offset of a partition it is not assigned, so commits are recorded here
+  private final Map<TopicPartition, Long> committedOffsets = new ConcurrentHashMap<>();
+  private MockConsumer<String, KafkaDocument> consumer;
+  private LinkedBlockingQueue<Document> pipelineDest;
   private HybridWorkerMessenger messenger;
 
   @Before
   public void setUp() {
-    Config config = ConfigFactory.parseString("kafka.events: false");
-    consumer = mock(KafkaConsumer.class);
-    offsets = new LinkedBlockingQueue<>();
-    messenger = new HybridWorkerMessenger(config, "pipeline1", new LinkedBlockingQueue<>(), offsets, consumer);
+    consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST) {
+      @Override
+      public synchronized void commitSync(Map<TopicPartition, OffsetAndMetadata> offsets) {
+        commits.incrementAndGet();
+        offsets.forEach((partition, offset) -> committedOffsets.put(partition, offset.offset()));
+        super.commitSync(offsets);
+      }
+    };
+    // the real document consumer reads one record per poll
+    consumer.setMaxPollRecords(1);
+    pipelineDest = new LinkedBlockingQueue<>();
+    messenger = new HybridWorkerMessenger(config(300), "pipeline1", pipelineDest, consumer);
+    assign(P0, P1);
+  }
+
+  private static Config config(int maxPollIntervalSecs) {
+    return ConfigFactory.parseString("kafka { bootstrapServers: \"localhost:9092\", consumerGroupId: \"group\", "
+        + "maxPollIntervalSecs: " + maxPollIntervalSecs + ", maxRequestSize: 1048576, events: false }");
+  }
+
+  private void assign(TopicPartition... partitions) {
+    consumer.rebalance(Set.of(partitions));
+    for (TopicPartition partition : partitions) {
+      consumer.updateBeginningOffsets(Map.of(partition, 0L));
+    }
+  }
+
+  // Adds a record, polls it as the Worker would and hands it to the Indexer's queue.
+  private KafkaDocument poll(TopicPartition partition, long offset) throws Exception {
+    String id = "doc-" + partition.partition() + "-" + offset;
+    KafkaDocument value = new KafkaDocument((ObjectNode) new ObjectMapper().readTree(Document.create(id, "run1").toString()));
+    consumer.addRecord(new ConsumerRecord<>(partition.topic(), partition.partition(), offset, id, value));
+    KafkaDocument doc = messenger.pollDocToProcess();
+    messenger.sendForIndexing(doc);
+    return doc;
+  }
+
+  private Long committed(TopicPartition partition) {
+    return committedOffsets.get(partition);
   }
 
   @Test
-  public void testEmptyQueueDoesNotCommit() throws Exception {
+  public void testNothingIsCommittedUntilABatchCompletes() throws Exception {
+    poll(P0, 0);
     messenger.commitPendingDocOffsets();
-    verify(consumer, never()).commitSync(anyMap());
+    assertNull(committed(P0));
   }
 
   @Test
-  public void testSingleMapCommittedAsIs() throws Exception {
-    Map<TopicPartition, OffsetAndMetadata> m = Map.of(a0, new OffsetAndMetadata(5));
-    offsets.add(m);
+  public void testCommitDoesNotSkipAnUncompletedEarlierRecord() throws Exception {
+    // with indexOverrideField, records can complete out of offset order
+    KafkaDocument offset0 = poll(P0, 0);
+    KafkaDocument offset1 = poll(P0, 1);
+    KafkaDocument offset2 = poll(P0, 2);
+
+    messenger.batchCompleted(List.of(offset0, offset2));
     messenger.commitPendingDocOffsets();
-    verify(consumer, times(1)).commitSync(m);
-    assertTrue(offsets.isEmpty());
+    assertEquals("must not commit past the uncompleted offset 1", Long.valueOf(1L), committed(P0));
+
+    messenger.batchCompleted(List.of(offset1));
+    messenger.commitPendingDocOffsets();
+    assertEquals(Long.valueOf(3L), committed(P0));
   }
 
   @Test
-  public void testSamePartitionOutOfOrderKeepsMax() throws Exception {
-    offsets.add(Map.of(a0, new OffsetAndMetadata(10)));
-    offsets.add(Map.of(a0, new OffsetAndMetadata(4)));
-    offsets.add(Map.of(a0, new OffsetAndMetadata(7)));
-    messenger.commitPendingDocOffsets();
+  public void testBatchesCompletedTogetherAreCommittedOnce() throws Exception {
+    KafkaDocument offset0 = poll(P0, 0);
+    KafkaDocument offset1 = poll(P0, 1);
+    KafkaDocument p1Offset0 = poll(P1, 0);
+    messenger.batchCompleted(List.of(offset0));
+    messenger.batchCompleted(List.of(offset1, p1Offset0));
 
-    ArgumentCaptor<Map<TopicPartition, OffsetAndMetadata>> captor = ArgumentCaptor.forClass(Map.class);
-    verify(consumer, times(1)).commitSync(captor.capture());
-    assertEquals(Map.of(a0, new OffsetAndMetadata(10)), captor.getValue());
+    int before = commits.get();
+    messenger.commitPendingDocOffsets();
+    assertEquals(1, commits.get() - before);
+    assertEquals(Long.valueOf(2L), committed(P0));
+    assertEquals(Long.valueOf(1L), committed(P1));
   }
 
   @Test
-  public void testMultiplePartitionsAndTopics() throws Exception {
-    offsets.add(Map.of(a0, new OffsetAndMetadata(3), a1, new OffsetAndMetadata(9)));
-    offsets.add(Map.of(a0, new OffsetAndMetadata(8), b0, new OffsetAndMetadata(2)));
-    offsets.add(Map.of(a1, new OffsetAndMetadata(1), b0, new OffsetAndMetadata(6)));
-    messenger.commitPendingDocOffsets();
+  public void testRevocationCommitsCompletedBatchesAndRemovesQueuedDocuments() throws Exception {
+    KafkaDocument p0Offset0 = poll(P0, 0);
+    pipelineDest.remove(p0Offset0);   // taken by the Indexer
+    poll(P0, 1);                      // still waiting
+    KafkaDocument p1Offset0 = poll(P1, 0);
+    messenger.batchCompleted(List.of(p0Offset0));
 
-    ArgumentCaptor<Map<TopicPartition, OffsetAndMetadata>> captor = ArgumentCaptor.forClass(Map.class);
-    verify(consumer, times(1)).commitSync(captor.capture());
-    assertEquals(Map.of(a0, new OffsetAndMetadata(8), a1, new OffsetAndMetadata(9), b0, new OffsetAndMetadata(6)),
-        captor.getValue());
+    // P0 is revoked before the worker commits
+    consumer.rebalance(Set.of(P1));
+
+    assertEquals("the completed batch is committed before the handoff", Long.valueOf(1L), committed(P0));
+    assertEquals("P0's waiting document is left for its next owner", List.of(p1Offset0), List.copyOf(pipelineDest));
+  }
+
+  @Test
+  public void testLateCompletionCannotRewindTheNextOwner() throws Exception {
+    KafkaDocument p0Offset0 = poll(P0, 0);
+    KafkaDocument p0Offset1 = poll(P0, 1);
+
+    // P0 moves to another worker, which commits further, then comes back
+    consumer.rebalance(Set.of(P1));
+    consumer.commitSync(Map.of(P0, new OffsetAndMetadata(10)));
+    consumer.rebalance(Set.of(P0, P1));
+
+    messenger.batchCompleted(List.of(p0Offset0, p0Offset1));
+    messenger.commitPendingDocOffsets();
+    assertEquals(Long.valueOf(10L), committed(P0));
+  }
+
+  @Test
+  public void testOwnershipEndsWhenThePartitionIsRevoked() throws Exception {
+    KafkaDocument p0Offset0 = poll(P0, 0);
+    KafkaDocument p1Offset0 = poll(P1, 0);
+    assertTrue(messenger.ownsInput(p0Offset0));
+    // a child a stage created has no partition
+    assertTrue(messenger.ownsInput(Document.create("child")));
+
+    consumer.rebalance(Set.of(P1));
+
+    assertFalse(messenger.ownsInput(p0Offset0));
+    assertTrue(messenger.ownsInput(p1Offset0));
+  }
+
+  @Test
+  public void testOwnershipEndsAfterThePollDeadline() throws Exception {
+    messenger = new HybridWorkerMessenger(config(1), "pipeline1", pipelineDest, consumer);
+    assign(P0);
+    KafkaDocument doc = poll(P0, 0);
+    assertTrue(messenger.ownsInput(doc));
+
+    Thread.sleep(1100);
+    assertFalse(messenger.ownsInput(doc));
+  }
+
+  @Test
+  public void testUnsentBatchOfAStillOwnedPartitionIsPolledAgain() throws Exception {
+    KafkaDocument offset0 = poll(P0, 0);
+    pipelineDest.remove(offset0);   // taken by the Indexer
+    poll(P0, 1);                    // still waiting
+
+    // the Indexer could not confirm ownership in time and skipped offset 0's batch, though P0 is still assigned
+    messenger.batchNotSent(List.of(offset0));
+    assertNull(messenger.pollDocToProcess());
+
+    assertTrue("the partition's waiting documents will be polled again", pipelineDest.isEmpty());
+    assertEquals(0L, consumer.position(P0));
   }
 }

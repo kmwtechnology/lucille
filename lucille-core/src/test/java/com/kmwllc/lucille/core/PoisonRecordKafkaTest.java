@@ -403,8 +403,7 @@ public class PoisonRecordKafkaTest {
     String sourceTopic = KafkaUtils.getSourceTopicName(pipelineName, config);
     produce(sourceTopic, "doc1", "poison2", "doc3");
 
-    HybridWorkerMessenger messenger = new HybridWorkerMessenger(config, pipelineName,
-        new LinkedBlockingQueue<>(), new LinkedBlockingQueue<>());
+    HybridWorkerMessenger messenger = new HybridWorkerMessenger(config, pipelineName, new LinkedBlockingQueue<>());
     try {
       assertEquals("doc1", pollUntilDoc(messenger::pollDocToProcess).getId());
       assertEquals("doc3", pollUntilDoc(messenger::pollDocToProcess).getId());

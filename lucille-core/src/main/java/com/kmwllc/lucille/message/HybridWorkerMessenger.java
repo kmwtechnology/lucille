@@ -9,7 +9,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -20,16 +20,29 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.regex.Pattern;
 
 /**
  * A WorkerMessenger for hybrid mode: reads documents from a Kafka source topic and hands them to a co-located Indexer
- * through an in-memory queue, committing the offsets the Indexer queues back once their batches are complete.
+ * through an in-memory queue. Its {@link HybridIndexerMessenger} reports each batch back once it completes, and the
+ * source offsets are committed by an {@link OffsetCommitTracker}, as the standalone Indexer commits destination offsets:
+ * a frontier that never passes an unfinished record and never moves backwards across a rebalance. The tracker also
+ * answers the paired Indexer's ownership check before each send.
  *
- * <p> Internal to Lucille: {@link com.kmwllc.lucille.core.WorkerIndexer} creates it, sharing its queues with a
+ * <p> The consumer, the tracker and the rebalance callbacks all run on the worker thread. The Indexer's reports cross
+ * threads through a queue that the worker thread drains before each poll, before each commit and on revocation.
+ *
+ * <p> When partitions are revoked or lost, the documents from them that are still waiting in the queue are removed, so
+ * that the partition's next owner processes and indexes them instead of both consumers doing so.
+ *
+ * <p> Internal to Lucille: {@link com.kmwllc.lucille.core.WorkerIndexer} creates it, sharing its document queue with a
  * {@link HybridIndexerMessenger}. It is public only because the two are in different packages.
  */
 public class HybridWorkerMessenger implements WorkerMessenger {
@@ -38,7 +51,15 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   private final Consumer<String, KafkaDocument> sourceConsumer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final BlockingQueue<Document> pipelineDest;
-  private final BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
+  private final OffsetCommitTracker offsetCommitTracker;
+  private final ConsumerRebalanceListener trackerListener;
+  // The paired Indexer's reports of completed batches and of batches it did not send, waiting for the worker thread
+  private final Queue<BatchResult> batchResults = new ConcurrentLinkedQueue<>();
+
+  // As in KafkaIndexerMessenger: once the worker has gone max.poll.interval.ms without polling it has left its group, so
+  // ownsInput stops confirming ownership. Written on the worker thread, read from the Indexer's send threads.
+  private final long maxPollIntervalNanos;
+  private volatile long lastReturnedPollStartNanos = System.nanoTime();
 
   private final Config config;
   private final Duration pollInterval;
@@ -49,35 +70,31 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   // takes the source consumer, so tests can supply one
   HybridWorkerMessenger(Config config, String pipelineName,
       BlockingQueue<Document> pipelineDest,
-      BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
       Consumer<String, KafkaDocument> sourceConsumer) {
     this.config = config;
     this.pollInterval = KafkaUtils.getPollInterval(config);
+    this.maxPollIntervalNanos = KafkaUtils.getMaxPollInterval(config).toNanos();
     this.pipelineName = pipelineName;
     this.pipelineDest = pipelineDest;
-    this.offsets = offsets;
     this.sourceConsumer = sourceConsumer;
+    this.offsetCommitTracker = new OffsetCommitTracker(sourceConsumer);
+    this.trackerListener = offsetCommitTracker.rebalanceListener();
+    sourceConsumer.subscribe(Pattern.compile(KafkaUtils.getSourceTopicName(pipelineName, config)), new RebalanceListener());
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.eventFieldConfig = EventFieldConfig.fromConfig(config);
     this.deserializationErrorHandler =
         new DeserializationErrorHandler(config, sourceConsumer);
   }
 
-  public HybridWorkerMessenger(Config config, String pipelineName,
-      BlockingQueue<Document> pipelineDest,
-      BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
-    this(config, pipelineName, pipelineDest, offsets, createSourceConsumer(config, pipelineName));
+  public HybridWorkerMessenger(Config config, String pipelineName, BlockingQueue<Document> pipelineDest) {
+    this(config, pipelineName, pipelineDest, createSourceConsumer(config, pipelineName));
   }
 
   private static Consumer<String, KafkaDocument> createSourceConsumer(Config config, String pipelineName) {
     // append random string to kafka client ID to prevent kafka from issuing a warning when multiple consumers
     // with the same client ID are started in separate worker threads
     String kafkaClientId = "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
-    Consumer<String, KafkaDocument> consumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
-    String sourceTopicName = KafkaUtils.getSourceTopicName(pipelineName, config);
-    consumer.subscribe(Pattern.compile(sourceTopicName));
-
-    return consumer;
+    return KafkaUtils.createDocumentConsumer(config, kafkaClientId);
   }
 
   /**
@@ -87,75 +104,143 @@ public class HybridWorkerMessenger implements WorkerMessenger {
    */
   @Override
   public KafkaDocument pollDocToProcess() {
+    // so that offsets the Indexer has reported as not sent can be checked by rewindUnsent below
+    drainBatchResults();
     ConsumerRecords<String, KafkaDocument> consumerRecords;
+    long pollStartNanos = System.nanoTime();
     try {
       consumerRecords = sourceConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
-      // rethrows unless configured to skip. The skipped offset is committed along with the next document
-      // indexed from this partition; until then, a restart redelivers (and skips) it again.
+      // rethrows unless configured to skip. The skipped offset is never recorded as polled, so the commit frontier moves
+      // past it once the surrounding documents complete; until then, a restart redelivers (and skips) it again.
       deserializationErrorHandler.handleOrRethrow(e);
       return null;
+    } finally {
+      lastReturnedPollStartNanos = pollStartNanos;
     }
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
+    // Any rebalance callback has run, so ownership of the partitions of batches that were not sent is now known.
+    Set<TopicPartition> rewound = offsetCommitTracker.rewindUnsent();
+    // the queued documents of a rewound partition will be polled again
+    purge(rewound);
     if (consumerRecords.count() > 0) {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
+      TopicPartition partition = new TopicPartition(record.topic(), record.partition());
+      if (rewound.contains(partition)) {
+        // The partition was just seeked back below this record, which will be polled again in order.
+        return null;
+      }
       deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record.topic(), record.partition(), record.offset(), record.key());
+      offsetCommitTracker.recordPolled(partition, record.offset());
       return doc;
     }
     return null;
   }
 
   /**
-   * Commits the offsets of all indexer batches completed since the last call, using a single commitSync that keeps
-   * only the highest offset per partition.
-   *
-   * <p>A committed offset is a cumulative watermark: committing N means records 0..N-1 of that partition are done.
-   * Committing the highest drained offset therefore has the same effect as committing each drained map in turn, which
-   * is what this method did before, and it is safe for the same reasons. Within a WorkerIndexer:
-   * <ol>
-   *   <li>the source consumer reads one record per poll, in offset order, and this worker processes them one at a
-   *   time;</li>
-   *   <li>the single indexer thread queues (last offset + 1) for each partition in a batch only once that batch has
-   *   been handled: sent to the destination, or reported with FAIL events if sending failed;</li>
-   *   <li>batches are marked complete in the order they were formed, and one worker thread drains the queue, so a
-   *   partition's offsets are queued in increasing order.</li>
-   * </ol>
-   * So a map holding offset N for a partition implies every lower offset was already handled. Taking the max also
-   * means a stale lower map can never move a partition's committed offset backwards.
-   *
-   * <p>This relies on (3). What matters is the order in which batches are marked complete, not whether their bulk
-   * requests are sent concurrently: completions must follow the order the batches were formed, not the order their
-   * requests return. If a later batch were marked complete before an earlier one, its higher offset could be committed,
-   * whether merged or one map at a time, while the earlier batch is still in flight, and records from it would be
-   * skipped after a restart. Revisit this method if that ordering changes.
-   *
-   * <p>If the commit fails, the drained offsets are not re-queued; as offsets are cumulative per partition, the
-   * next completed batch supersedes them and the cost is at most some reprocessing after a restart.
-   *
-   * <p>TODO: the reasoning above does not hold when the indexer uses a MultiBatch (indexOverrideField is set): its
-   * per-index sub-batches can complete a higher offset while a lower one is still unflushed, so committing the highest
-   * offset can skip that record after a crash. Share {@link OffsetCommitTracker} here (as the distributed
-   * KafkaIndexerMessenger does), which commits only the contiguous completed prefix and also handles rebalances. See the
-   * "Known boundary (hybrid + indexOverrideField)" note in docs/operations/indexing-throughput.
+   * Commits the source offsets of the batches the paired Indexer has completed since the last call, once, up to the
+   * frontier below which every polled record has completed (see {@link OffsetCommitTracker}). A failed commit is kept and
+   * retried on the next call.
    */
   @Override
   public void commitPendingDocOffsets() {
-    Map<TopicPartition, OffsetAndMetadata> batchOffsets = offsets.poll();
-    if (batchOffsets == null) {
+    drainBatchResults();
+    offsetCommitTracker.commitPending();
+  }
+
+  /** Called by the paired Indexer, on its thread, when a batch completes. */
+  void batchCompleted(List<Document> batch) {
+    queueBatchResult(true, batch);
+  }
+
+  /** Called by the paired Indexer, on its thread, for a batch it did not send because it could not confirm ownership. */
+  void batchNotSent(List<Document> batch) {
+    queueBatchResult(false, batch);
+  }
+
+  /**
+   * Whether the paired Indexer may still send the given document: false once the worker has gone longer than
+   * max.poll.interval.ms without polling, or once the document's partition was revoked or lost since it was polled. A
+   * document that is not from Kafka, such as a child a stage created, has no partition and is always sendable. Called
+   * from the Indexer's send threads.
+   */
+  boolean ownsInput(Document doc) {
+    if (System.nanoTime() - lastReturnedPollStartNanos >= maxPollIntervalNanos) {
+      return false;
+    }
+    if (!(doc instanceof KafkaDocument kafkaDoc)) {
+      return true;
+    }
+    return offsetCommitTracker.isOutstanding(new TopicPartition(kafkaDoc.getTopic(), kafkaDoc.getPartition()),
+        kafkaDoc.getOffset());
+  }
+
+  private void queueBatchResult(boolean sent, List<Document> batch) {
+    List<PolledOffset> offsets = new ArrayList<>();
+    for (Document doc : batch) {
+      if (doc instanceof KafkaDocument kafkaDoc) {
+        offsets.add(new PolledOffset(new TopicPartition(kafkaDoc.getTopic(), kafkaDoc.getPartition()), kafkaDoc.getOffset()));
+      }
+    }
+    if (!offsets.isEmpty()) {
+      batchResults.add(new BatchResult(sent, offsets));
+    }
+  }
+
+  // Applies the Indexer's reports to the tracker. On the worker thread.
+  private void drainBatchResults() {
+    BatchResult result;
+    while ((result = batchResults.poll()) != null) {
+      for (PolledOffset polledOffset : result.offsets()) {
+        if (result.sent()) {
+          offsetCommitTracker.recordCompleted(polledOffset.partition(), polledOffset.offset());
+        } else {
+          offsetCommitTracker.recordNotSent(polledOffset.partition(), polledOffset.offset());
+        }
+      }
+    }
+  }
+
+  // Removes the waiting documents of the given partitions from the queue: they were not indexed and their offsets are not
+  // committed, so whoever polls the partition next indexes them. A document already taken by the Indexer is not
+  // affected; its batch is skipped by the ownership check or, if already sent, indexed again by the next owner.
+  private void purge(Collection<TopicPartition> partitions) {
+    if (partitions.isEmpty()) {
       return;
     }
-    Map<TopicPartition, OffsetAndMetadata> highestOffsets = new HashMap<>();
-    while (batchOffsets != null) {
-      batchOffsets.forEach((partition, offset) -> highestOffsets.merge(partition, offset,
-          (existing, candidate) -> candidate.offset() > existing.offset() ? candidate : existing));
-      batchOffsets = offsets.poll();
+    pipelineDest.removeIf(doc -> doc instanceof KafkaDocument kafkaDoc
+        && partitions.contains(new TopicPartition(kafkaDoc.getTopic(), kafkaDoc.getPartition())));
+  }
+
+  private record PolledOffset(TopicPartition partition, long offset) {
+  }
+
+  private record BatchResult(boolean sent, List<PolledOffset> offsets) {
+  }
+
+  // Invoked by the consumer on the worker thread, from within poll() or close().
+  private class RebalanceListener implements ConsumerRebalanceListener {
+
+    @Override
+    public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
+      // record the batches completed so far, so the tracker commits them before the partitions are handed off
+      drainBatchResults();
+      purge(partitions);
+      trackerListener.onPartitionsRevoked(partitions);
     }
-    // offsets are committed synchronously, and only after the indexer has sent the batch, so a successful commit means
-    // those documents are already in the destination. Doing it synchronously limits how much is reprocessed and
-    // reindexed after a HybridWorker crash/restart or a consumer group rebalance.
-    sourceConsumer.commitSync(highestOffsets);
+
+    @Override
+    public void onPartitionsLost(Collection<TopicPartition> partitions) {
+      purge(partitions);
+      trackerListener.onPartitionsLost(partitions);
+    }
+
+    @Override
+    public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
+      trackerListener.onPartitionsAssigned(partitions);
+    }
   }
 
   /**
@@ -205,6 +290,9 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   @Override
   public void close() {
     if (sourceConsumer != null) {
+      // commit the batches completed but not yet committed, so a clean shutdown does not force their re-delivery
+      drainBatchResults();
+      offsetCommitTracker.commitOnClose();
       sourceConsumer.close();
     }
     if (kafkaEventProducer != null) {

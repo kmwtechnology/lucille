@@ -20,9 +20,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Tracks and commits destination-topic offsets for {@link KafkaIndexerMessenger}, committing each batch's offsets when
+ * Tracks and commits a consumer's offsets for the documents it hands to an Indexer, committing each batch's offsets when
  * the batch completes (at-least-once) rather than when its documents were polled. This is what makes a crash re-deliver
- * documents rather than lose them.
+ * documents rather than lose them. {@link KafkaIndexerMessenger} uses it for the destination topic, and
+ * {@link HybridWorkerMessenger} for the source topic, on behalf of its paired Indexer.
  *
  * <p> Correctness:
  * <ul>
@@ -53,9 +54,10 @@ import org.slf4j.LoggerFactory;
  * partition turned out to be still owned ({@link #rewindUnsent}).
  *
  * <p> All methods except {@link #isOutstanding}, and the {@link ConsumerRebalanceListener} this exposes, run on the
- * indexer thread (the listener is invoked by the consumer from within poll() or close()). {@link #isOutstanding} is
- * called from send threads, so the polled offsets it reads are held in concurrent collections; the rest of the state is
- * confined to the indexer thread and needs no synchronization.
+ * thread that owns the consumer: the indexer thread for KafkaIndexerMessenger, the worker thread for
+ * HybridWorkerMessenger (the listener is invoked by the consumer from within poll() or close()). {@link #isOutstanding}
+ * is called from send threads, so the polled offsets it reads are held in concurrent collections; the rest of the state
+ * is confined to the consumer's thread and needs no synchronization.
  */
 class OffsetCommitTracker {
 
@@ -119,10 +121,14 @@ class OffsetCommitTracker {
   void batchNotSent(List<Document> batch) {
     for (Document doc : batch) {
       if (doc instanceof KafkaDocument kafkaDoc) {
-        notSent.computeIfAbsent(new TopicPartition(kafkaDoc.getTopic(), kafkaDoc.getPartition()), p -> new HashSet<>())
-            .add(kafkaDoc.getOffset());
+        recordNotSent(new TopicPartition(kafkaDoc.getTopic(), kafkaDoc.getPartition()), kafkaDoc.getOffset());
       }
     }
+  }
+
+  /** Records one offset of a batch the Indexer did not send. See {@link #batchNotSent}. */
+  void recordNotSent(TopicPartition partition, long offset) {
+    notSent.computeIfAbsent(partition, p -> new HashSet<>()).add(offset);
   }
 
   /**
@@ -175,10 +181,12 @@ class OffsetCommitTracker {
     commitPending();
   }
 
-  // Marks one polled offset complete and advances the partition's frontier across the leading run of polled offsets
-  // that have now completed. The frontier walks the polled sequence rather than offset+1, so a gap between polled
-  // offsets (compaction, transaction markers) does not stall it.
-  private void recordCompleted(TopicPartition partition, long offset) {
+  /**
+   * Marks one polled offset complete and advances the partition's frontier across the leading run of polled offsets
+   * that have now completed, without committing: {@link #commitPending} commits it. The frontier walks the polled
+   * sequence rather than offset+1, so a gap between polled offsets (compaction, transaction markers) does not stall it.
+   */
+  void recordCompleted(TopicPartition partition, long offset) {
     NavigableSet<Long> polledOffsets = polled.get(partition);
     if (polledOffsets == null || !polledOffsets.contains(offset)) {
       // Not an outstanding polled offset (already absorbed, or polled before a revoke and not polled again): nothing to
@@ -217,9 +225,14 @@ class OffsetCommitTracker {
     }
   }
 
-  // Commits pending offsets for partitions still assigned, dropping the rest. Keeps them if the commit fails, so they
-  // are retried later.
-  private void commitPending() {
+  /**
+   * Commits pending offsets for partitions still assigned, dropping the rest. Keeps them if the commit fails, so they are
+   * retried later.
+   */
+  void commitPending() {
+    if (pendingOffsets.isEmpty()) {
+      return;
+    }
     pendingOffsets.keySet().retainAll(consumer.assignment());
     if (pendingOffsets.isEmpty()) {
       return;
