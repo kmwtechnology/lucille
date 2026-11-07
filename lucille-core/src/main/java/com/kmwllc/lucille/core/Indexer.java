@@ -14,6 +14,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
@@ -144,6 +145,7 @@ public abstract class Indexer implements Runnable {
   private final String deleteByFieldField;
   private final String deleteByFieldValue;
 
+  private final boolean sendFailedDocsToTopic;
   private final FieldFilter fieldFilter;
 
   private Instant lastLog = Instant.now();
@@ -228,6 +230,7 @@ public abstract class Indexer implements Runnable {
     this.localRunId = context.localRunId();
 
     this.fieldFilter = new FieldFilter(config);
+    this.sendFailedDocsToTopic = ConfigUtils.getBooleanOrDefault(config, "sendFailedDocsToTopic", false);
 
     if (!config.hasPath("maxRetries")) {
       if (config.hasPath("retryWaitDurationMs") || config.hasPath("retryableStatusCodes")
@@ -596,7 +599,7 @@ public abstract class Indexer implements Runnable {
       for (IndexerFailure failure : outcome.failures()) {
         Document doc = failure.document();
         if (nonFailedDocs.remove(doc)) {
-          sendFailEvent(doc, failure.cause());
+          markComplete &= sendFailEvent(doc, failure.cause());
         } else {
           log.error("sendToIndex reported a failure for doc {}, which is not an instance from its batch or was already "
               + "reported. The rest of the batch will be failed.", doc.getId(), failure.cause());
@@ -613,7 +616,7 @@ public abstract class Indexer implements Runnable {
             + unmatchedFailure.cause().getMessage(), unmatchedFailure.cause());
         for (Document doc : batchedDocs) {
           if (nonFailedDocs.remove(doc)) {
-            sendFailEvent(doc, cause);
+            markComplete &= sendFailEvent(doc, cause);
           }
         }
       }
@@ -649,7 +652,7 @@ public abstract class Indexer implements Runnable {
       String message = t.getMessage();
       log.error("Error sending documents to index: {}", message, t);
       for (Document d : batchedDocs) {
-        sendFailEvent(d, t);
+        markComplete &= sendFailEvent(d, t);
       }
       // An Error (OutOfMemoryError, etc.) must never be swallowed, and must not mark the batch complete — the documents
       // were not indexed, so committing their offsets would lose them. FAIL events were still sent just above, so the
@@ -674,10 +677,14 @@ public abstract class Indexer implements Runnable {
 
   /**
    * Sends a FAIL event for the given document, with the cause as its reason, setting up MDC context
-   * for structured logging.
+   * for structured logging. When indexer.sendFailedDocsToTopic is set, first copies the document to the fail topic.
+   *
+   * @return false if the copy could not be made and the batch must not be marked complete, so that the document is
+   *     re-delivered rather than lost; true otherwise.
    */
-  private void sendFailEvent(Document d, Throwable cause) {
+  private boolean sendFailEvent(Document d, Throwable cause) {
     String reason = Event.failureMessage(cause);
+    boolean mayComplete = sendToFailTopic(d, reason);
     try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
       if (d.getRunId() != null) {
         MDC.pushByKey(RUNID_FIELD, d.getRunId());
@@ -692,6 +699,25 @@ public abstract class Indexer implements Runnable {
       if (d.getRunId() != null) {
         MDC.popByKey(RUNID_FIELD);
       }
+    }
+    return mayComplete;
+  }
+
+  // Returns false if the document could not be copied for any reason other than the transport rejecting that document,
+  // whose re-delivery would only repeat the rejection. The FAIL event is sent either way, so the run does not hang.
+  private boolean sendToFailTopic(Document d, String reason) {
+    if (!sendFailedDocsToTopic) {
+      return true;
+    }
+    try {
+      // Document is sealed, so every Document is a JsonDocument
+      ((JsonDocument) d).setFailureMetadata(reason, "indexer", Instant.now());
+      messenger.sendFailed(d);
+      return true;
+    } catch (Exception e) {
+      restoreInterrupt(e);
+      docLogger.error("Document {} could not be sent to the fail topic.", d.getId(), e);
+      return e instanceof MessengerException messengerException && messengerException.isDocumentSpecific();
     }
   }
 
@@ -799,7 +825,8 @@ public abstract class Indexer implements Runnable {
   }
 
   /**
-   * Returns the document's fields, with the field filter applied and without {@link Document#CHILDREN_FIELD},
+   * Returns the document's fields, with the field filter applied and without {@link Document#CHILDREN_FIELD} or
+   * {@link Document#INDEXING_EXCLUDED_FIELDS},
    * converted to plain Java values (Strings, numbers, booleans, Lists, Maps, byte arrays) by {@link Document#asMap()}.
    * The map is a full copy that callers may modify freely. Children are never included; an indexer that sends them
    * reads them from {@link Document#getChildren()}.
@@ -810,6 +837,7 @@ public abstract class Indexer implements Runnable {
   protected final Map<String, Object> getConvertedIndexerDoc(Document doc) {
     Map<String, Object> indexerDoc = doc.asMap();
     indexerDoc.remove(Document.CHILDREN_FIELD);
+    indexerDoc.keySet().removeAll(Document.INDEXING_EXCLUDED_FIELDS);
     if (fieldFilter.isActive()) {
       indexerDoc.keySet().removeIf(key -> !fieldFilter.shouldInclude(key));
     }
@@ -817,7 +845,8 @@ public abstract class Indexer implements Runnable {
   }
 
   /**
-   * Returns the document's fields, with the field filter applied and without {@link Document#CHILDREN_FIELD}, for a
+   * Returns the document's fields, with the field filter applied and without {@link Document#CHILDREN_FIELD} or
+   * {@link Document#INDEXING_EXCLUDED_FIELDS}, for a
    * destination client that serializes the map to JSON with Jackson, such as the OpenSearch and Elasticsearch clients.
    * Only the top-level map is new: its values are the document's own JsonNodes, not converted copies, so nothing is
    * converted that the client will serialize again anyway.
@@ -838,7 +867,8 @@ public abstract class Indexer implements Runnable {
       Map.Entry<String, JsonNode> field = it.next();
       String name = field.getKey();
       JsonNode value = field.getValue();
-      if (Document.CHILDREN_FIELD.equals(name) || !fieldFilter.shouldInclude(name)) {
+      if (Document.CHILDREN_FIELD.equals(name) || Document.INDEXING_EXCLUDED_FIELDS.contains(name)
+          || !fieldFilter.shouldInclude(name)) {
         continue;
       }
       indexerDoc.put(name, containsNull(value) ? JsonDocument.MAPPER.convertValue(value, Object.class) : value);
@@ -960,7 +990,7 @@ public abstract class Indexer implements Runnable {
             "deletionMarkerFieldValue", "deleteByFieldField", "deleteByFieldValue")
         .optionalNumber("batchSize", "batchByteSize", "batchTimeout", "maxRetries", "retryWaitDurationMs",
             "retryMaxWaitDurationMs", "retryRandomizationFactor", "maxConcurrentBatches")
-        .optionalBoolean("sendEnabled")
+        .optionalBoolean("sendEnabled", "sendFailedDocsToTopic")
         .optionalList("whitelist", new TypeReference<List<String>>(){})
         .optionalList("blacklist", new TypeReference<List<String>>(){})
         .optionalList("retryableStatusCodes", new TypeReference<List<Integer>>(){}).build()

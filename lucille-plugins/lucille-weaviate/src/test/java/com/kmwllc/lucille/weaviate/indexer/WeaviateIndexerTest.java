@@ -2,6 +2,7 @@ package com.kmwllc.lucille.weaviate.indexer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -32,6 +33,7 @@ import io.weaviate.client.v1.misc.api.MetaGetter;
 import io.weaviate.client.v1.misc.model.Meta;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.Assert;
@@ -186,6 +188,32 @@ public class WeaviateIndexerTest {
       assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
     }
+  }
+
+  @Test
+  public void testReservedBookkeepingFieldsNotSentToWeaviate() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("WeaviateIndexerTest/config.conf");
+
+    // as read back from the fail topic
+    Document doc = Document.createFromJson("{\"id\": \"doc1\", \"run_id\": \"test_run\", \"title\": \"hello\", "
+        + "\"___failure_reason\": \"a reason\", \"___failure_component\": \"worker\", \"___failure_time\": \"1970-01-01T00:00:00Z\"}");
+
+    WeaviateIndexer indexer = new WeaviateIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<WeaviateObject> captor = ArgumentCaptor.forClass(WeaviateObject.class);
+    verify(mockObjectsBatcher).withObject(captor.capture());
+    Map<String, Object> properties = captor.getValue().getProperties();
+
+    assertEquals("hello", properties.get("title"));
+    for (String field : Document.INDEXING_EXCLUDED_FIELDS) {
+      assertFalse(field + " should not be sent to Weaviate", properties.containsKey(field));
+    }
+
+    // the document itself still carries the fields, so a fail-topic copy would keep them
+    assertTrue(doc.has(Document.FAILURE_REASON_FIELD));
   }
 
   @Test
