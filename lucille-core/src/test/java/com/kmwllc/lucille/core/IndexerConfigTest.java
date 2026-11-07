@@ -160,6 +160,10 @@ public class IndexerConfigTest {
     }
 
     @Override
+    public void sendFailed(Document document) throws Exception {
+    }
+
+    @Override
     public void close() {
     }
   }
