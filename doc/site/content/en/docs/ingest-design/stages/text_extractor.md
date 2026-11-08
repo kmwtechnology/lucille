@@ -35,8 +35,8 @@ The extracted text is added to `textField`; if the field already has a value, th
 | `filePathField` | String | No | Field containing the path or URI of the file to read. Set this or `byteArrayField`, not both. |
 | `textField` | String | No | Field the extracted text is added to. Default: `text`. |
 | `metadataPrefix` | String | No | Prefix for metadata field names. With an empty string, metadata fields have no prefix. Default: `tika`. |
-| `whitelist` | List\<String\> | No | Metadata names to keep, in cleaned form and without the prefix. If set, all other metadata is dropped. |
-| `blacklist` | List\<String\> | No | Metadata names to drop, in cleaned form and without the prefix. |
+| `includeMetadata` | List\<String\> | No | Metadata names to keep, in cleaned form and without the prefix. If set, all other metadata is dropped. |
+| `excludeMetadata` | List\<String\> | No | Metadata names to drop, in cleaned form and without the prefix. |
 | `fieldNamesField` | String | No | If set, the name of each metadata field written to the Document is added to this multi-valued field. |
 | `replaceDotsInMetadataNames` | Boolean | No | Replace `.` with `_` in metadata names. See [Metadata fields](#metadata-fields). Default: `false`. |
 | `metadataMapping` | Map\<String, String\> | No | Input metadata hints for Tika. See [Detection hints](#detection-hints). |
@@ -63,13 +63,13 @@ A custom Tika config is used as is, so `enableOcr` cannot be set (even to `false
 
 ## Metadata fields
 
-Each metadata value Tika returns is added to a field named `<metadataPrefix>_<name>`. The name is trimmed and lowercased, and spaces, `-` and `:` become `_`. `whitelist` and `blacklist` match this cleaned name, without the prefix. When both are set, a name must be in `whitelist` and not in `blacklist`.
+Each metadata value Tika returns is added to a field named `<metadataPrefix>_<name>`. The name is trimmed and lowercased, and spaces, `-` and `:` become `_`. `includeMetadata` and `excludeMetadata` match this cleaned name, without the prefix. When both are set, a name must be in `includeMetadata` and not in `excludeMetadata`.
 
-Tika also emits dotted names such as `dc.date` and `dc.date.created`. OpenSearch and Elasticsearch read a dotted field name as an object path and reject documents carrying both. When indexing into either, set `replaceDotsInMetadataNames: true` to replace `.` with `_` as well (off by default, so existing field names are unchanged). It applies to metadata names only, not to `metadataPrefix`. With it on, `whitelist`/`blacklist` entries must use the replaced form (dotted entries never match; a warning is logged), and names that become equal (e.g. `dc.date` and `dc_date`) are merged into one multi-valued field.
+Tika also emits dotted names such as `dc.date` and `dc.date.created`. OpenSearch and Elasticsearch read a dotted field name as an object path and reject documents carrying both. When indexing into either, set `replaceDotsInMetadataNames: true` to replace `.` with `_` as well (off by default, so existing field names are unchanged). It applies to metadata names only, not to `metadataPrefix`. With it on, `includeMetadata`/`excludeMetadata` entries must use the replaced form (dotted entries never match; a warning is logged), and names that become equal (e.g. `dc.date` and `dc_date`) are merged into one multi-valued field.
 
 ## Detection hints
 
-`metadataMapping` maps Tika metadata keys to Document fields. Before parsing, the values of each field are added to the metadata handed to Tika, which uses them to detect the content type. Fields missing from the Document are skipped. These input values are also written back to the Document with the extracted metadata, subject to `whitelist` and `blacklist`. The most useful keys are `resourceName` (the file name, so Tika can use the extension) and `Content-Type` (an advertised content type, such as one returned by a web server).
+`metadataMapping` maps Tika metadata keys to Document fields. Before parsing, the values of each field are added to the metadata handed to Tika, which uses them to detect the content type. Fields missing from the Document are skipped. These input values are also written back to the Document with the extracted metadata, subject to `includeMetadata` and `excludeMetadata`. The most useful keys are `resourceName` (the file name, so Tika can use the extension) and `Content-Type` (an advertised content type, such as one returned by a web server).
 
 ```hocon
 metadataMapping: {

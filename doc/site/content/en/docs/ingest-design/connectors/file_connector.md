@@ -244,18 +244,18 @@ Reads a file as JSON Lines: each non-blank line must be a single JSON object, wh
 | `idField` | String | No | JSON field whose value becomes the Document ID. Takes precedence over `idFields`. |
 | `idFields` | List\<String\> | No | JSON fields whose values form the Document ID, joined with `_` unless `docIdFormat` is set. |
 | `docIdFormat` | String | No | Java `String.format` pattern applied to the `idField`/`idFields` values to build the Document ID. |
-| `blacklist` | List\<String\> | No | JSON fields to drop from the Document. |
-| `whitelist` | List\<String\> | No | Only keep these JSON fields on the Document. If both lists are set, a field is kept only if it is in `whitelist` and not in `blacklist`. |
+| `excludeFields` | List\<String\> | No | JSON fields to drop from the Document. |
+| `includeFields` | List\<String\> | No | Only keep these JSON fields on the Document. If both lists are set, a field is kept only if it is in `includeFields` and not in `excludeFields`. |
 | `docIdPrefix` | String | No | Prefix prepended to every Document ID. |
 | `maxRecordBytes` | Integer | No | Maximum size, in bytes (UTF-8), of a single line. Must be positive. If a line is larger, processing of the file stops with an error instead of reading the line into memory; lines before it are still published. Default: no limit. |
 
-Lines are read as UTF-8. If neither `idField` nor `idFields` is set, each object's own `id` field is used as the Document ID (with `docIdPrefix` prepended); a line whose `id` is missing, empty, blank, or not a string (a numeric `id` is rejected) is skipped the same way. A missing or null `idField`/`idFields` value only logs a warning and contributes an empty string to the ID; a line whose whole ID is blank is skipped. When an ID is built from `idField`/`idFields`, it overwrites any `id` field in the object. These combinations are rejected: a `blacklist` containing an ID field, a `whitelist` missing an ID field, and, without `idField`/`idFields`, a `blacklist` containing `id` or a `whitelist` without `id`.
+Lines are read as UTF-8. If neither `idField` nor `idFields` is set, each object's own `id` field is used as the Document ID (with `docIdPrefix` prepended); a line whose `id` is missing, empty, blank, or not a string (a numeric `id` is rejected) is skipped the same way. A missing or null `idField`/`idFields` value only logs a warning and contributes an empty string to the ID; a line whose whole ID is blank is skipped. When an ID is built from `idField`/`idFields`, it overwrites any `id` field in the object. These combinations are rejected: a `excludeFields` containing an ID field, a `includeFields` missing an ID field, and, without `idField`/`idFields`, a `excludeFields` containing `id` or a `includeFields` without `id`.
 
 ```hocon
 fileHandlers: {
   json {
     idField: "doc_id"
-    blacklist: ["internal_metadata", "_rev"]
+    excludeFields: ["internal_metadata", "_rev"]
     docIdPrefix: "doc-"
   }
 }

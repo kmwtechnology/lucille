@@ -402,10 +402,10 @@ public class OpenSearchIndexer extends Indexer {
       String docId = entry.getKey().getRight();
       Document doc = entry.getValue();
 
-      // removing fields in the blacklist or not in the whitelist in configurations
+      // removing fields in indexer.excludeFields or not in indexer.includeFields
       Map<String, Object> indexerDoc = getRawIndexerDoc(doc);
 
-      // only add id if our fieldFilter allows it (based on our blacklist and whitelist)
+      // only add id if our fieldFilter allows it (based on indexer.includeFields and indexer.excludeFields)
       // - Case 1: id and idOverride filtered out -> idOverride used by Indexer, both removed from Document (tested in testBlacklistWithOverride)
       // - Case 2: id is filtered, idOverride exists -> idOverride used by Indexer, only id field removed from Document (tested in testBlacklistWithOverride2)
       // - Case 3: id is filtered, idOverride null -> id used by Indexer, id also removed from Document (tested in testRouting)
@@ -503,7 +503,7 @@ public class OpenSearchIndexer extends Indexer {
     List<Document> children = doc.getChildren();
 
     for (Document child : children) {
-      // calling getRawIndexerDoc applies black/whitelist and drops nested children, which we don't support
+      // calling getRawIndexerDoc applies includeFields/excludeFields and drops nested children, which we don't support
       childDocMaps.add(getRawIndexerDoc(child));
     }
     indexerDoc.put(childDocumentsField, childDocMaps);

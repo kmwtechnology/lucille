@@ -186,8 +186,8 @@ A document field/value combination (`indexer.deletionMarker`) that signals the I
 **Delete-by-Query**
 A deletion mode where the Indexer deletes all documents in the index matching a field/value pair, rather than deleting a single document by ID. Configured via `indexer.deleteByQuery`.
 
-**Field Filtering (Whitelist/Blacklist)**
-Configuration that controls which document fields are sent to the search backend. `indexer.whitelist` includes only listed fields; `indexer.blacklist` excludes listed fields. Reserved fields are always stripped.
+**Field Filtering (includeFields/excludeFields)**
+Configuration that controls which document fields are sent to the search backend. `indexer.includeFields` includes only listed fields; `indexer.excludeFields` excludes listed fields. Reserved fields are always stripped.
 
 **Bypass Mode**
 When `bypass = true` (test mode), the Indexer skips all actual backend communication. Documents are still batched and events are still sent, but `sendToIndex()` is not called.

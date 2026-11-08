@@ -1259,7 +1259,7 @@ public class ElasticsearchIndexerTest {
   public void testJoinFieldCollisionFailsWhenFiltered() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/joinParent.conf")
-        .withValue("indexer.whitelist", ConfigValueFactory.fromIterable(List.of("id")));
+        .withValue("indexer.includeFields", ConfigValueFactory.fromIterable(List.of("id")));
     ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document doc = Document.create("doc1", "test_run");

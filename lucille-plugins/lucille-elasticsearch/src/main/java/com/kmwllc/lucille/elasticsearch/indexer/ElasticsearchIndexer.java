@@ -414,7 +414,7 @@ public class ElasticsearchIndexer extends Indexer {
     BulkRequest.Builder br = new BulkRequest.Builder();
 
     for (Document doc : documentsToUpload) {
-      // removing fields in the blacklist or not in the whitelist in configurations
+      // removing fields in indexer.excludeFields or not in indexer.includeFields
       Map<String, Object> indexerDoc = getRawIndexerDoc(doc);
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
@@ -424,7 +424,7 @@ public class ElasticsearchIndexer extends Indexer {
       // written to the request, not the Document, so a retried batch doesn't find it already set
       joinData.populateJoinData(doc, indexerDoc, getFieldFilter());
 
-      // only add id if our fieldFilter allows it (based on our blacklist and whitelist)
+      // only add id if our fieldFilter allows it (based on indexer.includeFields and indexer.excludeFields)
       // - Case 1: id and idOverride filtered out -> idOverride used by Indexer, both removed from Document (tested in testBlacklistWithOverride)
       // - Case 2: id is filtered, idOverride exists -> idOverride used by Indexer, only id field removed from Document (tested in testBlacklistWithOverride2)
       // - Case 3: id is filtered, idOverride null -> id used by Indexer, id also removed from Document (tested in testRouting)
@@ -541,7 +541,7 @@ public class ElasticsearchIndexer extends Indexer {
     List<Document> children = doc.getChildren();
 
     for (Document child : children) {
-      // calling getRawIndexerDoc applies black/whitelist and drops nested children, which we don't support
+      // calling getRawIndexerDoc applies includeFields/excludeFields and drops nested children, which we don't support
       childDocMaps.add(getRawIndexerDoc(child));
     }
     indexerDoc.put(childDocumentsField, childDocMaps);
@@ -567,7 +567,7 @@ public class ElasticsearchIndexer extends Indexer {
         throw new IllegalStateException("Document already has join field: " + joinFieldName);
       }
 
-      // the join field follows indexer.whitelist and indexer.blacklist like any other field
+      // the join field follows indexer.includeFields and indexer.excludeFields like any other field
       if (!fieldFilter.shouldInclude(joinFieldName)) {
         return;
       }

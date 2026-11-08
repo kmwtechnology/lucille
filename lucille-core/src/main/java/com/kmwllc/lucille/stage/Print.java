@@ -26,8 +26,8 @@ import java.util.List;
  * <ul>
  *   <li>log (Boolean, Optional) : Whether to log the document in JSON format at INFO level. Defaults to true.</li>
  *   <li>outputFile (String, Optional) : A file to append the documents to (will be created if it doesn't already exist).</li>
- *   <li>whitelist (List&lt;String&gt;, Optional) : A list of the only fields to include in the output.</li>
- *   <li>blacklist (List&lt;String&gt;, Optional) : A list of fields to exclude from the output.</li>
+ *   <li>includeFields (List&lt;String&gt;, Optional) : A list of the only fields to include in the output.</li>
+ *   <li>excludeFields (List&lt;String&gt;, Optional) : A list of fields to exclude from the output.</li>
  *   <li>overwriteFile (Boolean, Optional) : Whether the output file's contents should be overwritten if they already exist. Defaults to true.</li>
  *   <li>appendThreadName (Boolean, Optional) : Whether the current thread's name should be appended to the outputFile's filename, keeping the results from individual threads separate. Has no effect if no outputFile is provided. Defaults to true.</li>
  * </ul>
@@ -39,8 +39,8 @@ public class Print extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalBoolean("log", "overwriteFile", "appendThreadName")
       .optionalString("outputFile")
-      .optionalList("whitelist", new TypeReference<List<String>>() {})
-      .optionalList("blacklist", new TypeReference<List<String>>() {})
+      .optionalList("includeFields", new TypeReference<List<String>>() {})
+      .optionalList("excludeFields", new TypeReference<List<String>>() {})
       .build();
 
   private static final Logger log = LoggerFactory.getLogger(Print.class);

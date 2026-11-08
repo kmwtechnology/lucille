@@ -112,7 +112,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   public void testCreateFromJsonStringWithBlacklist() throws Exception {
     UnaryOperator<String> updater = s -> s;
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of("field2"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("excludeFields", List.of("field2"))));
 
     Document document = JsonDocument.fromJsonString(json, updater, filter);
     assertEquals("123", document.getId());
@@ -124,7 +124,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   public void testCreateFromJsonStringWithWhitelist() throws Exception {
     UnaryOperator<String> updater = s -> s;
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("whitelist", List.of("field2", "id"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("includeFields", List.of("field2", "id"))));
 
     Document document = JsonDocument.fromJsonString(json, updater, filter);
     assertEquals("123", document.getId());
@@ -145,7 +145,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   @Test
   public void testCreateFromJsonStringWithEmptyBlacklist() throws Exception {
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of())));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("excludeFields", List.of())));
 
     Document document = JsonDocument.fromJsonString(json, null, filter);
     assertEquals("123", document.getId());
@@ -156,7 +156,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   @Test
   public void testCreateFromJsonStringWithEmptyWhitelist() throws Exception {
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("whitelist", List.of())));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("includeFields", List.of())));
 
     Document document = JsonDocument.fromJsonString(json, null, filter);
     assertEquals("123", document.getId());
@@ -167,7 +167,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   @Test
   public void testCreateFromJsonStringWhitelistAndBlacklist() throws Exception {
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("whitelist", List.of("id", "field1"), "blacklist", List.of("field1"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("includeFields", List.of("id", "field1"), "excludeFields", List.of("field1"))));
 
     Document document = JsonDocument.fromJsonString(json, null, filter);
     assertEquals("123", document.getId());
@@ -178,7 +178,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   @Test(expected = DocumentException.class)
   public void testCreateFromJsonStringWithIdInBlacklist() throws Exception {
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of("id"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("excludeFields", List.of("id"))));
 
     JsonDocument.fromJsonString(json, null, filter);
   }
@@ -186,7 +186,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   @Test(expected = DocumentException.class)
   public void testCreateFromJsonStringWithNoIdInWhitelist() throws Exception {
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("whitelist", List.of("field1"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("includeFields", List.of("field1"))));
 
     JsonDocument.fromJsonString(json, null, filter);
   }

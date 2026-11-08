@@ -13,8 +13,8 @@ Logs documents in JSON format at INFO level and/or writes them to a file. Place 
 |---|---|---|---|
 | `log` | Boolean | No | Log each document as JSON at INFO level. Default: `true`. |
 | `outputFile` | String | No | Path to a file to write documents to (one JSON object per line). Created if it does not exist. The file is opened when the first document arrives. |
-| `whitelist` | List\<String\> | No | If set, only these fields are included in the output. The document passed to the next stage is not changed. |
-| `blacklist` | List\<String\> | No | Fields to exclude from the output. The document passed to the next stage is not changed. |
+| `includeFields` | List\<String\> | No | If set, only these fields are included in the output. The document passed to the next stage is not changed. |
+| `excludeFields` | List\<String\> | No | Fields to exclude from the output. The document passed to the next stage is not changed. |
 | `overwriteFile` | Boolean | No | Overwrite the output file if it already exists. If `false`, documents are appended to it. Default: `true`. |
 | `appendThreadName` | Boolean | No | Append the Worker thread name to the output filename, before the extension (e.g. `out.jsonl` becomes `out<threadName>.jsonl`), keeping per-thread output separate. Recommended when using multiple worker threads. Has no effect without `outputFile`. Default: `true`. |
 

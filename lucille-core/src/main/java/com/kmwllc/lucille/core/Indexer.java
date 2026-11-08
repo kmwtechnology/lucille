@@ -66,8 +66,8 @@ import org.slf4j.MDC.MDCCloseable;
  *   <li>indexer.indexOverrideField (String, Optional) : Name of a document field whose value will be used as the destination
  *   index, overriding the default index specified in the Indexer's configuration. Not supported by CSVIndexer or
  *   ElasticSearchIndexer classes.</li>
- *   <li>indexer.blacklist (List&lt;String&gt;, Optional) : Fields to exclude from the document sent to the destination.</li>
- *   <li>indexer.whitelist (List&lt;String&gt;, Optional) : Only include these fields from the document when sending to the
+ *   <li>indexer.excludeFields (List&lt;String&gt;, Optional) : Fields to exclude from the document sent to the destination.</li>
+ *   <li>indexer.includeFields (List&lt;String&gt;, Optional) : Only include these fields from the document when sending to the
  *   destination.</li>
  *   <li>indexer.batchSize (Integer, Optional) : Number of documents to accumulate before sending to the destination. Defaults to
  *   {@value #DEFAULT_BATCH_SIZE} or {@value #NO_BATCH_SIZE} if batchByteSize is set. If both are set, batches are flushed when
@@ -767,7 +767,7 @@ public abstract class Indexer implements Runnable {
     return doc.getString(deleteByQueryValueField);
   }
 
-  /** The filter built from the configured indexer.whitelist and indexer.blacklist. */
+  /** The filter built from the configured indexer.includeFields and indexer.excludeFields. */
   protected final FieldFilter getFieldFilter() {
     return fieldFilter;
   }
@@ -958,8 +958,8 @@ public abstract class Indexer implements Runnable {
         .optionalNumber("batchSize", "batchByteSize", "batchTimeoutMs", "maxRetries", "retryWaitDurationMs",
             "retryMaxWaitDurationMs", "retryRandomizationFactor", "maxConcurrentBatches")
         .optionalBoolean("sendEnabled")
-        .optionalList("whitelist", new TypeReference<List<String>>(){})
-        .optionalList("blacklist", new TypeReference<List<String>>(){})
+        .optionalList("includeFields", new TypeReference<List<String>>(){})
+        .optionalList("excludeFields", new TypeReference<List<String>>(){})
         .optionalList("retryableStatusCodes", new TypeReference<List<Integer>>(){}).build()
         .validate(genericConfig, "Indexer");
 

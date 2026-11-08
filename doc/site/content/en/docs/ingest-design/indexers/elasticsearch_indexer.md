@@ -75,7 +75,7 @@ A missing required join key fails at startup.
 - When `isChild` is `false`, the join field is set to the `parentName` string.
 - When `isChild` is `true`, the join field is set to `{ "name": <childName>, "parent": <value of parentDocumentIdSource> }`. If the document lacks that field, `parent` is null.
 
-The join field is added to the request sent to Elasticsearch, not to the Lucille document. It still follows `indexer.whitelist` and `indexer.blacklist`: include `joinFieldName` in a whitelist or it is not sent. It is applied in partial update mode too.
+The join field is added to the request sent to Elasticsearch, not to the Lucille document. It still follows `indexer.includeFields` and `indexer.excludeFields`: when `includeFields` is set, list `joinFieldName` in it or it is not sent. It is applied in partial update mode too.
 
 If a document already has a field named `joinFieldName`, the indexer throws and the whole batch fails without being retried.
 
@@ -101,7 +101,7 @@ When `update: true`, each document is sent as a bulk `update` operation with the
 
 ## Child Documents
 
-When `childDocumentsField` is set, attached children are written into that field of the parent as a list of objects. They are not indexed as separate Elasticsearch documents. The whitelist and blacklist apply to each child, and children of children are dropped. Map the field as `nested` if you need to query children individually.
+When `childDocumentsField` is set, attached children are written into that field of the parent as a list of objects. They are not indexed as separate Elasticsearch documents. `includeFields` and `excludeFields` apply to each child, and children of children are dropped. Map the field as `nested` if you need to query children individually.
 
 If a document has children and `childDocumentsField` is not set, the children are not indexed and a warning is logged.
 

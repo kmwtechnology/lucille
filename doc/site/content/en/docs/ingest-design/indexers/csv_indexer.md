@@ -31,7 +31,7 @@ indexer {
 
 ## Column Ordering and Field Selection
 
-The `columns` list determines both which fields are written and their column order. Fields not listed in `columns` are silently omitted from the output. The document's `id` field is not automatically included. Add it to `columns` explicitly if you want it in the CSV. `indexer.whitelist`, `indexer.blacklist`, and `indexer.idOverrideField` are not applied, and child documents are not written.
+The `columns` list determines both which fields are written and their column order. Fields not listed in `columns` are silently omitted from the output. The document's `id` field is not automatically included. Add it to `columns` explicitly if you want it in the CSV. `indexer.includeFields`, `indexer.excludeFields`, and `indexer.idOverrideField` are not applied, and child documents are not written.
 
 A column whose field is missing from a document is written as an empty value. Other values, including empty strings, are written in double quotes.
 

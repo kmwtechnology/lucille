@@ -164,7 +164,7 @@ public class SolrConnector extends AbstractConnector {
 
         for (String fieldName : solrDoc.getFieldNames()) {
           // TODO : we might want an option to preserve the id under its original field name
-          // TODO : Add configurable field blacklist (not necessarily here)
+          // TODO : Add configurable field exclude list (not necessarily here)
           // read the field by its own name; only the name it is given on the Document may be lower-cased.
           // Locale.ROOT, so that "ID" becomes "id" in every locale (in Turkish it would become "ıd")
           String docFieldName = lowercaseFields ? fieldName.toLowerCase(Locale.ROOT) : fieldName;

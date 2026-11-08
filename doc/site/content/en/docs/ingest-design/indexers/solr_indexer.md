@@ -76,7 +76,7 @@ indexer {
 
 When a document has children (via `doc.addChild()`), they are added to the Solr document as nested child documents. The `___children` field itself is never sent to Solr. Children of children are not sent.
 
-The blacklist and whitelist apply to parents and children alike, except for `id`: Solr needs it on every document, so it is always sent. For the parent it is the `indexer.idOverrideField` value when set; children use their own `id`.
+`includeFields` and `excludeFields` apply to parents and children alike, except for `id`: Solr needs it on every document, so it is always sent. For the parent it is the `indexer.idOverrideField` value when set; children use their own `id`.
 
 ---
 

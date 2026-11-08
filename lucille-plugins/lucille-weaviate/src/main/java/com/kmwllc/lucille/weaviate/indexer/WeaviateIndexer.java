@@ -120,7 +120,7 @@ public class WeaviateIndexer extends Indexer {
       Map<String, Deque<Document>> docsByGeneratedUUID = new HashMap<>();
 
       for (Document doc : documents) {
-        // the document's fields with indexer.whitelist / indexer.blacklist applied; the id moves to idDestinationName
+        // the document's fields with indexer.includeFields / indexer.excludeFields applied; the id moves to idDestinationName
         // (indexer.idOverrideField, when configured and present, supplies the id written to Weaviate)
         Map<String, Object> docMap = getConvertedIndexerDoc(doc);
         docMap.remove(Document.ID_FIELD);

@@ -31,7 +31,7 @@ Indexers support two deletion mechanisms — delete-by-ID and delete-by-query �
 
 ## Field Filtering
 
-The Indexer applies field filtering at the boundary — applying whitelist/blacklist rules, and always omitting the `___children` field — so that only the intended fields reach the search backend. Reserved fields such as `run_id` and `___skipped` are treated like any other field and reach the backend unless the whitelist leaves them out or the blacklist names them. This filtering happens at indexing time, not during pipeline processing, so Stages always see the full document.
+The Indexer applies field filtering at the boundary — applying the `includeFields`/`excludeFields` rules, and always omitting the `___children` field — so that only the intended fields reach the search backend. Reserved fields such as `run_id` and `___skipped` are treated like any other field and reach the backend unless `includeFields` leaves them out or `excludeFields` names them. This filtering happens at indexing time, not during pipeline processing, so Stages always see the full document.
 
 ## Error Handling at the Batch Level
 

@@ -102,7 +102,7 @@ public class IndexerFactoryTest {
   @Test
   public void testUnknownBlockIsAnError() {
     Config config = ConfigFactory.parseString(
-        "indexer { type: \"CSV\", csv { columns: [\"id\"], path: \"target/x.csv\" }, filter { blacklist: [\"secret\"] } }");
+        "indexer { type: \"CSV\", csv { columns: [\"id\"], path: \"target/x.csv\" }, filter { excludeFields: [\"secret\"] } }");
     Exception exception = assertThrows(IllegalArgumentException.class,
         () -> IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing"));
     Assert.assertTrue(exception.getMessage(), exception.getMessage().contains("Unknown config block indexer.filter"));

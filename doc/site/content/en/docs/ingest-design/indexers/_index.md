@@ -15,7 +15,7 @@ Indexer configuration lives in the `indexer` block. It holds generic settings co
 indexer {
   batchSize: 100
   batchTimeoutMs: 100
-  blacklist: ["internal_field"]
+  excludeFields: ["internal_field"]
 
   solr {
     useCloudClient: true
@@ -82,8 +82,8 @@ The generic settings and the backend block are validated when the indexer is con
 | `maxConcurrentBatches` | Integer | No | Maximum number of batches in flight to the destination at once. `1` sends each batch synchronously on the indexer thread. Values below 1 fail at startup. Values above 1 are accepted only by the Solr, OpenSearch, and Elasticsearch indexers (and NopIndexer); other indexers fail at startup. See [Concurrent Batches](#concurrent-batches). Default: `1`. |
 | `idOverrideField` | String | No | Document field whose value is used as the ID at the destination instead of `id`. The document's own `id` is not changed. If a document lacks the field, its `id` is used. A multi-valued field uses its first value. |
 | `indexOverrideField` | String | No | Document field whose value selects the target index or collection for that document. Enables per-index batching. Used by the Solr and OpenSearch indexers. The Elasticsearch, CSV, Pinecone, and Weaviate indexers fail at startup if it is set. |
-| `whitelist` | List\<String\> | No | Only these fields are sent to the destination. Fields on the blacklist are still excluded. |
-| `blacklist` | List\<String\> | No | These fields are never sent to the destination. |
+| `includeFields` | List\<String\> | No | Only these fields are sent to the destination. Fields in `excludeFields` are still excluded. |
+| `excludeFields` | List\<String\> | No | These fields are never sent to the destination. |
 | `sendEnabled` | Boolean | No | Set to `false` to run without sending anything to the destination. The Solr, OpenSearch, Elasticsearch, Pinecone, and Weaviate indexers then skip creating their client and their connection check, and report every document as succeeded. The CSV indexer writes no file and also reports every document as succeeded. Default: `true`. |
 | `deletionMarker` | Object | No | Marks documents for deletion. `field` is the document field to check, and `value` the value of that field that marks a document for deletion. The value is compared with the field's value as a string (first value, if multi-valued), so `"true"` matches a boolean `true` field. Both keys are required. |
 | `deleteByQuery` | Object | No | Turns a marked document into a delete-by-query. `fieldNameField` is the document field holding the name of the destination field to match, and `valueField` the document field holding the value to match. Both keys are required, and so is `deletionMarker`. |
@@ -96,11 +96,11 @@ The generic settings and the backend block are validated when the indexer is con
 
 ### Field Filtering
 
-Whitelist and blacklist are applied **at indexing time**, not during pipeline processing. Stages see all fields on a document; only the Indexer strips fields before sending to the backend. When both are set, a field is sent only if it is on the whitelist and not on the blacklist. Dropped documents never reach the Indexer.
+`includeFields` and `excludeFields` are applied **at indexing time**, not during pipeline processing. Stages see all fields on a document; only the Indexer strips fields before sending to the backend. When both are set, a field is sent only if it is in `includeFields` and not in `excludeFields`. Dropped documents never reach the Indexer.
 
-The filter applies to every top-level field, including `id` and `run_id`. `run_id` is sent as a regular field unless you blacklist it (or leave it off the whitelist). For the OpenSearch and Elasticsearch indexers, filtering `id` out removes it from the document body only; the destination ID is still set from `id` or `idOverrideField`. The Solr indexer sends the document with no `id` field, even when `idOverrideField` is set. The filter is also applied to each child document.
+The filter applies to every top-level field, including `id` and `run_id`. `run_id` is sent as a regular field unless you add it to `excludeFields` (or leave it out of `includeFields`). For the OpenSearch and Elasticsearch indexers, filtering `id` out removes it from the document body only; the destination ID is still set from `id` or `idOverrideField`. The Solr indexer sends the document with no `id` field, even when `idOverrideField` is set. The filter is also applied to each child document.
 
-The Solr, OpenSearch, Elasticsearch, Pinecone, and Weaviate indexers apply `whitelist`, `blacklist`, and `idOverrideField`. The Pinecone indexer filters before selecting `metadataFields` and writes the `idOverrideField` value as the vector ID; the Weaviate indexer writes it to `idDestinationName` and derives the object UUID from it. The CSV indexer ignores all three.
+The Solr, OpenSearch, Elasticsearch, Pinecone, and Weaviate indexers apply `includeFields`, `excludeFields`, and `idOverrideField`. The Pinecone indexer filters before selecting `metadataFields` and writes the `idOverrideField` value as the vector ID; the Weaviate indexer writes it to `idDestinationName` and derives the object UUID from it. The CSV indexer ignores all three.
 
 `___children` is never sent as a regular field. The Solr indexer sends children as nested child documents; the OpenSearch and Elasticsearch indexers embed them in `childDocumentsField` when it is set, and otherwise skip them with a warning. Children of children are dropped by all three. The Pinecone and Weaviate indexers do not send children.
 
@@ -138,7 +138,7 @@ Documents accumulate in a batch, which is sent when:
 
 Time the indexer spends blocked sending a batch or waiting for a free concurrency slot does not count toward `batchTimeoutMs`, so a slow send does not cause the next batch to be sent partly filled.
 
-When only `batchByteSize` is set (without `batchSize`), count-based batching is disabled and batches are sent purely on size. When both are set, whichever limit is reached first sends the batch. This is useful for backends with request-size limits (e.g., a 10 MB bulk API limit) where a fixed document count may produce unpredictably sized payloads. The size estimate covers the whole document, including fields the whitelist or blacklist will remove and attached children.
+When only `batchByteSize` is set (without `batchSize`), count-based batching is disabled and batches are sent purely on size. When both are set, whichever limit is reached first sends the batch. This is useful for backends with request-size limits (e.g., a 10 MB bulk API limit) where a fixed document count may produce unpredictably sized payloads. The size estimate covers the whole document, including fields that `includeFields` or `excludeFields` will remove and attached children.
 
 When `indexOverrideField` is set, the Indexer keeps a separate batch per distinct field value (documents without the field share one batch for the default index). Each sub-batch follows the rules above, and whenever a document is added, any other sub-batch that has passed `batchTimeoutMs` is sent along with it.
 

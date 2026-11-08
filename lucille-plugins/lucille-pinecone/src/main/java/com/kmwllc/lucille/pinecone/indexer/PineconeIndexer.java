@@ -174,7 +174,7 @@ public class PineconeIndexer extends Indexer {
               null,
               null,
               Struct.newBuilder()
-                  // getConvertedIndexerDoc applies indexer.whitelist / indexer.blacklist before the metadata selection
+                  // getConvertedIndexerDoc applies indexer.includeFields / indexer.excludeFields before the metadata selection
                   .putAllFields(getConvertedIndexerDoc(doc).entrySet().stream().filter(entry -> metadataFields.contains(entry.getKey()))
                       .collect(Collectors.toUnmodifiableMap(entry -> entry.getKey(),
                           entry -> Value.newBuilder().setStringValue(entry.getValue().toString()).build())))

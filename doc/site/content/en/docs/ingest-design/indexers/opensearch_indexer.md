@@ -110,7 +110,7 @@ indexer {
 
 ## Index Override
 
-OpenSearch supports `indexer.indexOverrideField` for routing documents to different indices within the same batch. The value of the override field on each document determines the target index; documents without the field go to `index`. The override field is not removed from the document. Add it to `indexer.blacklist` if it should not be indexed. Deletes (by ID and by query) are sent to the same per-document index. Each distinct value gets its own batch (see [Batching Behavior]({{< relref "docs/ingest-design/indexers#batching-behavior" >}})). If two documents in one send have the same ID but different target indices and the bulk response rejects one of them, the failure is attributed to whichever of the two was added last.
+OpenSearch supports `indexer.indexOverrideField` for routing documents to different indices within the same batch. The value of the override field on each document determines the target index; documents without the field go to `index`. The override field is not removed from the document. Add it to `indexer.excludeFields` if it should not be indexed. Deletes (by ID and by query) are sent to the same per-document index. Each distinct value gets its own batch (see [Batching Behavior]({{< relref "docs/ingest-design/indexers#batching-behavior" >}})). If two documents in one send have the same ID but different target indices and the bulk response rejects one of them, the failure is attributed to whichever of the two was added last.
 
 ---
 
@@ -128,7 +128,7 @@ Retries follow the generic `indexer.maxRetries` settings (see [Retries]({{< relr
 
 ## Child Documents
 
-When `childDocumentsField` is set, attached children are written into that field of the parent as a list of objects. They are not indexed as separate OpenSearch documents. The whitelist and blacklist apply to each child, and children of children are dropped. Map the field as `nested` if you need to query children individually.
+When `childDocumentsField` is set, attached children are written into that field of the parent as a list of objects. They are not indexed as separate OpenSearch documents. `includeFields` and `excludeFields` apply to each child, and children of children are dropped. Map the field as `nested` if you need to query children individually.
 
 If a document has children and `childDocumentsField` is not set, the children are not indexed and a warning is logged.
 

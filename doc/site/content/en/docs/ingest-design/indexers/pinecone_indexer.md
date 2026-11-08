@@ -24,7 +24,7 @@ Indexes vector embeddings into [Pinecone](https://www.pinecone.io/). Config bloc
 | `index` | String | Yes | Name of the Pinecone index to write to. |
 | `defaultEmbeddingField` | String | No | Document field containing the vector, used when `namespaces` is not set. Documents go to the `default` namespace. Required unless `namespaces` is set. |
 | `namespaces` | Map\<String, String\> | No | Map of Pinecone namespace to the document field holding that namespace's vector. Must not be empty if set. |
-| `metadataFields` | List\<String\> | No | Document fields sent as Pinecone metadata with each upserted vector. `indexer.whitelist` and `indexer.blacklist` are applied first. |
+| `metadataFields` | List\<String\> | No | Document fields sent as Pinecone metadata with each upserted vector. `indexer.includeFields` and `indexer.excludeFields` are applied first. |
 | `mode` | String | No | `upsert` or `update` (case-insensitive). Any other value fails at startup. Default: `upsert`. |
 
 ```hocon
@@ -83,7 +83,7 @@ At least one of these must be set when uploading documents. If both are omitted,
 
 ## Metadata Fields
 
-Only fields listed in `metadataFields` are sent as Pinecone metadata alongside the vector. All other document fields are ignored. Each value is sent as a string (`toString()` of the field value, so a multi-valued field becomes a string like `[a, b]`). A listed field whose value is null fails the batch. `indexer.whitelist` and `indexer.blacklist` are applied first, so a listed field they exclude is not sent. Metadata is only sent in `upsert` mode.
+Only fields listed in `metadataFields` are sent as Pinecone metadata alongside the vector. All other document fields are ignored. Each value is sent as a string (`toString()` of the field value, so a multi-valued field becomes a string like `[a, b]`). A listed field whose value is null fails the batch. `indexer.includeFields` and `indexer.excludeFields` are applied first, so a listed field they exclude is not sent. Metadata is only sent in `upsert` mode.
 
 ```hocon
 indexer {

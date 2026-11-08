@@ -368,7 +368,7 @@ public class SolrIndexer extends Indexer {
       return;
     }
     for (Document child : children) {
-      // remove key:value pair mappings if they appear in blacklist
+      // remove key:value pair mappings if they appear in indexer.excludeFields
       Map<String, Object> map = getConvertedIndexerDoc(child);
 
       SolrInputDocument solrChild = new SolrInputDocument();

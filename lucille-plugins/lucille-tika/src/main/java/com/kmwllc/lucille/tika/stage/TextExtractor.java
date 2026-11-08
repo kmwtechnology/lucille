@@ -76,15 +76,15 @@ import org.xml.sax.SAXException;
  * skipEmbeddedContentTypePrefixes (List&lt;String&gt;, Optional) : content-type prefixes for which embedded documents are
  * skipped (not parsed), e.g. ["image/"] to skip embedded images. Defaults to empty (all embedded documents parsed).
  * Embedded parts with no content type are always parsed.
- * whitelist (List&lt;String&gt;, Optional) : list of metadata names that are to be included in document
- * blacklist (List&lt;String&gt;, Optional) : list of metadata names that are not to be included in document
+ * includeMetadata (List&lt;String&gt;, Optional) : list of metadata names that are to be included in document
+ * excludeMetadata (List&lt;String&gt;, Optional) : list of metadata names that are not to be included in document
  * fieldNamesField (String, Optional) : if set, each extracted metadata field's prefixed name is added as a separate value to this
  * multi-valued field.
  * replaceDotsInMetadataNames (Boolean, Optional) : if true, "." in metadata names is replaced with "_", as spaces, "-" and ":"
  * always are. Defaults to false. Recommended when indexing into OpenSearch or Elasticsearch, which treat a dotted field
  * name as an object path: Tika emits keys such as "dc.date" and "dc.date.created", whose dotted field names cannot both be
- * mapped, so the document is rejected. Applies to metadata names only, not to metadataPrefix. When enabled, whitelist and
- * blacklist entries must use the replaced form (e.g. "dc_date"; dotted entries never match and are logged as a warning), and a dotted key that collapses onto an existing name (e.g. "dc.date" and "dc_date") has its values added
+ * mapped, so the document is rejected. Applies to metadata names only, not to metadataPrefix. When enabled, includeMetadata and
+ * excludeMetadata entries must use the replaced form (e.g. "dc_date"; dotted entries never match and are logged as a warning), and a dotted key that collapses onto an existing name (e.g. "dc.date" and "dc_date") has its values added
  * to the same multi-valued field.
  * fork.enabled (Boolean, Optional) : Whether parsing should be run in a child JVM via the <code>ForkParser</code>.
  * This adds overhead to each document but isolates OOM crashes from the parent. Defaults to false.
@@ -99,7 +99,7 @@ import org.xml.sax.SAXException;
  * metadataMapping (Map, Optional) : Maps Tika metadata keys to the names of document fields whose values should be
  * copied into the {@link Metadata} handed to Tika <i>before</i> parsing. This is the input to Tika, and is distinct
  * from the metadata Tika produces <i>after</i> parsing (Both input and output metadata are written back to the document under
- * metadataPrefix unless they are filtered out by the whitelist and/or blacklist configuration).
+ * metadataPrefix unless they are filtered out by includeMetadata and/or excludeMetadata).
  * <br>
  * The primary use case is supplying content-type detection hints. Because this stage parses from a plain
  * {@link InputStream}, Tika's container-aware detectors are skipped and detection falls back to "Mime Magic" on the
@@ -131,8 +131,8 @@ public class TextExtractor extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("textField", "filePathField", "byteArrayField", "tikaConfigPath", "metadataPrefix", "fieldNamesField")
       .optionalBoolean("replaceDotsInMetadataNames")
-      .optionalList("whitelist", new TypeReference<List<String>>() {})
-      .optionalList("blacklist", new TypeReference<List<String>>() {})
+      .optionalList("includeMetadata", new TypeReference<List<String>>() {})
+      .optionalList("excludeMetadata", new TypeReference<List<String>>() {})
       .optionalNumber("textContentLimit", "parseTimeoutMs")
       .optionalList("skipEmbeddedContentTypePrefixes", new TypeReference<List<String>>() {})
       .optionalBoolean("enableOcr")
@@ -229,9 +229,9 @@ public class TextExtractor extends Stage {
 
     forkServerPulseMillis = ConfigUtils.getOrDefault(config, "fork.serverPulseMs", 1000L);
 
-    this.fieldFilter = new FieldFilter(config);
+    this.fieldFilter = new FieldFilter(config, "includeMetadata", "excludeMetadata");
     if (replaceDotsInMetadataNames) {
-      for (String listName : List.of("whitelist", "blacklist")) {
+      for (String listName : List.of("includeMetadata", "excludeMetadata")) {
         if (config.hasPath(listName) && config.getStringList(listName).stream().anyMatch(n -> n.contains("."))) {
           log.warn("replaceDotsInMetadataNames is enabled but {} contains a dotted name, which will never match; use \"_\" instead of \".\"", listName);
         }

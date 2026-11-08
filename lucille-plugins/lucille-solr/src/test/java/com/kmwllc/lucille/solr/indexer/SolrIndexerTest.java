@@ -1076,7 +1076,7 @@ public class SolrIndexerTest {
   @Test
   public void testFailedDocsReportedWithSolrErrorWhenWhitelistOmitsId() throws Exception {
     Config config = ConfigFactory.empty()
-        .withValue("indexer.whitelist", ConfigValueFactory.fromIterable(List.of("name")))
+        .withValue("indexer.includeFields", ConfigValueFactory.fromIterable(List.of("name")))
         .withValue("indexer.idOverrideField", ConfigValueFactory.fromAnyRef("other_id"));
 
     Document doc1 = Document.create("doc1", "test_run");

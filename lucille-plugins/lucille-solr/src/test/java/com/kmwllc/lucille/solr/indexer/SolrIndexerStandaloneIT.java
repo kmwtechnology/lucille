@@ -172,9 +172,9 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
 
   @Test
   public void testIdIsSentWhenFieldFilterRemovesIt() throws Exception {
-    SolrIndexer whitelist = newIndexer(Map.of("indexer.whitelist", List.of("name_s")));
+    SolrIndexer whitelist = newIndexer(Map.of("indexer.includeFields", List.of("name_s")));
     SolrIndexer blacklistWithOverride = newIndexer(Map.of(
-        "indexer.blacklist", List.of("id"),
+        "indexer.excludeFields", List.of("id"),
         "indexer.idOverrideField", "other_id"));
     try {
       Document doc1 = Document.create("doc1");
@@ -195,7 +195,7 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
 
   @Test
   public void testRealSolrErrorReportedWhenFieldFilterRemovesId() throws Exception {
-    SolrIndexer indexer = newIndexer(Map.of("indexer.whitelist", List.of("count_i")));
+    SolrIndexer indexer = newIndexer(Map.of("indexer.includeFields", List.of("count_i")));
     try {
       Document bad = Document.create("bad");
       bad.setField("count_i", "not a number");
