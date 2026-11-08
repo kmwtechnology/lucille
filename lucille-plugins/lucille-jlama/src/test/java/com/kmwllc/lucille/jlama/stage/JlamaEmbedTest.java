@@ -45,7 +45,7 @@ public class JlamaEmbedTest {
   public void setUp() throws Exception {
     Map<String, Object> configValues = new HashMap<>();
     configValues.put("source", "source");
-    configValues.put("modelPath", "./model");
+    configValues.put("modelDownloadPath", "./model");
     configValues.put("modelName", "owner/name");
     defaultConfig = ConfigFactory.parseMap(configValues);
   }
@@ -55,7 +55,7 @@ public class JlamaEmbedTest {
     // create the test config, here DTypes is set to F16 and I16
     Map<String, Object> configValues2 = new HashMap<>();
     configValues2.put("source", "source");
-    configValues2.put("modelPath", "./model");
+    configValues2.put("modelDownloadPath", "./model");
     configValues2.put("modelName", "owner/name");
     configValues2.put("workingMemoryType", "F16");
     configValues2.put("workingQuantizationType", "I16");
@@ -64,7 +64,7 @@ public class JlamaEmbedTest {
     // create the test config, here DTypes is set to U16 and Q5
     Map<String, Object> configValues3 = new HashMap<>();
     configValues3.put("source", "source");
-    configValues3.put("modelPath", "./model");
+    configValues3.put("modelDownloadPath", "./model");
     configValues3.put("modelName", "owner/name");
     configValues3.put("workingMemoryType", "U16");
     configValues3.put("workingQuantizationType", "Q5");
@@ -106,7 +106,7 @@ public class JlamaEmbedTest {
   public void testInvalidStart() throws StageException {
     Map<String, Object> configValues2 = new HashMap<>();
     configValues2.put("source", "source");
-    configValues2.put("modelPath", "./model");
+    configValues2.put("modelDownloadPath", "./model");
     configValues2.put("modelName", "ownerName");
     Config modelNameNotInFormat = ConfigFactory.parseMap(configValues2);
 
@@ -187,7 +187,7 @@ public class JlamaEmbedTest {
 
     Map<String, Object> configValues = new HashMap<>();
     configValues.put("source", "source");
-    configValues.put("modelPath", "src/test/resources");
+    configValues.put("modelDownloadPath", "src/test/resources");
     configValues.put("modelName", "owner/name");
     configValues.put("deleteModelAfter", true);
     Config config = ConfigFactory.parseMap(configValues);
@@ -236,7 +236,7 @@ public class JlamaEmbedTest {
 
     Map<String, Object> configValues = new HashMap<>();
     configValues.put("source", "source");
-    configValues.put("modelPath", "src/test/resources");
+    configValues.put("modelDownloadPath", "src/test/resources");
     configValues.put("modelName", "NoOwnerOnlyName");
     configValues.put("deleteModelAfter", true);
     Config config = ConfigFactory.parseMap(configValues);

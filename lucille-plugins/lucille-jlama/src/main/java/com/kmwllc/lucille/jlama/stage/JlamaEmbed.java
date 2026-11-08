@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
  * Config Parameters:
  * - source (String) : field of which the embedding Stage will retrieve content from
  * - dest (String, Optional) : name of the field that will store the embeddings, defaults to "embeddings"
- * - modelPath (String) : Path where the model will be downloaded to and used
+ * - modelDownloadPath (String) : Path where the model will be downloaded to and used
  * - modelName (String) : the name of the embedding model to use in the format of owner/name, retrieved from HuggingFace
  * - workingMemoryType (String, Optional) : the data type used during runtime for model, impacts accuracy and resource usage.
  * - workingQuantizationType (String, Optional): the data type used during quantization for model, influences the compression and
@@ -64,7 +64,7 @@ import org.slf4j.LoggerFactory;
 public class JlamaEmbed extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("modelName", "source", "modelPath")
+      .requiredString("modelName", "source", "modelDownloadPath")
       .optionalString("workingMemoryType", "workingQuantizationType", "dest")
       .optionalBoolean("deleteModelAfter").build();
 
@@ -81,7 +81,7 @@ public class JlamaEmbed extends Stage {
 
   public JlamaEmbed(Config config) {
     super(config);
-    this.pathToStoreModel = config.getString("modelPath");
+    this.pathToStoreModel = config.getString("modelDownloadPath");
     this.embeddingModel = config.getString("modelName");
     this.source = config.getString("source");
     this.dest = ConfigUtils.getStringOrDefault(config, "dest", "embeddings");

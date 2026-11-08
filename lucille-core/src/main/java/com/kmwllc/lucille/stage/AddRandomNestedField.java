@@ -94,11 +94,11 @@ public class AddRandomNestedField extends Stage {
     }
 
     if (targetField == null || targetField.isEmpty()) {
-      throw new StageException("targetField is required.");
+      throw new StageException("dest is required.");
     }
 
     if (Document.RESERVED_FIELDS.contains(targetField)) {
-      throw new StageException("targetField '" + targetField + "' is a reserved field");
+      throw new StageException("dest '" + targetField + "' is a reserved field");
     }
 
     if (numObjects != null && numObjects <= 0) {

@@ -11,7 +11,7 @@ Logs documents in JSON format at INFO level and/or writes them to a file. Place 
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `log` | Boolean | No | Log each document as JSON at INFO level. Default: `true`. |
+| `logDocuments` | Boolean | No | Log each document as JSON at INFO level. Default: `true`. |
 | `outputFile` | String | No | Path to a file to write documents to (one JSON object per line). Created if it does not exist. The file is opened when the first document arrives. |
 | `includeFields` | List\<String\> | No | If set, only these fields are included in the output. The document passed to the next stage is not changed. |
 | `excludeFields` | List\<String\> | No | Fields to exclude from the output. The document passed to the next stage is not changed. |
@@ -21,7 +21,7 @@ Logs documents in JSON format at INFO level and/or writes them to a file. Place 
 ```hocon
 {
   class: "com.kmwllc.lucille.stage.Print"
-  log: false
+  logDocuments: false
   outputFile: "/tmp/pipeline-output.jsonl"
 }
 ```
@@ -39,7 +39,7 @@ pipelines: [{
     # ... your enrichment stages ...
     {
       class: "com.kmwllc.lucille.stage.Print"
-      log: false
+      logDocuments: false
       outputFile: "/tmp/captured.jsonl"
       appendThreadName: false
     }

@@ -92,7 +92,7 @@ In addition to the three required elements, you can configure other parts of a L
 | `runner` | `metricsLoggingLevel`, `connectorTimeoutMs` | `connectorTimeoutMs` defaults to 24 hours. |
 | `kafka` | `bootstrapServers`, `consumerGroupId`, `maxPollIntervalSecs`, `maxRequestSize`, `events`, `sourceTopic`, `eventTopic`, security properties | Required when running in distributed or external mode. See [Deployment]({{< relref "docs/operations/deployment" >}}). |
 | `zookeeper` | `connectString` | Required only when `worker.maxRetries` is set. |
-| `log` | `seconds` | Controls how often Workers, Publisher, and Indexer log status updates. Default: 30. |
+| `log` | `intervalSecs` | Controls how often Workers, Publisher, and Indexer log status updates, in seconds. Default: 30. |
 
 ---
 

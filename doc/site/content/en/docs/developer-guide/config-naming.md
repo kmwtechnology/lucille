@@ -19,7 +19,7 @@ Four principles sit behind the more specific conventions:
 - **Same concept, same name.** If two components have a setting that does the same thing, give it the same name, even if one of them came first with a different one.
 - **Say what the property holds.** A reader should be able to tell from the name whether a property is a field name or a literal value, a single name or a list, and which unit a number is in.
 - **Follow the majority.** When existing components disagree, follow the form most of them already use.
-- **Spell words out.** Write `source`, `length` and `separator`, not `src`, `len` and `sep`. The one established exception is `dest`, which most stages already use for their output field. Because it is the majority form, it stays `dest`, not `destination`.
+- **Spell words out.** Write `source`, `length` and `separator`, not `src`, `len` and `sep`. The one exception is `dest`, for a stage's output field. It is well established, and because it is so common, brevity is preferable to `destination`.
 
 ## Field Names: `source`, `dest`, `fields`
 
@@ -30,11 +30,21 @@ Most Stages read one or more document fields and write one or more document fiel
 | `source` | The field or fields the stage reads | `ParseJson`, `ParseFloats`, `XPathExtractor`, `Base64Decode` |
 | `dest` | The field or fields the stage writes | `Timestamp`, `Contains`, `TruncateField`, `AddRandomInt` |
 | `fields` | The fields a stage modifies in place, with no separate output | `DeleteFields`, `TrimWhitespace` |
-| `fieldMapping` | A map from source field to destination field | `CopyFields`, `RenameFields`, `EmitNestedChildren` |
+| `fieldMapping` | A map from what the stage reads to the field or fields it writes | `CopyFields`, `RenameFields`, `EmitNestedChildren` (source field to destination field), `XPathExtractor` (XPath expression to fields) |
 
-Avoid synonyms for these: `src`, `inputField`, `outputField`, `destination`, `destField`, `targetField`. `dest` is short for "destination", an exception to [spelling words out](#overview) that is kept because nearly every stage already uses it. Avoid names that don't say whether the field is read or written, such as `field` or `fieldName`, when the stage has both an input and an output.
+Avoid synonyms for these: `src`, `inputField`, `outputField`, `destination`, `destField`, `targetField`. `dest` is short for "destination", an exception to [spelling words out](#overview): it is well established, and so common that the short form is preferable. Avoid names that don't say whether the field is read or written, such as `field` or `fieldName`, when the stage has both an input and an output.
 
-Don't put the content type in the name of a stage's main input. `XPathExtractor` reads XML from `source`, not `xmlField`; parsing XML is the stage's job, not something the key needs to say. A name like `textField` can also mean the input in one stage and the output in another.
+Don't put the content type in the name of a stage's main input. `XPathExtractor` reads XML from `source`, not `xmlField`; parsing XML is the stage's job, not something the key needs to say.
+
+**When `source` and `dest` don't fit.** `source` and `dest` are for a stage that reads a field and writes the result. Some components have a different shape:
+- they take their input in one of several forms
+- they write several outputs
+- they create documents rather than transform a field
+
+For these, name each field for what it holds, with the `Field` suffix described below:
+- `TextExtractor` reads a file path from `filePathField` or raw bytes from `byteArrayField`. It writes the extracted text to `textField` and the metadata names to `fieldNamesField`. A bare `dest` there wouldn't say which of its outputs it is.
+- `XMLFileHandler` puts each element's XML in `xmlField`.
+- `CSVFileHandler` puts the file name in `filenameField`.
 
 ## Properties That Name a Document Field: the `Field` Suffix
 
@@ -57,20 +67,20 @@ indexer {
 
 `value` is a value, and `valueField` names a field that holds a value. A reader can tell them apart from the names alone.
 
-When a component can take its input in more than one form, use one property per form, named for the form: `TextExtractor` reads a file path from `filePathField` or raw bytes from `byteArrayField`.
-
 ## File Paths
 
 | Pattern | Use it for | Examples |
 |---|---|---|
-| `xxxPath` | A file or location in the config | `scriptPath`, `dictPath`, `tikaConfigPath`, `modelPath`, `serviceKeyPath` |
+| `xxxPath` | A file or location in the config | `scriptPath`, `dictPath`, `tikaConfigPath`, `modelDownloadPath`, `serviceKeyPath` |
 | `path`, `paths` | The location a connector reads from | `ParquetConnector.path`, `FileConnector.paths` |
 | `filePathField` | A document field that holds a file path | `TextExtractor`, `ApplyJSoup`, `FetchFileContent`, `ApplyOCR` |
 | `filenameField` | A document field that holds a file name | `CSVFileHandler`, `VideoFileHandler` |
 
 `filenameField` and `filePathField` follow the same capitalization rule: "filename" is one word and "file path" is two (see [Capitalization](#capitalization-and-acronyms)).
 
-Prefer `modelPath` to `pathToStoreModel`. A bare `path` is also used for JSON and XML paths in some components, so use `filePathField`, not `pathField`, for a field holding a file path.
+Put the role first and `Path` last (`modelDownloadPath`, not `pathToStoreModel`), and say what the location is for when a shorter name could mislead. `JlamaEmbed`'s `modelDownloadPath` is the directory the model is downloaded to. A plain `modelPath` would read as the path of a model file to load.
+
+A bare `path` is also used for JSON and XML paths in some components, so use `filePathField`, not `pathField`, for a field holding a file path.
 
 ## Units
 
@@ -94,7 +104,7 @@ A property named as a percentage should take a percentage. If a setting is reall
 
 ## Booleans
 
-Name a boolean for what it turns on, as a verb phrase or adjective: `ignoreCase`, `overwriteFile`, `enableOcr`, `dropOriginal`, `appendThreadName`, `useXml`. Don't add a `should` prefix: write `log`, not `shouldLog`.
+Name a boolean for what it turns on, as a verb phrase or adjective: `ignoreCase`, `overwriteFile`, `enableOcr`, `dropOriginal`, `appendThreadName`, `useXml`. Don't add a `should` prefix, and avoid a bare word that reads as either a noun or a verb. Write `logDocuments`, not `shouldLog` or `log`. A bare `log` could also be mistaken for the top-level `log` block.
 
 ## Capitalization and Acronyms
 
@@ -114,7 +124,9 @@ Say what the list holds, and avoid the `whitelist` and `blacklist` metaphor.
 
 ## Maps and Lists
 
-Use the plural for a list (`fields`, `paths`, `formatStrings`, `retryableStatusCodes`) and `xxxMapping` for a map from one name to another (`fieldMapping`, `metadataMapping`). Don't call a map `fieldsToCopy` or `metadataFields`: those read as lists.
+Use the plural for a list (`fields`, `paths`, `formatStrings`, `retryableStatusCodes`) and `xxxMapping` for a map whose keys are what the component reads and whose values are where it writes (`fieldMapping`). Don't call such a map `fieldsToCopy`: that reads as a list.
+
+Keep that direction for anything named `xxxMapping`. If a map runs the other way, name it for what its values hold instead. `TextExtractor.metadataHintFields` maps Tika metadata names to the document fields that supply hints to Tika before parsing. Calling it `metadataMapping` would suggest it maps Tika's extracted metadata to output fields.
 
 ## Shared Settings
 
@@ -146,7 +158,7 @@ If you rename a property:
 ## Checklist for a New Component
 
 - Every property name is in camel case.
-- The fields it reads and writes are `source` and `dest`, or `fields` if it modifies them in place.
+- If it reads a field and writes the result, the fields are `source` and `dest`, or `fields` if it modifies them in place. Otherwise, each field is named for what it holds.
 - Every property that names a document field ends in `Field`, unless it is `source`, `dest` or `fields`.
 - Every numeric duration ends in `Ms` or `Secs`, and every size names its unit.
 - Acronyms are in camel case.

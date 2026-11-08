@@ -130,7 +130,7 @@ pipelines: [
         class: "com.kmwllc.lucille.jlama.stage.JlamaEmbed"
         source: "text"
         dest: "content_vector"
-        modelPath: "/models/all-MiniLM-L6-v2"
+        modelDownloadPath: "/models/all-MiniLM-L6-v2"
         embedDocument: false
         embedChildren: true
       }

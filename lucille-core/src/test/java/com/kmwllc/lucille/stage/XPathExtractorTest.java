@@ -125,7 +125,7 @@ public class XPathExtractorTest {
         "xmlRootPath", "/Company/staff",
         "xmlIdPath", "/Company/staff/id",
         "encoding", "utf-8",
-        "outputField", "xml"
+        "xmlField", "xml"
     )));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");

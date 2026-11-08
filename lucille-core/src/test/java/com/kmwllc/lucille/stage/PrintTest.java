@@ -106,7 +106,7 @@ public class PrintTest {
   @Test
   public void testSpec() throws StageException {
     Stage stage = factory.get("PrintTest/config.conf");
-    assertEquals(Set.of("overwriteFile", "outputFile", "log", "excludeFields", "includeFields", "appendThreadName"),
+    assertEquals(Set.of("overwriteFile", "outputFile", "logDocuments", "excludeFields", "includeFields", "appendThreadName"),
         stage.getNonDefaultLegalProperties());
   }
 

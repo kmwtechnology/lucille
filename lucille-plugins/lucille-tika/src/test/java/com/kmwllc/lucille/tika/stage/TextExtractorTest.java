@@ -406,7 +406,7 @@ public class TextExtractorTest {
     assertEquals(List.of("tika_content_type"), fieldNames);
   }
 
-  // when metadataMapping is set, the referenced document fields' values should be copied into the Metadata
+  // when metadataHintFields is set, the referenced document fields' values should be copied into the Metadata
   // handed to Tika (used, for example, to supply content-type detection hints such as resourceName / Content-Type).
   @Test
   public void testMetadataFieldsWiredIn() throws StageException {
@@ -438,7 +438,7 @@ public class TextExtractorTest {
     assertArrayEquals(new String[]{"first.csv", "second.csv"}, metadata.getValues("resourceName"));
   }
 
-  // document fields referenced by metadataMapping but absent from the document should be skipped, not error
+  // document fields referenced by metadataHintFields but absent from the document should be skipped, not error
   @Test
   public void testMetadataFieldsMissingDocField() throws StageException {
     TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/metadatafields.conf");

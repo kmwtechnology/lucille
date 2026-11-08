@@ -72,7 +72,7 @@ import org.xml.sax.SAXException;
  * metadataPrefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
  * textContentLimit (Integer, Optional) : limits how large the content of the returned text can be
  * parseTimeoutMs (Long, Optional) : timeout for parsing in milliseconds. On timeout, the text extracted so far and the
- * metadataMapping input hints are added to the document, but no extracted metadata.
+ * metadataHintFields input hints are added to the document, but no extracted metadata.
  * skipEmbeddedContentTypePrefixes (List&lt;String&gt;, Optional) : content-type prefixes for which embedded documents are
  * skipped (not parsed), e.g. ["image/"] to skip embedded images. Defaults to empty (all embedded documents parsed).
  * Embedded parts with no content type are always parsed.
@@ -96,7 +96,7 @@ import org.xml.sax.SAXException;
  * azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
  * gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
  * storageClients (Map, Optional) : If your files are held in storage with a custom StorageClient. See FileConnector for the appropriate arguments to provide.
- * metadataMapping (Map, Optional) : Maps Tika metadata keys to the names of document fields whose values should be
+ * metadataHintFields (Map, Optional) : Maps Tika metadata keys to the names of document fields whose values should be
  * copied into the {@link Metadata} handed to Tika <i>before</i> parsing. This is the input to Tika, and is distinct
  * from the metadata Tika produces <i>after</i> parsing (Both input and output metadata are written back to the document under
  * metadataPrefix unless they are filtered out by includeMetadata and/or excludeMetadata).
@@ -114,7 +114,7 @@ import org.xml.sax.SAXException;
  * See <a href="https://tika.apache.org/3.2.3/detection.html">Tika content type detection</a> for details. Example: a
  * document with "filename" and "content_type" fields would be configured as
  * {
- *   "metadataMapping": {
+ *   "metadataHintFields": {
  *     "resourceName": "filename",
  *     "Content-Type": "content_type"
  *   }
@@ -138,7 +138,7 @@ public class TextExtractor extends Stage {
       .optionalBoolean("enableOcr")
       .optionalParent("fork", FORK_SPEC)
       .include(FileConnector.STORAGE_SPEC)
-      .optionalParent("metadataMapping", new TypeReference<Map<String, Object>>() {})
+      .optionalParent("metadataHintFields", new TypeReference<Map<String, Object>>() {})
       .include(FileContentFetcher.SPEC).build();
 
   // Default Tika config minus the Tesseract parser. With no parser able to OCR, PDFParser also skips rendering pages for OCR.
@@ -209,7 +209,7 @@ public class TextExtractor extends Stage {
     parseTimeout = ConfigUtils.getLongOrDefault(config, "parseTimeoutMs", null);
     fieldNamesField = ConfigUtils.getStringOrDefault(config, "fieldNamesField", null);
     replaceDotsInMetadataNames = config.hasPath("replaceDotsInMetadataNames") && config.getBoolean("replaceDotsInMetadataNames");
-    metadataFields = config.hasPath("metadataMapping") ? config.getConfig("metadataMapping").root().unwrapped() : null;
+    metadataFields = config.hasPath("metadataHintFields") ? config.getConfig("metadataHintFields").root().unwrapped() : null;
     skipEmbeddedContentTypePrefixes = config.hasPath("skipEmbeddedContentTypePrefixes")
         ? config.getStringList("skipEmbeddedContentTypePrefixes")
         : List.of();
@@ -473,14 +473,14 @@ public class TextExtractor extends Stage {
 
   /**
    * Builds the input {@link Metadata} handed to Tika before parsing, copying values from the given document into the
-   * metadata according to the configured {@code metadataMapping} mapping.
+   * metadata according to the configured {@code metadataHintFields} mapping.
    *
    * <p>Each entry maps a Tika metadata key to the name of a document field to read from. Fields the document does not
    * contain are skipped, and multi-valued fields contribute all of their values. These values act as detection hints
    * (see the class-level documentation), not as extracted output.
    *
    * @param doc the document to read the configured hint fields from.
-   * @return a {@code Metadata} populated with the configured hints (empty when {@code metadataMapping} is unset).
+   * @return a {@code Metadata} populated with the configured hints (empty when {@code metadataHintFields} is unset).
    */
   public Metadata createMetadataInput(Document doc) {
     Metadata metadata = new Metadata();

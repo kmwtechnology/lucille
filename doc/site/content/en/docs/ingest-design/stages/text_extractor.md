@@ -39,9 +39,9 @@ The extracted text is added to `textField`; if the field already has a value, th
 | `excludeMetadata` | List\<String\> | No | Metadata names to drop, in cleaned form and without the prefix. |
 | `fieldNamesField` | String | No | If set, the name of each metadata field written to the Document is added to this multi-valued field. |
 | `replaceDotsInMetadataNames` | Boolean | No | Replace `.` with `_` in metadata names. See [Metadata fields](#metadata-fields). Default: `false`. |
-| `metadataMapping` | Map\<String, String\> | No | Input metadata hints for Tika. See [Detection hints](#detection-hints). |
+| `metadataHintFields` | Map\<String, String\> | No | Input metadata hints for Tika. See [Detection hints](#detection-hints). |
 | `textContentLimit` | Integer | No | Maximum number of characters of text to extract. Default: no limit. |
-| `parseTimeoutMs` | Long | No | Parse timeout in milliseconds. When a parse times out, a warning is logged, whatever text was extracted so far is kept and the `metadataMapping` input values are written, but no extracted metadata is added. Default: no timeout. |
+| `parseTimeoutMs` | Long | No | Parse timeout in milliseconds. When a parse times out, a warning is logged, whatever text was extracted so far is kept and the `metadataHintFields` input values are written, but no extracted metadata is added. Default: no timeout. |
 | `enableOcr` | Boolean | No | OCR images and image-only PDF pages. See [OCR](#ocr). Cannot be set together with `tikaConfigPath`. Default: `false`. |
 | `tikaConfigPath` | String | No | Local path to a Tika config file. The config is used as is, and is applied to embedded documents as well as the top-level document. |
 | `skipEmbeddedContentTypePrefixes` | List\<String\> | No | Content-type prefixes for which embedded documents are skipped (not parsed), e.g. `["image/"]`. Embedded parts with no content type are always parsed. Cannot be set when `fork.enabled` is `true`. Default: empty (all embedded documents are parsed). |
@@ -69,10 +69,10 @@ Tika also emits dotted names such as `dc.date` and `dc.date.created`. OpenSearch
 
 ## Detection hints
 
-`metadataMapping` maps Tika metadata keys to Document fields. Before parsing, the values of each field are added to the metadata handed to Tika, which uses them to detect the content type. Fields missing from the Document are skipped. These input values are also written back to the Document with the extracted metadata, subject to `includeMetadata` and `excludeMetadata`. The most useful keys are `resourceName` (the file name, so Tika can use the extension) and `Content-Type` (an advertised content type, such as one returned by a web server).
+`metadataHintFields` maps Tika metadata keys to Document fields. Before parsing, the values of each field are added to the metadata handed to Tika, which uses them to detect the content type. Fields missing from the Document are skipped. These input values are also written back to the Document with the extracted metadata, subject to `includeMetadata` and `excludeMetadata`. The most useful keys are `resourceName` (the file name, so Tika can use the extension) and `Content-Type` (an advertised content type, such as one returned by a web server).
 
 ```hocon
-metadataMapping: {
+metadataHintFields: {
   resourceName: "file_name"
   "Content-Type": "content_type"
 }
