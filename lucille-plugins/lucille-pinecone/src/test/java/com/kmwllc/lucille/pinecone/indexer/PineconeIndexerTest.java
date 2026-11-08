@@ -29,9 +29,8 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
-import org.openapitools.control.client.model.IndexModel;
-import org.openapitools.control.client.model.IndexModelStatus;
+import org.openapitools.db_control.client.model.IndexModel;
+import org.openapitools.db_control.client.model.IndexModelStatus;
 
 public class PineconeIndexerTest {
 
@@ -94,19 +93,19 @@ public class PineconeIndexerTest {
     goodIndex = Mockito.mock(Index.class);
     IndexModelStatus goodStatus = Mockito.mock(IndexModelStatus.class);
     when(goodIndexModel.getStatus()).thenReturn(goodStatus);
-    when(goodStatus.getState()).thenReturn(StateEnum.READY);
+    when(goodStatus.getState()).thenReturn("Ready");
 
     failureIndexModel = Mockito.mock(IndexModel.class);
     failureIndex = Mockito.mock(Index.class);
     IndexModelStatus failureStatus = Mockito.mock(IndexModelStatus.class);
     when(failureIndexModel.getStatus()).thenReturn(failureStatus);
-    when(failureStatus.getState()).thenReturn(StateEnum.INITIALIZATIONFAILED);
+    when(failureStatus.getState()).thenReturn("InitializationFailed");
 
     shutdownIndexModel = Mockito.mock(IndexModel.class);
     shutdownIndex = Mockito.mock(Index.class);
     IndexModelStatus shutdownStatus = Mockito.mock(IndexModelStatus.class);
     when(shutdownIndexModel.getStatus()).thenReturn(shutdownStatus);
-    when(shutdownStatus.getState()).thenReturn(StateEnum.TERMINATING);
+    when(shutdownStatus.getState()).thenReturn("Terminating");
   }
 
   @Test
@@ -116,8 +115,8 @@ public class PineconeIndexerTest {
     when(mockClient.getIndexConnection(anyString())).thenReturn(mock(Index.class));
     IndexModel goodModel = mock(IndexModel.class);
     IndexModelStatus goodStatus = mock(IndexModelStatus.class);
-    StateEnum goodState = StateEnum.READY;
-    StateEnum badState = StateEnum.INITIALIZATIONFAILED;
+    String goodState = "Ready";
+    String badState = "InitializationFailed";
     when(goodModel.getStatus()).thenReturn(goodStatus);
     when(mockClient.describeIndex(anyString())).thenReturn(goodModel);
     when(goodStatus.getState()).thenReturn(badState).thenReturn(goodState);
@@ -145,7 +144,7 @@ public class PineconeIndexerTest {
     when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
     when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
     when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.TERMINATING); // testing for when index should be terminated
+    when(mockStatus.getState()).thenReturn("Terminating"); // testing for when index should be terminated
 
     try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
       when(mock.build()).thenReturn(mockClient);
@@ -195,7 +194,7 @@ public class PineconeIndexerTest {
     when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
     when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
     when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    when(mockStatus.getState()).thenReturn("Ready");
     UpsertResponse response = Mockito.mock(UpsertResponse.class);
     when(response.getUpsertedCount()).thenReturn(2);
     when(goodIndex.upsert(anyList(), anyString())).thenReturn(response);
@@ -219,8 +218,8 @@ public class PineconeIndexerTest {
       // assert that an upsert was made to the right nameSpace
       ArgumentCaptor<String> nameSpaceUsed = ArgumentCaptor.forClass(String.class);
       verify(goodIndex, times(1)).upsert(anyList(), nameSpaceUsed.capture());
-      // test that "default" namespace is used when no namespace provided
-      assertEquals("default", nameSpaceUsed.getValue());
+      // test that the default namespace is used when no namespace provided
+      assertEquals("", nameSpaceUsed.getValue());
     }
   }
 
@@ -232,7 +231,7 @@ public class PineconeIndexerTest {
     when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
     when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
     when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    when(mockStatus.getState()).thenReturn("Ready");
 
     try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
       when(mock.build()).thenReturn(mockClient);
@@ -259,7 +258,7 @@ public class PineconeIndexerTest {
     when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
     when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
     when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    when(mockStatus.getState()).thenReturn("Ready");
 
     try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
       when(mock.build()).thenReturn(mockClient);
@@ -280,9 +279,9 @@ public class PineconeIndexerTest {
       verify(goodIndex, times(2)).update(Mockito.any(), Mockito.any(), nameSpaceUsed.capture());
       // assert that no upserts have been made
       verify(goodIndex, times(0)).upsert(Mockito.any(), nameSpaceUsed.capture());
-      // test that both were called to "default" when no namespace was provided
-      assertEquals("default", nameSpaceUsed.getAllValues().get(0));
-      assertEquals("default", nameSpaceUsed.getAllValues().get(1));
+      // test that both were called to the default namespace when no namespace was provided
+      assertEquals("", nameSpaceUsed.getAllValues().get(0));
+      assertEquals("", nameSpaceUsed.getAllValues().get(1));
     }
   }
 
@@ -294,7 +293,7 @@ public class PineconeIndexerTest {
     when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
     when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
     when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    when(mockStatus.getState()).thenReturn("Ready");
     UpsertResponse response = Mockito.mock(UpsertResponse.class);
     when(response.getUpsertedCount()).thenReturn(2);
     try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
@@ -344,7 +343,7 @@ public class PineconeIndexerTest {
     when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
     when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
     when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    when(mockStatus.getState()).thenReturn("Ready");
     UpsertResponse response = Mockito.mock(UpsertResponse.class);
     when(response.getUpsertedCount()).thenReturn(2);
     when(goodIndex.upsert(anyList(), anyString())).thenReturn(response);
@@ -403,7 +402,7 @@ public class PineconeIndexerTest {
     when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
     when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
     when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    when(mockStatus.getState()).thenReturn("Ready");
 
     try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
       when(mock.build()).thenReturn(mockClient);
@@ -456,7 +455,7 @@ public class PineconeIndexerTest {
     when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
     when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
     when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    when(mockStatus.getState()).thenReturn("Ready");
 
     try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
       when(mock.build()).thenReturn(mockClient);
@@ -492,7 +491,7 @@ public class PineconeIndexerTest {
     when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
     when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
     when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    when(mockStatus.getState()).thenReturn("Ready");
     UpsertResponse mockResponse = mock(UpsertResponse.class);
     when(mockResponse.getUpsertedCount()).thenReturn(2);
     when(goodIndex.upsert(anyList(), anyString())).thenReturn(mockResponse);
@@ -518,7 +517,7 @@ public class PineconeIndexerTest {
       ArgumentCaptor<String> nameSpaceUsed = ArgumentCaptor.forClass(String.class);
       ArgumentCaptor<List<VectorWithUnsignedIndices>> listArgumentCaptor = ArgumentCaptor.forClass(List.class);
       verify(goodIndex, times(1)).upsert(listArgumentCaptor.capture(), nameSpaceUsed.capture());
-      assertEquals("default", nameSpaceUsed.getValue());
+      assertEquals("", nameSpaceUsed.getValue());
       List<VectorWithUnsignedIndices> vectorIndices = listArgumentCaptor.getValue();
       assertEquals(vectorIndices.size(), 2);
       assertEquals(doc0.getId(), vectorIndices.get(0).getId());
@@ -545,7 +544,7 @@ public class PineconeIndexerTest {
     when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
     when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
     when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    when(mockStatus.getState()).thenReturn("Ready");
     UpsertResponse mockResponse = mock(UpsertResponse.class);
     when(mockResponse.getUpsertedCount()).thenReturn(2);
     when(goodIndex.upsert(anyList(), anyString())).thenReturn(mockResponse);
@@ -594,7 +593,7 @@ public class PineconeIndexerTest {
     when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
     when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
     when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    when(mockStatus.getState()).thenReturn("Ready");
     UpsertResponse mockResponse = mock(UpsertResponse.class);
     when(mockResponse.getUpsertedCount()).thenReturn(2);
     when(goodIndex.upsert(anyList(), anyString())).thenReturn(mockResponse);
@@ -623,7 +622,7 @@ public class PineconeIndexerTest {
       assertEquals(2, idsCapture.getAllValues().size()); // doc3 is not added
       assertEquals(doc0.getId(), idsCapture.getAllValues().get(0));
       assertEquals(doc1.getId(), idsCapture.getAllValues().get(1));
-      assertEquals("default", namespaceUsed.getValue());
+      assertEquals("", namespaceUsed.getValue());
 
       // make sure a deletion were made (for doc3ToDelete)
       ArgumentCaptor<List<String>> listArgumentCaptor2 = ArgumentCaptor.forClass(List.class);
@@ -643,7 +642,7 @@ public class PineconeIndexerTest {
     when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
     when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
     when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    when(mockStatus.getState()).thenReturn("Ready");
 
     try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
       when(mock.build()).thenReturn(mockClient);
@@ -666,7 +665,7 @@ public class PineconeIndexerTest {
       ArgumentCaptor<String> namespaceUsed = ArgumentCaptor.forClass(String.class);
       verify(goodIndex, times(1)).update(idsCapture.capture(), anyList(), namespaceUsed.capture());
       assertEquals(doc3.getId(), idsCapture.getAllValues().get(0));
-      assertEquals("default", namespaceUsed.getValue());
+      assertEquals("", namespaceUsed.getValue());
     }
   }
 
@@ -678,7 +677,7 @@ public class PineconeIndexerTest {
     when(mockClient.getIndexConnection(anyString())).thenReturn(goodIndex);
     when(mockClient.describeIndex(anyString())).thenReturn(mockIndexModel);
     when(mockIndexModel.getStatus()).thenReturn(mockStatus);
-    when(mockStatus.getState()).thenReturn(StateEnum.READY);
+    when(mockStatus.getState()).thenReturn("Ready");
 
     try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
       when(mock.build()).thenReturn(mockClient);
