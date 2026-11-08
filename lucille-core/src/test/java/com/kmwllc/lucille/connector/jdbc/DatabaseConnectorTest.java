@@ -210,7 +210,7 @@ public class DatabaseConnectorTest {
     configValues.put("idField", "id");
     configValues.put("connectionRetries", 1);
     // put sleep to 1 millisecond to avoid too much time for testing
-    configValues.put("connectionRetryPause", 1);
+    configValues.put("connectionRetryPauseMs", 1);
 
     // create a config object off that map
     Config config = ConfigFactory.parseMap(configValues);
@@ -261,7 +261,7 @@ public class DatabaseConnectorTest {
     configValues.put("idField", "id");
     configValues.put("connectionRetries", 1);
     // put sleep to 1 millisecond to avoid too much time for testing
-    configValues.put("connectionRetryPause", 1);
+    configValues.put("connectionRetryPauseMs", 1);
 
     // create a config object off that map
     Config config = ConfigFactory.parseMap(configValues);

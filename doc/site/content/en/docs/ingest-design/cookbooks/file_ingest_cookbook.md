@@ -159,7 +159,7 @@ connectors: [
     paths: ["gs://my-bucket/data/"]
 
     gcp {
-      pathToServiceKey: ${?GCP_SERVICE_KEY_PATH}
+      serviceKeyPath: ${?GCP_SERVICE_KEY_PATH}
     }
   }
 ]

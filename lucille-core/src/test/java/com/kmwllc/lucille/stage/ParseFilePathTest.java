@@ -177,7 +177,7 @@ public class ParseFilePathTest {
 
   @Test
   public void testInvalidConf() {
-    Map<String, String> confMap = Map.of("fileSep", "*");
+    Map<String, String> confMap = Map.of("fileSeparator", "*");
     Config faultyConfig = ConfigFactory.parseMap(confMap);
 
     assertThrows(IllegalArgumentException.class,

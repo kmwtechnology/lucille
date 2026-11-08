@@ -24,7 +24,7 @@ import java.util.List;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>shouldLog (Boolean, Optional) : Whether to log the document in JSON format at INFO level. Defaults to true.</li>
+ *   <li>log (Boolean, Optional) : Whether to log the document in JSON format at INFO level. Defaults to true.</li>
  *   <li>outputFile (String, Optional) : A file to append the documents to (will be created if it doesn't already exist).</li>
  *   <li>whitelist (List&lt;String&gt;, Optional) : A list of the only fields to include in the output.</li>
  *   <li>blacklist (List&lt;String&gt;, Optional) : A list of fields to exclude from the output.</li>
@@ -37,7 +37,7 @@ import java.util.List;
 public class Print extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalBoolean("shouldLog", "overwriteFile", "appendThreadName")
+      .optionalBoolean("log", "overwriteFile", "appendThreadName")
       .optionalString("outputFile")
       .optionalList("whitelist", new TypeReference<List<String>>() {})
       .optionalList("blacklist", new TypeReference<List<String>>() {})
@@ -58,7 +58,7 @@ public class Print extends Stage {
     super(config);
 
     this.outputFilePath = ConfigUtils.getStringOrDefault(config, "outputFile", null);
-    this.shouldLog = ConfigUtils.getBooleanOrDefault(config, "shouldLog", true);
+    this.shouldLog = ConfigUtils.getBooleanOrDefault(config, "log", true);
     this.overwriteFile = ConfigUtils.getBooleanOrDefault(config, "overwriteFile", true);
     this.appendThreadName = ConfigUtils.getOrDefault(config, "appendThreadName", true);
 

@@ -47,7 +47,7 @@ connectors: [
 | `otherJoinFields` | List\<String\> | No | Join column for each entry in `otherSQLs`, in the same order. Required when `otherSQLs` is set: omitting it fails at startup. A list shorter than `otherSQLs` fails the run when rows are processed. Ignored without `otherSQLs`. |
 | `ignoreColumns` | List\<String\> | No | Column names from the main query to skip when populating Documents, matched case-insensitively. Not applied to `otherSQLs` columns. |
 | `connectionRetries` | Integer | No | Number of retries after a failed connection attempt, so up to `connectionRetries + 1` attempts are made for each connection. Values below 1 are treated as `1`. Default: `1`. |
-| `connectionRetryPause` | Integer | No | Milliseconds to wait between connection attempts. Values below 1 are treated as the default. Default: `10000`. |
+| `connectionRetryPauseMs` | Integer | No | Milliseconds to wait between connection attempts. Values below 1 are treated as the default. Default: `10000`. |
 
 The Document ID is `docIdPrefix` (if set) followed by the `idField` value. A row whose `idField` value is `NULL` or blank is skipped and logged, and the number of skipped rows is logged at the end. The `idField` column is also added as a field, unless it is named `id`. Any other column whose lowercased name is a reserved field name (such as `id` when it is not the `idField`, or `run_id`) fails the run unless it is listed in `ignoreColumns`.
 

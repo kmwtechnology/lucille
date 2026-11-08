@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
  * Config Parameters -
  * <ul>
  *   <li>dropParent (Boolean, Optional): if set to true, will mark parent document as dropped. Defaults to false.</li>
- *   <li>fieldsToCopy (Map&lt;String, String&gt;, Optional): map of fields to copy from parent to children. It's a map of the
+ *   <li>fieldMapping (Map&lt;String, String&gt;, Optional): map of fields to copy from parent to children. It's a map of the
  *   source field name to the destination field name.</li>
  *   <li>updateMode (String, Optional): The methodology by which you want to update fields, particularly for updating multivalued
  *   fields on children documents. See {@link UpdateMode} for more information.</li>
@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 public class EmitNestedChildren extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalParent("fieldsToCopy", new TypeReference<Map<String, String>>() {})
+      .optionalParent("fieldMapping", new TypeReference<Map<String, String>>() {})
       .optionalBoolean("dropParent")
       .optionalString("updateMode").build();
 
@@ -47,7 +47,7 @@ public class EmitNestedChildren extends Stage {
     super(config);
 
     this.dropParent = ConfigUtils.getBooleanOrDefault(config, "dropParent", false);
-    this.fieldsToCopy = config.hasPath("fieldsToCopy") ? config.getConfig("fieldsToCopy").root().unwrapped() : Map.of();
+    this.fieldsToCopy = config.hasPath("fieldMapping") ? config.getConfig("fieldMapping").root().unwrapped() : Map.of();
     this.updateMode = UpdateMode.fromConfig(config);
   }
 

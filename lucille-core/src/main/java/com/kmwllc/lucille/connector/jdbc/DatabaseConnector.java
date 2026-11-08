@@ -64,7 +64,7 @@ import org.slf4j.LoggerFactory;
  *   <li>otherJoinFields (List&lt;String&gt;, Optional): the join field of each otherSQLs entry, in the same order. <b>Required if otherSQLs is provided.</b></li>
  *   <li>ignoreColumns (List&lt;String&gt;, Optional): columns of the primary result set to leave off the document (case-insensitive)</li>
  *   <li>connectionRetries (Integer, Optional): number of retries allowed to connect to database, defaults to 1</li>
- *   <li>connectionRetryPause (Integer, Optional): pause between connection retries in milliseconds, defaults to 10000</li>
+ *   <li>connectionRetryPauseMs (Integer, Optional): pause between connection retries in milliseconds, defaults to 10000</li>
  * </ul>
  *
  * @author kwatters
@@ -99,7 +99,7 @@ public class DatabaseConnector extends AbstractConnector {
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredString("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql", "idField")
       .optionalString("preSQL", "postSQL")
-      .optionalNumber("fetchSize", "connectionRetries", "connectionRetryPause")
+      .optionalNumber("fetchSize", "connectionRetries", "connectionRetryPauseMs")
       .optionalList("otherSQLs", new TypeReference<List<String>>(){})
       .optionalList("otherJoinFields", new TypeReference<List<String>>(){})
       .optionalList("ignoreColumns", new TypeReference<List<String>>(){}).build();
@@ -134,8 +134,8 @@ public class DatabaseConnector extends AbstractConnector {
     }
     connectionRetries = config.hasPath("connectionRetries") && config.getInt("connectionRetries") > 0
         ? config.getInt("connectionRetries") : 1;
-    connectionRetryPause = config.hasPath("connectionRetryPause") && config.getInt("connectionRetryPause") > 0
-        ? config.getInt("connectionRetryPause") : 10000;
+    connectionRetryPause = config.hasPath("connectionRetryPauseMs") && config.getInt("connectionRetryPauseMs") > 0
+        ? config.getInt("connectionRetryPauseMs") : 10000;
   }
 
   // Opens a new connection, retrying up to connectionRetries times, and registers it for close().

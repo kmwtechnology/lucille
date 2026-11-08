@@ -150,7 +150,7 @@ public class XPathExtractorTest {
   @Test
   public void testSpec() throws StageException {
     Stage stage = factory.get("XPathExtractorTest/config.conf");
-    assertEquals(Set.of("xmlField", "fieldMapping", "allowDoctype"), stage.getNonDefaultLegalProperties());
+    assertEquals(Set.of("source", "fieldMapping", "allowDoctype"), stage.getNonDefaultLegalProperties());
   }
 
   private Document extract(boolean allowDoctype, String xml) throws Exception {

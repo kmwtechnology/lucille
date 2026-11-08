@@ -27,11 +27,11 @@ import java.util.concurrent.ThreadLocalRandom;
  * <ul>
  *   <li>inputDataPath (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,
  *   defaults to numeric data based on range size (0 -&gt; rangeSize - 1). Note that duplicate entries will not be removed.</li>
- *   <li>fieldName (String, Optional) : Field name of field where data is placed, defaults to "data".</li>
+ *   <li>dest (String, Optional) : Field name of field where data is placed, defaults to "data".</li>
  *   <li>rangeSize (int, Optional) : size of the subset of datapoints to be grabbed either from given datapath or from
  *   random numbers.</li>
- *   <li>minNumOfTerms (Integer, Optional) : minimum number of terms to be in the field, defaults to 1.</li>
- *   <li>maxNumOfTerms (Integer, Optional) : maximum number of terms to be in the field, defaults to 1.</li>
+ *   <li>minNumTerms (Integer, Optional) : minimum number of terms to be in the field, defaults to 1.</li>
+ *   <li>maxNumTerms (Integer, Optional) : maximum number of terms to be in the field, defaults to 1.</li>
  *   <li>isNested (bool, Optional) : When enabled, the generated data will be output as a JSON array of objects, with
  *   each object holding the data in <code>"data"</code>.</li>
  *   <li>concatenate (bool, Optional) : if true, represent multiple terms as a single space-separated string instead of multiple
@@ -42,8 +42,8 @@ import java.util.concurrent.ThreadLocalRandom;
 public class AddRandomString extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("inputDataPath", "fieldName")
-      .optionalNumber("minNumOfTerms", "maxNumOfTerms", "rangeSize")
+      .optionalString("inputDataPath", "dest")
+      .optionalNumber("minNumTerms", "maxNumTerms", "rangeSize")
       .optionalBoolean("isNested", "concatenate").build();
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -66,9 +66,9 @@ public class AddRandomString extends Stage {
     super(config);
 
     this.inputDataPath = ConfigUtils.getStringOrDefault(config, "inputDataPath", null);
-    this.fieldName = ConfigUtils.getOrDefault(config, "fieldName", "data");
-    this.minNumOfTerms = ConfigUtils.getIntOrDefault(config, "minNumOfTerms", null);
-    this.maxNumOfTerms = ConfigUtils.getIntOrDefault(config, "maxNumOfTerms", null);
+    this.fieldName = ConfigUtils.getOrDefault(config, "dest", "data");
+    this.minNumOfTerms = ConfigUtils.getIntOrDefault(config, "minNumTerms", null);
+    this.maxNumOfTerms = ConfigUtils.getIntOrDefault(config, "maxNumTerms", null);
     this.isNested = ConfigUtils.getOrDefault(config, "isNested", false);
     this.concatenate = ConfigUtils.getOrDefault(config, "concatenate", false);
     this.rangeSize = ConfigUtils.getIntOrDefault(config, "rangeSize", null);

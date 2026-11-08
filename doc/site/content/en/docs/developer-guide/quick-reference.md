@@ -183,7 +183,7 @@ stages: [
   {
     class: "com.kmwllc.lucille.stage.EmitNestedChildren"
     dropParent: true
-    fieldsToCopy: { "title": "parent_title" }
+    fieldMapping: { "title": "parent_title" }
   }
 ]
 ```

@@ -80,12 +80,12 @@ azure {
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `pathToServiceKey` | String | Yes | Path to a Google Cloud service account key JSON file. The file is read when the run starts, not at construction. |
+| `serviceKeyPath` | String | Yes | Path to a Google Cloud service account key JSON file. The file is read when the run starts, not at construction. |
 | `maxResultsPerPage` | Integer | No | Number of results returned per listing request (page size). Default: `100`. |
 
 ```hocon
 gcp {
-  pathToServiceKey: "/path/to/service-account.json"
+  serviceKeyPath: "/path/to/service-account.json"
   maxResultsPerPage: 100
 }
 ```

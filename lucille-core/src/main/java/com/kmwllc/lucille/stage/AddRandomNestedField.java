@@ -31,7 +31,7 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>targetField (String, Required) : Field name where the resulting JSON array of objects will be written.</li>
+ *   <li>dest (String, Required) : Field name where the resulting JSON array of objects will be written.</li>
  *   <li>entries (Map&lt;String, String&gt;, Required) : Mapping of nested destination paths to source fields.
  *     <ul>
  *       <li>Keys are dotted paths (e.g., "user.name") that will be created inside each object.</li>
@@ -50,7 +50,7 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
  *   is missing. Each entry:
  *     <ul>
  *       <li>Requires class (fully qualified Stage implementation).</li>
- *       <li>May specify fieldName; if omitted, a temporary field generatorOut is written to.</li>
+ *       <li>May specify dest; if omitted, a temporary field generatorOut is written to.</li>
  *     </ul>
  *   </li>
  * </ul>
@@ -58,7 +58,7 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
 public class AddRandomNestedField extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("targetField")
+      .requiredString("dest")
       .requiredParent("entries", new TypeReference<Map<String, String>>() {})
       .optionalNumber("numObjects", "minNumObjects", "maxNumObjects")
       .optionalParent("generators", new TypeReference<Map<String, Object>>() {})
@@ -82,7 +82,7 @@ public class AddRandomNestedField extends Stage {
 
   public AddRandomNestedField(Config config) throws StageException {
     super(config);
-    this.targetField = ConfigUtils.getStringOrDefault(config, "targetField", null);
+    this.targetField = ConfigUtils.getStringOrDefault(config, "dest", null);
     this.numObjects = ConfigUtils.getIntOrDefault(config, "numObjects", null);
     this.minNumObjects = ConfigUtils.getIntOrDefault(config, "minNumObjects", null);
     this.maxNumObjects = ConfigUtils.getIntOrDefault(config, "maxNumObjects", null);
@@ -139,7 +139,7 @@ public class AddRandomNestedField extends Stage {
 
         Config injected = ConfigFactory.parseMap(Map.of(
             "name", "arnf_gen_" + key,
-            "fieldName", GEN_OUT_FIELD
+            "dest", GEN_OUT_FIELD
         )).withFallback(sub);
 
         // Create generator

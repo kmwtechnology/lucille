@@ -17,7 +17,7 @@ The script is wrapped in a function, so top-level `var`, `let`, `const`, and `fu
 | `scriptPath` | String | No | Path to a `.js` file. Can be a local path, a `classpath:` path, or a cloud storage URI (`s3://`, `gs://`, `https://` for Azure). Exactly one of `script` or `scriptPath` must be provided, or the stage fails at startup. |
 | `s3` | Object | No | S3 credentials for reading `scriptPath` from S3: `accessKeyId`, `secretAccessKey`, `region`, `anonymous`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 | `azure` | Object | No | Azure credentials for reading `scriptPath` from Azure: `connectionString`, `accountName`, `accountKey`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
-| `gcp` | Object | No | Google Cloud credentials for reading `scriptPath` from GCS: `pathToServiceKey` (required within `gcp`), `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `gcp` | Object | No | Google Cloud credentials for reading `scriptPath` from GCS: `serviceKeyPath` (required within `gcp`), `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 | `storageClients` | Object | No | Custom StorageClients, keyed by URI scheme, for reading `scriptPath` from other storage systems, or in place of a built-in client. See [Custom Storage Clients]({{< relref "docs/ingest-design/connectors/file_connector#custom-storage-clients" >}}). |
 
 Field access through `doc`:

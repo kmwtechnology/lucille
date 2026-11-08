@@ -17,13 +17,13 @@ import java.util.List;
 
 /**
  * Checks if any of the given fields contain any of the given values and tags the given
- * output field with the value.
+ * dest field with the value.
  * <p>
  * Config Parameters -
  * <ul>
  *   <li>contains (List&lt;String&gt;) : A list of values to search for.</li>
- *   <li>output (String) : The field to tag if a match is found.</li>
- *   <li>value (String) : The value to tag the output field with.</li>
+ *   <li>dest (String) : The field to tag if a match is found.</li>
+ *   <li>value (String) : The value to tag the dest field with.</li>
  *   <li>ignoreCase (Boolean, Optional) : Determines if the matching should be case insensitive. Defaults to true.</li>
  *   <li>fields (List&lt;String&gt;) : The fields to be searched.</li>
  * </ul>
@@ -33,7 +33,7 @@ public class Contains extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredList("contains", new TypeReference<List<String>>(){})
       .requiredList("fields", new TypeReference<List<String>>(){})
-      .requiredString("output", "value")
+      .requiredString("dest", "value")
       .optionalBoolean("ignoreCase").build();
 
   private final List<String> contains;
@@ -53,7 +53,7 @@ public class Contains extends Stage {
     super(config);
 
     this.contains = config.getStringList("contains");
-    this.output = config.getString("output");
+    this.output = config.getString("dest");
     this.value = config.getString("value");
     this.ignoreCase = ConfigUtils.getBooleanOrDefault(config, "ignoreCase", true);
     this.fields = config.getStringList("fields");

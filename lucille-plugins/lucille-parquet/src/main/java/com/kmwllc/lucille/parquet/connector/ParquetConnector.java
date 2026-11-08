@@ -34,10 +34,10 @@ import java.net.URI;
  *
  * <p> Config Parameters:
  * <ul>
- *   <li>pathToStorage (String): The path to storage you want to traverse for <code>.parquet</code> files.</li>
+ *   <li>path (String): The path to storage you want to traverse for <code>.parquet</code> files.</li>
  *   <li>idField (String): The name of a field found in the Parquet files you will process that can be used for Document IDs.
  *   Must be found in the file's schema, or an Exception will be thrown.</li>
- *   <li>fsUri (String): A URI for the file system that you want to use (for your <code>pathToStorage</code>).</li>
+ *   <li>fsUri (String): A URI for the file system that you want to use (for your <code>path</code>).</li>
  *   <li>s3 (Map, Optional): AWS S3 credentials, with both <code>accessKeyId</code> and <code>secretAccessKey</code>
  *   (Strings). Without it, Hadoop's default S3A credential lookup applies.</li>
  *   <li>limit
@@ -64,14 +64,14 @@ public class ParquetConnector extends AbstractConnector {
       .requiredString("accessKeyId", "secretAccessKey").build();
 
   public static final Spec SPEC = SpecBuilder.connector()
-      .requiredString("pathToStorage", "idField", "fsUri")
+      .requiredString("path", "idField", "fsUri")
       .optionalParent("s3", S3_PARENT_SPEC)
       .optionalNumber("limit", "start").build();
 
   public ParquetConnector(Config config) {
     super(config);
 
-    this.path = config.getString("pathToStorage");
+    this.path = config.getString("path");
     this.idField = config.getString("idField");
     this.fsUri = config.getString("fsUri");
 

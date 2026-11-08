@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
  *   <li>fieldMapping (Map&lt;String, String&gt;) : map of columns retrieved from result set to the name of the field in the Lucille document
  *   it will populate with.</li>
  *   <li>connectionRetries (Integer, Optional) : number of retries allowed to connect to database, defaults to 1.</li>
- *   <li>connectionRetryPause (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds.</li>
+ *   <li>connectionRetryPauseMs (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds.</li>
  * </ul>
  */
 public class QueryDatabase extends Stage {
@@ -49,7 +49,7 @@ public class QueryDatabase extends Stage {
       .requiredString("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql")
       .requiredList("keyFields", new TypeReference<List<String>>(){})
       .requiredList("inputTypes", new TypeReference<List<String>>(){})
-      .optionalNumber("connectionRetries", "connectionRetryPause")
+      .optionalNumber("connectionRetries", "connectionRetryPauseMs")
       .requiredParent("fieldMapping", new TypeReference<Map<String, String>>(){}).build();
 
   private final String driver;
@@ -83,8 +83,8 @@ public class QueryDatabase extends Stage {
     }
     connectionRetries = config.hasPath("connectionRetries") && config.getInt("connectionRetries") > 0
         ? config.getInt("connectionRetries") : 1;
-    connectionRetryPause = config.hasPath("connectionRetryPause") && config.getInt("connectionRetryPause") > 0
-        ? config.getInt("connectionRetryPause") : 10000;
+    connectionRetryPause = config.hasPath("connectionRetryPauseMs") && config.getInt("connectionRetryPauseMs") > 0
+        ? config.getInt("connectionRetryPauseMs") : 10000;
   }
 
   @Override
