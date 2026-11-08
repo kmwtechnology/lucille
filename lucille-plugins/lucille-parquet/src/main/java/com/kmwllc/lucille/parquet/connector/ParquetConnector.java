@@ -38,8 +38,8 @@ import java.net.URI;
  *   <li>idField (String): The name of a field found in the Parquet files you will process that can be used for Document IDs.
  *   Must be found in the file's schema, or an Exception will be thrown.</li>
  *   <li>fsUri (String): A URI for the file system that you want to use (for your <code>pathToStorage</code>).</li>
- *   <li>s3Key (String, Optional): Your key to AWS S3. Only needed if using S3.</li>
- *   <li>s3Secret (String, Optional): Your secret to AWS S3. Only needed if using S3.</li>
+ *   <li>s3 (Map, Optional): AWS S3 credentials, with both <code>accessKeyId</code> and <code>secretAccessKey</code>
+ *   (Strings). Without it, Hadoop's default S3A credential lookup applies.</li>
  *   <li>limit
  *   (Long, Optional): The maximum number of Documents to publish. Defaults to no limit.</li>
  *   <li>start (Long, Optional): The number of rows to skip from the beginning of each parquet file encountered. Defaults to skipping no rows.</li>
@@ -60,9 +60,12 @@ public class ParquetConnector extends AbstractConnector {
 
   private long count = 0L;
 
+  private static final Spec S3_PARENT_SPEC = SpecBuilder.withoutDefaults()
+      .requiredString("accessKeyId", "secretAccessKey").build();
+
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredString("pathToStorage", "idField", "fsUri")
-      .optionalString("s3Key", "s3Secret")
+      .optionalParent("s3", S3_PARENT_SPEC)
       .optionalNumber("limit", "start").build();
 
   public ParquetConnector(Config config) {
@@ -77,9 +80,9 @@ public class ParquetConnector extends AbstractConnector {
 
     this.hadoopConfig = new Configuration();
 
-    if (config.hasPath("s3Key") && config.hasPath("s3Secret")) {
-      hadoopConfig.set("fs.s3a.access.key", config.getString("s3Key"));
-      hadoopConfig.set("fs.s3a.secret.key", config.getString("s3Secret"));
+    if (config.hasPath("s3")) {
+      hadoopConfig.set("fs.s3a.access.key", config.getString("s3.accessKeyId"));
+      hadoopConfig.set("fs.s3a.secret.key", config.getString("s3.secretAccessKey"));
       hadoopConfig.set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem");
       hadoopConfig.setBoolean("fs.s3a.path.style.access", true);
       hadoopConfig.setBoolean(AvroReadSupport.READ_INT96_AS_FIXED, true);

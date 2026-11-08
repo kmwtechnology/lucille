@@ -14,7 +14,7 @@ Indexer configuration lives in the `indexer` block. It holds generic settings co
 ```hocon
 indexer {
   batchSize: 100
-  batchTimeout: 100
+  batchTimeoutMs: 100
   blacklist: ["internal_field"]
 
   solr {
@@ -78,7 +78,7 @@ The generic settings and the backend block are validated when the indexer is con
 | `class` | String | No | Fully qualified class name, for a custom indexer. Takes precedence over `type` if both are set. |
 | `batchSize` | Integer | No | Number of documents a batch holds before it is sent. If only `batchByteSize` is set, count-based batching is disabled. Default: `100`. |
 | `batchByteSize` | Long | No | Estimated size in bytes a batch may hold before it is sent. The size is estimated from the document's JSON structure, not measured from the serialized request. When set alone, count-based batching is disabled. When set alongside `batchSize`, whichever limit is reached first sends the batch. Default: disabled. |
-| `batchTimeout` | Integer | No | Milliseconds since the last add or flush after which a partly filled batch is sent. Default: `100`. |
+| `batchTimeoutMs` | Integer | No | Milliseconds since the last add or flush after which a partly filled batch is sent. Default: `100`. |
 | `maxConcurrentBatches` | Integer | No | Maximum number of batches in flight to the destination at once. `1` sends each batch synchronously on the indexer thread. Values below 1 fail at startup. Values above 1 are accepted only by the Solr, OpenSearch, and Elasticsearch indexers (and NopIndexer); other indexers fail at startup. See [Concurrent Batches](#concurrent-batches). Default: `1`. |
 | `idOverrideField` | String | No | Document field whose value is used as the ID at the destination instead of `id`. The document's own `id` is not changed. If a document lacks the field, its `id` is used. A multi-valued field uses its first value. |
 | `indexOverrideField` | String | No | Document field whose value selects the target index or collection for that document. Enables per-index batching. Used by the Solr and OpenSearch indexers. The Elasticsearch, CSV, Pinecone, and Weaviate indexers fail at startup if it is set. |
@@ -131,14 +131,14 @@ Deletion is performed by the Solr, OpenSearch, and Elasticsearch indexers. The P
 Documents accumulate in a batch, which is sent when:
 - It holds `batchSize` documents and another document arrives. The full batch is sent and the new document starts the next one.
 - Adding the next document would take the estimated size over `batchByteSize`. The batch is sent without that document, so a batch stays within the limit unless a single document exceeds it, in which case that document is sent alone.
-- `batchTimeout` milliseconds have passed since the last add or flush. Expiry is checked when a document is added and whenever the indexer polls and finds nothing.
+- `batchTimeoutMs` milliseconds have passed since the last add or flush. Expiry is checked when a document is added and whenever the indexer polls and finds nothing.
 - The indexer stops: the open batch is sent and in-flight batches are completed.
 
-Time the indexer spends blocked sending a batch or waiting for a free concurrency slot does not count toward `batchTimeout`, so a slow send does not cause the next batch to be sent partly filled.
+Time the indexer spends blocked sending a batch or waiting for a free concurrency slot does not count toward `batchTimeoutMs`, so a slow send does not cause the next batch to be sent partly filled.
 
 When only `batchByteSize` is set (without `batchSize`), count-based batching is disabled and batches are sent purely on size. When both are set, whichever limit is reached first sends the batch. This is useful for backends with request-size limits (e.g., a 10 MB bulk API limit) where a fixed document count may produce unpredictably sized payloads. The size estimate covers the whole document, including fields the whitelist or blacklist will remove and attached children.
 
-When `indexOverrideField` is set, the Indexer keeps a separate batch per distinct field value (documents without the field share one batch for the default index). Each sub-batch follows the rules above, and whenever a document is added, any other sub-batch that has passed `batchTimeout` is sent along with it.
+When `indexOverrideField` is set, the Indexer keeps a separate batch per distinct field value (documents without the field share one batch for the default index). Each sub-batch follows the rules above, and whenever a document is added, any other sub-batch that has passed `batchTimeoutMs` is sent along with it.
 
 **Batch-level vs. per-document failures:** If the send throws (for example the whole bulk request is rejected or a delete fails), every document in the batch gets a FAIL event. Individual document rejections in a bulk response (e.g., mapping errors) fail only those documents; the rest get FINISH events.
 
@@ -169,7 +169,7 @@ In distributed mode, when a partition is about to be revoked in a consumer-group
 
 While the indexer waits on a send it does not poll Kafka. `kafka.maxPollIntervalSecs` must therefore exceed about twice the slowest send including retries when `maxConcurrentBatches` is 1, and about three times when it is greater than 1. See [Kafka integration]({{< relref "docs/architecture/internals/kafka-integration" >}}).
 
-A record on the destination topic that cannot be deserialized stops the indexer, unless `kafka.onDeserializationError` is `skip`. In `skip` mode the record is logged and skipped, but `kafka.maxConsecutiveDeserializationErrors` (default 10; `-1` for unlimited) bad records in a row on one partition still stop the indexer. A skipped record produces no completion event, so in a batch run the run waits until `runner.connectorTimeout` expires.
+A record on the destination topic that cannot be deserialized stops the indexer, unless `kafka.onDeserializationError` is `skip`. In `skip` mode the record is logged and skipped, but `kafka.maxConsecutiveDeserializationErrors` (default 10; `-1` for unlimited) bad records in a row on one partition still stop the indexer. A skipped record produces no completion event, so in a batch run the run waits until `runner.connectorTimeoutMs` expires.
 
 ---
 

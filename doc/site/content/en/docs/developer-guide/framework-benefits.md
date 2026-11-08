@@ -150,7 +150,7 @@ You just call `publisher.publish(doc)` and the framework handles everything else
 
 ### What the framework handles (you don't have to)
 
-**Batching with size and timeout.** The base `Indexer` class accumulates documents in a `Batch` and flushes when either the configured `batchSize` is reached or `batchTimeout` milliseconds have elapsed. Your `sendToIndex()` method receives a pre-batched list of documents. You never manage batch accumulation or timeout logic.
+**Batching with size and timeout.** The base `Indexer` class accumulates documents in a `Batch` and flushes when either the configured `batchSize` is reached or `batchTimeoutMs` milliseconds have elapsed. Your `sendToIndex()` method receives a pre-batched list of documents. You never manage batch accumulation or timeout logic.
 
 **MultiBatch for index routing.** When `indexOverrideField` is configured, the framework uses a `MultiBatch` that maintains separate batches per destination index, flushing them independently. Your implementation receives documents already grouped by destination.
 

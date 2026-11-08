@@ -71,7 +71,7 @@ import org.xml.sax.SAXException;
  * A provided or global config is applied to embedded documents as well as the top-level document.
  * metadataPrefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
  * textContentLimit (Integer, Optional) : limits how large the content of the returned text can be
- * parseTimeout (Long, Optional) : timeout for parsing in milliseconds. On timeout, the text extracted so far and the
+ * parseTimeoutMs (Long, Optional) : timeout for parsing in milliseconds. On timeout, the text extracted so far and the
  * metadataFields input hints are added to the document, but no extracted metadata.
  * skipEmbeddedContentTypePrefixes (List&lt;String&gt;, Optional) : content-type prefixes for which embedded documents are
  * skipped (not parsed), e.g. ["image/"] to skip embedded images. Defaults to empty (all embedded documents parsed).
@@ -91,7 +91,7 @@ import org.xml.sax.SAXException;
  * fork.poolSize (Integer, Optional) : number of child JVM processes kept alive in the pool. Defaults to 5.
  * fork.jvmArgs (List&lt;String&gt;, Optional) : JVM command and arguments for each child process. Defaults to ["java", "-Djava.awt.headless=true"].
  * "java" will be prepended to the jvmArgs, whenever you specify them.
- * fork.serverPulseMillis (Long, Optional) : Heartbeat interval (in ms) between parent and child processes. Defaults to 1000.
+ * fork.serverPulseMs (Long, Optional) : Heartbeat interval (in ms) between parent and child processes. Defaults to 1000.
  * s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
  * azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
  * gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
@@ -125,7 +125,7 @@ public class TextExtractor extends Stage {
   public static final Spec FORK_SPEC = SpecBuilder.withoutDefaults()
       .optionalBoolean("enabled")
       .optionalList("jvmArgs", new TypeReference<List<String>>() {})
-      .optionalNumber("poolSize", "serverPulseMillis")
+      .optionalNumber("poolSize", "serverPulseMs")
       .build();
 
   public static final Spec SPEC = SpecBuilder.stage()
@@ -133,7 +133,7 @@ public class TextExtractor extends Stage {
       .optionalBoolean("replaceDotsInMetadataNames")
       .optionalList("whitelist", new TypeReference<List<String>>() {})
       .optionalList("blacklist", new TypeReference<List<String>>() {})
-      .optionalNumber("textContentLimit", "parseTimeout")
+      .optionalNumber("textContentLimit", "parseTimeoutMs")
       .optionalList("skipEmbeddedContentTypePrefixes", new TypeReference<List<String>>() {})
       .optionalBoolean("enableOcr")
       .optionalParent("fork", FORK_SPEC)
@@ -206,7 +206,7 @@ public class TextExtractor extends Stage {
     metadataPrefix = ConfigUtils.getStringOrDefault(config, "metadataPrefix", "tika");
     tikaConfigPath = ConfigUtils.getStringOrDefault(config, "tikaConfigPath", null);
     textContentLimit = ConfigUtils.getIntOrDefault(config, "textContentLimit", Integer.MAX_VALUE);
-    parseTimeout = ConfigUtils.getLongOrDefault(config, "parseTimeout", null);
+    parseTimeout = ConfigUtils.getLongOrDefault(config, "parseTimeoutMs", null);
     fieldNamesField = ConfigUtils.getStringOrDefault(config, "fieldNamesField", null);
     replaceDotsInMetadataNames = config.hasPath("replaceDotsInMetadataNames") && config.getBoolean("replaceDotsInMetadataNames");
     metadataFields = config.hasPath("metadataFields") ? config.getConfig("metadataFields").root().unwrapped() : null;
@@ -227,7 +227,7 @@ public class TextExtractor extends Stage {
       forkJvmArgs = DEFAULT_FORK_JVM_ARGS;
     }
 
-    forkServerPulseMillis = ConfigUtils.getOrDefault(config, "fork.serverPulseMillis", 1000L);
+    forkServerPulseMillis = ConfigUtils.getOrDefault(config, "fork.serverPulseMs", 1000L);
 
     this.fieldFilter = new FieldFilter(config);
     if (replaceDotsInMetadataNames) {
@@ -335,7 +335,7 @@ public class TextExtractor extends Stage {
   }
 
   /**
-   * Creates the single-thread executor parses run on when parseTimeout is set. Its thread is a daemon so a
+   * Creates the single-thread executor parses run on when parseTimeoutMs is set. Its thread is a daemon so a
    * parse that ignores interruption after a timeout can't keep the JVM alive.
    */
   private static ExecutorService createParseExecutor() {

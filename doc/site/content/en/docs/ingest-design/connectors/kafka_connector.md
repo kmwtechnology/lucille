@@ -48,11 +48,11 @@ connectors: [
 | `idField` | String | No | JSON field in the Kafka message whose value becomes the Document ID. If omitted, or if a message lacks this field, the message's `id` field is used. |
 | `kafka.documentDeserializer` | String | No | Fully-qualified class name of a custom Kafka `Deserializer<Document>`. Its `configure()` receives the consumer properties plus `idField` (if set) and `docIdPrefix`. Default: `com.kmwllc.lucille.connector.KafkaConnectorDefaultDeserializer`. |
 | `maxMessages` | Long | No | Maximum number of messages to publish before stopping. If omitted, there is no limit. |
-| `messageTimeout` | Long | No | Kafka poll timeout in milliseconds. Default: `100`. |
+| `messageTimeoutMs` | Long | No | Kafka poll timeout in milliseconds. Default: `100`. |
 | `offsets` | Map\<Integer, Long\> | No | Map of partition numbers to starting offsets, for example `offsets { "0": 100 }`. Each listed partition is sought to its offset the first time it is assigned to the consumer; after a later rebalance it continues from the committed offset. Partitions not listed, or all partitions if `offsets` is omitted, use the consumer group's committed offsets. |
 | `continueOnTimeout` | Boolean | No | If `true`, keep polling when a poll returns no messages. If `false`, the connector stops on the first empty poll, which can happen before the consumer has joined its group and read anything. Default: `true`. |
 
-With the defaults (`continueOnTimeout: true` and no `maxMessages`), the connector never finishes on its own: it runs until it is interrupted or until `runner.connectorTimeout` (default 24 hours) elapses, which fails the run.
+With the defaults (`continueOnTimeout: true` and no `maxMessages`), the connector never finishes on its own: it runs until it is interrupted or until `runner.connectorTimeoutMs` (default 24 hours) elapses, which fails the run.
 
 ## Consumer Behavior
 

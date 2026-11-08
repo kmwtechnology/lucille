@@ -174,7 +174,7 @@ List<String> fields = config.getStringList("columns");
 
 // Optional parameters with defaults — use ConfigUtils.getOrDefault
 String dest = ConfigUtils.getOrDefault(config, "dest", "output");
-int timeout = ConfigUtils.getOrDefault(config, "batchTimeout", 100);
+int timeout = ConfigUtils.getOrDefault(config, "batchTimeoutMs", 100);
 boolean flag = ConfigUtils.getOrDefault(config, "acceptInvalidCert", false);
 
 // Check presence before reading

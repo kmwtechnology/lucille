@@ -24,9 +24,9 @@ After a response, the stage also sets `<source>_<statusSuffix>` to the HTTP stat
 | `initialExpiryMs` | Integer | No | Delay in milliseconds before the first retry. The delay doubles on each further retry, up to `maxExpiryMs`. Default: `100`. |
 | `maxExpiryMs` | Integer | No | Maximum delay in milliseconds between retries. Default: `10000`. |
 | `statusCodeRetryList` | List\<String\> | No | Status codes that are treated as failures and retried, such as `429`. `x` is a wildcard digit: `5xx` matches all 5xx codes and `50x` matches 500 to 509. Values that are not codes from 100 to 599 are dropped with a warning. `200`, `20x` and `2xx` are not allowed and fail the stage at startup. With `maxRetries` of `0`, a matching response is not retried but is still treated as a failed request. Default: empty. |
-| `connectionRequestTimeout` | Integer | No | Timeout in milliseconds for getting a connection from the connection pool. Default: `60000`. |
-| `connectTimeout` | Integer | No | Timeout in milliseconds for establishing a connection. Default: `60000`. |
-| `socketTimeout` | Integer | No | Timeout in milliseconds while waiting for data. Default: `60000`. |
+| `connectionRequestTimeoutMs` | Integer | No | Timeout in milliseconds for getting a connection from the connection pool. Default: `60000`. |
+| `connectTimeoutMs` | Integer | No | Timeout in milliseconds for establishing a connection. Default: `60000`. |
+| `socketTimeoutMs` | Integer | No | Timeout in milliseconds while waiting for data. Default: `60000`. |
 
 ```hocon
 {

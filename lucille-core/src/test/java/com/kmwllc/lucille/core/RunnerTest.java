@@ -175,7 +175,7 @@ public class RunnerTest {
 
   /**
    * Test an end-to-end run with a single connector that generates 1 document, an indexer
-   * with a batch timeout of 10 seconds, and a runner with connectorTimeout of .1 second
+   * with a batch timeout of 10 seconds, and a runner with connectorTimeoutMs of .1 second
    */
   @Test
   public void testConnectorTimeout() throws Exception {
@@ -199,16 +199,16 @@ public class RunnerTest {
 
   /**
    * Test an end-to-end run with a single connector that generates 1 document.
-   * Confirm that this run fails when the Runner's connectorTimeout is set to 1 millisecond
+   * Confirm that this run fails when the Runner's connectorTimeoutMs is set to 1 millisecond
    * but that it succeeds when the timeout is set to -1 milliseconds to disable it.
    */
   @Test
   public void testDisabledConnectorTimeout() throws Exception {
-    Config verySmallTimeout = ConfigFactory.load("RunnerTest/singleDoc.conf").withValue("runner.connectorTimeout", ConfigValueFactory.fromAnyRef(1));
+    Config verySmallTimeout = ConfigFactory.load("RunnerTest/singleDoc.conf").withValue("runner.connectorTimeoutMs", ConfigValueFactory.fromAnyRef(1));
     RunResult result = Runner.run(verySmallTimeout, Runner.RunType.TEST);
     assertFalse(result.getStatus());
 
-    Config disabledTimeout = ConfigFactory.load("RunnerTest/singleDoc.conf").withValue("runner.connectorTimeout", ConfigValueFactory.fromAnyRef(-1));
+    Config disabledTimeout = ConfigFactory.load("RunnerTest/singleDoc.conf").withValue("runner.connectorTimeoutMs", ConfigValueFactory.fromAnyRef(-1));
     RunResult result2 = Runner.run(disabledTimeout, Runner.RunType.TEST);
     assertTrue(result2.getStatus());
   }
@@ -1346,7 +1346,7 @@ public class RunnerTest {
     ));
 
     Config runnerConfig = ConfigFactory.parseMap(Map.of(
-        "runner.connectorTimeout", 30000
+        "runner.connectorTimeoutMs", 30000
     ));
 
     TestMessenger messenger = spy(new TestMessenger());

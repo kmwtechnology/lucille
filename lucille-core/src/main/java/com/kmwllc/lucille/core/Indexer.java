@@ -74,7 +74,7 @@ import org.slf4j.MDC.MDCCloseable;
  *   either limit is reached.</li>
  *   <li>indexer.batchByteSize (Long, Optional) : Total size of documents accumulated before sending to the destination. Defaults to
  *   {@value #NO_BATCH_SIZE_BYTES}.</li>
- *   <li>indexer.batchTimeout (Integer, Optional) : the number of milliseconds (since the previous add or flush) beyond which the batch
+ *   <li>indexer.batchTimeoutMs (Integer, Optional) : the number of milliseconds (since the previous add or flush) beyond which the batch
  *   will be considered as expired. Defaults to {@value #DEFAULT_BATCH_TIMEOUT}.</li>
  *   <li>indexer.deletionMarkerField (String, Optional) : Field that, when set to indexer.deletionMarkerFieldValue, marks a document
  *   for deletion. Must be set together with indexer.deletionMarkerFieldValue.</li>
@@ -205,7 +205,7 @@ public abstract class Indexer implements Runnable {
       batchByteSize = NO_BATCH_SIZE_BYTES;
     }
 
-    int batchTimeout = ConfigUtils.getIntOrDefault(config, "batchTimeout", DEFAULT_BATCH_TIMEOUT);
+    int batchTimeout = ConfigUtils.getIntOrDefault(config, "batchTimeoutMs", DEFAULT_BATCH_TIMEOUT);
     this.batch =
         (indexOverrideField == null)
             ? new SingleBatch(batchSize, batchByteSize, batchTimeout)
@@ -958,7 +958,7 @@ public abstract class Indexer implements Runnable {
     SpecBuilder.withoutDefaults()
         .optionalString("type", "class", "pipeline", "idOverrideField", "indexOverrideField", "deletionMarkerField",
             "deletionMarkerFieldValue", "deleteByFieldField", "deleteByFieldValue")
-        .optionalNumber("batchSize", "batchByteSize", "batchTimeout", "maxRetries", "retryWaitDurationMs",
+        .optionalNumber("batchSize", "batchByteSize", "batchTimeoutMs", "maxRetries", "retryWaitDurationMs",
             "retryMaxWaitDurationMs", "retryRandomizationFactor", "maxConcurrentBatches")
         .optionalBoolean("sendEnabled")
         .optionalList("whitelist", new TypeReference<List<String>>(){})

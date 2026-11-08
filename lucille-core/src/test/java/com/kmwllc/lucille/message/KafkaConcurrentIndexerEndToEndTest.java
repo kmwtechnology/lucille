@@ -100,7 +100,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     String pipeline = newPipeline(2);
     String runId = "run-" + pipeline;
     Config config = config(pipeline, 3, Map.of(
-        "kafka.events", true, "indexer.batchSize", 2, "indexer.batchTimeout", 20, "kafka.pollIntervalMs", 25));
+        "kafka.events", true, "indexer.batchSize", 2, "indexer.batchTimeoutMs", 20, "kafka.pollIntervalMs", 25));
     int perPartition = 15;
 
     Set<String> ids = new HashSet<>();
@@ -158,7 +158,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
   public void testRebalanceDuringBlockedDispatchDoesNotResendOrReorder() throws Exception {
     String pipeline = newPipeline(1);
     // One document per batch, never flushed by time.
-    Config config = config(pipeline, 2, Map.of("indexer.batchSize", 1, "indexer.batchTimeout", 600000,
+    Config config = config(pipeline, 2, Map.of("indexer.batchSize", 1, "indexer.batchTimeoutMs", 600000,
         "indexer.idOverrideField", "destId", "kafka.pollIntervalMs", 100));
     String topic = KafkaUtils.getDestTopicName(pipeline);
     TopicPartition partition = new TopicPartition(topic, 0);
@@ -255,7 +255,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
   public void testRebalanceDoesNotResendBatchedDocuments() throws Exception {
     String pipeline = newPipeline(1);
     // A batch that neither fills nor expires, so every polled document is still in the open batch at the rebalance.
-    Config config = config(pipeline, 1, Map.of("indexer.batchSize", 1000, "indexer.batchTimeout", 600000,
+    Config config = config(pipeline, 1, Map.of("indexer.batchSize", 1000, "indexer.batchTimeoutMs", 600000,
         "kafka.pollIntervalMs", 100));
     int total = 5;
     List<String> ids = produce(config, pipeline, 0, total, "run");
@@ -332,7 +332,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     String pipeline = newPipeline(1);
     String runId = "run-" + pipeline;
     Config config = config(pipeline, 4, Map.of("kafka.events", true, "indexer.batchSize", 4,
-        "indexer.batchTimeout", 20, "indexer.idOverrideField", "destId", "kafka.pollIntervalMs", 25));
+        "indexer.batchTimeoutMs", 20, "indexer.idOverrideField", "destId", "kafka.pollIntervalMs", 25));
     int total = 600;
     String[] destIds = new String[60];
     for (int i = 0; i < destIds.length; i++) {

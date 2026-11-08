@@ -740,14 +740,14 @@ public class IndexerConcurrencyTest {
     assertFullBatchesDespiteSlowSends(2);
   }
 
-  // A send slower than batchTimeout must not make the next add flush the leftover document as a batch of its own: time
+  // A send slower than batchTimeoutMs must not make the next add flush the leftover document as a batch of its own: time
   // the indexer thread spends blocked sending (K=1) or waiting for a free slot (K>1) is excluded from the batch timer.
   private void assertFullBatchesDespiteSlowSends(int maxConcurrentBatches) throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     ControlledIndexer controlled = new ControlledIndexer(
-        config(maxConcurrentBatches, Map.of("indexer.batchSize", 2, "indexer.batchTimeout", 50)).getConfig("indexer"), messenger);
+        config(maxConcurrentBatches, Map.of("indexer.batchSize", 2, "indexer.batchTimeoutMs", 50)).getConfig("indexer"), messenger);
     indexer = controlled;
-    // Each send takes far longer than the 50 ms batchTimeout.
+    // Each send takes far longer than the 50 ms batchTimeoutMs.
     controlled.setSendDelayMs(200);
     for (String docId : List.of("doc1", "doc2", "doc3", "doc4", "doc5", "doc6")) {
       messenger.queueDoc(Document.create(docId));
@@ -764,10 +764,10 @@ public class IndexerConcurrencyTest {
     return config(maxConcurrentBatches, Map.of());
   }
 
-  /** Base config (batchSize 1, short batchTimeout) with the given maxConcurrentBatches, plus any extra settings. */
+  /** Base config (batchSize 1, short batchTimeoutMs) with the given maxConcurrentBatches, plus any extra settings. */
   private static Config config(int maxConcurrentBatches, Map<String, Object> extraSettings) {
     Map<String, Object> settings = new HashMap<>(Map.of(
-        "indexer.batchSize", 1, "indexer.batchTimeout", 20, "indexer.maxConcurrentBatches", maxConcurrentBatches));
+        "indexer.batchSize", 1, "indexer.batchTimeoutMs", 20, "indexer.maxConcurrentBatches", maxConcurrentBatches));
     settings.putAll(extraSettings);
     return ConfigFactory.parseMap(settings);
   }

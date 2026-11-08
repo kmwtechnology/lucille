@@ -49,9 +49,9 @@ import org.slf4j.LoggerFactory;
  *   <li>maxRetries (Integer, Optional) : max number of tries the request will be made. Defaults to 0 retries.</li>
  *   <li>initialExpiryMs (Integer, Optional) : number of milliseconds that would be waited before retrying the request. Defaults to 100ms.</li>
  *   <li>maxExpiryMs (Integer, Optional) : max number of milliseconds that would be waited before retrying a request. Defaults to 10000ms, 10s.</li>
- *   <li>connectionRequestTimeout (Integer, Optional) : the connection request timeout in milliseconds. Defaults to 60000ms, 1m.</li>
- *   <li>connectTimeout (Integer, Optional) : the connection timeout in milliseconds. Defaults to 60000ms, 1m.</li>
- *   <li>socketTimeout (Integer, Optional) : the socket timeout in milliseconds. Defaults to 60000ms, 1m.</li>
+ *   <li>connectionRequestTimeoutMs (Integer, Optional) : the connection request timeout in milliseconds. Defaults to 60000ms, 1m.</li>
+ *   <li>connectTimeoutMs (Integer, Optional) : the connection timeout in milliseconds. Defaults to 60000ms, 1m.</li>
+ *   <li>socketTimeoutMs (Integer, Optional) : the socket timeout in milliseconds. Defaults to 60000ms, 1m.</li>
  * </ul>
  */
 public class FetchUri extends Stage {
@@ -59,7 +59,7 @@ public class FetchUri extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("source", "dest")
       .optionalString("sizeSuffix", "statusSuffix", "errorSuffix")
-      .optionalNumber("maxRetries", "initialExpiryMs", "maxExpiryMs", "connectionRequestTimeout", "connectTimeout", "socketTimeout", "maxSize")
+      .optionalNumber("maxRetries", "initialExpiryMs", "maxExpiryMs", "connectionRequestTimeoutMs", "connectTimeoutMs", "socketTimeoutMs", "maxSize")
       .optionalList("statusCodeRetryList", new TypeReference<List<String>>(){})
       .optionalParent("headers", new TypeReference<Map<String, Object>>(){}).build();
 
@@ -95,9 +95,9 @@ public class FetchUri extends Stage {
     this.maxNumRetries = ConfigUtils.getOrDefault(config, "maxRetries", 0);
     this.initialExpiry = ConfigUtils.getOrDefault(config, "initialExpiryMs", 100);
     this.maxExpiry = ConfigUtils.getOrDefault(config, "maxExpiryMs", 10000);
-    this.connectionRequestTimeout = ConfigUtils.getOrDefault(config, "connectionRequestTimeout", 60000);
-    this.connectTimeout = ConfigUtils.getOrDefault(config, "connectTimeout", 60000);
-    this.socketTimeout = ConfigUtils.getOrDefault(config, "socketTimeout", 60000);
+    this.connectionRequestTimeout = ConfigUtils.getOrDefault(config, "connectionRequestTimeoutMs", 60000);
+    this.connectTimeout = ConfigUtils.getOrDefault(config, "connectTimeoutMs", 60000);
+    this.socketTimeout = ConfigUtils.getOrDefault(config, "socketTimeoutMs", 60000);
     this.statusCodeRetryList = ConfigUtils.getOrDefault(config, "statusCodeRetryList", new ArrayList<String>())
         .stream().map(String::toLowerCase).collect(Collectors.toList());
   }

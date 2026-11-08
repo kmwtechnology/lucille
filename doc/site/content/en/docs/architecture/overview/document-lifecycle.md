@@ -51,7 +51,7 @@ Once the parent document has passed through all pipeline stages, the Worker plac
 
 ### Step 7 — The Indexer batches and sends the Document
 
-The Indexer thread is blocking on `indexingQueue.poll()`. It accumulates documents in a batch. When the batch reaches its configured size (`indexer.batchSize`, default 100 documents) or its timeout elapses (`indexer.batchTimeout`, default 100ms), the Indexer issues a single bulk API call to the search backend.
+The Indexer thread is blocking on `indexingQueue.poll()`. It accumulates documents in a batch. When the batch reaches its configured size (`indexer.batchSize`, default 100 documents) or its timeout elapses (`indexer.batchTimeoutMs`, default 100ms), the Indexer issues a single bulk API call to the search backend.
 
 Before sending, the Indexer strips reserved internal fields (`___dropped`, `___skipped`, `___children`) and applies any configured field whitelist or blacklist. The document that reaches the search backend contains only the fields you want indexed.
 

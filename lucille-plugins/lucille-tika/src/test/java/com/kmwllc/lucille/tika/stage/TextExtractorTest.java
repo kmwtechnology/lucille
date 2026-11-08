@@ -591,7 +591,7 @@ public class TextExtractorTest {
         "class", "com.kmwllc.lucille.tika.stage.TextExtractor",
         "byteArrayField", "byte_array",
         // 3s so the parse below finishes in time on slow Windows CI runners
-        "parseTimeout", 3000,
+        "parseTimeoutMs", 3000,
         "tikaConfigPath", "src/test/resources/TextExtractorTest/tika-config-hang.xml")));
 
     try {

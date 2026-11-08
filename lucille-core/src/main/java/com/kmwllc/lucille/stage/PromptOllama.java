@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory;
  *   <li>hostURL (String) : A URL to your ollama server.</li>
  *   <li>modelName (String) : The name of the model you want to communicate with. See https://ollama.ai/library for available models/
  *   the appropriate names to use.</li>
- *   <li>timeout (Long, Optional) : How long you want to wait for a request to be processed before failing. Passed directly to Ollama.
+ *   <li>timeoutSecs (Long, Optional) : How long you want to wait for a request to be processed before failing. Passed directly to Ollama.
  *   Uses Ollama's default of 10 seconds when not specified. You may want to increase the timeout if your Lucille Configuration
  *   uses multiple Worker threads (and you are working with Ollama locally).</li>
  *   <li>systemPrompt (String, Optional) : The system prompt you want to provide to your LLM. Defaults to using no system prompt,
@@ -64,7 +64,7 @@ public class PromptOllama extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("hostURL", "modelName")
-      .optionalNumber("timeout")
+      .optionalNumber("timeoutSecs")
       .optionalBoolean("requireJSON")
       .optionalString("systemPrompt", "updateMode")
       .optionalList("fields", new TypeReference<List<String>>() {}).build();
@@ -89,7 +89,7 @@ public class PromptOllama extends Stage {
 
     this.hostURL = config.getString("hostURL");
     this.modelName = config.getString("modelName");
-    this.timeout = ConfigUtils.getLongOrDefault(config, "timeout", null);
+    this.timeout = ConfigUtils.getLongOrDefault(config, "timeoutSecs", null);
 
     this.systemPrompt = ConfigUtils.getStringOrDefault(config, "systemPrompt", null);
     this.fields = ConfigUtils.getOrDefault(config, "fields", List.of());

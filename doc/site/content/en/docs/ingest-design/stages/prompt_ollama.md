@@ -33,7 +33,7 @@ Each Document gets its own request, built from the `systemPrompt` and that Docum
 | `fields` | List\<String\> | No | Fields sent to the LLM, as a JSON object of field name to value. If empty or not set, the entire Document is sent. |
 | `requireJSON` | Boolean | No | When `true`, the request asks Ollama for JSON output, and a response that is not a JSON object fails the document. When `false`, such a response is written to `ollamaResponse`. Default: `false`. |
 | `updateMode` | String | No | How fields from a JSON response are written: `overwrite`, `append`, or `skip`. Does not apply to `ollamaResponse`. Default: `overwrite`. |
-| `timeout` | Long | No | Request timeout in seconds. Default: `10`. Consider raising it when using multiple worker threads against a local Ollama server. |
+| `timeoutSecs` | Long | No | Request timeout in seconds. Default: `10`. Consider raising it when using multiple worker threads against a local Ollama server. |
 
 ##### Example
 

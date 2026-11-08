@@ -89,7 +89,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     map.put("indexer.solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
     map.put("indexer.solr.useCloudClient", true);
     map.put("indexer.solr.defaultCollection", "test");
-    map.put("indexer.batchTimeout", 5000);
+    map.put("indexer.batchTimeoutMs", 5000);
     map.put("indexer.batchSize", 1);
     map.put("indexer.type", "solr");
     map.put("indexer.sendEnabled", true);
@@ -152,7 +152,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     map.put("indexer.solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
     map.put("indexer.solr.useCloudClient", true);
     map.put("indexer.solr.defaultCollection", "test");
-    map.put("indexer.batchTimeout", 5000);
+    map.put("indexer.batchTimeoutMs", 5000);
     map.put("indexer.batchSize", 1);
     map.put("indexer.type", "solr");
     map.put("indexer.sendEnabled", true);
@@ -232,7 +232,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     map.put("indexer.solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
     map.put("indexer.solr.useCloudClient", true);
     map.put("indexer.solr.defaultCollection", "test");
-    map.put("indexer.batchTimeout", 5000);
+    map.put("indexer.batchTimeoutMs", 5000);
     map.put("indexer.batchSize", 2);
     map.put("indexer.type", "solr");
     map.put("indexer.sendEnabled", true);
@@ -315,7 +315,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     // Create a HTTP2SolrClient config
     Map<String, Object> mapHttp = new HashMap<>();
     mapHttp.put("indexer.solr.url", List.of(jetty.getBaseUrl().toString() + "/test"));
-    mapHttp.put("indexer.batchTimeout", 5000);
+    mapHttp.put("indexer.batchTimeoutMs", 5000);
     mapHttp.put("indexer.batchSize", 2);
     mapHttp.put("indexer.type", "solr");
     Config configHttp = ConfigFactory.parseMap(mapHttp);
@@ -325,7 +325,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     mapCloud.put("indexer.solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
     mapCloud.put("indexer.solr.useCloudClient", true);
     mapCloud.put("indexer.solr.defaultCollection", "test");
-    mapCloud.put("indexer.batchTimeout", 5000);
+    mapCloud.put("indexer.batchTimeoutMs", 5000);
     mapCloud.put("indexer.batchSize", 2);
     mapCloud.put("indexer.type", "solr");
     Config configCloud = ConfigFactory.parseMap(mapCloud);
@@ -350,7 +350,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     map.put("indexer.solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
     map.put("indexer.solr.useCloudClient", true);
     map.put("indexer.solr.defaultCollection", "test");
-    map.put("indexer.batchTimeout", 5000);
+    map.put("indexer.batchTimeoutMs", 5000);
     map.put("indexer.batchSize", 1);
     map.put("indexer.type", "solr");
     map.put("indexer.sendEnabled", true);

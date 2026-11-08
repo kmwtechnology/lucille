@@ -213,5 +213,5 @@ The standalone Indexer (distributed mode) does not poll Kafka while it waits on 
 
 ## Timeouts
 
-Lucille has a default timeout specified in `runner.connectorTimeout` of 24 hours. You can override this timeout in the configuration file. This may be necessary in the case of very large or long-running jobs that may take more than 24 hours to complete.
+Lucille has a default timeout specified in `runner.connectorTimeoutMs` of 24 hours. You can override this timeout in the configuration file. This may be necessary in the case of very large or long-running jobs that may take more than 24 hours to complete.
 

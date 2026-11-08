@@ -31,12 +31,12 @@ Larger batches amortize per-request overhead (HTTP round trips, request parsing,
 indexer {
   batchSize: 500      # documents per bulk request; default 100
   batchByteSize: 5000000  # optional; flush when the batch reaches this many bytes
-  batchTimeout: 1000  # ms since the last add/flush before the batch is flushed anyway; default 100
+  batchTimeoutMs: 1000  # ms since the last add/flush before the batch is flushed anyway; default 100
 }
 ```
 
 - `batchSize` (default **100**) and `batchByteSize` (default unset) bound a batch by count and/or bytes; if both are set, the batch flushes when either limit is reached.
-- `batchTimeout` (default **100 ms**) flushes a partly-filled batch when volume is low, so documents are not left waiting.
+- `batchTimeoutMs` (default **100 ms**) flushes a partly-filled batch when volume is low, so documents are not left waiting.
 
 Batch tuning has a ceiling: a bigger batch amortizes overhead but does **not** overlap the wait for the destination. Once overhead is amortized, raising the batch size further stops helping, and the sequential send-wait-send pattern remains. To go past that, overlap the sends — by adding consumers, by adding concurrency within a consumer, or both.
 
@@ -167,7 +167,7 @@ A consequence to be aware of: a re-delivered document emits a second completion 
 >
 > **Known boundary (hybrid: no flush on rebalance).** The flush-and-drain on partition revocation described above applies to the distributed indexer only. In hybrid mode the worker owns the Kafka consumer and has no revocation hook, so when another member joins or leaves the consumer group mid-run, documents the worker has read but the indexer has not yet completed are re-delivered. You may see some documents processed and indexed twice and extra completion events (indexed counts above the number of documents published). The destination normally ends up correct because re-indexing the same id overwrites it, but a pipeline stage with side effects (such as an external API call) would repeat them. This is pre-existing and independent of concurrent batches.
 >
-> **Known boundary (hybrid + `indexOverrideField`).** Hybrid mode commits the highest completed offset per partition rather than the distributed indexer's per-offset *frontier*. With `indexOverrideField` (which uses MultiBatch, where per-index sub-batches can let a higher-offset record complete while a lower-offset one is still unflushed — for up to `batchTimeout`, since an expired sub-batch is flushed on the next add to any index), committing the highest offset can move past an unflushed lower offset, so a crash could skip that record. The visible result is a few documents missing from the destination after a crash, with no error. This is pre-existing and independent of concurrent batches; the two modes differ here until hybrid adopts the same frontier tracking.
+> **Known boundary (hybrid + `indexOverrideField`).** Hybrid mode commits the highest completed offset per partition rather than the distributed indexer's per-offset *frontier*. With `indexOverrideField` (which uses MultiBatch, where per-index sub-batches can let a higher-offset record complete while a lower-offset one is still unflushed — for up to `batchTimeoutMs`, since an expired sub-batch is flushed on the next add to any index), committing the highest offset can move past an unflushed lower offset, so a crash could skip that record. The visible result is a few documents missing from the destination after a crash, with no error. This is pre-existing and independent of concurrent batches; the two modes differ here until hybrid adopts the same frontier tracking.
 
 If you supply a Kafka consumer configuration through `kafka.consumerPropertyFile`, it **must** set `enable.auto.commit=false`. Auto-commit would commit offsets at poll time — before documents are indexed — reintroducing an at-most-once window in which a crash could skip documents. The indexer (and worker) reject a document consumer that enables auto-commit, or that leaves it unset (kafka-clients defaults it to `true`), with a startup error. Deployments using the normal inline Kafka configuration are unaffected; Lucille sets `enable.auto.commit=false` for them.
 
@@ -204,7 +204,7 @@ These are covered above; restated briefly:
 
 | Lever | Config | Effect | When |
 |---|---|---|---|
-| Larger batches | `indexer.batchSize` (default 100), `batchByteSize`, `batchTimeout` (default 100 ms) | More documents per bulk request | Always first; amortizes per-request overhead |
+| Larger batches | `indexer.batchSize` (default 100), `batchByteSize`, `batchTimeoutMs` (default 100 ms) | More documents per bulk request | Always first; amortizes per-request overhead |
 | More consumers | `worker.threads` (hybrid); more standalone Indexer processes (distributed) | Overlap sends across partitions | Partitions available (or add them) — source topic in hybrid, destination topic in distributed; WorkerIndexer also scales the pipeline |
 | Concurrent sends | `indexer.maxConcurrentBatches` (default 1) | Overlap K bulk requests within one indexer | Indexer-bound with destination headroom; at/near the partition ceiling; local mode; delete-by-query (single partition) |
 | Connection pool | `indexer.opensearch`/`indexer.elasticsearch` `.maxConnectionsPerRoute` / `.maxConnectionsTotal` | Override the K-derived pool size | Rarely; defaults track K |

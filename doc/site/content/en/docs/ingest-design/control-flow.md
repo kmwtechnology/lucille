@@ -72,7 +72,7 @@ In both cases the document still flows to the indexer.
 
 **Code approach:** From inside `processDocument()`, call `doc.setDropped(true)`. The document will not be processed by any subsequent stage and will not be sent to the indexer. Lucille records it as a dropped document in the run summary.
 
-`DropDocument` also accepts an optional `percentage` parameter (a value between 0.0 and 1.0) that drops documents probabilistically. This is primarily useful for testing to simulate document loss in a non-deterministic way.
+`DropDocument` also accepts an optional `percentToDrop` parameter (a percentage from 0 to 100) that drops documents probabilistically. This is primarily useful for testing to simulate document loss in a non-deterministic way.
 
 ---
 

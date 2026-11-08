@@ -78,7 +78,7 @@ public class Runner {
 
   public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .optionalString("metricsLoggingLevel")
-      .optionalNumber("connectorTimeout").build();
+      .optionalNumber("connectorTimeoutMs").build();
 
   public static final int DEFAULT_CONNECTOR_TIMEOUT = 1000 * 60 * 60 * 24;
 
@@ -541,7 +541,7 @@ public class Runner {
           workerPool.setFailureListener(cause -> connectorThread.abort("Worker failed.", cause));
         }
         connectorThread.start();
-        final int connectorTimeout = ConfigUtils.getIntOrDefault(config, "runner.connectorTimeout", DEFAULT_CONNECTOR_TIMEOUT);
+        final int connectorTimeout = ConfigUtils.getIntOrDefault(config, "runner.connectorTimeoutMs", DEFAULT_CONNECTOR_TIMEOUT);
         pubResult = publisher.waitForCompletion(connectorThread, connectorTimeout);
       } catch (Exception e) {
         log.error("waitForCompletion failed", e);

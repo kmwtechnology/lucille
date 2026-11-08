@@ -155,7 +155,7 @@ private void validateIndexerConfigs(Config config) {
     // Validate the generic settings; nested blocks are left out of genericConfig
     SpecBuilder.withoutDefaults()
         .optionalString("type", "class", "idOverrideField", ...)
-        .optionalNumber("batchSize", "batchTimeout", ...)
+        .optionalNumber("batchSize", "batchTimeoutMs", ...)
         .build()
         .validate(genericConfig, "Indexer");
 
