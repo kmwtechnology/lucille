@@ -28,6 +28,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.errors.RecordTooLargeException;
+import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -63,7 +64,8 @@ public class KafkaUtils {
       .optionalString("documentSerializer", "documentDeserializer", "consumerPropertyFile",
           "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic",
           "onDeserializationError")
-      .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors")
+      .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors",
+          "eventTopicReplicationFactor", "eventTopicMinInsyncReplicas")
       .optionalParent("consumer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("producer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("admin", new TypeReference<Map<String, Object>>(){})
@@ -373,8 +375,17 @@ public class KafkaUtils {
 
     mergeConfigProps(adminProps, config, "kafka.admin");
 
+    // defaults keep a single-broker cluster working. On a multi-broker cluster, set the replication factor and
+    // min.insync.replicas so the event topic survives a broker loss.
+    short replicationFactor = (short) (config.hasPath("kafka.eventTopicReplicationFactor")
+        ? config.getInt("kafka.eventTopicReplicationFactor") : 1);
+
     try (Admin kafkaAdminClient = Admin.create(adminProps)) {
-      NewTopic eventTopic = new NewTopic(eventTopicName, 1, (short) 1);
+      NewTopic eventTopic = new NewTopic(eventTopicName, 1, replicationFactor);
+      if (config.hasPath("kafka.eventTopicMinInsyncReplicas")) {
+        eventTopic.configs(Map.of(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG,
+            String.valueOf(config.getInt("kafka.eventTopicMinInsyncReplicas"))));
+      }
       CreateTopicsResult result = kafkaAdminClient.createTopics(List.of(eventTopic), new CreateTopicsOptions());
       KafkaFuture<Void> future = result.all();
       future.get();

@@ -80,6 +80,19 @@ public class AbstractConnectorTest {
     Connector.fromConfig(ConfigFactory.load("AbstractConnectorTest/duplicateNames.conf"));
   }
 
+  // Connector names are compared exactly, as they are for stages and pipelines, so names that differ only by case are
+  // different connectors. The validator and the run check for duplicates the same way.
+  @Test
+  public void testConnectorNamesDifferingOnlyByCaseAreDistinct() throws Exception {
+    Config config = ConfigFactory.parseString("connectors: ["
+        + "{class: \"com.kmwllc.lucille.connector.FileConnector\", paths: [\"src/test/resources/RunnerTest/singleDoc.csv\"], "
+        + "fileHandlers: {csv: {}}, name: \"file\", pipeline: \"pipeline1\"},"
+        + "{class: \"com.kmwllc.lucille.connector.FileConnector\", paths: [\"src/test/resources/RunnerTest/singleDoc.csv\"], "
+        + "fileHandlers: {csv: {}}, name: \"File\", pipeline: \"pipeline2\"}]");
+    List<Connector> connectors = Connector.fromConfig(config);
+    assertEquals(2, connectors.size());
+  }
+
   // a FileConnector without its required paths, and without a name
   private static final String UNNAMED_INVALID_CONNECTOR =
       "{class: \"com.kmwllc.lucille.connector.FileConnector\", fileHandlers: {csv: {idField: \"id\"}}}";
