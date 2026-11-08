@@ -12,7 +12,9 @@ A component's configuration property names are part of its public interface. Peo
 
 This page describes the conventions Lucille's built-in components follow. They are **conventions and recommendations, not strict requirements**. Nothing in the build or in Spec validation enforces them. New components, built-in or your own, should follow them unless there is a good reason not to. When a convention doesn't fit, choose the name that is clearest for that component's users, and say why in its Javadoc.
 
-Four principles sit behind the specific conventions:
+The most basic convention is that every property name is in **camel case**: it starts lowercase, and each word after the first starts with a capital letter, as in `idField`, `batchTimeoutMs` and `includeFields`. Acronyms and compound words follow the same rule (see [Capitalization and Acronyms](#capitalization-and-acronyms)).
+
+Four principles sit behind the more specific conventions:
 
 - **Same concept, same name.** If two components have a setting that does the same thing, give it the same name, even if one of them came first with a different one.
 - **Say what the property holds.** A reader should be able to tell from the name whether a property is a field name or a literal value, a single name or a list, and which unit a number is in.
@@ -96,7 +98,7 @@ Name a boolean for what it turns on, as a verb phrase or adjective: `ignoreCase`
 
 ## Capitalization and Acronyms
 
-Names are in camel case: each word after the first starts with a capital letter. A compound that is normally written as one word counts as one word, so "filename" gives `filenameField` and "file path" gives `filePathField`. Likewise, "timestamp" is one word and "time zone" is two (`timeZoneId`).
+Camel case goes by words. A compound that is normally written as one word counts as one word, so "filename" gives `filenameField` and "file path" gives `filePathField`. Likewise, "timestamp" is one word and "time zone" is two (`timeZoneId`).
 
 Write acronyms in camel case, as if they were ordinary words: `idField`, `docIdFormat`, `hostUrl`, `rssUrl`, `requireJson`, `useXml`, `enableOcr`, `preSql`. `URL`, `JSON` and `ID` in all capitals make the word boundaries hard to see and are easy to mistype.
 
@@ -143,6 +145,7 @@ If you rename a property:
 
 ## Checklist for a New Component
 
+- Every property name is in camel case.
 - The fields it reads and writes are `source` and `dest`, or `fields` if it modifies them in place.
 - Every property that names a document field ends in `Field`, unless it is `source`, `dest` or `fields`.
 - Every numeric duration ends in `Ms` or `Secs`, and every size names its unit.
