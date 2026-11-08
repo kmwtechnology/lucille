@@ -26,7 +26,7 @@ Documents not marked for deletion pass through unchanged.
 | `index` | String | Yes | Name of the Pinecone index to list vectors from. |
 | `deletionMarker` | Object | Yes | The marker for Documents to delete: `field`, the field that marks a Document for deletion, and `value`, the value of that field that marks it. Set it to the same values as `indexer.deletionMarker`. |
 | `addPrefix` | String | No | String appended to the Document ID to form the prefix. With ID `doc1` and `addPrefix: "-"`, vectors starting with `doc1-` are matched. Default: `""`. |
-| `namespaces` | Map\<String, String\> | No | Namespaces to list vectors from. Only the keys are used, so the same map as `pinecone.namespaces` can be reused. If not set, the `default` namespace is used. |
+| `namespaces` | Map\<String, String\> | No | Namespaces to list vectors from. Only the keys are used, so the same map as `pinecone.namespaces` can be reused. If not set, Pinecone's default namespace is used. |
 | `dropOriginal` | Boolean | No | Drop the original Document after listing, so it is not sent to the Indexer. Emitted Documents are not dropped. Default: `false`. |
 
 ```hocon
