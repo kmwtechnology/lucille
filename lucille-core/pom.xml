@@ -316,6 +316,19 @@
       <artifactId>h2</artifactId>
       <version>2.2.224</version>
     </dependency>
+    <!-- Test-only: lets FileConnectorStateManagerDatabaseIT run the state lifecycle against PostgreSQL and MySQL. -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.6.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <version>9.1.0</version>
+      <scope>test</scope>
+    </dependency>
 
     <dependency>
         <groupId>org.jsoup</groupId>

@@ -1,0 +1,8 @@
+{
+  "mappings": {
+    "properties": {
+      "group": { "type": "keyword" },
+      "body": { "type": "text" }
+    }
+  }
+}
