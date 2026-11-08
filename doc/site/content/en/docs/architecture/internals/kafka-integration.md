@@ -220,12 +220,9 @@ kafkaEventProducer.send(
     new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString()));
 ```
 
-The event consumer uses auto-commit for throughput:
-```java
-consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
-```
+The event consumer joins no consumer group and commits no offsets. Each run's event topic has one partition and is read only by that run's Publisher, so the Publisher reads it with `assign()`, from the beginning of the topic. With a fixed `kafka.eventTopic`, it starts at the end of the topic instead, skipping earlier runs' events. Keeping the Publisher out of every group means a run starting or ending does not rebalance the Workers or Indexers.
 
-This is acceptable because event loss is not catastrophic — the worst case is the Publisher waits longer or times out. Duplicate events are handled gracefully by the Publisher's Bag-based accounting.
+Duplicate events are handled gracefully by the Publisher's Bag-based accounting.
 
 Events can be disabled entirely:
 ```hocon
@@ -428,8 +425,8 @@ Different components use different commit strategies:
 |-----------|----------|-----------|
 | Worker (source) | `commitSync()` after processing | Minimize reprocessing after crash |
 | Indexer (dest) | `commitSync()` when a batch completes, via `OffsetCommitTracker` | At-least-once: a crash redelivers uncommitted documents, which is safe because indexing is idempotent |
-| Publisher (events) | Auto-commit | Throughput; duplicate events are harmless |
-| Hybrid Worker | Deferred commit via offset queue | Only commit after Indexer confirms |
+| Publisher (events) | None; reads its partition with `assign()` and no group | Each run's event topic is read only by its own Publisher |
+| Hybrid Worker | `commitSync()` when its paired Indexer reports a batch complete, via `OffsetCommitTracker` | Only commit after the Indexer confirms; a rebalance never moves a committed offset back |
 
 The Worker's synchronous commit ensures that if a Worker crashes, the document it was processing will be redelivered to another Worker. Without this, the document could be lost (committed but not processed).
 
