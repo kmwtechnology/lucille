@@ -19,7 +19,7 @@ Four principles sit behind the more specific conventions:
 - **Same concept, same name.** If two components have a setting that does the same thing, give it the same name, even if one of them came first with a different one.
 - **Say what the property holds.** A reader should be able to tell from the name whether a property is a field name or a literal value, a single name or a list, and which unit a number is in.
 - **Follow the majority.** When existing components disagree, follow the form most of them already use.
-- **Spell words out.** Write `source`, `length` and `separator`, not `src`, `len` and `sep`. The one exception is `dest`, for a stage's output field. It is well established, and because it is so common, brevity is preferable to `destination`.
+- **Spell words out.** Write `source`, `length` and `separator`, not `src`, `len` and `sep`. There are two exceptions, both well established and so common that brevity is preferable: `dest`, for a stage's output field, rather than `destination`; and `doc` or `docs` inside a longer name (`numDocs`, `docIdFormat`), rather than `document` or `documents`.
 
 ## Field Names: `source`, `dest`, `fields`
 
@@ -104,7 +104,7 @@ A property named as a percentage should take a percentage. If a setting is reall
 
 ## Booleans
 
-Name a boolean for what it turns on, as a verb phrase or adjective: `ignoreCase`, `overwriteFile`, `enableOcr`, `dropOriginal`, `appendThreadName`, `useXml`. Don't add a `should` prefix, and avoid a bare word that reads as either a noun or a verb. Write `logDocuments`, not `shouldLog` or `log`. A bare `log` could also be mistaken for the top-level `log` block.
+Name a boolean for what it turns on, as a verb phrase or adjective: `ignoreCase`, `overwriteFile`, `enableOcr`, `dropOriginal`, `appendThreadName`, `useXml`. Don't add a `should` prefix, and avoid a bare word that reads as either a noun or a verb. Write `logDocuments`, not `shouldLog` or `log`. A bare `log` could also be mistaken for the top-level `log` block. The Elasticsearch and OpenSearch indexers' `update` is an exception: it is well established, and it names the kind of request the indexer sends, so it can't be read any other way.
 
 ## Capitalization and Acronyms
 
