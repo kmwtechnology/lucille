@@ -27,13 +27,21 @@ import org.slf4j.LoggerFactory;
  *
  * <p> Correctness:
  * <ul>
- *   <li><b>No lost document.</b> Per partition, the committed offset is a <i>frontier</i> that advances only across the
- *   polled offsets that have completed, in order, so every record below it has been indexed. It never passes an
- *   uncompleted earlier record — which can arise from out-of-order completion generally, and specifically from
- *   MultiBatch, where per-index sub-batches let a higher-offset record complete while a lower-offset one is still
- *   unflushed. The frontier advances across the <i>sequence of offsets actually polled</i>, not by {@code offset + 1},
- *   so a gap between polled offsets (a transaction marker, or a record removed by compaction) does not stall it. A
- *   crash re-reads from the frontier and loses nothing. (This holds independently of the order batches complete in.)</li>
+ *   <li><b>No lost document: frontier, not highest offset.</b> Records can complete out of order: with MultiBatch,
+ *   per-index sub-batches let a higher-offset record complete while a lower-offset one is still unflushed, and
+ *   concurrent batches can complete in any order. Two strategies for choosing the offset to commit differ here:
+ *   <ul>
+ *     <li><i>Highest offset</i> commits one past the highest offset that has completed. It never re-delivers a
+ *     completed record, but it can pass one that has not completed, which a crash then loses.</li>
+ *     <li><i>Frontier</i>, the strategy used here, commits one past the last offset of the leading run of completed
+ *     polled offsets: it advances only across completed offsets, in order, so every record below it has been
+ *     indexed. A crash loses nothing, but re-delivers the completed records above the frontier.</li>
+ *   </ul>
+ *   For example, if offsets 10 to 14 were polled and all but 12 have completed, highest offset commits 15 and a crash
+ *   loses 12; the frontier commits 12, and a crash re-delivers 12, 13 and 14. Lucille's delivery is at-least-once, and
+ *   re-indexing a document is idempotent, so the frontier trades duplicates for no loss. It advances across the
+ *   <i>sequence of offsets actually polled</i>, not by {@code offset + 1}, so a gap between polled offsets (a
+ *   transaction marker, or a record removed by compaction) does not stall it.</li>
  *   <li><b>No rewind, no stall across rebalances.</b> The frontier advances only across offsets polled since the
  *   partition was last assigned to this consumer: revoking or losing a partition drops all of its tracked offsets, and a
  *   partition that comes back is polled again from its committed offset. So a commit never goes below the committed
@@ -42,9 +50,11 @@ import org.slf4j.LoggerFactory;
  *   offset polled again since (the same record, since Kafka records never change) and counts as completing it: that
  *   record was processed by the earlier send, so the frontier may pass it (Indexer.completeBatch calls batchComplete only
  *   for a batch whose documents were all processed, indexed or failed with FAIL events, and never after an Error), and
- *   the re-polled copy's later completion is redundant. Either way a stale completion can only move the frontier forward, never hold it back, so an eager
- *   revoke-and-reassign to the <i>same</i> consumer cannot stall it. (With the Indexer's pre-revocation drain, a clean
- *   revoke leaves no batch in flight, so stale completions arise only after a partition is lost.)</li>
+ *   the re-polled copy's later completion is redundant. Either way a stale completion can only move the frontier
+ *   forward, never hold it back, so an eager revoke-and-reassign to the <i>same</i> consumer cannot stall it. (In
+ *   KafkaIndexerMessenger, the pre-revocation drain leaves no batch in flight at a clean revoke, so stale completions
+ *   arise only after a partition is lost. HybridWorkerMessenger does not wait for batches in progress, so they also
+ *   arise after a clean revoke.)</li>
  *   <li><b>No lost commit on failure.</b> A failed commit is retained and retried on the next completed batch, on
  *   revocation, and on close.</li>
  * </ul>
