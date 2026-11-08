@@ -58,7 +58,7 @@ public class WeaviateIndexer extends Indexer {
   public WeaviateIndexer(Config config, IndexerContext context, WeaviateClient client) {
     super(config, context);
 
-    if (getDeletionMarkerField() != null || getDeleteByFieldField() != null) {
+    if (getDeletionMarkerField() != null) {
       log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be indexed as regular docs");
     }
     if (getIndexOverrideField() != null) {

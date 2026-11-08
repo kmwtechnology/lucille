@@ -24,8 +24,8 @@ import org.junit.Test;
  * exercised here — the dispatcher is still synchronous at this stage.)
  *
  * <p> The Indexer base class also validates other generic parameters that currently have no direct coverage here —
- * the deletionMarkerField / deletionMarkerFieldValue and deleteByFieldField / deleteByFieldValue "both or neither"
- * rules, and the retry parameters (maxRetries greater than 0, the retry sub-parameters requiring maxRetries, and a
+ * the deletionMarker and deleteByQuery blocks (both keys required in each, and deleteByQuery requiring deletionMarker),
+ * and the retry parameters (maxRetries greater than 0, the retry sub-parameters requiring maxRetries, and a
  * non-empty retryableStatusCodes). Those predate this test and should be backfilled here in a separate PR.
  */
 public class IndexerConfigTest {

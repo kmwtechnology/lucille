@@ -7,7 +7,7 @@ description: Emits a deletion Document for every Pinecone vector whose ID starts
 
 `com.kmwllc.lucille.pinecone.stage.EmitDocsToDeleteByPrefix` *(requires `lucille-pinecone`)*
 
-For each Document marked for deletion (`deletionMarkerField` equals `deletionMarkerFieldValue`), lists the vectors in the Pinecone index whose ID starts with the Document's ID followed by `addPrefix`, and emits one new Document per matching vector ID. Each emitted Document has only its ID and `deletionMarkerField` set to `deletionMarkerFieldValue`, so the [Pinecone Indexer]({{< relref "docs/ingest-design/indexers/pinecone_indexer" >}}) deletes it. Use this when one source record is indexed as several vectors (for example, chunks with IDs like `doc1-0`, `doc1-1`).
+For each Document marked for deletion (`deletionMarker.field` equals `deletionMarker.value`), lists the vectors in the Pinecone index whose ID starts with the Document's ID followed by `addPrefix`, and emits one new Document per matching vector ID. Each emitted Document has only its ID and `deletionMarker.field` set to `deletionMarker.value`, so the [Pinecone Indexer]({{< relref "docs/ingest-design/indexers/pinecone_indexer" >}}) deletes it. Use this when one source record is indexed as several vectors (for example, chunks with IDs like `doc1-0`, `doc1-1`).
 
 Documents not marked for deletion pass through unchanged.
 
@@ -24,8 +24,7 @@ Documents not marked for deletion pass through unchanged.
 |---|---|---|---|
 | `apiKey` | String | Yes | Pinecone API key. |
 | `index` | String | Yes | Name of the Pinecone index to list vectors from. |
-| `deletionMarkerField` | String | Yes | Field that marks a Document for deletion. Set it to the same value as `indexer.deletionMarkerField`. |
-| `deletionMarkerFieldValue` | String | Yes | Value of `deletionMarkerField` that marks a Document for deletion. Set it to the same value as `indexer.deletionMarkerFieldValue`. |
+| `deletionMarker` | Object | Yes | The marker for Documents to delete: `field`, the field that marks a Document for deletion, and `value`, the value of that field that marks it. Set it to the same values as `indexer.deletionMarker`. |
 | `addPrefix` | String | No | String appended to the Document ID to form the prefix. With ID `doc1` and `addPrefix: "-"`, vectors starting with `doc1-` are matched. Default: `""`. |
 | `namespaces` | Map\<String, String\> | No | Namespaces to list vectors from. Only the keys are used, so the same map as `pinecone.namespaces` can be reused. If not set, the `default` namespace is used. |
 | `dropOriginal` | Boolean | No | Drop the original Document after listing, so it is not sent to the Indexer. Emitted Documents are not dropped. Default: `false`. |
@@ -36,8 +35,10 @@ Documents not marked for deletion pass through unchanged.
   class: "com.kmwllc.lucille.pinecone.stage.EmitDocsToDeleteByPrefix"
   apiKey: ${PINECONE_API_KEY}
   index: "my-index"
-  deletionMarkerField: "is_deleted"
-  deletionMarkerFieldValue: "true"
+  deletionMarker {
+    field: "is_deleted"
+    value: "true"
+  }
   addPrefix: "-"
   namespaces: {
     "title-ns": "title_vector"

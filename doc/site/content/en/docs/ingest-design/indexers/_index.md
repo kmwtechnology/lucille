@@ -85,10 +85,8 @@ The generic settings and the backend block are validated when the indexer is con
 | `whitelist` | List\<String\> | No | Only these fields are sent to the destination. Fields on the blacklist are still excluded. |
 | `blacklist` | List\<String\> | No | These fields are never sent to the destination. |
 | `sendEnabled` | Boolean | No | Set to `false` to run without sending anything to the destination. The Solr, OpenSearch, Elasticsearch, Pinecone, and Weaviate indexers then skip creating their client and their connection check, and report every document as succeeded. The CSV indexer writes no file and also reports every document as succeeded. Default: `true`. |
-| `deletionMarkerField` | String | No | Field that marks a document for deletion when its value equals `deletionMarkerFieldValue`. Setting only one of the two fails at startup. |
-| `deletionMarkerFieldValue` | String | No | Value of `deletionMarkerField` that marks a document for deletion. Compared with the field's value as a string (first value, if multi-valued), so `"true"` matches a boolean `true` field. |
-| `deleteByFieldField` | String | No | Name of a document field whose value is the destination field to match in a delete-by-query. Setting only one of `deleteByFieldField` and `deleteByFieldValue` fails at startup. |
-| `deleteByFieldValue` | String | No | Name of a document field whose value is the value to match in a delete-by-query. |
+| `deletionMarker` | Object | No | Marks documents for deletion. `field` is the document field to check, and `value` the value of that field that marks a document for deletion. The value is compared with the field's value as a string (first value, if multi-valued), so `"true"` matches a boolean `true` field. Both keys are required. |
+| `deleteByQuery` | Object | No | Turns a marked document into a delete-by-query. `fieldNameField` is the document field holding the name of the destination field to match, and `valueField` the document field holding the value to match. Both keys are required, and so is `deletionMarker`. |
 | `maxRetries` | Integer | No | Maximum number of retries for a failed batch, after the first attempt. Must be greater than 0 when set (0 or less fails at startup). Omit it to disable retries. Default: retries disabled. |
 | `retryWaitDurationMs` | Integer | No | Wait before the first retry, in ms. Each later wait is 1.5 times the previous one (before jitter). Setting it without `maxRetries` fails at startup. Default: `1000`. |
 | `retryMaxWaitDurationMs` | Long | No | Upper bound on the wait between retries, in ms. Setting it without `maxRetries` fails at startup. Default: `30000`. |
@@ -110,17 +108,21 @@ The Solr, OpenSearch, Elasticsearch, Pinecone, and Weaviate indexers apply `whit
 
 Two distinct deletion mechanisms are available:
 
-**Delete by ID:** Set `deletionMarkerField` and `deletionMarkerFieldValue`. When a document's marker field (first value, if multi-valued) equals the marker value, the Indexer deletes that document's ID (or its `idOverrideField` value) at the destination instead of indexing it.
+**Delete by ID:** Set `deletionMarker`. When a document's `deletionMarker.field` (first value, if multi-valued) equals `deletionMarker.value`, the Indexer deletes that document's ID (or its `idOverrideField` value) at the destination instead of indexing it.
 
-**Delete by query:** Also set `deleteByFieldField` and `deleteByFieldValue`. When a document marked for deletion also has both fields named by `deleteByFieldField` and `deleteByFieldValue`, the Indexer issues a delete-by-query instead of a delete by ID: it deletes all documents in the index whose field named by the document's `deleteByFieldField` value matches the document's `deleteByFieldValue` value. A marked document that lacks either field is deleted by ID.
+**Delete by query:** Also set `deleteByQuery`. When a document marked for deletion also has both fields that `deleteByQuery` names, the Indexer issues a delete-by-query instead of a delete by ID. For example, a marked document with `delete_by_field: "parent_id"` and `delete_by_value: "123"` deletes every document in the index whose `parent_id` is `123`. A marked document that lacks either field is deleted by ID.
 
 ```hocon
 indexer {
   type: "Solr"
-  deletionMarkerField: "file_expired"
-  deletionMarkerFieldValue: "true"
-  deleteByFieldField: "delete_by_field"
-  deleteByFieldValue: "delete_by_value"
+  deletionMarker {
+    field: "file_expired"
+    value: "true"
+  }
+  deleteByQuery {
+    fieldNameField: "delete_by_field"
+    valueField: "delete_by_value"
+  }
 }
 ```
 

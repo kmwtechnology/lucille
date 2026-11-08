@@ -220,8 +220,10 @@ connectors: [
 
 indexer {
   type: "opensearch"
-  deletionMarkerField: "file_expired"
-  deletionMarkerFieldValue: "true"
+  deletionMarker {
+    field: "file_expired"
+    value: "true"
+  }
 }
 ```
 

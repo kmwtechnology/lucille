@@ -134,7 +134,7 @@ Everything from the Happy Path, plus:
 Everything from the Happy Path, plus:
 
 - **Index routing.** If `indexer.indexOverrideField` is configured and the document has that field, the document is routed to a different index/collection than the default. With MultiBatch, it goes into a separate batch for that destination.
-- **Deletion handling.** If the document is marked for deletion (via `deletionMarkerField` + `deletionMarkerFieldValue`), the Indexer issues a delete operation instead of an index operation. If `deleteByFieldField` and `deleteByFieldValue` are also present, it's a delete-by-query.
+- **Deletion handling.** If the document is marked for deletion (via `deletionMarker`), the Indexer issues a delete operation instead of an index operation. If it also has both fields that `deleteByQuery` names, it's a delete-by-query.
 - **ID override.** If `indexer.idOverrideField` is configured, the document's ID in the search backend is taken from that field rather than the internal document ID.
 - **Field filtering.** The configured whitelist/blacklist is applied — only the desired fields reach the search backend. `___children` is always omitted. The other reserved fields (such as `run_id` and `___skipped`) are treated like any other field and reach the backend unless the whitelist leaves them out or the blacklist names them.
 - **Retries.** If the bulk API call fails with a retryable status code (429, 503) and `indexer.maxRetries > 0`, the entire batch is retried with exponential backoff. The document may be sent multiple times before succeeding or being declared failed.

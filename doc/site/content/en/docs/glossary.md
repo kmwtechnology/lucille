@@ -181,10 +181,10 @@ A group of documents accumulated by the Indexer before sending to the search bac
 A variant of Batch that maintains separate batches per destination index. Used when `indexer.indexOverrideField` is configured and documents in the same run go to different indices.
 
 **Deletion Marker**
-A document field/value combination (`indexer.deletionMarkerField` + `indexer.deletionMarkerFieldValue`) that signals the Indexer to issue a delete operation instead of an index operation.
+A document field/value combination (`indexer.deletionMarker`) that signals the Indexer to issue a delete operation instead of an index operation.
 
 **Delete-by-Query**
-A deletion mode where the Indexer deletes all documents in the index matching a field/value pair, rather than deleting a single document by ID. Configured via `indexer.deleteByFieldField` and `indexer.deleteByFieldValue`.
+A deletion mode where the Indexer deletes all documents in the index matching a field/value pair, rather than deleting a single document by ID. Configured via `indexer.deleteByQuery`.
 
 **Field Filtering (Whitelist/Blacklist)**
 Configuration that controls which document fields are sent to the search backend. `indexer.whitelist` includes only listed fields; `indexer.blacklist` excludes listed fields. Reserved fields are always stripped.

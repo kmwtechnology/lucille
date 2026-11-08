@@ -76,14 +76,13 @@ import org.slf4j.MDC.MDCCloseable;
  *   {@value #NO_BATCH_SIZE_BYTES}.</li>
  *   <li>indexer.batchTimeoutMs (Integer, Optional) : the number of milliseconds (since the previous add or flush) beyond which the batch
  *   will be considered as expired. Defaults to {@value #DEFAULT_BATCH_TIMEOUT}.</li>
- *   <li>indexer.deletionMarkerField (String, Optional) : Field that, when set to indexer.deletionMarkerFieldValue, marks a document
- *   for deletion. Must be set together with indexer.deletionMarkerFieldValue.</li>
- *   <li>indexer.deletionMarkerFieldValue (String, Optional) : Value of indexer.deletionMarkerField that triggers deletion.
- *   Must be set together with indexer.deletionMarkerField.</li>
- *   <li>indexer.deleteByFieldField (String, Optional) : Field used to identify documents for deletion by query. Must be set
- *   together with indexer.deleteByFieldValue.</li>
- *   <li>indexer.deleteByFieldValue (String, Optional) : Field whose value specifies which documents to delete by query. Must be set
- *   together with indexer.deleteByFieldField.</li>
+ *   <li>indexer.deletionMarker (Map, Optional) : Marks documents for deletion by ID. <code>field</code> (String) is the
+ *   document field to check, and <code>value</code> (String) the value of that field that marks a document for deletion.
+ *   Both are required.</li>
+ *   <li>indexer.deleteByQuery (Map, Optional) : Turns a document marked for deletion into a delete-by-query when it carries
+ *   both of these fields. <code>fieldNameField</code> (String) is the document field holding the name of the destination
+ *   field to match, and <code>valueField</code> (String) the document field holding the value to match. Both are
+ *   required, and so is indexer.deletionMarker.</li>
  *   <li>indexer.maxRetries (Integer, Optional) : Maximum number of times to retry a failed batch before treating all documents
  *   in the batch as failures. Retries are disabled by default; set to a positive integer to opt in. A value of 0 or less
  *   is rejected as invalid — remove the parameter entirely to disable retries.</li>
@@ -122,6 +121,13 @@ public abstract class Indexer implements Runnable {
   public static final List<Integer> DEFAULT_RETRYABLE_STATUS_CODES = List.of(429, 503, IndexerRetryableException.UNKNOWN_STATUS_CODE);
   public static final int DEFAULT_MAX_CONCURRENT_BATCHES = 1;
 
+  private static final Spec DELETION_MARKER_SPEC = SpecBuilder.withoutDefaults()
+      .requiredString("field", "value").build();
+  private static final Spec DELETE_BY_QUERY_SPEC = SpecBuilder.withoutDefaults()
+      .requiredString("fieldNameField", "valueField").build();
+  // generic settings that are blocks, so validateIndexerConfigs does not mistake them for an indexer's own block
+  private static final Set<String> GENERIC_BLOCKS = Set.of("deletionMarker", "deleteByQuery");
+
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
   private static final Logger failedDocLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.FailedDocuments");
@@ -140,9 +146,9 @@ public abstract class Indexer implements Runnable {
   private final String indexOverrideField;
 
   private final String deletionMarkerField;
-  private final String deletionMarkerFieldValue;
-  private final String deleteByFieldField;
-  private final String deleteByFieldValue;
+  private final String deletionMarkerValue;
+  private final String deleteByQueryFieldNameField;
+  private final String deleteByQueryValueField;
 
   private final FieldFilter fieldFilter;
 
@@ -188,10 +194,16 @@ public abstract class Indexer implements Runnable {
     this.logSeconds = context.logSeconds();
     this.idOverrideField = ConfigUtils.getStringOrDefault(config, "idOverrideField", null);
     this.indexOverrideField = ConfigUtils.getStringOrDefault(config, "indexOverrideField", null);
-    this.deletionMarkerField = ConfigUtils.getStringOrDefault(config, "deletionMarkerField", null);
-    this.deletionMarkerFieldValue = ConfigUtils.getStringOrDefault(config, "deletionMarkerFieldValue", null);
-    this.deleteByFieldField = ConfigUtils.getStringOrDefault(config, "deleteByFieldField", null);
-    this.deleteByFieldValue = ConfigUtils.getStringOrDefault(config, "deleteByFieldValue", null);
+    boolean hasDeletionMarker = config.hasPath("deletionMarker");
+    this.deletionMarkerField = hasDeletionMarker ? config.getString("deletionMarker.field") : null;
+    this.deletionMarkerValue = hasDeletionMarker ? config.getString("deletionMarker.value") : null;
+    boolean hasDeleteByQuery = config.hasPath("deleteByQuery");
+    this.deleteByQueryFieldNameField = hasDeleteByQuery ? config.getString("deleteByQuery.fieldNameField") : null;
+    this.deleteByQueryValueField = hasDeleteByQuery ? config.getString("deleteByQuery.valueField") : null;
+    if (hasDeleteByQuery && !hasDeletionMarker) {
+      // delete-by-query applies only to documents the marker selects, so without one it would be silently ignored
+      throw new IllegalArgumentException("indexer.deleteByQuery requires indexer.deletionMarker to be set.");
+    }
 
     int batchSize;
     long batchByteSize;
@@ -210,18 +222,6 @@ public abstract class Indexer implements Runnable {
         (indexOverrideField == null)
             ? new SingleBatch(batchSize, batchByteSize, batchTimeout)
             : new MultiBatch(batchSize, batchByteSize, batchTimeout, indexOverrideField);
-    // validate config deletionFields that must be present together
-    if ((deleteByFieldField != null && deleteByFieldValue == null)
-        || (deleteByFieldField == null && deleteByFieldValue != null)) {
-      throw new IllegalArgumentException(
-          "When one of indexer.deleteByFieldField and indexer.deleteByFieldValue are set, both must be set.");
-    }
-    if ((deletionMarkerField != null && deletionMarkerFieldValue == null)
-        || (deletionMarkerField == null && deletionMarkerFieldValue != null)) {
-      throw new IllegalArgumentException(
-          "When one of indexer.deletionMarkerField and indexer.deletionMarkerFieldValue are set, both must be set.");
-    }
-
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     this.meter = metrics.meter(context.metricsPrefix() + ".indexer.docsIndexed");
     this.histogram = metrics.histogram(context.metricsPrefix() + ".indexer.batchTimeOverSize");
@@ -741,24 +741,30 @@ public abstract class Indexer implements Runnable {
     return indexOverrideField;
   }
 
-  /** The configured indexer.deletionMarkerField, or null if not set. See {@link #isMarkedForDeletion}. */
+  /** The configured indexer.deletionMarker.field, or null if not set. See {@link #isMarkedForDeletion}. */
   protected final String getDeletionMarkerField() {
     return deletionMarkerField;
   }
 
-  /** The configured indexer.deletionMarkerFieldValue, or null if not set. See {@link #isMarkedForDeletion}. */
-  protected final String getDeletionMarkerFieldValue() {
-    return deletionMarkerFieldValue;
+  /** The configured indexer.deletionMarker.value, or null if not set. See {@link #isMarkedForDeletion}. */
+  protected final String getDeletionMarkerValue() {
+    return deletionMarkerValue;
   }
 
-  /** The configured indexer.deleteByFieldField, or null if not set. See {@link #hasDeleteByFieldValues}. */
-  protected final String getDeleteByFieldField() {
-    return deleteByFieldField;
+  /**
+   * The name of the destination field a delete-by-query document matches on: the value of the document field named by
+   * indexer.deleteByQuery.fieldNameField. Call it only for a document where {@link #isDeleteByQuery} is true.
+   */
+  protected final String getDeleteByQueryFieldName(Document doc) {
+    return doc.getString(deleteByQueryFieldNameField);
   }
 
-  /** The configured indexer.deleteByFieldValue, or null if not set. See {@link #hasDeleteByFieldValues}. */
-  protected final String getDeleteByFieldValue() {
-    return deleteByFieldValue;
+  /**
+   * The value a delete-by-query document matches: the value of the document field named by
+   * indexer.deleteByQuery.valueField. Call it only for a document where {@link #isDeleteByQuery} is true.
+   */
+  protected final String getDeleteByQueryValue(Document doc) {
+    return doc.getString(deleteByQueryValueField);
   }
 
   /** The filter built from the configured indexer.whitelist and indexer.blacklist. */
@@ -873,37 +879,27 @@ public abstract class Indexer implements Runnable {
   }
 
   /**
-   * Whether the document is a delete-by-query request, which can match documents in any batch and so forces its batch
-   * to be sent alone when maxConcurrentBatches is greater than 1. A document is a delete-by-query when it
-   * {@link #isMarkedForDeletion} and {@link #hasDeleteByFieldValues}; the subclasses branch on those same two checks.
-   */
-  private boolean isDeleteByQuery(Document doc) {
-    return isMarkedForDeletion(doc) && hasDeleteByFieldValues(doc);
-  }
-
-  /**
-   * Whether the document is marked for deletion: the configured deletionMarkerField is present and non-null and equals
-   * the configured deletionMarkerFieldValue. Returns false unless both are configured. Shared by the Solr, OpenSearch,
-   * and Elasticsearch indexers, which use it to decide between uploading a document and deleting it.
+   * Whether the document is marked for deletion: the configured indexer.deletionMarker.field is present and non-null and
+   * equals indexer.deletionMarker.value. Returns false unless deletionMarker is configured. Shared by the Solr,
+   * OpenSearch, Elasticsearch and Pinecone indexers, which use it to decide between uploading a document and deleting it.
    */
   protected boolean isMarkedForDeletion(Document doc) {
     return deletionMarkerField != null
-        && deletionMarkerFieldValue != null
         && doc.hasNonNull(deletionMarkerField)
-        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
+        && doc.getString(deletionMarkerField).equals(deletionMarkerValue);
   }
 
   /**
-   * Whether the document carries the delete-by-query fields (the configured deleteByFieldField naming the field to
-   * query, and deleteByFieldValue naming the field holding the value). Shared by the Solr, OpenSearch, and Elasticsearch
-   * indexers, which call it on a document already known to be marked for deletion to decide between delete-by-query and
-   * delete-by-id. Returns false unless both fields are configured and present.
+   * Whether the document is a delete-by-query: it {@link #isMarkedForDeletion} and carries both fields that
+   * indexer.deleteByQuery names. A marked document without them is deleted by ID instead. Its target is given by
+   * {@link #getDeleteByQueryFieldName} and {@link #getDeleteByQueryValue}. A delete-by-query can match documents in any
+   * batch, so it also forces its batch to be sent alone when maxConcurrentBatches is greater than 1.
    */
-  protected boolean hasDeleteByFieldValues(Document doc) {
-    return deleteByFieldField != null
-        && doc.has(deleteByFieldField)
-        && deleteByFieldValue != null
-        && doc.has(deleteByFieldValue);
+  protected boolean isDeleteByQuery(Document doc) {
+    return isMarkedForDeletion(doc)
+        && deleteByQueryFieldNameField != null
+        && doc.has(deleteByQueryFieldNameField)
+        && doc.has(deleteByQueryValueField);
   }
 
   private static boolean containsNull(JsonNode node) {
@@ -932,13 +928,13 @@ public abstract class Indexer implements Runnable {
     String indexerConfigKey = getIndexerConfigKey();
     Config genericConfig = config;
 
-    // The generic settings are all scalars and lists, so an object is either this indexer's block or another indexer's,
-    // which indexer.type may be choosing among. Anything else is a mistake.
+    // Apart from the generic deletionMarker and deleteByQuery blocks, an object is either this indexer's block or another
+    // indexer's, which indexer.type may be choosing among. Anything else is a mistake.
     for (Map.Entry<String, ConfigValue> entry : config.root().entrySet()) {
-      if (entry.getValue().valueType() != ConfigValueType.OBJECT) {
+      String key = entry.getKey();
+      if (entry.getValue().valueType() != ConfigValueType.OBJECT || GENERIC_BLOCKS.contains(key)) {
         continue;
       }
-      String key = entry.getKey();
       genericConfig = genericConfig.root().withoutKey(key).toConfig();
       if (key.equals(indexerConfigKey)) {
         continue;
@@ -956,8 +952,9 @@ public abstract class Indexer implements Runnable {
     }
 
     SpecBuilder.withoutDefaults()
-        .optionalString("type", "class", "pipeline", "idOverrideField", "indexOverrideField", "deletionMarkerField",
-            "deletionMarkerFieldValue", "deleteByFieldField", "deleteByFieldValue")
+        .optionalString("type", "class", "pipeline", "idOverrideField", "indexOverrideField")
+        .optionalParent("deletionMarker", DELETION_MARKER_SPEC)
+        .optionalParent("deleteByQuery", DELETE_BY_QUERY_SPEC)
         .optionalNumber("batchSize", "batchByteSize", "batchTimeoutMs", "maxRetries", "retryWaitDurationMs",
             "retryMaxWaitDurationMs", "retryRandomizationFactor", "maxConcurrentBatches")
         .optionalBoolean("sendEnabled")

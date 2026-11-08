@@ -21,7 +21,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 - **Event accounting** — Sends FINISH or FAIL events for each document so the Runner can track run completion.
 - **Metrics** — Tracks documents indexed, throughput rate, and batch latency automatically.
 - **ID and index overrides** — Supports `idOverrideField` and `indexOverrideField` for routing documents to different IDs or indices. Use `getDocIdOverride(doc)` and `getIndexOverride(doc)` in your `sendToIndex()`.
-- **Deletion support** — Detects documents marked for deletion via `deletionMarkerField`/`deletionMarkerFieldValue` or `deleteByFieldField`/`deleteByFieldValue`. Your implementation checks these in `sendToIndex()` and issues the appropriate delete operation.
+- **Deletion support** — Detects documents marked for deletion via `deletionMarker`, and delete-by-query documents via `deleteByQuery`. Your implementation checks these in `sendToIndex()` and issues the appropriate delete operation.
 
 **What you implement:**
 
@@ -202,7 +202,7 @@ protected boolean supportsConcurrentSends() {
 - **The destination client must be safe for concurrent use.** Create it once in the constructor, as usual, but do not rely on per-call state inside it. If the client's thread safety is unknown, leave the default (`false`).
 - **Do not keep per-batch state on the indexer instance** (buffers, counters, "current batch" fields). Two calls to `sendToIndex()` can overlap.
 - **The base class calls `supportsConcurrentSends()` from its constructor**, so it must return a constant and not depend on your subclass fields.
-- **Use `isMarkedForDeletion(doc)` and `hasDeleteByFieldValues(doc)`** to detect deletes. The dispatcher uses the same checks to decide which batches are delete-by-query barriers.
+- **Use `isMarkedForDeletion(doc)` and `isDeleteByQuery(doc)`** to detect deletes, and `getDeleteByQueryFieldName(doc)` and `getDeleteByQueryValue(doc)` for a delete-by-query's target. The dispatcher uses the same checks to decide which batches are delete-by-query barriers.
 - **Connection pools.** If your client is HTTP-based, size its pool for at least `maxConcurrentBatches` simultaneous requests, or the sends will queue for a connection.
 
 To test, set `indexer.maxConcurrentBatches` in the config you pass to your indexer and assert that your `sendToIndex()` can run twice at once without errors. See [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}) for the guarantees, tuning, and Kafka requirements.

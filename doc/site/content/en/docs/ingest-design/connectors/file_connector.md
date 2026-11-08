@@ -469,8 +469,10 @@ When `filterOptions.sendTombstones: true` is set (requires incremental mode and 
 ```hocon
 indexer {
   type: "solr"
-  deletionMarkerField: "file_expired"
-  deletionMarkerFieldValue: "true"
+  deletionMarker {
+    field: "file_expired"
+    value: "true"
+  }
 }
 ```
 

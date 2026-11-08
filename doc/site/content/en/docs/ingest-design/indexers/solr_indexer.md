@@ -98,7 +98,7 @@ Internally, the indexer flushes pending adds before queuing a delete for an ID t
 
 ## Delete-by-Query via Terms Queries
 
-When `deleteByFieldField` and `deleteByFieldValue` are configured, SolrIndexer constructs Solr terms queries rather than issuing individual delete-by-query calls. Values for the same field are combined into a single terms query, and the queries for different fields (plus any pending deletes by ID) are joined with `OR` into one request:
+When `deleteByQuery` is configured, SolrIndexer constructs Solr terms queries rather than issuing individual delete-by-query calls. Values for the same field are combined into a single terms query, and the queries for different fields (plus any pending deletes by ID) are joined with `OR` into one request:
 
 ```
 (+{!terms f="category" separator="," v="obsolete,deprecated"})

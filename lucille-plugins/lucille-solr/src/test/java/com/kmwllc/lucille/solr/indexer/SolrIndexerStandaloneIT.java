@@ -145,10 +145,10 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
     solrClient().commit();
 
     SolrIndexer indexer = newIndexer(Map.of(
-        "indexer.deletionMarkerField", "is_delete",
-        "indexer.deletionMarkerFieldValue", "true",
-        "indexer.deleteByFieldField", "delete_field",
-        "indexer.deleteByFieldValue", "delete_value"));
+        "indexer.deletionMarker.field", "is_delete",
+        "indexer.deletionMarker.value", "true",
+        "indexer.deleteByQuery.fieldNameField", "delete_field",
+        "indexer.deleteByQuery.valueField", "delete_value"));
     try {
       List<Document> deletes = new ArrayList<>();
       for (int i = 0; i < special.size(); i++) {

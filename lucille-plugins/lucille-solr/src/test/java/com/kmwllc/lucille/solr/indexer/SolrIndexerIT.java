@@ -94,8 +94,8 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     map.put("indexer.type", "solr");
     map.put("indexer.sendEnabled", true);
     map.put("indexer.indexOverrideField", "collection");
-    map.put("indexer.deletionMarkerField", "is_delete");
-    map.put("indexer.deletionMarkerFieldValue", "true");
+    map.put("indexer.deletionMarker.field", "is_delete");
+    map.put("indexer.deletionMarker.value", "true");
 
     Config config = ConfigFactory.parseMap(map);
 
@@ -157,17 +157,17 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     map.put("indexer.type", "solr");
     map.put("indexer.sendEnabled", true);
     map.put("indexer.indexOverrideField", "collection");
-    map.put("indexer.deletionMarkerField", "is_delete");
-    map.put("indexer.deletionMarkerFieldValue", "true");
+    map.put("indexer.deletionMarker.field", "is_delete");
+    map.put("indexer.deletionMarker.value", "true");
     /*
-    The field on the document referenced by the deleteByFieldField contains the field name in solr that the document
-    is indicating should be used in a delete by query request. The field on the document referenced by the deleteByFieldValue
-    contains the value of the field that should be used in a delete by query request. When a document containing the
-    deletionMarkerField set to the deletionMarkerValue that has a deleteByFieldField and a deleteByFieldValue then all
-    of the documents in solr containing the value for that field will by deleted.
+    The field on the document named by deleteByQuery.fieldNameField contains the field name in solr that the document
+    is indicating should be used in a delete by query request. The field on the document named by deleteByQuery.valueField
+    contains the value of the field that should be used in a delete by query request. When a document has
+    deletionMarker.field set to deletionMarker.value and has both of those fields, then all
+    of the documents in solr containing the value for that field will be deleted.
      */
-    map.put("indexer.deleteByFieldField", "delete.FieldName");
-    map.put("indexer.deleteByFieldValue", "delete.FieldValue");
+    map.put("indexer.deleteByQuery.fieldNameField", "delete.FieldName");
+    map.put("indexer.deleteByQuery.valueField", "delete.FieldValue");
 
     Config config = ConfigFactory.parseMap(map);
 
@@ -237,17 +237,17 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     map.put("indexer.type", "solr");
     map.put("indexer.sendEnabled", true);
     map.put("indexer.indexOverrideField", "collection");
-    map.put("indexer.deletionMarkerField", "is_delete");
-    map.put("indexer.deletionMarkerFieldValue", "true");
+    map.put("indexer.deletionMarker.field", "is_delete");
+    map.put("indexer.deletionMarker.value", "true");
     /*
-    The field on the document referenced by the deleteByFieldField contains the field name in solr that the document
-    is indicating should be used in a delete by query request. The field on the document referenced by the deleteByFieldValue
-    contains the value of the field that should be used in a delete by query request. When a document containing the
-    deletionMarkerField set to the deletionMarkerValue that has a deleteByFieldField and a deleteByFieldValue then all
-    of the documents in solr containing the value for that field will by deleted.
+    The field on the document named by deleteByQuery.fieldNameField contains the field name in solr that the document
+    is indicating should be used in a delete by query request. The field on the document named by deleteByQuery.valueField
+    contains the value of the field that should be used in a delete by query request. When a document has
+    deletionMarker.field set to deletionMarker.value and has both of those fields, then all
+    of the documents in solr containing the value for that field will be deleted.
      */
-    map.put("indexer.deleteByFieldField", "delete.FieldName");
-    map.put("indexer.deleteByFieldValue", "delete.FieldValue");
+    map.put("indexer.deleteByQuery.fieldNameField", "delete.FieldName");
+    map.put("indexer.deleteByQuery.valueField", "delete.FieldValue");
 
     Config config = ConfigFactory.parseMap(map);
 
@@ -355,8 +355,8 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     map.put("indexer.type", "solr");
     map.put("indexer.sendEnabled", true);
     map.put("indexer.idOverrideField", "other_id");
-    map.put("indexer.deletionMarkerField", "is_delete");
-    map.put("indexer.deletionMarkerFieldValue", "true");
+    map.put("indexer.deletionMarker.field", "is_delete");
+    map.put("indexer.deletionMarker.value", "true");
 
     Config config = ConfigFactory.parseMap(map);
 

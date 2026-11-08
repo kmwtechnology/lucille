@@ -178,14 +178,13 @@ public class SolrIndexer extends Indexer {
         // immediately so the add/update
         // of the document is processed before this delete.
 
-        if (solrDocRequests.containsIdForAddUpdate(solrId) || hasDeleteByFieldValues(doc)) {
+        if (solrDocRequests.containsIdForAddUpdate(solrId) || isDeleteByQuery(doc)) {
           sendAddUpdateBatch(collection, solrDocRequests.getAddUpdateDocs());
           solrDocRequests.resetAddUpdates();
         }
 
-        if (hasDeleteByFieldValues(doc)) {
-          solrDocRequests.addDeleteByFieldValue(
-              doc.getString(getDeleteByFieldField()), doc.getString(getDeleteByFieldValue()));
+        if (isDeleteByQuery(doc)) {
+          solrDocRequests.addDeleteByFieldValue(getDeleteByQueryFieldName(doc), getDeleteByQueryValue(doc));
         } else {
           solrDocRequests.addIdForDeletion(solrId);
         }

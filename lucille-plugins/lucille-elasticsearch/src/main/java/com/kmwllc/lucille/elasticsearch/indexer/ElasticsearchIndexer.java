@@ -213,7 +213,7 @@ public class ElasticsearchIndexer extends Indexer {
     // populate which collection each document belongs to
     // upload if document is not marked for deletion
     // else if document is marked for deletion ONLY, then only add to idsToDelete
-    // else document is marked for deletion AND contains deleteByFieldField and deleteByFieldValue, only add to termsToDeleteByQuery
+    // else document is marked for deletion AND carries both indexer.deleteByQuery fields, only add to termsToDeleteByQuery
     // A delete-by-query must not delete documents that come after it in the batch, so the batch is sent in segments, in
     // input order: pending uploads and deletes by id are sent before a run of delete-by-query documents, and the
     // queries are sent before the next upload or delete by id.
@@ -228,7 +228,7 @@ public class ElasticsearchIndexer extends Indexer {
         documentsToUpload.put(id, doc);
       } else {
         documentsToUpload.remove(id);
-        if (!hasDeleteByFieldValues(doc)) {
+        if (!isDeleteByQuery(doc)) {
           // same as above: buffered delete-by-queries go before this delete by id
           sendDeleteByQuerySegment(termsToDeleteByQuery);
           idsToDelete.put(id, doc);
@@ -236,13 +236,11 @@ public class ElasticsearchIndexer extends Indexer {
           // this doc is a delete-by-query, so flush the writes buffered before it first: send the pending uploads and
           // deletes by id, clear both maps, and collect their per-doc failures
           failedDocs.addAll(sendWriteSegment(documentsToUpload, idsToDelete));
-          //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
-          // deletion, so we need to do doc.getString(deleteByFieldField).
-          String deleteField = doc.getString(getDeleteByFieldField());
+          String deleteField = getDeleteByQueryFieldName(doc);
           if (!termsToDeleteByQuery.containsKey(deleteField)) {
             termsToDeleteByQuery.put(deleteField, new ArrayList<>());
           }
-          termsToDeleteByQuery.get(deleteField).add(doc.getString(getDeleteByFieldValue()));
+          termsToDeleteByQuery.get(deleteField).add(getDeleteByQueryValue(doc));
         }
       }
     }

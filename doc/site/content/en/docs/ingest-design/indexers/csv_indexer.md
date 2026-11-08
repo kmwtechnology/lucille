@@ -62,7 +62,7 @@ indexer {
 
 ## Deletion Not Supported
 
-CSVIndexer logs a warning if `deletionMarkerField` or `deleteByFieldField` are configured but does not perform any deletion. Documents marked for deletion are written as regular rows.
+CSVIndexer logs a warning if `deletionMarker` is configured but does not perform any deletion. Documents marked for deletion are written as regular rows.
 
 ---
 

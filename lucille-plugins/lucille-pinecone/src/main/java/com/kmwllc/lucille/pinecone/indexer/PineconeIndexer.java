@@ -43,8 +43,8 @@ import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIn
  * - mode (String, Optional) : the type of request you want PineconeIndexer to send to your index when uploading documents
  *    1. upsert (will replace if vector id exists in namespace, will use default namespace if no namespace is given)
  *    2. update (will only update embeddings)
- *    for deletion requests, take a look at application-example.conf under Indexer configs. Only support
- *    deletionMarkerField, and deletionMarkerFieldValue as Pinecone serverless index currently does not support delete via query/metadata.
+ *    for deletion requests, take a look at application-example.conf under Indexer configs. Only supports
+ *    indexer.deletionMarker, as Pinecone serverless indexes do not support delete via query/metadata.
  * - defaultEmbeddingField (String, required if namespaces is not set) : the field to retrieve embeddings from
  */
 @AutoService(Indexer.class)
@@ -116,7 +116,7 @@ public class PineconeIndexer extends Indexer {
     Map<String, Document> uploadMap = new LinkedHashMap<>();
     for (Document doc : documents) {
       String id = destinationId(doc);
-      if (isDeletion(doc)) {
+      if (isMarkedForDeletion(doc)) {
         // always add to deleteMap;
         // in the case where doc is in uploadMap and is now marked for deletion, then remove that document in uploadMap
         uploadMap.remove(id);
@@ -227,13 +227,6 @@ public class PineconeIndexer extends Indexer {
   private String destinationId(Document doc) {
     String override = getDocIdOverride(doc);
     return override != null ? override : doc.getId();
-  }
-
-  private boolean isDeletion(Document doc) {
-    return getDeletionMarkerField() != null
-        && getDeletionMarkerFieldValue() != null
-        && doc.hasNonNull(getDeletionMarkerField())
-        && doc.getString(getDeletionMarkerField()).equals(getDeletionMarkerFieldValue());
   }
 
   @Override

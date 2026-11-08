@@ -865,6 +865,8 @@ public class RunnerTest {
   public void testIndexerDeleteByFieldConfig() throws Exception {
     assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteByFieldInvalid1.conf"), Runner.RunType.LOCAL).getStatus());
     assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteByFieldInvalid2.conf"), Runner.RunType.LOCAL).getStatus());
+    // deleteByQuery without deletionMarker would never apply, so it is rejected
+    assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteByQueryNoMarker.conf"), Runner.RunType.LOCAL).getStatus());
     assertTrue(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteByFieldValid.conf"), Runner.RunType.LOCAL).getStatus());
   }
 

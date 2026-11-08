@@ -63,7 +63,7 @@ WeaviateIndexer does not support `indexer.maxConcurrentBatches` greater than 1; 
 
 ## Deletion Not Supported
 
-WeaviateIndexer logs a warning if `deletionMarkerField` or `deleteByFieldField` are configured but does not perform deletions. Documents marked for deletion are indexed as regular objects. This is a known limitation.
+WeaviateIndexer logs a warning if `deletionMarker` is configured but does not perform deletions. Documents marked for deletion are indexed as regular objects. This is a known limitation.
 
 ---
 
