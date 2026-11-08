@@ -6,6 +6,13 @@ description: >
   Definitions of key terms and concepts used throughout Lucille's documentation and codebase.
 ---
 
+## Domain
+
+**Search ETL**
+The work of extracting data from source systems, enriching it, and loading it into a search engine or vector database as search-ready documents. It differs from warehouse ETL in its unit of work (documents that fan out into children, not rows), its transformations (expensive enrichment such as text extraction and embeddings), and its destination (bulk indexing APIs with partial failures, deletes and ordering). See [What Is Search ETL?]({{< relref "docs/getting-started/what-is-search-etl" >}}).
+
+---
+
 ## Core Components
 
 **Connector**
