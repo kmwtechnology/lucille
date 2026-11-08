@@ -44,9 +44,12 @@ public class ElasticsearchUtils {
 
     // elasticsearch-java 9.x uses the Apache HttpClient 5 based Rest5Client transport; the legacy
     // org.elasticsearch.client.RestClient (HttpClient 4) is no longer bundled.
+    // Rest5Client decodes gzip responses itself. The Apache client must not decode them too: with both, a gzip response
+    // is decompressed twice and fails with "Not in GZIP format".
     CloseableHttpAsyncClient httpClient = HttpAsyncClients.custom()
         .setDefaultCredentialsProvider(credentialsProvider)
         .setConnectionManager(AsyncConnectionPoolUtils.buildConnectionManager(config, "elasticsearch", tlsStrategy))
+        .disableContentCompression()
         .build();
 
     boolean useCompression = config.hasPath("elasticsearch.useCompression") && config.getBoolean("elasticsearch.useCompression");
