@@ -40,12 +40,12 @@ connectors: [
 | `jdbcPassword` | String | Yes | Database password. Can be `""`. Use `${?VAR}` for environment variable substitution. |
 | `sql` | String | Yes | `SELECT` statement to execute. All returned rows are published as Documents. |
 | `idField` | String | Yes | Column whose value becomes the Document ID, matched case-insensitively. If the query does not return this column, the run fails. |
-| `fetchSize` | Integer | No | JDBC fetch size hint, applied to the main query and to `otherSQLs`. For MySQL, set to `Integer.MIN_VALUE` (i.e., `-2147483648`) to avoid buffering the full result set in memory. If omitted, the driver's default is used. |
-| `preSQL` | String | No | A SQL statement (INSERT, DELETE, UPDATE, or DDL) executed once before the main query. Useful for creating temp tables, acquiring locks, or seeding data. |
-| `postSQL` | String | No | A SQL statement executed once after all rows have been published. Useful for cleanup, releasing locks, or writing completion markers. |
-| `otherSQLs` | List\<String\> | No | Additional `SELECT` queries whose matching rows are attached to each Document as child Documents. See [Multi-Query Joins](#multi-query-joins). |
-| `otherJoinFields` | List\<String\> | No | Join column for each entry in `otherSQLs`, in the same order. Required when `otherSQLs` is set: omitting it fails at startup. A list shorter than `otherSQLs` fails the run when rows are processed. Ignored without `otherSQLs`. |
-| `ignoreColumns` | List\<String\> | No | Column names from the main query to skip when populating Documents, matched case-insensitively. Not applied to `otherSQLs` columns. |
+| `fetchSize` | Integer | No | JDBC fetch size hint, applied to the main query and to `otherSqls`. For MySQL, set to `Integer.MIN_VALUE` (i.e., `-2147483648`) to avoid buffering the full result set in memory. If omitted, the driver's default is used. |
+| `preSql` | String | No | A SQL statement (INSERT, DELETE, UPDATE, or DDL) executed once before the main query. Useful for creating temp tables, acquiring locks, or seeding data. |
+| `postSql` | String | No | A SQL statement executed once after all rows have been published. Useful for cleanup, releasing locks, or writing completion markers. |
+| `otherSqls` | List\<String\> | No | Additional `SELECT` queries whose matching rows are attached to each Document as child Documents. See [Multi-Query Joins](#multi-query-joins). |
+| `otherJoinFields` | List\<String\> | No | Join column for each entry in `otherSqls`, in the same order. Required when `otherSqls` is set: omitting it fails at startup. A list shorter than `otherSqls` fails the run when rows are processed. Ignored without `otherSqls`. |
+| `ignoreColumns` | List\<String\> | No | Column names from the main query to skip when populating Documents, matched case-insensitively. Not applied to `otherSqls` columns. |
 | `connectionRetries` | Integer | No | Number of retries after a failed connection attempt, so up to `connectionRetries + 1` attempts are made for each connection. Values below 1 are treated as `1`. Default: `1`. |
 | `connectionRetryPauseMs` | Integer | No | Milliseconds to wait between connection attempts. Values below 1 are treated as the default. Default: `10000`. |
 
@@ -53,7 +53,7 @@ The Document ID is `docIdPrefix` (if set) followed by the `idField` value. A row
 
 ## Pre and Post SQL
 
-Use `preSQL` and `postSQL` to run setup and teardown logic that must happen before and after the main query:
+Use `preSql` and `postSql` to run setup and teardown logic that must happen before and after the main query:
 
 ```hocon
 {
@@ -66,29 +66,29 @@ Use `preSQL` and `postSQL` to run setup and teardown logic that must happen befo
   jdbcUser: ${?DB_USER}
   jdbcPassword: ${?DB_PASSWORD}
 
-  preSQL: "CREATE TEMP TABLE export_snapshot AS SELECT * FROM articles WHERE active = true"
+  preSql: "CREATE TEMP TABLE export_snapshot AS SELECT * FROM articles WHERE active = true"
   sql: "SELECT id, title, body FROM export_snapshot ORDER BY id"
-  postSQL: "DROP TABLE IF EXISTS export_snapshot"
+  postSql: "DROP TABLE IF EXISTS export_snapshot"
   idField: "id"
 }
 ```
 
-If `preSQL` or `postSQL` fails, the error is logged and the run continues. `postSQL` is skipped if the main query or publishing fails. Connections are always closed in `close()`.
+If `preSql` or `postSql` fails, the error is logged and the run continues. `postSql` is skipped if the main query or publishing fails. Connections are always closed in `close()`.
 
 ## Multi-Query Joins
 
-`otherSQLs` allows you to enrich primary rows with data from additional queries at read time, without a SQL JOIN. Each row of a secondary query is matched to the primary row whose `idField` value equals the secondary row's `otherJoinFields` column. The main query must be ordered by `idField`, and each secondary query by its join column, because the result sets are merged in a single forward pass. Join values are compared with Java `compareTo`, so the `idField` column and each join column must return mutually comparable Java types (for example numbers, strings or dates); a mismatched type fails the run. The `idField` values must be unique, and an out-of-order or duplicate primary key, or an out-of-order secondary key, fails the run rather than silently dropping child rows. Secondary rows whose join value is `NULL` are skipped. Each secondary query runs on its own connection, and all of them are executed one after another before the first primary row is read.
+`otherSqls` allows you to enrich primary rows with data from additional queries at read time, without a SQL JOIN. Each row of a secondary query is matched to the primary row whose `idField` value equals the secondary row's `otherJoinFields` column. The main query must be ordered by `idField`, and each secondary query by its join column, because the result sets are merged in a single forward pass. Join values are compared with Java `compareTo`, so the `idField` column and each join column must return mutually comparable Java types (for example numbers, strings or dates); a mismatched type fails the run. The `idField` values must be unique, and an out-of-order or duplicate primary key, or an out-of-order secondary key, fails the run rather than silently dropping child rows. Secondary rows whose join value is `NULL` are skipped. Each secondary query runs on its own connection, and all of them are executed one after another before the first primary row is read.
 
 ```hocon
 {
   sql: "SELECT id, title FROM articles ORDER BY id"
   idField: "id"
-  otherSQLs: ["SELECT article_id, tag_name FROM article_tags ORDER BY article_id"]
+  otherSqls: ["SELECT article_id, tag_name FROM article_tags ORDER BY article_id"]
   otherJoinFields: ["article_id"]
 }
 ```
 
-For each primary row, every matching row from `otherSQLs` is attached to the Document as a child Document, with all of the secondary query's lowercased column names (including the join column) becoming fields on the child and `NULL` values skipped. Child values use the same type mapping as the main query, so an unsupported column type fails the run, as does a child column named `id` or another reserved field. Child Document IDs have the form `<parentId>_<n>`, where `n` counts the parent's children across all `otherSQLs` starting at `0`, so they are unique. The values are not merged into multi-valued fields on the parent, and whether children reach the index depends on the Indexer.
+For each primary row, every matching row from `otherSqls` is attached to the Document as a child Document, with all of the secondary query's lowercased column names (including the join column) becoming fields on the child and `NULL` values skipped. Child values use the same type mapping as the main query, so an unsupported column type fails the run, as does a child column named `id` or another reserved field. Child Document IDs have the form `<parentId>_<n>`, where `n` counts the parent's children across all `otherSqls` starting at `0`, so they are unique. The values are not merged into multi-valued fields on the parent, and whether children reach the index depends on the Indexer.
 
 To flatten the children into multi-valued fields, add the [`CollapseChildrenDocuments`]({{< relref "docs/ingest-design/stages/collapse_children_documents" >}}) Stage to the pipeline:
 

@@ -16,4 +16,4 @@ Copies field values from a Document's attached children onto the parent, optiona
 
 The parent field becomes multi-valued once it holds more than one value. If the parent did not have the field and only one child supplies a single value, the field stays single-valued.
 
-Commonly used to flatten the child Documents produced by the `otherSQLs` joins of the [Database Connector]({{< relref "docs/ingest-design/connectors/database_connector#multi-query-joins" >}}).
+Commonly used to flatten the child Documents produced by the `otherSqls` joins of the [Database Connector]({{< relref "docs/ingest-design/connectors/database_connector#multi-query-joins" >}}).

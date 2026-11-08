@@ -33,12 +33,12 @@ import org.slf4j.LoggerFactory;
  * Runs a <code>SELECT</code> statement and publishes each row as a Document. Column labels are lower-cased to
  * become field names; the <code>idField</code> column supplies the document id.
  *
- * <p>If <code>otherSQLs</code> is set, each of those statements is run on its own connection and merged with the
+ * <p>If <code>otherSqls</code> is set, each of those statements is run on its own connection and merged with the
  * primary result set by join key: every row whose join field equals the current primary row's
  * <code>idField</code> value is attached to the Document as a child Document with id
  * <code>&lt;parentId&gt;_&lt;n&gt;</code>, where <code>n</code> counts the parent's children across all
- * <code>otherSQLs</code> starting at 0. The merge walks all result sets forward in lockstep, so <code>sql</code>
- * and every <code>otherSQLs</code> entry must be ordered by their join key and primary keys must be unique; an
+ * <code>otherSqls</code> starting at 0. The merge walks all result sets forward in lockstep, so <code>sql</code>
+ * and every <code>otherSqls</code> entry must be ordered by their join key and primary keys must be unique; an
  * out-of-order or duplicate key fails the run rather than silently dropping children. Join keys may be any
  * mutually comparable type (numbers, strings, dates). Child rows whose key is NULL or has no matching primary
  * row are skipped. <code>ignoreColumns</code> applies to the primary result set only; child documents carry
@@ -55,13 +55,13 @@ import org.slf4j.LoggerFactory;
  *   <li>jdbcUser (String): username to access database</li>
  *   <li>jdbcPassword (String): password to access database</li>
  *   <li>sql (String): SQL statement to query the database</li>
- *   <li>idField (String): column whose value becomes the document id (and the join key when otherSQLs is set)</li>
+ *   <li>idField (String): column whose value becomes the document id (and the join key when otherSqls is set)</li>
  *   <li>fetchSize (Integer, Optional): JDBC fetch size hint applied to every query. Drivers differ: MySQL needs
  *   Integer.MIN_VALUE to stream instead of buffering the whole result set; some drivers ignore the hint.</li>
- *   <li>preSQL (String, Optional): statement run before sql, e.g. INSERT, DELETE, UPDATE or DDL. Failures are logged and do not stop the run.</li>
- *   <li>postSQL (String, Optional): statement run after sql, with the same semantics as preSQL.</li>
- *   <li>otherSQLs (List&lt;String&gt;, Optional): additional SELECT statements whose rows are attached as children, as described above</li>
- *   <li>otherJoinFields (List&lt;String&gt;, Optional): the join field of each otherSQLs entry, in the same order. <b>Required if otherSQLs is provided.</b></li>
+ *   <li>preSql (String, Optional): statement run before sql, e.g. INSERT, DELETE, UPDATE or DDL. Failures are logged and do not stop the run.</li>
+ *   <li>postSql (String, Optional): statement run after sql, with the same semantics as preSql.</li>
+ *   <li>otherSqls (List&lt;String&gt;, Optional): additional SELECT statements whose rows are attached as children, as described above</li>
+ *   <li>otherJoinFields (List&lt;String&gt;, Optional): the join field of each otherSqls entry, in the same order. <b>Required if otherSqls is provided.</b></li>
  *   <li>ignoreColumns (List&lt;String&gt;, Optional): columns of the primary result set to leave off the document (case-insensitive)</li>
  *   <li>connectionRetries (Integer, Optional): number of retries allowed to connect to database, defaults to 1</li>
  *   <li>connectionRetryPauseMs (Integer, Optional): pause between connection retries in milliseconds, defaults to 10000</li>
@@ -82,7 +82,7 @@ public class DatabaseConnector extends AbstractConnector {
   private final String sql;
   private final String postSql;
   private final String idField;
-  private final List<String> otherSQLs;
+  private final List<String> otherSqls;
   private final List<String> otherJoinFields;
 
   // the join key most recently read from each otherSQL result set during execute(); used to detect child
@@ -98,9 +98,9 @@ public class DatabaseConnector extends AbstractConnector {
 
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredString("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql", "idField")
-      .optionalString("preSQL", "postSQL")
+      .optionalString("preSql", "postSql")
       .optionalNumber("fetchSize", "connectionRetries", "connectionRetryPauseMs")
-      .optionalList("otherSQLs", new TypeReference<List<String>>(){})
+      .optionalList("otherSqls", new TypeReference<List<String>>(){})
       .optionalList("otherJoinFields", new TypeReference<List<String>>(){})
       .optionalList("ignoreColumns", new TypeReference<List<String>>(){}).build();
 
@@ -115,13 +115,13 @@ public class DatabaseConnector extends AbstractConnector {
     idField = config.getString("idField");
 
     fetchSize = ConfigUtils.getIntOrDefault(config, "fetchSize", null);
-    preSql = ConfigUtils.getStringOrDefault(config, "preSQL", null);
-    postSql = ConfigUtils.getStringOrDefault(config, "postSQL", null);
-    if (config.hasPath("otherSQLs")) {
-      otherSQLs = config.getStringList("otherSQLs");
+    preSql = ConfigUtils.getStringOrDefault(config, "preSql", null);
+    postSql = ConfigUtils.getStringOrDefault(config, "postSql", null);
+    if (config.hasPath("otherSqls")) {
+      otherSqls = config.getStringList("otherSqls");
       otherJoinFields = config.getStringList("otherJoinFields");
     } else {
-      otherSQLs = new ArrayList<>();
+      otherSqls = new ArrayList<>();
       otherJoinFields = null;
     }
     ignoreColumns = new HashSet<>();
@@ -204,7 +204,7 @@ public class DatabaseConnector extends AbstractConnector {
       lastOtherJoinIds.clear();
       lastPrimaryJoinId = null;
 
-      for (String otherSQL : otherSQLs) {
+      for (String otherSQL : otherSqls) {
         log.info("Describing other result set... {}", otherSQL);
         ResultSet rs2 = runJoinSQL(otherSQL);
         String[] columns2 = getColumnNames(rs2);
@@ -259,17 +259,17 @@ public class DatabaseConnector extends AbstractConnector {
             int order = comparable.compareTo(lastPrimaryJoinId);
             if (order < 0) {
               throw new ConnectorException(String.format(
-                  "primary result set is not ordered by id field %s (%s follows %s); add ORDER BY %s when using otherSQLs",
+                  "primary result set is not ordered by id field %s (%s follows %s); add ORDER BY %s when using otherSqls",
                   idField, joinId, lastPrimaryJoinId, idField));
             }
             if (order == 0) {
               throw new ConnectorException(String.format(
-                  "primary result set has duplicate id field %s value %s; ids must be unique when using otherSQLs",
+                  "primary result set has duplicate id field %s value %s; ids must be unique when using otherSqls",
                   idField, joinId));
             }
           }
           lastPrimaryJoinId = joinId;
-          // children are numbered continuously across all otherSQLs; see iterateOtherSQL for the id format
+          // children are numbered continuously across all otherSqls; see iterateOtherSQL for the id format
           int nextChildIndex = 0;
           int j = 0;
           for (ResultSet otherResult : otherResults) {
@@ -319,7 +319,7 @@ public class DatabaseConnector extends AbstractConnector {
   /**
    * Attaches to {@code doc} every row of {@code rs2} whose {@code joinField} equals {@code joinId}, as child
    * documents with ids of the form {@code <parentId>_<n>}, numbering from {@code nextChildIndex}. Returns the
-   * next unused index so that children from several otherSQLs are numbered continuously. Rows whose join key
+   * next unused index so that children from several otherSqls are numbered continuously. Rows whose join key
    * is SQL NULL match no parent and are skipped. Both result sets are consumed forward only, so the cursor is
    * left on the first row whose key is greater than {@code joinId} (or past the end) for the next primary row
    * to continue from.
@@ -345,7 +345,7 @@ public class DatabaseConnector extends AbstractConnector {
       try {
         comparison = ((Comparable) otherJoinId).compareTo(joinId);
       } catch (NullPointerException e) {
-        throw new ConnectorException("Primary id field " + idField + " is null; cannot join otherSQLs.", e);
+        throw new ConnectorException("Primary id field " + idField + " is null; cannot join otherSqls.", e);
       } catch (ClassCastException e) {
         throw new ConnectorException("Either otherJoinId or joinId type prevents them from being compared.", e);
       }
@@ -423,7 +423,7 @@ public class DatabaseConnector extends AbstractConnector {
     return names;
   }
 
-  // Runs preSQL / postSQL. A failure is logged but does not stop the run.
+  // Runs preSql / postSql. A failure is logged but does not stop the run.
   private void runSql(Connection connection, String sql) {
     if (!StringUtils.isEmpty(sql)) {
       try (Statement state = connection.createStatement()) {

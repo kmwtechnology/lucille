@@ -481,7 +481,7 @@ public class DatabaseConnectorTest {
     // The join fields. id goes to animal_id
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("animal_id");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     configValues.put("otherJoinFields", otherJoinFields);
     // create a config object off that map
     Config config = ConfigFactory.parseMap(configValues);
@@ -528,7 +528,7 @@ public class DatabaseConnectorTest {
     // Ordered by animal_id, the child join-key sequence is: 1, 2, 3, 3.
     List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as meal_id, animal_id, name from meal where id in (1,4,6,7) order by animal_id");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("animal_id");
     configValues.put("otherJoinFields", otherJoinFields);
@@ -579,7 +579,7 @@ public class DatabaseConnectorTest {
     configValues.put("idField", "id");
     List<String> otherSqls = new ArrayList<>();
     otherSqls.add(otherSql);
-    configValues.put("otherSQLs", otherSqls);
+    configValues.put("otherSqls", otherSqls);
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("animal_id");
     configValues.put("otherJoinFields", otherJoinFields);
@@ -694,7 +694,7 @@ public class DatabaseConnectorTest {
     }
   }
 
-  /** Base config for a joining connector; callers add otherSQLs / otherJoinFields and optional preSQL. */
+  /** Base config for a joining connector; callers add otherSqls / otherJoinFields and optional preSql. */
   private Map<String, Object> baseJoinConfig(String sql) {
     Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
@@ -727,7 +727,7 @@ public class DatabaseConnectorTest {
   }
 
   /**
-   * Two otherSQLs merged against one primary result set. Each child query keeps its own cursor and ordering
+   * Two otherSqls merged against one primary result set. Each child query keeps its own cursor and ordering
    * state, the children of a parent are numbered continuously across both queries, and child ids are
    * {@code <parentId>_<n>} so they are unique across the run. Meals come from the seed data; toys are created
    * here so that animal 2 has toys but animal 3 does not.
@@ -735,10 +735,10 @@ public class DatabaseConnectorTest {
   @Test
   public void testJoiningDatabaseConnectorTwoOtherSQLs() throws Exception {
     Map<String, Object> configValues = baseJoinConfig("select id,name from animal order by id");
-    configValues.put("preSQL",
+    configValues.put("preSql",
         "CREATE TABLE toy(id INT, animal_id INT, toy_name VARCHAR(20)); "
             + "INSERT INTO toy VALUES (1, 1, 'ball'), (2, 2, 'mouse'), (3, 2, 'string');");
-    configValues.put("otherSQLs", new ArrayList<>(List.of(
+    configValues.put("otherSqls", new ArrayList<>(List.of(
         "select id as meal_id, animal_id, name from meal order by animal_id, id",
         "select id as toy_id, animal_id, toy_name from toy order by animal_id, id")));
     configValues.put("otherJoinFields", new ArrayList<>(List.of("animal_id", "animal_id")));
@@ -773,10 +773,10 @@ public class DatabaseConnectorTest {
   @Test
   public void testJoiningDatabaseConnectorNullChildJoinKeyIsSkipped() throws Exception {
     Map<String, Object> configValues = baseJoinConfig("select id,name from animal order by id");
-    configValues.put("preSQL",
+    configValues.put("preSql",
         "CREATE TABLE toy(id INT, animal_id INT, toy_name VARCHAR(20)); "
             + "INSERT INTO toy VALUES (1, NULL, 'lost'), (2, 1, 'ball'), (3, NULL, 'unclaimed'), (4, 3, 'bell');");
-    configValues.put("otherSQLs", new ArrayList<>(List.of(
+    configValues.put("otherSqls", new ArrayList<>(List.of(
         "select id as toy_id, animal_id, toy_name from toy order by animal_id, id")));
     configValues.put("otherJoinFields", new ArrayList<>(List.of("animal_id")));
 
@@ -797,10 +797,10 @@ public class DatabaseConnectorTest {
   @Test
   public void testJoiningDatabaseConnectorDuplicatePrimaryKeyFailsTheRun() throws Exception {
     Map<String, Object> configValues = baseJoinConfig("select id,name from dup_animal order by id");
-    configValues.put("preSQL",
+    configValues.put("preSql",
         "CREATE TABLE dup_animal(id INT, name VARCHAR(10)); "
             + "INSERT INTO dup_animal VALUES (1, 'Matt'), (1, 'Matt again'), (2, 'Sonny');");
-    configValues.put("otherSQLs", new ArrayList<>(List.of(
+    configValues.put("otherSqls", new ArrayList<>(List.of(
         "select id as meal_id, animal_id, name from meal order by animal_id, id")));
     configValues.put("otherJoinFields", new ArrayList<>(List.of("animal_id")));
 
@@ -814,12 +814,12 @@ public class DatabaseConnectorTest {
     }
   }
 
-  /** postSQL runs after the primary query, on the same connection, and its effect is visible afterwards. */
+  /** postSql runs after the primary query, on the same connection, and its effect is visible afterwards. */
   @Test
   public void testPostSqlRunsAfterQuery() throws Exception {
     Map<String, Object> configValues = baseJoinConfig("select id,name from animal order by id");
-    configValues.put("preSQL", "CREATE TABLE marker(note VARCHAR(20));");
-    configValues.put("postSQL", "INSERT INTO marker VALUES ('done');");
+    configValues.put("preSql", "CREATE TABLE marker(note VARCHAR(20));");
+    configValues.put("postSql", "INSERT INTO marker VALUES ('done');");
 
     List<Document> docs = runConnector(configValues);
     assertEquals(3, docs.size());
@@ -837,7 +837,7 @@ public class DatabaseConnectorTest {
   public void testIgnoreColumnsOmitsPrimaryColumnOnly() throws Exception {
     Map<String, Object> configValues = baseJoinConfig("select id,name,type from animal order by id");
     configValues.put("ignoreColumns", new ArrayList<>(List.of("TYPE", "name")));
-    configValues.put("otherSQLs", new ArrayList<>(List.of(
+    configValues.put("otherSqls", new ArrayList<>(List.of(
         "select id as meal_id, animal_id, name from meal order by animal_id, id")));
     configValues.put("otherJoinFields", new ArrayList<>(List.of("animal_id")));
 
@@ -869,7 +869,7 @@ public class DatabaseConnectorTest {
     // Child query that is guaranteed to return zero rows.
     List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as meal_id, animal_id, name from meal where 1=0 order by animal_id");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("animal_id");
     configValues.put("otherJoinFields", otherJoinFields);
@@ -906,7 +906,7 @@ public class DatabaseConnectorTest {
     // a list of other sql statements
     List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as network_id,name,friends_with from network order by name");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     // The join fields. id goes to animal_id
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("name");
@@ -941,7 +941,7 @@ public class DatabaseConnectorTest {
     // a list of other sql statements
     List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as _id,name,metadata from nonComparable order by name");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     // The join fields. id goes to animal_id
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("metadata");
@@ -970,7 +970,7 @@ public class DatabaseConnectorTest {
     // a list of other sql statements
     List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as adoption_id,name,adopted_on from adopted order by adopted_on");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     // The join fields. id goes to animal_id
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("adopted_on");
@@ -1244,7 +1244,7 @@ public class DatabaseConnectorTest {
     configValues.put("connectionString", "jdbc:h2:mem:test");
     configValues.put("jdbcUser", "");
     configValues.put("jdbcPassword", "");
-    configValues.put("preSQL", setup);
+    configValues.put("preSql", setup);
     configValues.put("sql",
         "select id, str_col, int_col, long_col, dbl_col, dec_col, flt_col, bool_col, date_col, ts_col, "
             + "bin_col, time_col from typed_parent order by id");
@@ -1252,7 +1252,7 @@ public class DatabaseConnectorTest {
     List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as child_id, parent_id, c_str, c_int, c_long, c_dbl, c_dec, c_flt, c_bool, "
         + "c_date, c_ts, c_bin, c_time from typed_child order by parent_id");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("parent_id");
     configValues.put("otherJoinFields", otherJoinFields);
@@ -1324,12 +1324,12 @@ public class DatabaseConnectorTest {
     configValues.put("connectionString", "jdbc:h2:mem:test");
     configValues.put("jdbcUser", "");
     configValues.put("jdbcPassword", "");
-    configValues.put("preSQL", setup);
+    configValues.put("preSql", setup);
     configValues.put("sql", "select id, big_id, amount from dec_parent order by id");
     configValues.put("idField", "id");
     List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as child_id, parent_id, c_big, c_amount from dec_child order by parent_id");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("parent_id");
     configValues.put("otherJoinFields", otherJoinFields);
@@ -1355,7 +1355,7 @@ public class DatabaseConnectorTest {
 
   // --- Unsupported types must throw a ConnectorException, on BOTH paths ---
   // One test per type so that each type's result is visible independently. Each case creates a scratch
-  // table (via preSQL) with an id, an integer join key (animal_id=1 so it joins to seed animal 1), and the
+  // table (via preSql) with an id, an integer join key (animal_id=1 so it joins to seed animal 1), and the
   // unsupported-typed column as a NON-join column - so any thrown exception is attributable to type
   // handling, not to comparing the join keys. Every unsupported type H2 can represent in-memory is covered.
 
@@ -1435,7 +1435,7 @@ public class DatabaseConnectorTest {
       cfg.put("connectionString", "jdbc:h2:mem:test");
       cfg.put("jdbcUser", "");
       cfg.put("jdbcPassword", "");
-      cfg.put("preSQL", setup);
+      cfg.put("preSql", setup);
       cfg.put("sql", "select id, bad_col from unsupported_type_probe order by id");
       cfg.put("idField", "id");
 
@@ -1461,12 +1461,12 @@ public class DatabaseConnectorTest {
       cfg.put("connectionString", "jdbc:h2:mem:test");
       cfg.put("jdbcUser", "");
       cfg.put("jdbcPassword", "");
-      cfg.put("preSQL", setup);
+      cfg.put("preSql", setup);
       cfg.put("sql", "select id, name from animal where id=1 order by id");
       cfg.put("idField", "id");
       List<String> otherSql = new ArrayList<>();
       otherSql.add("select id as probe_id, join_key, bad_col from unsupported_type_probe order by join_key");
-      cfg.put("otherSQLs", otherSql);
+      cfg.put("otherSqls", otherSql);
       List<String> otherJoinFields = new ArrayList<>();
       otherJoinFields.add("join_key");
       cfg.put("otherJoinFields", otherJoinFields);
@@ -1507,7 +1507,7 @@ public class DatabaseConnectorTest {
     // animal_id sequence 3,3,2,2,1,1,1 - i.e. join keys in descending order.
     List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as meal_id, animal_id, name from meal order by id desc");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("animal_id");
     configValues.put("otherJoinFields", otherJoinFields);
