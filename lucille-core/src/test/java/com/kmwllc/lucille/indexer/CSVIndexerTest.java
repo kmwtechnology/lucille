@@ -118,6 +118,23 @@ public class CSVIndexerTest {
   }
 
   @Test
+  public void testUnsupportedSettingsAreRejected() {
+    for (String setting : List.of("idOverrideField: \"other_id\"", "whitelist: [\"id\"]", "blacklist: [\"id\"]", "indexOverrideField: \"index\"",
+        "deletionMarkerField: \"deleted\", deletionMarkerFieldValue: \"true\"", "deleteByFieldField: \"field\", deleteByFieldValue: \"value\"")) {
+      Config config = ConfigFactory.parseString(setting + ", csv { columns: [\"id\"], path: \"target/unused.csv\" }");
+      Exception exception = assertThrows(IllegalArgumentException.class,
+          () -> new CSVIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null)));
+      assertTrue(exception.getMessage(), exception.getMessage().contains(setting.substring(0, setting.indexOf(':'))));
+    }
+  }
+
+  @Test
+  public void testEmptyFilterListsAreAllowed() {
+    Config config = ConfigFactory.parseString("whitelist: [], blacklist: [], csv { columns: [\"id\"], path: \"target/unused.csv\" }");
+    new CSVIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null));
+  }
+
+  @Test
   public void testValidateConnection() {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/includeHeader.conf");

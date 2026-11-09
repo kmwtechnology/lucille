@@ -7,7 +7,10 @@ import static org.junit.Assert.assertTrue;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.indexer.NopIndexer;
+import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
+import com.kmwllc.lucille.message.UndeserializableRecordException;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -15,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 /**
  * Tests how the Indexer base class accounts for the failures sendToIndex returns, and how it enforces bypass.
@@ -158,6 +162,32 @@ public class IndexerBatchAccountingTest {
 
     assertFalse(indexer.validateConnection());
     assertEquals(1, indexer.connectionChecks);
+  }
+
+  @Test
+  public void testGetDestinationId() {
+    FailingIndexer noOverride = new FailingIndexer(BATCH_OF_TWO, new TestMessenger(), "noOverride", batch -> List.of());
+    FailingIndexer override = new FailingIndexer(
+        ConfigFactory.parseString("idOverrideField: \"other_id\""), new TestMessenger(), "override", batch -> List.of());
+
+    Document withField = Document.create("doc1");
+    withField.setField("other_id", "overridden");
+    Document withoutField = Document.create("doc2");
+
+    assertEquals("doc1", noOverride.getDestinationId(withField));
+    assertEquals("overridden", override.getDestinationId(withField));
+    assertEquals("doc2", override.getDestinationId(withoutField));
+  }
+
+  @Test(timeout = 60000)
+  public void testUndeserializableRecordStopsIndexer() throws Exception {
+    IndexerMessenger messenger = Mockito.mock(IndexerMessenger.class);
+    Mockito.when(messenger.pollDocToIndex()).thenThrow(new UndeserializableRecordException("Could not deserialize record", null));
+
+    new NopIndexer(ConfigFactory.empty(), new IndexerContext(messenger, false, "testing", null)).run();
+
+    Mockito.verify(messenger, Mockito.times(1)).pollDocToIndex();
+    Mockito.verify(messenger).close();
   }
 
   @Test

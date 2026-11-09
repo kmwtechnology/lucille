@@ -82,7 +82,7 @@ import com.typesafe.config.Config;
  *   <li>state.connectionString (String, Optional) : JDBC connection string. Defaults to "jdbc:h2:./state/{CONNECTOR_NAME}".</li>
  *   <li>state.jdbcUser (String, Optional) : Database username. Defaults to "".</li>
  *   <li>state.jdbcPassword (String, Optional) : Database password. Defaults to "".</li>
- *   <li>state.tableName (String, Optional) : Table name for state. Defaults to the connector name.</li>
+ *   <li>state.tableName (String, Optional) : Table name for state. Defaults to a valid SQL table name generated from the connector name: it starts with STATE_, ends with a hash of the exact connector name, and contains the name with other characters replaced by underscores (for example, connector "file" uses STATE_FILE_ followed by its hash).</li>
  *   <li>state.performDeletions (Boolean, Optional) : Delete rows for files removed from storage. Defaults to true.</li>
  *   <li>state.runsBeforeExpiration (Int, Optional) : After a file is not encountered for this number of runs, it will be marked
  *   as expired. Must be at least 1. Defaults to 1.</li>

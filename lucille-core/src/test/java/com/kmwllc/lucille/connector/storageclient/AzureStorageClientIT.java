@@ -43,7 +43,7 @@ import org.junit.Test;
  * {@code AZURITE_CONNECTION_STRING} environment variable, or the well-known Azurite dev connection string on
  * {@code localhost:10000} by default. Each test method begins with a fast reachability probe and is skipped
  * (via JUnit {@code Assume}) rather than failed when no Azurite is reachable, so {@code mvn verify} stays green
- * on machines without Docker. CI provides the Azurite service (see {@code .github/workflows/azurite-smoketest.yml}).
+ * on machines without Docker. CI provides the Azurite service (see {@code .github/workflows/smoketests.yml}).
  */
 public class AzureStorageClientIT {
 

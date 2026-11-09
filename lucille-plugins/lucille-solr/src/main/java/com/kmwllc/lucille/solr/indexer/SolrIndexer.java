@@ -156,11 +156,6 @@ public class SolrIndexer extends Indexer {
 
     for (Document doc : documents) {
 
-      // if an id override field has been specified, use its value as the id to send to solr,
-      // instead
-      // of the document's own id
-      String idOverride = getDocIdOverride(doc);
-
       // if an index override field has been specified, use its value as the solr collection to send
       // the document to,
       // instead of the default collection. Remove the field from the solr document.
@@ -170,7 +165,7 @@ public class SolrIndexer extends Indexer {
         solrDocRequestsByCollection.put(collection, new SolrDocRequests());
       }
       SolrDocRequests solrDocRequests = solrDocRequestsByCollection.get(collection);
-      String solrId = idOverride != null ? idOverride : doc.getId();
+      String solrId = getDestinationId(doc);
 
       if (isMarkedForDeletion(doc)) {
 

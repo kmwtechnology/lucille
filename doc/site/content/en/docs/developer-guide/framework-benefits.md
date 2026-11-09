@@ -162,7 +162,7 @@ You just call `publisher.publish(doc)` and the framework handles everything else
 
 **Field filtering (whitelist/blacklist).** The `getConvertedIndexerDoc()` and `getRawIndexerDoc()` methods apply the configured field filter before you see the document. The filter treats reserved fields such as `run_id` and `___skipped` like any other field, so they reach the backend unless the whitelist leaves them out or the blacklist names them. Both always omit `___children`; an indexer that sends child documents reads them from `doc.getChildren()`. You call `getConvertedIndexerDoc(doc)` (or `getRawIndexerDoc(doc)` for a Jackson-based client) and get a clean map ready for the search backend.
 
-**ID override.** `getDocIdOverride(doc)` returns the override ID if configured, or null. You check this and use it as the document ID in the search backend.
+**ID override.** `getDestinationId(doc)` returns the override ID if configured, or else the document ID. You use it as the document ID in the search backend.
 
 **Index override.** `getIndexOverride(doc)` returns the destination index/collection override if configured, or null.
 

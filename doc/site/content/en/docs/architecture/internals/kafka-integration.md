@@ -156,14 +156,20 @@ The standalone Indexer does not poll while it waits on a bulk request, so the sa
 
 ## Topic Creation
 
-The event topic is created explicitly with exactly **one partition**:
+The event topic is created explicitly with exactly **one partition**. Its replication factor and `min.insync.replicas` come from `kafka.eventTopicReplicationFactor` and `kafka.eventTopicMinInsyncReplicas`. The replication factor defaults to 1, and no `min.insync.replicas` is set unless configured. On a multi-broker cluster, set both so the event topic survives a broker loss:
 
 ```java
 public static boolean createEventTopic(Config config, String pipelineName, String runId) {
     String eventTopicName = KafkaUtils.getEventTopicName(config, pipelineName, runId);
 
-    // Single partition is critical for ordering
-    NewTopic eventTopic = new NewTopic(eventTopicName, 1, (short) 1);
+    // Single partition is critical for ordering. Replication comes from kafka.eventTopicReplicationFactor (default 1).
+    short replicationFactor = (short) (config.hasPath("kafka.eventTopicReplicationFactor")
+        ? config.getInt("kafka.eventTopicReplicationFactor") : 1);
+    NewTopic eventTopic = new NewTopic(eventTopicName, 1, replicationFactor);
+    if (config.hasPath("kafka.eventTopicMinInsyncReplicas")) {
+        eventTopic.configs(Map.of(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG,
+            String.valueOf(config.getInt("kafka.eventTopicMinInsyncReplicas"))));
+    }
 
     try (Admin kafkaAdminClient = Admin.create(props)) {
         CreateTopicsResult result = kafkaAdminClient.createTopics(List.of(eventTopic));
@@ -321,6 +327,8 @@ All Kafka settings live under the `kafka` config prefix:
 | `kafka.metadataMaxAgeMs` | Metadata cache TTL | No (default: 30000) |
 | `kafka.sourceTopic` | Override source topic name | No |
 | `kafka.eventTopic` | Override event topic name | No |
+| `kafka.eventTopicReplicationFactor` | Replication factor of the event topic Lucille creates | No (default: 1) |
+| `kafka.eventTopicMinInsyncReplicas` | `min.insync.replicas` of the event topic Lucille creates | No (default: not set) |
 | `kafka.events` | Enable/disable event production | No (default: true) |
 | `kafka.event.includeFields` | Source-document fields to copy onto events as `documentFields` (see [Enriching Events with Document Fields](#enriching-events-with-document-fields)) | No (default: none) |
 | `kafka.event.maxValuesPerField` | Max number of values copied from a multi-valued field (at least 1) | No (default: no cap) |

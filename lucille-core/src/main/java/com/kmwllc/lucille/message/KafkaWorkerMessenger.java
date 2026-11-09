@@ -53,13 +53,13 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
    *
    */
   @Override
-  public Document pollDocToProcess() {
+  public Document pollDocToProcess() throws MessengerException {
     ConsumerRecords<String, KafkaDocument> consumerRecords;
     try {
       consumerRecords = sourceConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
-      // rethrows unless configured to skip; the Worker commits the advanced position when we return null
-      deserializationErrorHandler.handleOrRethrow(e);
+      // throws unless configured to skip; the Worker commits the advanced position when we return null
+      deserializationErrorHandler.handleOrThrow(e);
       return null;
     }
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
