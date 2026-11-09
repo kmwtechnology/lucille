@@ -48,7 +48,7 @@ All distributed-mode Kafka settings belong in a top-level `kafka {}` block share
 kafka {
   bootstrapServers: "kafka1:9092,kafka2:9092"
 
-  # Consumer group ID for all Lucille Workers and Indexers
+  # Consumer group ID for Lucille Workers. Indexers use this name plus "-indexer".
   consumerGroupId: "lucille_workers"
 
   # Maximum time between polls before consumer is evicted from consumer group.
@@ -104,7 +104,7 @@ Create the following topics before starting Lucille:
 |---|---|---|---|---|
 | Source | `{pipeline}_source` | `kafka.sourceTopic` | ≥ total Worker threads across all processes | Admin |
 | Dest | `{pipeline}_dest` | — (not overridable) | ≥ number of Indexer processes (typically 1) | Admin |
-| Event | `{pipeline}_event_{runId}` | `kafka.eventTopic` | Exactly 1 (required for ordering) | Lucille creates this automatically via Admin API |
+| Event | `{pipeline}_event_{runId}` | `kafka.eventTopic` | Exactly 1 (required for ordering) | Lucille creates this automatically via Admin API, with the broker's default replication factor unless `kafka.eventTopicReplicationFactor` is set |
 | Fail | `{pipeline}_fail` | — (not overridable) | ≥ 1 | Admin (only needed if `worker.maxRetries` is configured) |
 
 **Example** — for a pipeline named `my-pipeline` with 8 Worker threads:
