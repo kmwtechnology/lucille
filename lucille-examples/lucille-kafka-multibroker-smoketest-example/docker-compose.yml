@@ -1,7 +1,8 @@
 name: lucille-kafka-multibroker-smoketest
 
-# Three-broker KRaft cluster. Every broker is both a broker and a controller. The topics are replicated 3 ways with
-# min.insync.replicas=2, so the cluster keeps accepting acks=all writes after one broker is stopped.
+# Three-broker KRaft cluster. Every broker is both a broker and a controller. The pipeline topics, the event topic and
+# the internal topics are replicated 3 ways with min.insync.replicas=2, so the cluster keeps accepting acks=all writes
+# after one broker is stopped.
 #
 # Two listeners per broker:
 #   INTERNAL (kafka-N:9092) for broker-to-broker traffic, and for commands run inside the containers.
@@ -18,8 +19,10 @@ x-broker-common: &broker-common
     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
     KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
     KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
-    KAFKA_DEFAULT_REPLICATION_FACTOR: 3
-    KAFKA_MIN_INSYNC_REPLICAS: 2
+    # KAFKA_DEFAULT_REPLICATION_FACTOR and KAFKA_MIN_INSYNC_REPLICAS are left at Kafka's defaults of 1. The script sets
+    # the pipeline topics' replication when it creates them, and Lucille sets the event topic's from
+    # kafka.eventTopicReplicationFactor and kafka.eventTopicMinInsyncReplicas. With broker defaults of 1, the verifier's
+    # check that the event topic has 3 replicas and min.insync.replicas=2 passes only if Lucille applied those settings.
 
 services:
   kafka-1:

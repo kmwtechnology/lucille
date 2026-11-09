@@ -227,7 +227,7 @@ If chunks stay attached to the parent (no `EmitNestedChildren`), they are indexe
 - **Solr** indexes them as nested child documents. Deleting the parent by ID deletes the whole block, and re-indexing the parent replaces its children.
 - **OpenSearch and Elasticsearch** with `childDocumentsField` store them in a field of the parent document, so deleting or re-indexing the parent deletes or replaces them.
 
-An ordinary delete by ID (`deletionMarkerField`) on the parent, including a FileConnector tombstone, is enough.
+An ordinary delete by ID (`deletionMarker`) on the parent, including a FileConnector tombstone, is enough.
 
 ### Emitted chunks: deleting a parent's chunks
 
@@ -276,10 +276,14 @@ pipelines: [
 ]
 
 indexer {
-  deletionMarkerField: "is_deleted"
-  deletionMarkerFieldValue: "true"
-  deleteByFieldField: "delete_by_field"
-  deleteByFieldValue: "delete_by_value"
+  deletionMarker {
+    field: "is_deleted"
+    value: "true"
+  }
+  deleteByQuery {
+    fieldNameField: "delete_by_field"
+    valueField: "delete_by_value"
+  }
 
   opensearch {
     url: "https://localhost:9200"

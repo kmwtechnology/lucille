@@ -99,16 +99,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   }
 
   public void sendFailed(Document document) throws MessengerException {
-    ProducerRecord<String, Document> producerRecord =
-        new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
-    try {
-      kafkaDocumentProducer.send(producerRecord).get();
-    } catch (ExecutionException e) {
-      throw KafkaUtils.toMessengerException("Sending document " + document.getId() + " to the fail topic", e);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new MessengerException("Sending document " + document.getId() + " to the fail topic was interrupted", e);
-    }
+    KafkaUtils.sendToFailTopic(kafkaDocumentProducer, pipelineName, document);
   }
 
   @Override

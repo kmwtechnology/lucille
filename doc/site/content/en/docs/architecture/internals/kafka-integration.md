@@ -123,13 +123,18 @@ This provides **ordering guarantees**: all messages with the same key go to the 
 
 ## Consumer Group Management
 
-Workers and Indexers join consumer groups to enable parallel consumption:
+Each kind of component has its own consumer group, so that one joining or leaving doesn't rebalance the others:
 
-```java
-consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, config.getString("kafka.consumerGroupId"));
-```
+| Component | Topic | Consumer group |
+|---|---|---|
+| Worker | Source | `kafka.consumerGroupId` |
+| Indexer (distributed mode) | Destination | `<kafka.consumerGroupId>-indexer` |
+| WorkerIndexer (hybrid mode) | Source | `kafka.consumerGroupId` |
+| Publisher | Event | None: it is assigned the event topic's single partition directly |
 
-All Workers for a pipeline share the same consumer group. Kafka distributes partitions among group members, so adding more Workers increases parallelism (up to the number of partitions).
+If the group ID comes from `kafka.consumerPropertiesPath` or `kafka.consumer`, the Indexer's group is that ID plus `-indexer`. On a cluster with ACLs, allow both groups.
+
+Members of a group share partitions, so adding more Workers increases parallelism (up to the number of partitions), and likewise for Indexers on the destination topic.
 
 Each consumer gets a unique client ID to avoid Kafka warnings:
 ```java
@@ -156,20 +161,15 @@ The standalone Indexer does not poll while it waits on a bulk request, so the sa
 
 ## Topic Creation
 
-The event topic is created explicitly with exactly **one partition**. Its replication factor and `min.insync.replicas` come from `kafka.eventTopicReplicationFactor` and `kafka.eventTopicMinInsyncReplicas`. The replication factor defaults to 1, and no `min.insync.replicas` is set unless configured. On a multi-broker cluster, set both so the event topic survives a broker loss:
+The event topic is created explicitly with exactly **one partition**. Its replication factor and `min.insync.replicas` come from `kafka.eventTopicReplicationFactor` and `kafka.eventTopicMinInsyncReplicas`. Both default to the broker's defaults (`default.replication.factor` and `min.insync.replicas`). On a multi-broker cluster whose defaults are too low for the event topic to survive a broker loss, set both:
 
 ```java
 public static boolean createEventTopic(Config config, String pipelineName, String runId) {
     String eventTopicName = KafkaUtils.getEventTopicName(config, pipelineName, runId);
 
-    // Single partition is critical for ordering. Replication comes from kafka.eventTopicReplicationFactor (default 1).
-    short replicationFactor = (short) (config.hasPath("kafka.eventTopicReplicationFactor")
-        ? config.getInt("kafka.eventTopicReplicationFactor") : 1);
-    NewTopic eventTopic = new NewTopic(eventTopicName, 1, replicationFactor);
-    if (config.hasPath("kafka.eventTopicMinInsyncReplicas")) {
-        eventTopic.configs(Map.of(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG,
-            String.valueOf(config.getInt("kafka.eventTopicMinInsyncReplicas"))));
-    }
+    // Single partition is critical for ordering
+    // The broker's default replication factor, unless kafka.eventTopicReplicationFactor is set
+    NewTopic eventTopic = newEventTopic(config, eventTopicName);
 
     try (Admin kafkaAdminClient = Admin.create(props)) {
         CreateTopicsResult result = kafkaAdminClient.createTopics(List.of(eventTopic));
@@ -298,19 +298,13 @@ See [Streaming Mode Configuration]({{< relref "docs/operations/deployment" >}}) 
 
 ## The Fail Topic (Dead Letter Queue)
 
-Documents that exceed retry limits are sent to the fail topic:
+The fail topic (`{pipeline}_fail`) acts as a dead letter queue. Documents here can be inspected, fixed, and replayed. Documents are sent to it in three cases:
 
-```java
-// In KafkaWorkerMessenger:
-public void sendFailed(Document document) throws Exception {
-    ProducerRecord<String, Document> producerRecord =
-        new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
-    kafkaDocumentProducer.send(producerRecord).get();
-    kafkaDocumentProducer.flush();
-}
-```
+- A Worker sends a document whose retry count (tracked in ZooKeeper) exceeds `worker.maxRetries`.
+- With `worker.sendFailedDocsToTopic`, a Worker copies a document that fails during pipeline processing.
+- With `indexer.sendFailedDocsToTopic`, an Indexer copies a document that fails to index.
 
-The fail topic (`{pipeline}_fail`) acts as a dead letter queue. Documents here can be inspected, fixed, and replayed. The Worker sends a document to the fail topic when its retry count (tracked in ZooKeeper) exceeds `worker.maxRetries`.
+Each send waits for the broker to acknowledge the record. See [The Fail Topic]({{< relref "docs/architecture/internals/error-handling#the-fail-topic-dead-letter-queue" >}}) for the failure metadata stamped on each document and for what happens when the fail topic can't take one.
 
 ## Kafka Configuration Options
 
@@ -319,22 +313,22 @@ All Kafka settings live under the `kafka` config prefix:
 | Config Key | Purpose | Required |
 |-----------|---------|----------|
 | `kafka.bootstrapServers` | Kafka broker addresses | Yes (unless using property files) |
-| `kafka.securityProtocol` | Security protocol (PLAINTEXT, SSL, SASL_SSL, etc.) | No |
-| `kafka.consumerGroupId` | Consumer group for Workers/Indexers | Yes |
+| `kafka.securityProtocol` | Security protocol (PLAINTEXT, SSL, SASL_SSL, etc.) for consumers, producers and the admin client, unless a property file is used for that client | No |
+| `kafka.consumerGroupId` | Consumer group for Workers. Indexers use this name plus `-indexer` | Yes |
 | `kafka.maxPollIntervalMs` | Max time between polls before rebalance | Yes |
 | `kafka.pollIntervalMs` | How long each consumer poll blocks waiting for records | No (default: 2000) |
 | `kafka.maxRequestSize` | Max message size in bytes | Yes |
 | `kafka.metadataMaxAgeMs` | Metadata cache TTL | No (default: 30000) |
 | `kafka.sourceTopic` | Override source topic name | No |
 | `kafka.eventTopic` | Override event topic name | No |
-| `kafka.eventTopicReplicationFactor` | Replication factor of the event topic Lucille creates | No (default: 1) |
-| `kafka.eventTopicMinInsyncReplicas` | `min.insync.replicas` of the event topic Lucille creates | No (default: not set) |
+| `kafka.eventTopicReplicationFactor` | Replication factor of the event topic Lucille creates | No (default: the broker's default) |
+| `kafka.eventTopicMinInsyncReplicas` | `min.insync.replicas` of the event topic Lucille creates | No (default: the broker's default) |
 | `kafka.events` | Enable/disable event production | No (default: true) |
 | `kafka.event.includeFields` | Source-document fields to copy onto events as `documentFields` (see [Enriching Events with Document Fields](#enriching-events-with-document-fields)) | No (default: none) |
 | `kafka.event.maxValuesPerField` | Max number of values copied from a multi-valued field (at least 1) | No (default: no cap) |
 | `kafka.event.maxValueLength` | Max length in characters of any copied string value (at least 1); fields with longer values are skipped | No (default: 1024) |
 | `kafka.documentSerializer` | Custom serializer class | No |
-| `kafka.documentDeserializer` | Custom deserializer class | No |
+| `kafka.documentDeserializer` | Custom deserializer class. It must return `KafkaDocument` instances and accept Lucille's native Document JSON, the format Workers publish to the destination topic. Extend `KafkaDocumentDeserializer` or wrap its result | No |
 | `kafka.consumerPropertiesPath` | Path to external consumer properties | No |
 | `kafka.producerPropertiesPath` | Path to external producer properties | No |
 | `kafka.adminPropertiesPath` | Path to external admin properties | No |
@@ -445,7 +439,7 @@ Lucille treats Kafka communication failures as non-recoverable. If the Kafka pro
 - A run that has lost documents to a broken messaging path cannot produce a correct result. Continuing would silently drop data.
 - Simplicity: the framework does not attempt partial recovery or compensating transactions. A failed run is restarted from the beginning.
 
-There is one exception: a record the broker rejects as too large (`RecordTooLargeException`, raised when a serialized document exceeds `kafka.maxRequestSize` or the topic's `max.message.bytes`). That failure belongs to the document, not to the messaging path, and the producer can still send the next record. When it happens on one of the worker's document sends (forwarding a processed document to the indexer, or sending a document to the dead-letter queue), the worker fails that document with a FAIL event, commits its offset, and continues. Every other failure, on any send path (publishing documents, forwarding processed documents to the indexer, sending events, and sending to the dead-letter queue), aborts the run.
+There are two exceptions. The first is a record the broker rejects as too large (`RecordTooLargeException`, raised when a serialized document exceeds `kafka.maxRequestSize` or the topic's `max.message.bytes`). That failure belongs to the document, not to the messaging path, and the producer can still send the next record. When it happens on one of the worker's document sends (forwarding a processed document to the indexer, or sending a document to the dead-letter queue), the worker fails that document with a FAIL event, commits its offset, and continues. The second is an Indexer's copy of a failed document to the fail topic, which is best-effort: if that copy fails for any reason, the Indexer logs it and goes on, since the document's FAIL event and the `FailedDocuments` log still record it. See [The Fail Topic]({{< relref "docs/architecture/internals/error-handling#the-fail-topic-dead-letter-queue" >}}). Every other failure, on any send path (publishing documents, forwarding processed documents to the indexer, sending events, and the Worker's sends to the dead-letter queue), aborts the run.
 
 ### Asynchronous vs. Synchronous Send Paths
 
@@ -455,7 +449,7 @@ Not all send paths use the same strategy. The choice depends on volume and wheth
 |------|----------|-----------|
 | `KafkaPublisherMessenger.sendForProcessing` | **Asynchronous** — fire-and-forget with a callback; flushed at end of run | High volume. The publisher can emit thousands of documents per second. Blocking on each broker round trip would cap throughput at ~1 doc per RTT. |
 | `KafkaWorkerMessenger.sendForIndexing` | **Synchronous** — `send().get()` | The source offset must not be committed until the processed document is durably on the dest topic. A synchronous ack guarantees this ordering. |
-| `KafkaWorkerMessenger.sendFailed` | **Synchronous** — `send().get()` | Rare path (retry count exceeded). One record per exhausted-retry document; async provides no meaningful benefit. |
+| Worker/Indexer `sendFailed` | **Synchronous** — `send().get()` | Rare path: only failed documents are sent, so async provides no meaningful benefit. The Worker commits the document's offset only after the copy is acknowledged. |
 | Worker/Indexer `sendEvent` (single) | **Synchronous** — `send().get()` | Used for failure events and per-document cases. Low volume; per-document error attribution is straightforward when each send either succeeds or throws immediately. |
 | Indexer `sendEvents` (batch) | **Asynchronous** — fire all sends with callbacks, flush once at end | After a successful index batch, completion events are sent for all documents in the batch. Sending them one-at-a-time with a broker round trip per event would add latency proportional to batch size. |
 

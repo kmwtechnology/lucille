@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.message;
 
+import com.kmwllc.lucille.core.Document;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.time.Duration;
@@ -16,6 +17,7 @@ import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.junit.Test;
 
+import java.util.Map;
 import java.util.Properties;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -25,6 +27,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -366,5 +369,91 @@ public class KafkaUtilsTest {
     assertEquals(Duration.ofMillis(150), KafkaUtils.getPollInterval(ConfigFactory.parseString("kafka.pollIntervalMs: 150")));
     assertThrows(IllegalArgumentException.class,
         () -> KafkaUtils.getPollInterval(ConfigFactory.parseString("kafka.pollIntervalMs: 0")));
+  }
+
+  @Test
+  public void testWorkerFailTopicEnabled() {
+    // Neither the fail-topic feature nor retry tracking is configured: no document can reach the fail topic.
+    assertFalse(KafkaUtils.workerFailTopicEnabled(ConfigFactory.empty()));
+
+    // The pipeline-processing failure path is enabled, so failed documents are routed to the fail topic.
+    assertTrue(KafkaUtils.workerFailTopicEnabled(
+        ConfigFactory.parseString("worker.sendFailedDocsToTopic: true")));
+
+    // sendFailedDocsToTopic is explicitly off: disabled.
+    assertFalse(KafkaUtils.workerFailTopicEnabled(
+        ConfigFactory.parseString("worker.sendFailedDocsToTopic: false")));
+
+    // Retry tracking is on; the retry-exceeded path always routes to the fail topic.
+    assertTrue(KafkaUtils.workerFailTopicEnabled(
+        ConfigFactory.parseString("worker.maxRetries: 2")));
+
+    // Both configured.
+    assertTrue(KafkaUtils.workerFailTopicEnabled(
+        ConfigFactory.parseString("worker { sendFailedDocsToTopic: true, maxRetries: 2 }")));
+  }
+
+  @Test
+  public void testIndexerFailTopicEnabled() {
+    assertFalse(KafkaUtils.indexerFailTopicEnabled(ConfigFactory.empty()));
+    assertTrue(KafkaUtils.indexerFailTopicEnabled(
+        ConfigFactory.parseString("indexer.sendFailedDocsToTopic: true")));
+    assertFalse(KafkaUtils.indexerFailTopicEnabled(
+        ConfigFactory.parseString("indexer.sendFailedDocsToTopic: false")));
+  }
+
+  @Test
+  public void testSendToFailTopicRequiresTheFailTopicToBeEnabled() {
+    assertThrows(IllegalStateException.class, () -> KafkaUtils.sendToFailTopic(null, "pipeline1", Document.create("doc1")));
+  }
+
+  @Test
+  public void testAdminPropsUseSecurityProtocol() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA + "kafka.securityProtocol: \"SSL\"");
+    assertEquals("SSL", KafkaUtils.createAdminProps(config).get("security.protocol"));
+
+    Config noProtocol = ConfigFactory.parseString(BASE_KAFKA);
+    assertFalse(KafkaUtils.createAdminProps(noProtocol).containsKey("security.protocol"));
+
+    Config overridden = ConfigFactory.parseString(BASE_KAFKA + "kafka.securityProtocol: \"SSL\", kafka.admin { \"security.protocol\": \"SASL_SSL\" }");
+    assertEquals("SASL_SSL", KafkaUtils.createAdminProps(overridden).get("security.protocol"));
+  }
+
+  @Test
+  public void testEventTopicUsesBrokerDefaultReplication() {
+    NewTopic topic = KafkaUtils.newEventTopic(ConfigFactory.parseString(BASE_KAFKA), "events");
+    assertEquals("events", topic.name());
+    assertEquals(1, topic.numPartitions());
+    // -1 tells the broker to apply its default
+    assertEquals(-1, topic.replicationFactor());
+    assertNull(topic.configs());
+  }
+
+  @Test
+  public void testEventTopicReplicationSettings() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA + "kafka.eventTopicReplicationFactor: 3, kafka.eventTopicMinInsyncReplicas: 2");
+    NewTopic topic = KafkaUtils.newEventTopic(config, "events");
+    assertEquals(1, topic.numPartitions());
+    assertEquals(3, topic.replicationFactor());
+    assertEquals(Map.of("min.insync.replicas", "2"), topic.configs());
+  }
+
+  @Test
+  public void testIndexerHasItsOwnConsumerGroup() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA);
+    String workersGroup = KafkaUtils.createConsumerProps(config, "client").getProperty("group.id");
+    assertEquals(workersGroup + "-indexer", KafkaUtils.createIndexerConsumerProps(config, "client").getProperty("group.id"));
+
+    // however the Workers' group was set
+    Config overridden = ConfigFactory.parseString(BASE_KAFKA + "kafka.consumer { \"group.id\": \"other\" }");
+    assertEquals("other-indexer", KafkaUtils.createIndexerConsumerProps(overridden, "client").getProperty("group.id"));
+  }
+
+  @Test
+  public void testEventConsumerJoinsNoGroupAndCommitsNothing() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA + "kafka.consumer { \"group.id\": \"other\" }");
+    Properties props = KafkaUtils.createEventConsumerProps(config, "client");
+    assertFalse(props.containsKey("group.id"));
+    assertEquals("false", props.get("enable.auto.commit"));
   }
 }

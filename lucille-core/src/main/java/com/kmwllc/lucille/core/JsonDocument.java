@@ -1158,4 +1158,14 @@ public sealed class JsonDocument implements Document permits KafkaDocument {
   public void removeChildren() {
     data.remove(CHILDREN_FIELD);
   }
+
+  /**
+   * Records why and where this document failed, before it is sent to the fail topic. These are reserved fields, so they
+   * are written directly rather than through the field setters. Any metadata from an earlier failure is replaced.
+   */
+  void setFailureMetadata(String reason, String component, Instant time) {
+    data.put(FAILURE_REASON_FIELD, reason);
+    data.put(FAILURE_COMPONENT_FIELD, component);
+    data.put(FAILURE_TIME_FIELD, DateTimeFormatter.ISO_INSTANT.format(time));
+  }
 }

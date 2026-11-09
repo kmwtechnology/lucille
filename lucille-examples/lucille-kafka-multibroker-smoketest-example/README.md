@@ -24,7 +24,9 @@ would have tested nothing.
 
 `docker-compose.yml` runs three KRaft brokers, each acting as both broker and controller. Their settings:
 
-- Replication factor 3 by default, with `min.insync.replicas=2`, including for the offsets and transaction topics.
+- Replication factor 3 with `min.insync.replicas=2` for the offsets and transaction topics. The broker-wide defaults
+  (`default.replication.factor`, `min.insync.replicas`) stay at Kafka's default of 1, so that the test checks the
+  replication Lucille sets on the event topic rather than one the brokers would apply anyway.
 - Two listeners per broker. `INTERNAL` (`kafka-N:9092`) is for broker-to-broker traffic and for commands run inside the
   containers. `EXTERNAL` (`localhost:1909N`) is what Lucille uses, since Lucille runs on the host.
 
@@ -36,7 +38,8 @@ in `conf/kafka-multibroker.conf`:
 - `kafka.eventTopicMinInsyncReplicas: 2`
 - `kafka.producer.acks: all`
 
-Without the first two settings, Lucille creates the event topic with one replica. The verifier fails on that.
+Without the first two settings, Lucille creates the event topic with the broker defaults, one replica and
+`min.insync.replicas=1`. The verifier fails on that.
 
 ## Running it
 
