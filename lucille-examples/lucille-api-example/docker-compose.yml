@@ -10,8 +10,8 @@ services:
       - output:/output
 
   # Built from the same Dockerfile that release-to-docker.yml publishes as kmwtechnology/lucille-api.
-  # Requires target/lucille-api-plugin.jar, built with `mvn clean install -Pshaded-plugin-jars`, and
-  # lucille-admin-ui/target/lucille-admin-ui.jar, built from lucille-admin-ui/pom.xml.
+  # Requires target/lucille-api-plugin.jar and lucille-admin-ui/target/lucille-admin-ui.jar,
+  # built with `mvn clean install -Pshaded-plugin-jars -Padmin-ui`.
   api:
     build:
       context: ../../lucille-plugins/lucille-api

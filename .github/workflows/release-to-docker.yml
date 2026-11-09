@@ -45,12 +45,9 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # -Pshaded-plugin-jars builds the shaded lucille-api-plugin.jar
+      # -Pshaded-plugin-jars builds the shaded lucille-api-plugin.jar; -Padmin-ui adds the UI jar
       - name: Build with Maven (No Tests)
-        run: mvn -B package --file pom.xml -DskipTests -Pshaded-plugin-jars
-
-      - name: Build the admin UI jar
-        run: mvn -B package --file lucille-plugins/lucille-api/lucille-admin-ui/pom.xml -DskipTests
+        run: mvn -B package --file pom.xml -DskipTests -Pshaded-plugin-jars -Padmin-ui
 
       - name: Verify the admin UI jar
         run: |

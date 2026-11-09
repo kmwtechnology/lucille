@@ -17,8 +17,7 @@
   <description>
     React/Vite admin UI for the Lucille API. Built via frontend-maven-plugin and packaged (under
     admin/) into a resource-only jar. lucille-api serves it at /admin when this jar is on its classpath.
-    Not part of the main reactor; build it directly with
-    mvn -f lucille-plugins/lucille-api/lucille-admin-ui/pom.xml package
+    Only part of the build when the admin-ui profile is active.
   </description>
 
   <properties>
@@ -31,13 +30,48 @@
     <maven.source.skip>true</maven.source.skip>
     <jacoco.skip>true</jacoco.skip>
     <maven.test.skip>true</maven.test.skip>
-    <maven.deploy.skip>true</maven.deploy.skip>
-    <maven.install.skip>false</maven.install.skip>
   </properties>
 
   <build>
     <finalName>lucille-admin-ui</finalName>
     <plugins>
+      <!-- Central requires sources and javadoc jars; this module has no Java, so package the UI source and README. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>sources-jar</id>
+            <phase>package</phase>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+            <configuration>
+              <classifier>sources</classifier>
+              <classesDirectory>${project.basedir}</classesDirectory>
+              <includes>
+                <include>src/**</include>
+                <include>package.json</include>
+              </includes>
+            </configuration>
+          </execution>
+          <execution>
+            <id>javadoc-jar</id>
+            <phase>package</phase>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+            <configuration>
+              <classifier>javadoc</classifier>
+              <classesDirectory>${project.basedir}</classesDirectory>
+              <includes>
+                <include>README.md</include>
+              </includes>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
       <!-- Package the Vite dist/ output into the jar under admin/. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

@@ -63,8 +63,7 @@ the UI, so no local Node is needed), then start the API with both on the classpa
 ships with auth disabled, so no credentials are needed.
 
 ```bash
-mvn -B -Pshaded-plugin-jars -pl lucille-plugins/lucille-api -am package -DskipTests
-mvn -B -f lucille-plugins/lucille-api/lucille-admin-ui/pom.xml package -DskipTests
+mvn -B -Pshaded-plugin-jars -Padmin-ui -pl lucille-plugins/lucille-api,lucille-plugins/lucille-api/lucille-admin-ui -am package -DskipTests
 cd lucille-plugins/lucille-api
 java -cp 'target/lucille-api-plugin.jar:lucille-admin-ui/target/lucille-admin-ui.jar' \
   com.kmwllc.lucille.api.APIApplication server conf/api.yml
@@ -80,7 +79,7 @@ Because the UI and API are now the same origin, the app's `/v1` calls hit the ru
 (no proxy involved). Deep links and refreshes such as `http://localhost:8080/admin/configs/<id>`
 work via the servlet's `index.html` fallback.
 
-To rebuild after a UI change, re-run the second command and restart the API.
+To rebuild after a UI change, re-run the build command and restart the API.
 
 ## Scripts
 
@@ -123,13 +122,13 @@ Shared setup is in `src/test/setup.ts`; reusable helpers (a `renderWithRouter` w
 
 ## Build as part of Lucille
 
-The UI is a Maven module (`lucille-admin-ui`) that is **not part of the main build**. A plain
-`mvn verify` does not build it, so Java-only work needs no Node toolchain. Build it directly from its
-pom (installs the pinned Node automatically):
+The UI is a Maven module (`lucille-admin-ui`) that is **off by default**. A plain `mvn verify` does
+not build it, so Java-only work needs no Node toolchain. Add `-Padmin-ui` to include it in the build
+(installs the pinned Node automatically):
 
 ```bash
 # from the repository root
-mvn -B -f lucille-plugins/lucille-api/lucille-admin-ui/pom.xml verify
+mvn -B -Padmin-ui -pl lucille-plugins/lucille-api/lucille-admin-ui verify
 ```
 
 This runs, in order: install Node 24.10.0 locally, `npm ci`, a non-blocking `npm audit`,
