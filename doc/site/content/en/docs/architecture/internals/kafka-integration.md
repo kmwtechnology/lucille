@@ -356,9 +356,9 @@ kafka.producer {
 
 Properties declared here, quoted or not, override the defaults Lucille sets on the client, such as `auto.offset.reset`
 and `max.poll.interval.ms` for consumers. A few values are fixed by Lucille and cannot be changed this way: the value
-serializer and deserializer, `enable.idempotence` on producers, and `enable.auto.commit`, which Lucille sets to `true`
-on the consumer that reads the event topic and requires to be `false` on the consumers that read documents (a config
-that sets it to `true` fails at startup).
+serializer and deserializer, `enable.idempotence` on producers, and `enable.auto.commit`, which Lucille sets to `false`
+on the consumer that reads the event topic (it joins no group and commits nothing) and requires to be `false` on the
+consumers that read documents (a config that sets it to `true` fails at startup).
 
 Setting one property both ways with different values is an error. Keys are passed through to the client as given, so
 serializers, interceptors, and other plugins can read their own; the Kafka client logs any key it does not use.
