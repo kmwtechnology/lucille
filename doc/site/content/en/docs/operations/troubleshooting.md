@@ -74,7 +74,7 @@ Document problem = docs.stream()
     .findFirst().orElse(null);
 ```
 
-**Consume the Kafka fail topic (distributed mode).** Documents that exceeded `worker.maxRetries` are sent to the `{pipeline}_fail` topic with their full serialized content. Consume the topic to inspect the document.
+**Consume the Kafka fail topic (distributed or Hybrid mode).** Documents that exceeded `worker.maxRetries` are sent to the `{pipeline}_fail` topic with their full serialized content, and so are documents that fail in a Worker or Indexer with `sendFailedDocsToTopic` set. Each carries failure metadata fields (`___failure_reason`, `___failure_component`, `___failure_time`). Consume the topic to inspect the document. See [The Fail Topic]({{< relref "docs/architecture/internals/error-handling#the-fail-topic-dead-letter-queue" >}}).
 
 ### Step 4: Fix and verify
 

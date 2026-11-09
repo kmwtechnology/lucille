@@ -26,7 +26,9 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.RecordTooLargeException;
@@ -373,6 +375,43 @@ public class KafkaUtils {
 
   public static String getFailTopicName(String pipelineName) {
     return pipelineName + "_fail";
+  }
+
+  /**
+   * Whether a Worker running with the given config can send documents to the fail topic: when
+   * worker.sendFailedDocsToTopic is set, or when worker.maxRetries is, since a document that exhausts its retries always
+   * goes there. A messenger only needs a document producer for the fail topic in those cases.
+   */
+  public static boolean workerFailTopicEnabled(Config config) {
+    return ConfigUtils.getBooleanOrDefault(config, "worker.sendFailedDocsToTopic", false) || config.hasPath("worker.maxRetries");
+  }
+
+  /**
+   * Whether an Indexer running with the given config can send documents to the fail topic.
+   */
+  public static boolean indexerFailTopicEnabled(Config config) {
+    return ConfigUtils.getBooleanOrDefault(config, "indexer.sendFailedDocsToTopic", false);
+  }
+
+  /**
+   * Sends the document to the pipeline's fail topic, blocking until the broker acknowledges it so that the write is
+   * durable before the caller goes on to commit the document's offset.
+   */
+  static void sendToFailTopic(Producer<String, Document> producer, String pipelineName, Document document)
+      throws MessengerException {
+    if (producer == null) {
+      throw new IllegalStateException("Sending document " + document.getId() + " to the fail topic, which is not enabled");
+    }
+    ProducerRecord<String, Document> producerRecord =
+        new ProducerRecord<>(getFailTopicName(pipelineName), document.getId(), document);
+    try {
+      producer.send(producerRecord).get();
+    } catch (ExecutionException e) {
+      throw toMessengerException("Sending document " + document.getId() + " to the fail topic", e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Sending document " + document.getId() + " to the fail topic was interrupted", e);
+    }
   }
 
   public static void validateAtMostOneRecord(ConsumerRecords<?, ?> consumerRecords) {

@@ -24,6 +24,7 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
   private final List<Event> savedEventMessages = Collections.synchronizedList(new ArrayList<>());
   private final List<Document> savedSourceMessages = Collections.synchronizedList(new ArrayList<>());
   private final List<Document> savedDestMessages = Collections.synchronizedList(new ArrayList<>());
+  private final List<Document> savedFailedMessages = Collections.synchronizedList(new ArrayList<>());
 
   public TestMessenger() {
     this.messenger = new LocalMessenger();
@@ -56,6 +57,7 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
 
   @Override
   public void sendFailed(Document document) throws MessengerException {
+    savedFailedMessages.add(document);
     messenger.sendFailed(document);
   }
 
@@ -135,6 +137,13 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
    */
   public List<Document> getDocsSentForIndexing() {
     return savedDestMessages;
+  }
+
+  /**
+   * @return the documents sent to the fail topic.
+   */
+  public List<Document> getDocsSentToFailTopic() {
+    return savedFailedMessages;
   }
 
 }
