@@ -126,7 +126,7 @@ Higher-dimensional vectors may hit the 2MB limit at counts lower than 1000. If t
 
 ## Deletion
 
-Deletion is by ID only (uses `deletionMarker`). `deleteByQuery` is ignored.
+Deletion is by ID only (uses `deletionMarker`). Setting `deleteByQuery` fails at startup.
 
 When `namespaces` is configured, deletion is issued to all configured namespaces; otherwise to Pinecone's default namespace. Within a batch, if the same document ID is both uploaded and deleted, the last occurrence wins. Deletes are sent before uploads.
 

@@ -27,6 +27,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -58,13 +59,6 @@ public class WeaviateIndexer extends Indexer {
   public WeaviateIndexer(Config config, IndexerContext context, WeaviateClient client) {
     super(config, context);
 
-    if (getDeletionMarkerField() != null) {
-      log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be indexed as regular docs");
-    }
-    if (getIndexOverrideField() != null) {
-      throw new IllegalArgumentException("indexer.indexOverrideField is not supported by WeaviateIndexer.");
-    }
-
     this.weaviateClassName = ConfigUtils.getStringOrDefault(config, "weaviate.className", "Document");
     this.idDestinationName = ConfigUtils.getStringOrDefault(config, "weaviate.idDestinationName", "id_original");
 
@@ -78,6 +72,12 @@ public class WeaviateIndexer extends Indexer {
 
   @Override
   protected String getIndexerConfigKey() { return "weaviate"; }
+
+  // a document marked for deletion would otherwise be indexed
+  @Override
+  protected Set<String> getUnsupportedSettings() {
+    return Set.of("indexOverrideField", "deletionMarker", "deleteByQuery");
+  }
 
   private static WeaviateClient getClient(Config config, boolean bypass) {
     if (bypass) {
@@ -124,11 +124,11 @@ public class WeaviateIndexer extends Indexer {
         // (indexer.idOverrideField, when configured and present, supplies the id written to Weaviate)
         Map<String, Object> docMap = getConvertedIndexerDoc(doc);
         docMap.remove(Document.ID_FIELD);
-        String override = getDocIdOverride(doc);
-        docMap.put(idDestinationName, override != null ? override : doc.getId());
+        String destinationId = getDestinationId(doc);
+        docMap.put(idDestinationName, destinationId);
 
         // set id and class name
-        String uuidForDoc = generateDocumentUUID(override != null ? override : doc.getId());
+        String uuidForDoc = generateDocumentUUID(destinationId);
         WeaviateObjectBuilder objectBuilder = WeaviateObject.builder()
             .className(weaviateClassName)
             .id(uuidForDoc);

@@ -98,9 +98,9 @@ The generic settings and the backend block are validated when the indexer is con
 
 `includeFields` and `excludeFields` are applied **at indexing time**, not during pipeline processing. Stages see all fields on a document; only the Indexer strips fields before sending to the backend. When both are set, a field is sent only if it is in `includeFields` and not in `excludeFields`. Dropped documents never reach the Indexer.
 
-The filter applies to every top-level field, including `id` and `run_id`. `run_id` is sent as a regular field unless you add it to `excludeFields` (or leave it out of `includeFields`). For the OpenSearch and Elasticsearch indexers, filtering `id` out removes it from the document body only; the destination ID is still set from `id` or `idOverrideField`. The Solr indexer sends the document with no `id` field, even when `idOverrideField` is set. The filter is also applied to each child document.
+The filter applies to every top-level field, including `id` and `run_id`. `run_id` is sent as a regular field unless you add it to `excludeFields` (or leave it out of `includeFields`). For the OpenSearch and Elasticsearch indexers, filtering `id` out removes it from the document body only; the destination ID is still set from `id` or `idOverrideField`. The Solr indexer always sends the `id` field, set from `idOverrideField` or `id`, because Solr needs it on every document. The Weaviate indexer always writes the ID to its `idDestinationName` property. The filter is also applied to each child document.
 
-The Solr, OpenSearch, Elasticsearch, Pinecone, and Weaviate indexers apply `includeFields`, `excludeFields`, and `idOverrideField`. The Pinecone indexer filters before selecting `metadataFields` and writes the `idOverrideField` value as the vector ID; the Weaviate indexer writes it to `idDestinationName` and derives the object UUID from it. The CSV indexer ignores all three.
+The Solr, OpenSearch, Elasticsearch, Pinecone, and Weaviate indexers apply `includeFields`, `excludeFields`, and `idOverrideField`. The Pinecone indexer filters before selecting `metadataFields` and writes the `idOverrideField` value as the vector ID; the Weaviate indexer writes it to `idDestinationName` and derives the object UUID from it. The CSV indexer fails at startup if any of the three is set, because `columns` decides what it writes.
 
 `___children` is never sent as a regular field. The Solr indexer sends children as nested child documents; the OpenSearch and Elasticsearch indexers embed them in `childDocumentsField` when it is set, and otherwise skip them with a warning. Children of children are dropped by all three. The Pinecone and Weaviate indexers do not send children.
 
@@ -126,7 +126,7 @@ indexer {
 }
 ```
 
-Deletion is performed by the Solr, OpenSearch, and Elasticsearch indexers. The Pinecone indexer supports delete by ID only. The CSV indexer does not support deletion: it logs a warning and writes documents marked for deletion as regular rows. The Weaviate indexer likewise logs a warning and indexes them as regular documents.
+Deletion is performed by the Solr, OpenSearch, and Elasticsearch indexers. The Pinecone indexer supports delete by ID only, and fails at startup if `deleteByQuery` is set. The CSV and Weaviate indexers do not support deletion, and fail at startup if `deletionMarker` or `deleteByQuery` is set.
 
 ### Batching Behavior
 

@@ -20,8 +20,14 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 - **Retry with backoff** — When `indexer.maxRetries` is configured, retries failed batches with exponential backoff and jitter. Your `sendToIndex()` returns per-document failures; the base class decides whether to retry based on status codes. A retry sends the entire batch again, including documents the destination already accepted. That is safe where writing a document twice has the same effect as writing it once. An append-only destination, or one using external versions, must not report retryable failures unless it can handle receiving those documents again.
 - **Event accounting** — Sends FINISH or FAIL events for each document so the Runner can track run completion.
 - **Metrics** — Tracks documents indexed, throughput rate, and batch latency automatically.
-- **ID and index overrides** — Supports `idOverrideField` and `indexOverrideField` for routing documents to different IDs or indices. Use `getDocIdOverride(doc)` and `getIndexOverride(doc)` in your `sendToIndex()`.
+- **ID and index overrides** — Supports `idOverrideField` and `indexOverrideField` for routing documents to different IDs or indices. Use `getDestinationId(doc)` for the ID to write under, which is the `idOverrideField` value or else the document ID, and `getIndexOverride(doc)` for the target index, which is null when the document has no override.
 - **Deletion support** — Detects documents marked for deletion via `deletionMarker`, and delete-by-query documents via `deleteByQuery`. Your implementation checks these in `sendToIndex()` and issues the appropriate delete operation.
+
+**What stays with your indexer:** these depend on the destination, and the built-in indexers handle them differently.
+
+- **A filtered `id` field** — `getConvertedIndexerDoc(doc)` and `getRawIndexerDoc(doc)` leave `id` out when the field filter removes it. If your destination carries the ID separately, as OpenSearch and Elasticsearch do with `_id`, there is nothing more to do. If it needs the ID in the body, as Solr does, add `getDestinationId(doc)` yourself.
+- **The index override field** — it stays in the filtered fields. The Solr indexer removes it before sending. The OpenSearch indexer sends it, and users who don't want it indexed can blacklist it.
+- **Children** — neither method includes them. Read them from `doc.getChildren()` and send them however your destination represents them.
 
 **What you implement:**
 
@@ -32,6 +38,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 | `closeConnection()` | Yes | Close the client or connection to the destination. |
 | `supportsConcurrentSends()` | No | Return `true` only if `sendToIndex()` and your destination client are safe to call from several threads at once. The default is `false`, which makes the base class reject `indexer.maxConcurrentBatches` above 1. See [Concurrent Sends](#concurrent-sends). |
 | `getIndexerConfigKey()` | Yes | Return the key of your implementation-specific block inside the `indexer` block (e.g., `"solr"`, `"opensearch"`). Return `null` if your indexer takes no additional config. |
+| `getUnsupportedSettings()` | No | Return the names of generic `indexer` settings your indexer can't apply, so that setting one fails at startup instead of being ignored. The default is none. |
 
 **What you declare:**
 
@@ -108,7 +115,7 @@ public class ExampleIndexer extends Indexer {
     // (with the HTTP status, if there is one) when a retry may succeed.
     // Use getConvertedIndexerDoc(doc) for the filtered field map as plain Java values,
     // or getRawIndexerDoc(doc) if your client serializes it to JSON with Jackson.
-    // Use getDocIdOverride(doc) if idOverrideField may be configured.
+    // Use getDestinationId(doc) for the id to write under, so that idOverrideField is honored.
     // Return an IndexerFailure for each failed doc; empty list if all succeeded.
     return List.of();
   }
@@ -287,7 +294,7 @@ assertEquals("doc1", captor.getValue().get(0).getId());
 
 - **Successful indexing** — documents reach the destination with correct fields and IDs.
 - **Field translation** — your `sendToIndex()` correctly maps Document fields to the destination's format.
-- **ID override** — `getDocIdOverride(doc)` is used when `idOverrideField` is configured.
+- **ID override** — documents are written under `getDestinationId(doc)` when `idOverrideField` is configured.
 - **Deletion** — documents marked for deletion trigger delete operations instead of adds.
 - **Per-document failures** — your `sendToIndex()` returns the correct `IndexerFailure`s when individual documents fail.
 - **checkConnection()** — returns false when the destination is unreachable.
