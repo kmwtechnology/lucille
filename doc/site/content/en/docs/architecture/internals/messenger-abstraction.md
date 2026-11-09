@@ -204,7 +204,7 @@ A polled record is finished once the Worker has processed it and every document 
 
 In hybrid mode there is no destination topic. Documents pass from the Worker to the Indexer in memory, so the source record's offset is the only one. It can't be committed until every document made from that record has been indexed, and that is what the count tracks.
 
-If the Indexer reports a batch as not sent, because it could not confirm that the worker still owns the input, the records its documents came from stay unfinished, and after the next poll the worker rewinds the partition to the frontier so they are processed again. When partitions are revoked or lost, the documents from them still waiting in the queue, children included, are removed, so the partitions' next owner processes them.
+If the Indexer reports a batch as not sent, because it could not confirm that the worker still owns the input, the records its documents came from stay unfinished, and after the next poll the worker rewinds the partition to the frontier so they are processed again. When partitions are revoked or lost, the documents from them still waiting in the queue, children included, are removed, so the partitions' next owner processes them. Documents from them that the Indexer has already taken, children included, fail its ownership check, so their batches are not sent.
 
 This ensures offsets are only committed after everything a record produced has been indexed, providing at-least-once delivery without the Indexer having direct Kafka access.
 

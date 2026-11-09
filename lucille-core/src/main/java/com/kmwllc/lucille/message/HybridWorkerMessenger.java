@@ -22,13 +22,14 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.regex.Pattern;
 
@@ -62,15 +63,18 @@ import java.util.regex.Pattern;
  * <p> The consumer, the tracker and the rebalance callbacks all run on the worker thread. The Indexer's reports cross
  * threads through a queue that the worker thread drains before each poll, before each commit and on revocation.
  *
- * <p> When partitions are revoked or lost, the documents from them that are still waiting in the queue are removed, so
- * that the partition's next owner processes and indexes them instead of both consumers doing so.
+ * <p> When partitions are revoked, lost or rewound, the documents from them that are still waiting in the queue,
+ * children included, are removed, so that the partition's next owner processes and indexes them instead of both
+ * consumers doing so. Each such partition also starts a new epoch. A record polled in an earlier epoch can no longer
+ * finish, and the ownership check fails for every document sent from it, children included, including any the Indexer
+ * has already taken into a batch.
  *
  * <p> Internal to Lucille: {@link com.kmwllc.lucille.core.WorkerIndexer} creates it, sharing its document queue with a
  * {@link HybridIndexerMessenger}. It is public only because the two are in different packages.
  */
 public class HybridWorkerMessenger implements WorkerMessenger {
 
-  private static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
+  private static final Logger log = LoggerFactory.getLogger(HybridWorkerMessenger.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   // only created when the fail topic is enabled, so a worker that doesn't use it needs no document producer config
@@ -81,16 +85,15 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   // The paired Indexer's reports of completed batches and of batches it did not send, waiting for the worker thread
   private final Queue<BatchResult> batchResults = new ConcurrentLinkedQueue<>();
 
-  // The rest of this state is used on the worker thread only.
   // The record the worker is processing: returned by the last poll, which the worker has not yet followed with another
-  // poll or a commit.
-  private PolledOffset current;
-  // Per unfinished record, a count of what it is waiting for: one while the worker is processing it, plus one for each
-  // document it sent for indexing that the Indexer has not reported. The record is finished when the count reaches zero.
-  private final Map<PolledOffset, Integer> outstanding = new HashMap<>();
+  // poll or a commit. Worker thread only.
+  private PolledRecord current;
   // The record each document sent for indexing came from, by identity, since a child a stage created has no Kafka
-  // metadata of its own. Removed once the Indexer has reported the document.
-  private final Map<Document, Output> outputs = new IdentityHashMap<>();
+  // metadata of its own. Removed once the Indexer has reported the document. Written on the worker thread; also read by
+  // the ownership check, from the Indexer's send threads.
+  private final Map<Document, PolledRecord> outputs = Collections.synchronizedMap(new IdentityHashMap<>());
+  // Per partition, incremented each time the partition is revoked, lost or rewound. Absent means 0.
+  private final Map<TopicPartition, Integer> epochs = new ConcurrentHashMap<>();
 
   // As in KafkaIndexerMessenger: once the worker has gone max.poll.interval.ms without polling it has left its group, so
   // ownsInput stops confirming ownership. Written on the worker thread, read from the Indexer's send threads.
@@ -173,8 +176,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record.topic(), record.partition(), record.offset(), record.key());
       offsetCommitTracker.recordPolled(partition, record.offset());
-      current = new PolledOffset(partition, record.offset());
-      outstanding.put(current, 1);
+      current = new PolledRecord(partition, record.offset(), epoch(partition));
       return doc;
     }
     return null;
@@ -204,19 +206,21 @@ public class HybridWorkerMessenger implements WorkerMessenger {
 
   /**
    * Whether the paired Indexer may still send the given document: false once the worker has gone longer than
-   * max.poll.interval.ms without polling, or once the document's partition was revoked or lost since it was polled. A
-   * document that is not from Kafka, such as a child a stage created, has no partition and is always sendable. Called
+   * max.poll.interval.ms without polling, or once the partition of the record the document came from was revoked, lost
+   * or rewound since that record was polled. This applies to a child a stage created as to the record itself. Called
    * from the Indexer's send threads.
    */
   boolean ownsInput(Document doc) {
     if (System.nanoTime() - lastReturnedPollStartNanos >= maxPollIntervalNanos) {
       return false;
     }
-    if (!(doc instanceof KafkaDocument kafkaDoc)) {
-      return true;
+    PolledRecord source = outputs.get(doc);
+    if (source != null) {
+      return isCurrent(source);
     }
-    return offsetCommitTracker.isOutstanding(new TopicPartition(kafkaDoc.getTopic(), kafkaDoc.getPartition()),
-        kafkaDoc.getOffset());
+    // not tracked, such as a document removed from the queue when its partition was given up: checked by its own offset
+    return !(doc instanceof KafkaDocument kafkaDoc)
+        || offsetCommitTracker.isOutstanding(new TopicPartition(kafkaDoc.getTopic(), kafkaDoc.getPartition()), kafkaDoc.getOffset());
   }
 
   private void queueBatchResult(boolean sent, List<Document> batch) {
@@ -229,19 +233,16 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     BatchResult result;
     while ((result = batchResults.poll()) != null) {
       for (Document doc : result.documents()) {
-        Output output = outputs.get(doc);
-        if (output == null) {
-          // from a partition given up since the document was sent; its next owner processes the record again
+        PolledRecord source = outputs.remove(doc);
+        if (source == null) {
+          // removed from the queue when its partition was given up, or already reported
           continue;
         }
-        if (--output.unreported == 0) {
-          outputs.remove(doc);
-        }
         if (result.sent()) {
-          release(output.record);
-        } else {
-          // Not released, so the record stays unfinished: the partition is rewound to it after the next poll, or was lost.
-          offsetCommitTracker.recordNotSent(output.record.partition(), output.record.offset());
+          release(source);
+        } else if (isCurrent(source)) {
+          // Not released, so the record stays unfinished: its partition is rewound to it after the next poll.
+          offsetCommitTracker.recordNotSent(source.partition, source.offset);
         }
       }
     }
@@ -250,56 +251,75 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   // The worker is done with the record it last polled.
   private void finishCurrent() {
     if (current != null) {
-      PolledOffset record = current;
+      PolledRecord source = current;
       current = null;
-      release(record);
+      release(source);
     }
   }
 
-  // One thing the record was waiting for is done; once nothing is left, the record is finished and its offset completes.
-  private void release(PolledOffset record) {
-    Integer left = outstanding.computeIfPresent(record, (r, count) -> count - 1);
-    if (left != null && left == 0) {
-      outstanding.remove(record);
-      offsetCommitTracker.recordCompleted(record.partition(), record.offset());
+  // One thing the record was waiting for is done. Once nothing is left, the record is finished and its offset completes,
+  // unless its partition has started a new epoch since it was polled, in which case the record will be processed again.
+  private void release(PolledRecord source) {
+    if (--source.count == 0 && isCurrent(source)) {
+      offsetCommitTracker.recordCompleted(source.partition, source.offset);
     }
+  }
+
+  private int epoch(TopicPartition partition) {
+    return epochs.getOrDefault(partition, 0);
+  }
+
+  // Whether the record was polled in its partition's current epoch.
+  private boolean isCurrent(PolledRecord source) {
+    return source.epoch == epoch(source.partition);
   }
 
   // The partition of the record a document came from, or null if it is not tracked.
   private TopicPartition partitionOf(Document doc) {
-    Output output = outputs.get(doc);
-    if (output != null) {
-      return output.record.partition();
+    PolledRecord source = outputs.get(doc);
+    if (source != null) {
+      return source.partition;
     }
     return doc instanceof KafkaDocument kafkaDoc ? new TopicPartition(kafkaDoc.getTopic(), kafkaDoc.getPartition()) : null;
   }
 
   // Removes the waiting documents of the given partitions from the queue, children included: they were not indexed and
-  // their offsets are not committed, so whoever polls the partition next indexes them. A document already taken by the
-  // Indexer is not affected; its batch is skipped by the ownership check or, if already sent, indexed again by the next
-  // owner. Also forgets those partitions' unfinished records, so a late report can't count toward a record polled again.
+  // their offsets are not committed, so whoever polls the partition next indexes them. Then starts a new epoch for each
+  // partition, so a document the Indexer has already taken fails the ownership check, and a late report can't finish a
+  // record polled before.
   private void purge(Collection<TopicPartition> partitions) {
     if (partitions.isEmpty()) {
       return;
     }
-    pipelineDest.removeIf(doc -> partitions.contains(partitionOf(doc)));
-    outputs.values().removeIf(output -> partitions.contains(output.record.partition()));
-    outstanding.keySet().removeIf(record -> partitions.contains(record.partition()));
-  }
-
-  private record PolledOffset(TopicPartition partition, long offset) {
+    pipelineDest.removeIf(doc -> {
+      if (!partitions.contains(partitionOf(doc))) {
+        return false;
+      }
+      // never taken by the Indexer, so never reported
+      outputs.remove(doc);
+      return true;
+    });
+    for (TopicPartition partition : partitions) {
+      epochs.merge(partition, 1, Integer::sum);
+    }
   }
 
   private record BatchResult(boolean sent, List<Document> documents) {
   }
 
-  // A document sent for indexing: the record it came from, and how many of its sends the Indexer has yet to report.
-  private static final class Output {
-    private final PolledOffset record;
-    private int unreported;
+  // A polled record: where it is, the epoch of its partition when it was polled, and how many things it is waiting for,
+  // which are the worker's processing of it and each document sent for indexing from it that the Indexer has not
+  // reported. The count is used on the worker thread only.
+  private static final class PolledRecord {
+    private final TopicPartition partition;
+    private final long offset;
+    private final int epoch;
+    private int count = 1;
 
-    private Output(PolledOffset record) {
-      this.record = record;
+    private PolledRecord(TopicPartition partition, long offset, int epoch) {
+      this.partition = partition;
+      this.offset = offset;
+      this.epoch = epoch;
     }
   }
 
@@ -338,10 +358,10 @@ public class HybridWorkerMessenger implements WorkerMessenger {
       Thread.currentThread().interrupt();
       throw new MessengerException("Interrupted while queueing document " + document.getId() + " for indexing", e);
     }
-    // The Indexer may already have taken it, but its report is only applied on this thread, after this.
-    if (current != null) {
-      outputs.computeIfAbsent(document, d -> new Output(current)).unreported++;
-      outstanding.merge(current, 1, Integer::sum);
+    // The Indexer may already have taken it, but its report is only applied on this thread, after this. A document sent
+    // twice is counted once.
+    if (current != null && outputs.putIfAbsent(document, current) == null) {
+      current.count++;
     }
   }
 

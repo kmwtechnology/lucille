@@ -195,6 +195,49 @@ public class HybridWorkerMessengerTest {
   }
 
   @Test
+  public void testChildTakenByTheIndexerIsFencedWhenItsPartitionIsRevoked() throws Exception {
+    addRecord(P0, 0);
+    messenger.pollDocToProcess();
+    Document child = Document.create("child");
+    messenger.sendForIndexing(child);
+    pipelineDest.remove(child);   // taken by the Indexer, so not purged
+    messenger.commitPendingDocOffsets();
+    assertTrue(messenger.ownsInput(child));
+
+    consumer.rebalance(Set.of(P1));
+
+    assertFalse("the child's record is from a revoked partition", messenger.ownsInput(child));
+  }
+
+  @Test
+  public void testLateReportCannotFinishTheRecordPolledAgain() throws Exception {
+    addRecord(P0, 0);
+    messenger.pollDocToProcess();
+    Document oldChild = Document.create("child");
+    messenger.sendForIndexing(oldChild);
+    pipelineDest.remove(oldChild);   // taken by the Indexer
+    messenger.commitPendingDocOffsets();
+
+    // P0 is revoked and comes back, so offset 0 is polled and processed again
+    consumer.rebalance(Set.of(P1));
+    assign(P0, P1);
+    addRecord(P0, 0);
+    messenger.pollDocToProcess();
+    Document newChild = Document.create("child");
+    messenger.sendForIndexing(newChild);
+    messenger.commitPendingDocOffsets();
+
+    // the Indexer reports the child from before the revocation
+    messenger.batchCompleted(List.of(oldChild));
+    messenger.commitPendingDocOffsets();
+    assertNull("offset 0 is still waiting for its new child", committed(P0));
+
+    messenger.batchCompleted(List.of(newChild));
+    messenger.commitPendingDocOffsets();
+    assertEquals(Long.valueOf(1L), committed(P0));
+  }
+
+  @Test
   public void testRecordStillBeingProcessedIsNotCommittedOnClose() throws Exception {
     // the worker stopped while processing the record, after a messenger failure: it must be redelivered
     addRecord(P0, 0);
