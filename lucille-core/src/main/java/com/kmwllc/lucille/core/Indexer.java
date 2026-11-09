@@ -190,6 +190,9 @@ public abstract class Indexer implements Runnable {
    * @param context What the framework provides to this Indexer apart from its config.
    */
   public Indexer(Config config, IndexerContext context) {
+    // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
+    validateIndexerConfigs(config);
+
     this.messenger = context.messenger();
     this.bypass = context.bypass();
     this.logSeconds = context.logSeconds();
@@ -290,9 +293,6 @@ public abstract class Indexer implements Runnable {
       throw new IllegalArgumentException(messenger.getClass().getName() + " does not support concurrent batches "
           + "(it must commit its input on batch completion, not at poll); indexer.maxConcurrentBatches must be 1 or unset.");
     }
-
-    // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
-    validateIndexerConfigs(config);
 
     // Processor is the dispatcher's BatchProcessor: it supplies the two steps the dispatcher schedules,
     // sendWithRetry (may run on a pool) and completeBatch (indexer thread, in dispatch order).
