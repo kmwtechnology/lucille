@@ -58,7 +58,7 @@ pipelines: [
         name: "ApplyJSoup"
         class: "com.kmwllc.lucille.stage.ApplyJSoup"
         byteArrayField: "content"
-        destinationFields: {
+        selectors: {
           paragraphTexts: {
             type: "text",
             selector: ".ArticleBody-articleBody p"
@@ -116,7 +116,7 @@ pipelines: [
         name: "ApplyJSoup"
         class: "com.kmwllc.lucille.stage.ApplyJSoup"
         byteArrayField: "content"
-        destinationFields: {
+        selectors: {
           paragraphTexts: {
             type: "text",
             selector: ".ArticleBody-articleBody p"

@@ -690,7 +690,7 @@ public class TextExtractorTest {
 
   @Test
   public void testForkingSizeLimit() throws Exception {
-    // Hitting textContentLimit should be treated as expected truncation, not a document failure,
+    // Hitting writeLimit should be treated as expected truncation, not a document failure,
     // even in fork mode where the write-limit exception crosses the child-JVM boundary.
     Stage stage = factory.get("TextExtractorTest/forking-sizelimit.conf");
     Document doc = Document.create("doc1");

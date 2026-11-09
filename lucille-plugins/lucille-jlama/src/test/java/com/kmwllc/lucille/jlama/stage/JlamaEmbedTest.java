@@ -189,7 +189,7 @@ public class JlamaEmbedTest {
     configValues.put("source", "source");
     configValues.put("modelDownloadPath", "src/test/resources");
     configValues.put("modelName", "owner/name");
-    configValues.put("deleteModelAfter", true);
+    configValues.put("deleteModelOnStop", true);
     Config config = ConfigFactory.parseMap(configValues);
 
     AbstractModel mockModel = mock(AbstractModel.class);
@@ -238,7 +238,7 @@ public class JlamaEmbedTest {
     configValues.put("source", "source");
     configValues.put("modelDownloadPath", "src/test/resources");
     configValues.put("modelName", "NoOwnerOnlyName");
-    configValues.put("deleteModelAfter", true);
+    configValues.put("deleteModelOnStop", true);
     Config config = ConfigFactory.parseMap(configValues);
 
     AbstractModel mockModel = mock(AbstractModel.class);

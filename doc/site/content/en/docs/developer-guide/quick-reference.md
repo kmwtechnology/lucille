@@ -56,7 +56,7 @@ List<String> fields = config.getStringList("fields");
 // Optional parameters — use ConfigUtils.getOrDefault
 String dest = ConfigUtils.getOrDefault(config, "dest", "output");
 int limit = ConfigUtils.getOrDefault(config, "limit", 100);
-boolean nested = ConfigUtils.getOrDefault(config, "isNested", false);
+boolean nested = ConfigUtils.getOrDefault(config, "useNestedPaths", false);
 
 // Check presence before reading
 if (config.hasPath("optionalBlock")) {

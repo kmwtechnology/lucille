@@ -10,6 +10,7 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -208,9 +209,9 @@ public class DatabaseConnectorTest {
     configValues.put("jdbcPassword", "");
     configValues.put("sql", "select id,int_field,bool_field from mixed order by id");
     configValues.put("idField", "id");
-    configValues.put("connectionRetries", 1);
+    configValues.put("maxConnectionRetries", 1);
     // put sleep to 1 millisecond to avoid too much time for testing
-    configValues.put("connectionRetryPauseMs", 1);
+    configValues.put("connectionRetryWaitDurationMs", 1);
 
     // create a config object off that map
     Config config = ConfigFactory.parseMap(configValues);
@@ -248,6 +249,38 @@ public class DatabaseConnectorTest {
 
 
   @Test
+  public void testZeroConnectionRetriesMakesOneAttempt() throws Exception {
+    Map<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "lousy connection String");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select id,int_field,bool_field from mixed order by id");
+    configValues.put("idField", "id");
+    configValues.put("maxConnectionRetries", 0);
+    Config config = ConfigFactory.parseMap(configValues);
+
+    try (MockedStatic<DriverManager> mockDriverManager = mockStatic(DriverManager.class)) {
+      mockDriverManager.when(() -> DriverManager.getConnection("lousy connection String", "", ""))
+          .thenAnswer(invocation -> {
+            throw new SQLException("Connection failed");
+          });
+
+      DatabaseConnector connector = new DatabaseConnector(config);
+
+      assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+      mockDriverManager.verify(
+          () -> DriverManager.getConnection(eq("lousy connection String"), eq(""), eq("")), times(1));
+      connector.close();
+    }
+
+    Config negative = config.withValue("maxConnectionRetries", ConfigValueFactory.fromAnyRef(-1));
+    assertThrows(IllegalArgumentException.class, () -> new DatabaseConnector(negative));
+  }
+
+  @Test
   public void testDatabaseConnectionRetryAndConnect() throws Exception {
     // Create the test config
     Map<String, Object> configValues = new HashMap<>();
@@ -259,9 +292,9 @@ public class DatabaseConnectorTest {
     configValues.put("jdbcPassword", "");
     configValues.put("sql", "select id,int_field,bool_field from mixed order by id");
     configValues.put("idField", "id");
-    configValues.put("connectionRetries", 1);
+    configValues.put("maxConnectionRetries", 1);
     // put sleep to 1 millisecond to avoid too much time for testing
-    configValues.put("connectionRetryPauseMs", 1);
+    configValues.put("connectionRetryWaitDurationMs", 1);
 
     // create a config object off that map
     Config config = ConfigFactory.parseMap(configValues);

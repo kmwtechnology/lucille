@@ -203,7 +203,7 @@ public static final Spec STORAGE_SPEC = SpecBuilder.withoutDefaults()
 
 // in a Stage that fetches files
 public static final Spec SPEC = SpecBuilder.stage()
-    .requiredString("dictPath")
+    .requiredString("dictionaryPath")
     .include(FileConnector.STORAGE_SPEC).build();
 ```
 

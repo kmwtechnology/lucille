@@ -53,7 +53,7 @@ public class CopyFields extends Stage {
 
   private final Map<String, Object> fieldMapping;
   private final UpdateMode updateMode;
-  private final boolean isNested;
+  private final boolean useNestedPaths;
 ```
 
 **Local variables:** camelCase. Short, descriptive names. Loop variables use standard conventions (`i`, `doc`, `node`, `entry`).
@@ -119,7 +119,7 @@ private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.luci
  * <ul>
  *   <li>fieldMapping (Map&lt;String, Object&gt;) : A mapping of source field names to destination field names.</li>
  *   <li>updateMode (String, Optional) : Determines how writing will be handled. Defaults to 'overwrite'.</li>
- *   <li>isNested (Boolean, Optional) : Sets whether to treat field names as nested json paths. Defaults to false.</li>
+ *   <li>useNestedPaths (Boolean, Optional) : Sets whether to treat field names as nested json paths. Defaults to false.</li>
  * </ul>
  */
 ```

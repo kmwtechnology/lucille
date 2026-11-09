@@ -51,7 +51,7 @@ public class KafkaConnector extends AbstractConnector {
           "kafka.maxPollIntervalMs")
       .optionalString("idField", "kafka.documentDeserializer")
       // the kafka block may also carry any of the keys KafkaUtils.createConsumerProps reads from this connector's
-      // config (securityProtocol, consumerPropertyFile, consumer.*, metadataMaxAgeMs, pollIntervalMs, ...)
+      // config (securityProtocol, consumerPropertiesPath, consumer.*, metadataMaxAgeMs, pollIntervalMs, ...)
       .optionalParent("kafka", new TypeReference<Map<String, Object>>() {
       })
       .optionalParent("offsets", new TypeReference<Map<Integer, Long>>() {

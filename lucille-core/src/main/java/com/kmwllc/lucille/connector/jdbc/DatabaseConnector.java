@@ -63,8 +63,8 @@ import org.slf4j.LoggerFactory;
  *   <li>otherSqls (List&lt;String&gt;, Optional): additional SELECT statements whose rows are attached as children, as described above</li>
  *   <li>otherJoinFields (List&lt;String&gt;, Optional): the join field of each otherSqls entry, in the same order. <b>Required if otherSqls is provided.</b></li>
  *   <li>ignoreColumns (List&lt;String&gt;, Optional): columns of the primary result set to leave off the document (case-insensitive)</li>
- *   <li>connectionRetries (Integer, Optional): number of retries allowed to connect to database, defaults to 1</li>
- *   <li>connectionRetryPauseMs (Integer, Optional): pause between connection retries in milliseconds, defaults to 10000</li>
+ *   <li>maxConnectionRetries (Integer, Optional): number of retries after a failed attempt to connect to the database, defaults to 1. 0 disables retries.</li>
+ *   <li>connectionRetryWaitDurationMs (Integer, Optional): pause between connection retries in milliseconds, defaults to 10000</li>
  * </ul>
  *
  * @author kwatters
@@ -91,7 +91,7 @@ public class DatabaseConnector extends AbstractConnector {
   // the join key of the previous primary row during execute(), for the same ordering check on the parent side
   private Object lastPrimaryJoinId;
   private final Set<String> ignoreColumns;
-  private final Integer connectionRetries;
+  private final Integer maxConnectionRetries;
   private final Integer connectionRetryPause;
   // every connection opened during execute() (one for the primary query, one per otherSQL); closed in close()
   private final List<Connection> connections = new ArrayList<>();
@@ -99,7 +99,7 @@ public class DatabaseConnector extends AbstractConnector {
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredString("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql", "idField")
       .optionalString("preSql", "postSql")
-      .optionalNumber("fetchSize", "connectionRetries", "connectionRetryPauseMs")
+      .optionalNumber("fetchSize", "maxConnectionRetries", "connectionRetryWaitDurationMs")
       .optionalList("otherSqls", new TypeReference<List<String>>(){})
       .optionalList("otherJoinFields", new TypeReference<List<String>>(){})
       .optionalList("ignoreColumns", new TypeReference<List<String>>(){}).build();
@@ -132,13 +132,15 @@ public class DatabaseConnector extends AbstractConnector {
               .map(String::toLowerCase)
               .collect(Collectors.toSet()));
     }
-    connectionRetries = config.hasPath("connectionRetries") && config.getInt("connectionRetries") > 0
-        ? config.getInt("connectionRetries") : 1;
-    connectionRetryPause = config.hasPath("connectionRetryPauseMs") && config.getInt("connectionRetryPauseMs") > 0
-        ? config.getInt("connectionRetryPauseMs") : 10000;
+    maxConnectionRetries = ConfigUtils.getIntOrDefault(config, "maxConnectionRetries", 1);
+    if (maxConnectionRetries < 0) {
+      throw new IllegalArgumentException("maxConnectionRetries must not be negative, got " + maxConnectionRetries + ".");
+    }
+    connectionRetryPause = config.hasPath("connectionRetryWaitDurationMs") && config.getInt("connectionRetryWaitDurationMs") > 0
+        ? config.getInt("connectionRetryWaitDurationMs") : 10000;
   }
 
-  // Opens a new connection, retrying up to connectionRetries times, and registers it for close().
+  // Opens a new connection, retrying up to maxConnectionRetries times, and registers it for close().
   private Connection createConnectionWithRetries() throws ClassNotFoundException, SQLException {
     try {
       Class.forName(driver);
@@ -147,13 +149,13 @@ public class DatabaseConnector extends AbstractConnector {
       throw e;
     }
 
-    for (int attempt = 0; attempt <= connectionRetries; attempt++) {
+    for (int attempt = 0; attempt <= maxConnectionRetries; attempt++) {
       try {
         Connection connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
         connections.add(connection);
         return connection;
       } catch (SQLException e) {
-        if (attempt == connectionRetries) {
+        if (attempt == maxConnectionRetries) {
           log.error("Unable to connect to database {} user:{} after retrying {} time(s).", connectionString, jdbcUser, attempt);
           throw e;
         }
@@ -166,7 +168,7 @@ public class DatabaseConnector extends AbstractConnector {
       }
     }
     // unreachable: the last attempt either returns or rethrows
-    throw new SQLException("Failed to connect after " + connectionRetries + " attempts");
+    throw new SQLException("Failed to connect after " + maxConnectionRetries + " attempts");
   }
 
   private int getIdColumnIndex(String[] columns) throws ConnectorException {

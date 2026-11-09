@@ -40,7 +40,7 @@ The extracted text is added to `textField`; if the field already has a value, th
 | `fieldNamesField` | String | No | If set, the name of each metadata field written to the Document is added to this multi-valued field. |
 | `replaceDotsInMetadataNames` | Boolean | No | Replace `.` with `_` in metadata names. See [Metadata fields](#metadata-fields). Default: `false`. |
 | `metadataHintFields` | Map\<String, String\> | No | Input metadata hints for Tika. See [Detection hints](#detection-hints). |
-| `textContentLimit` | Integer | No | Maximum number of characters of text to extract. Default: no limit. |
+| `writeLimit` | Integer | No | Maximum number of characters of text to extract. Default: no limit. |
 | `parseTimeoutMs` | Long | No | Parse timeout in milliseconds. When a parse times out, a warning is logged, whatever text was extracted so far is kept and the `metadataHintFields` input values are written, but no extracted metadata is added. Default: no timeout. |
 | `enableOcr` | Boolean | No | OCR images and image-only PDF pages. See [OCR](#ocr). Cannot be set together with `tikaConfigPath`. Default: `false`. |
 | `tikaConfigPath` | String | No | Local path to a Tika config file. The config is used as is, and is applied to embedded documents as well as the top-level document. |

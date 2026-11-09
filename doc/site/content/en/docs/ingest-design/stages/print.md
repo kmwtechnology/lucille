@@ -12,17 +12,17 @@ Logs documents in JSON format at INFO level and/or writes them to a file. Place 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `logDocuments` | Boolean | No | Log each document as JSON at INFO level. Default: `true`. |
-| `outputFile` | String | No | Path to a file to write documents to (one JSON object per line). Created if it does not exist. The file is opened when the first document arrives. |
+| `outputPath` | String | No | Path to a file to write documents to (one JSON object per line). Created if it does not exist. The file is opened when the first document arrives. |
 | `includeFields` | List\<String\> | No | If set, only these fields are included in the output. The document passed to the next stage is not changed. |
 | `excludeFields` | List\<String\> | No | Fields to exclude from the output. The document passed to the next stage is not changed. |
 | `overwriteFile` | Boolean | No | Overwrite the output file if it already exists. If `false`, documents are appended to it. Default: `true`. |
-| `appendThreadName` | Boolean | No | Append the Worker thread name to the output filename, before the extension (e.g. `out.jsonl` becomes `out<threadName>.jsonl`), keeping per-thread output separate. Recommended when using multiple worker threads. Has no effect without `outputFile`. Default: `true`. |
+| `appendThreadName` | Boolean | No | Append the Worker thread name to the output filename, before the extension (e.g. `out.jsonl` becomes `out<threadName>.jsonl`), keeping per-thread output separate. Recommended when using multiple worker threads. Has no effect without `outputPath`. Default: `true`. |
 
 ```hocon
 {
   class: "com.kmwllc.lucille.stage.Print"
   logDocuments: false
-  outputFile: "/tmp/pipeline-output.jsonl"
+  outputPath: "/tmp/pipeline-output.jsonl"
 }
 ```
 
@@ -30,7 +30,7 @@ Logs documents in JSON format at INFO level and/or writes them to a file. Place 
 
 `Print` enables a useful development pattern: run a pipeline to capture its output to disk, then replay that output directly into a search backend without re-running the enrichment.
 
-**Step 1: Capture.** Add `Print` to the end of your pipeline with an `outputFile`. Use a `NopIndexer` (or set `sendEnabled: false` on a real indexer) so no data is actually indexed during the capture run:
+**Step 1: Capture.** Add `Print` to the end of your pipeline with an `outputPath`. Use a `NopIndexer` (or set `sendEnabled: false` on a real indexer) so no data is actually indexed during the capture run:
 
 ```hocon
 pipelines: [{
@@ -40,7 +40,7 @@ pipelines: [{
     {
       class: "com.kmwllc.lucille.stage.Print"
       logDocuments: false
-      outputFile: "/tmp/captured.jsonl"
+      outputPath: "/tmp/captured.jsonl"
       appendThreadName: false
     }
   ]

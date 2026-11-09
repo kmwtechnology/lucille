@@ -320,7 +320,7 @@ public class KafkaUtilsTest {
 
   @Test
   public void testDocumentConsumerRejectsUnsetAutoCommitFromPropertyFile() {
-    // kafka-clients defaults enable.auto.commit to true, so a consumerPropertyFile that OMITS it would auto-commit at
+    // kafka-clients defaults enable.auto.commit to true, so a consumerPropertiesPath that OMITS it would auto-commit at
     // poll just as surely as one that sets it true. An unset value must be rejected, not treated as safe.
     Config unsetInFile = ConfigFactory.load("KafkaUtilsTest/consumer-conf/external-no-auto-commit-setting.conf");
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
@@ -340,7 +340,7 @@ public class KafkaUtilsTest {
 
   @Test
   public void testDocumentConsumerAllowsAutoCommitDisabledInPropertyFile() {
-    // A consumerPropertyFile that explicitly sets enable.auto.commit=false is accepted.
+    // A consumerPropertiesPath that explicitly sets enable.auto.commit=false is accepted.
     Config disabledInFile = ConfigFactory.load("KafkaUtilsTest/consumer-conf/external.conf");
     KafkaUtils.createDocumentConsumer(disabledInFile, "test-client").close();
   }

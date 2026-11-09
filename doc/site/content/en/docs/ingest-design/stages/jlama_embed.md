@@ -41,4 +41,4 @@ For each document, the first value of `source` is embedded and each float of the
 | `dest` | String | No | Field the embedding is written to. Default: `embeddings`. |
 | `workingMemoryType` | String | No | Data type used for the model at runtime. Affects accuracy and resource use. One of `BOOL`, `U8`, `I8`, `I16`, `U16`, `F16`, `BF16`, `I32`, `U32`, `F32`, `F64`, `I64`, `U64`, `Q4`, or `Q5` (case-insensitive). Any other value fails at startup. Default: `F32`. |
 | `workingQuantizationType` | String | No | Data type used for quantization. Trades accuracy for speed and size. Same values as `workingMemoryType`. Default: `I8`. |
-| `deleteModelAfter` | Boolean | No | Delete the downloaded model directory when the stage stops. Default: `false`. |
+| `deleteModelOnStop` | Boolean | No | Delete the downloaded model directory when the stage stops. Default: `false`. |

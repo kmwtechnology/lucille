@@ -61,8 +61,8 @@ public class KafkaUtils {
       .requiredString("bootstrapServers", "consumerGroupId")
       .requiredNumber("maxPollIntervalMs", "maxRequestSize")
       .optionalBoolean("events")
-      .optionalString("documentSerializer", "documentDeserializer", "consumerPropertyFile",
-          "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic",
+      .optionalString("documentSerializer", "documentDeserializer", "consumerPropertiesPath",
+          "producerPropertiesPath", "adminPropertiesPath", "securityProtocol", "sourceTopic", "eventTopic",
           "onDeserializationError")
       .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors",
           "eventTopicReplicationFactor", "eventTopicMinInsyncReplicas")
@@ -151,8 +151,8 @@ public class KafkaUtils {
   public static Properties createConsumerProps(Config config, String clientId) {
     Properties props;
 
-    if (config.hasPath("kafka.consumerPropertyFile")) {
-      props = loadExternalProps(config.getString("kafka.consumerPropertyFile"), config);
+    if (config.hasPath("kafka.consumerPropertiesPath")) {
+      props = loadExternalProps(config.getString("kafka.consumerPropertiesPath"), config);
       props.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
     } else {
       props = new Properties();
@@ -208,7 +208,7 @@ public class KafkaUtils {
    *
    * <p> It is not enough to reject an explicit {@code true}: kafka-clients defaults {@code enable.auto.commit} to
    * {@code true} when it is unset, so an absent value is just as unsafe as an explicit {@code true}. The non-property-file
-   * path sets it to {@code false} here, but a {@code kafka.consumerPropertyFile} that omits it (or a
+   * path sets it to {@code false} here, but a {@code kafka.consumerPropertiesPath} that omits it (or a
    * {@code kafka.consumer.enable.auto.commit} override) would otherwise auto-commit at poll. So this requires the
    * resolved value to be present and {@code false}.
    */
@@ -220,7 +220,7 @@ public class KafkaUtils {
           + "indexer's document consumer: offsets are committed on batch completion, and auto-commit would commit them "
           + "at poll time (before indexing), which could skip documents on a crash. It is "
           + (autoCommit == null ? "unset (kafka-clients defaults it to true)" : "set to " + autoCommit)
-          + "; set " + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + "=false (e.g. in kafka.consumerPropertyFile or via "
+          + "; set " + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + "=false (e.g. in kafka.consumerPropertiesPath or via "
           + "kafka.consumer." + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + ").");
     }
   }
@@ -252,8 +252,8 @@ public class KafkaUtils {
   static Properties createProducerProps(Config config) {
     Properties producerProps;
 
-    if (config.hasPath("kafka.producerPropertyFile")) {
-      producerProps = loadExternalProps(config.getString("kafka.producerPropertyFile"), config);
+    if (config.hasPath("kafka.producerPropertiesPath")) {
+      producerProps = loadExternalProps(config.getString("kafka.producerPropertiesPath"), config);
     } else {
       producerProps = new Properties();
 
@@ -366,8 +366,8 @@ public class KafkaUtils {
     // interfere with the publisher's logic for determining when the run is complete
 
     Properties adminProps;
-    if (config.hasPath("kafka.adminPropertyFile")) {
-      adminProps = loadExternalProps(config.getString("kafka.adminPropertyFile"), config);
+    if (config.hasPath("kafka.adminPropertiesPath")) {
+      adminProps = loadExternalProps(config.getString("kafka.adminPropertiesPath"), config);
     } else {
       adminProps = new Properties();
       adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));

@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
  * - workingMemoryType (String, Optional) : the data type used during runtime for model, impacts accuracy and resource usage.
  * - workingQuantizationType (String, Optional): the data type used during quantization for model, influences the compression and
  *   speed of the model, trading off accuracy for performance.
- * - deleteModelAfter (Boolean, Optional) : whether to delete the model after use, defaults to false
+ * - deleteModelOnStop (Boolean, Optional) : whether to delete the model after use, defaults to false
  *
  *   DType Options:
  *    "BOOL" (1 byte)
@@ -66,7 +66,7 @@ public class JlamaEmbed extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("modelName", "source", "modelDownloadPath")
       .optionalString("workingMemoryType", "workingQuantizationType", "dest")
-      .optionalBoolean("deleteModelAfter").build();
+      .optionalBoolean("deleteModelOnStop").build();
 
   private final String embeddingModel;
   private final String source;
@@ -74,7 +74,7 @@ public class JlamaEmbed extends Stage {
   private final String workingMemoryType;
   private final String workingQuantizationType;
   private final String dest;
-  private final boolean deleteModelAfter;
+  private final boolean deleteModelOnStop;
   private AbstractModel model;
 
   private static final Logger log = LoggerFactory.getLogger(JlamaEmbed.class);
@@ -87,7 +87,7 @@ public class JlamaEmbed extends Stage {
     this.dest = ConfigUtils.getStringOrDefault(config, "dest", "embeddings");
     this.workingMemoryType = ConfigUtils.getStringOrDefault(config, "workingMemoryType", "");
     this.workingQuantizationType = ConfigUtils.getStringOrDefault(config, "workingQuantizationType", "");
-    this.deleteModelAfter = ConfigUtils.getBooleanOrDefault(config, "deleteModelAfter", false);
+    this.deleteModelOnStop = ConfigUtils.getBooleanOrDefault(config, "deleteModelOnStop", false);
   }
 
   @Override
@@ -119,7 +119,7 @@ public class JlamaEmbed extends Stage {
       model.close();
     }
 
-    if (deleteModelAfter) {
+    if (deleteModelOnStop) {
       // using the same process as how Jlama creates the path to store the model
       String[] parts = embeddingModel.split("/");
       if (parts.length != 0 && parts.length <= 2) {

@@ -37,7 +37,7 @@ import java.net.URI;
  *   <li>path (String): The path to storage you want to traverse for <code>.parquet</code> files.</li>
  *   <li>idField (String): The name of a field found in the Parquet files you will process that can be used for Document IDs.
  *   Must be found in the file's schema, or an Exception will be thrown.</li>
- *   <li>fsUri (String): A URI for the file system that you want to use (for your <code>path</code>).</li>
+ *   <li>fileSystemUri (String): A URI for the file system that you want to use (for your <code>path</code>).</li>
  *   <li>s3 (Map, Optional): AWS S3 credentials, with both <code>accessKeyId</code> and <code>secretAccessKey</code>
  *   (Strings). Without it, Hadoop's default S3A credential lookup applies.</li>
  *   <li>limit
@@ -51,7 +51,7 @@ public class ParquetConnector extends AbstractConnector {
 
   private final String path;
   private final String idField;
-  private final String fsUri;
+  private final String fileSystemUri;
   private final Configuration hadoopConfig;
 
   // The row to start at in files. Can also think of this as a number of documents to skip (from the beginning of the file).
@@ -64,7 +64,7 @@ public class ParquetConnector extends AbstractConnector {
       .requiredString("accessKeyId", "secretAccessKey").build();
 
   public static final Spec SPEC = SpecBuilder.connector()
-      .requiredString("path", "idField", "fsUri")
+      .requiredString("path", "idField", "fileSystemUri")
       .optionalParent("s3", S3_PARENT_SPEC)
       .optionalNumber("limit", "start").build();
 
@@ -73,7 +73,7 @@ public class ParquetConnector extends AbstractConnector {
 
     this.path = config.getString("path");
     this.idField = config.getString("idField");
-    this.fsUri = config.getString("fsUri");
+    this.fileSystemUri = config.getString("fileSystemUri");
 
     this.limit = ConfigUtils.getLongOrDefault(config, "limit", -1L);
     this.start = ConfigUtils.getLongOrDefault(config, "start", 0L);
@@ -95,7 +95,7 @@ public class ParquetConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    try (FileSystem fs = FileSystem.get(new URI(fsUri), hadoopConfig)) {
+    try (FileSystem fs = FileSystem.get(new URI(fileSystemUri), hadoopConfig)) {
       // Hadoop's local listFiles loads file permissions, which needs winutils.exe / hadoop.dll on Windows.
       // List local files with java.nio instead.
       if (fs instanceof LocalFileSystem) {

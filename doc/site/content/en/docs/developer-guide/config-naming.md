@@ -19,7 +19,7 @@ Four principles sit behind the more specific conventions:
 - **Same concept, same name.** If two components have a setting that does the same thing, give it the same name, even if one of them came first with a different one.
 - **Say what the property holds.** A reader should be able to tell from the name whether a property is a field name or a literal value, a single name or a list, and which unit a number is in.
 - **Follow the majority.** When existing components disagree, follow the form most of them already use.
-- **Spell words out.** Write `source`, `length` and `separator`, not `src`, `len` and `sep`. There are two exceptions, both well established and so common that brevity is preferable: `dest`, for a stage's output field, rather than `destination`; and `doc` or `docs` inside a longer name (`numDocs`, `docIdFormat`), rather than `document` or `documents`. A property that sets a setting of another system keeps that system's name for it (see [Settings of External Systems](#settings-of-external-systems)).
+- **Spell words out.** Write `source`, `length` and `separator`, not `src`, `len` and `sep`. There are three exceptions, all well established and so common that brevity is preferable: `dest`, for a stage's output field, rather than `destination`; `doc` or `docs` inside a longer name (`docIdFormat`), rather than `document` or `documents`; and `num` in a count (`numDocs`, `minNumTerms`; see [Numbers and Percentages](#numbers-and-percentages)), rather than `number`. A property that sets a setting of another system keeps that system's name for it (see [Settings of External Systems](#settings-of-external-systems)).
 
 ## Field Names: `source`, `dest`, `fields`
 
@@ -71,7 +71,7 @@ indexer {
 
 | Pattern | Use it for | Examples |
 |---|---|---|
-| `xxxPath` | A file or location in the config | `scriptPath`, `dictPath`, `tikaConfigPath`, `modelDownloadPath`, `serviceKeyPath` |
+| `xxxPath` | A file or location in the config | `scriptPath`, `dictionaryPath`, `tikaConfigPath`, `modelDownloadPath`, `serviceKeyPath` |
 | `path`, `paths` | The location a connector reads from | `ParquetConnector.path`, `FileConnector.paths` |
 | `filePathField` | A document field that holds a file path | `TextExtractor`, `ApplyJSoup`, `FetchFileContent`, `ApplyOCR` |
 | `filenameField` | A document field that holds a file name | `CSVFileHandler`, `VideoFileHandler` |

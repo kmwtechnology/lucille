@@ -183,7 +183,7 @@ File Handlers are configured under the `fileHandlers` block. Every block is vali
 ```hocon
 fileHandlers: {
   csv {
-    separatorChar: "|"
+    separator: "|"
     docIdPrefix: "csv-"
   }
   json {}
@@ -210,8 +210,8 @@ Extracts one Document per row from a CSV file, read as UTF-8 (a leading byte ord
 | `lineNumberField` | String | No | Field for the row number. The first row after the header is 1, and skipped rows are counted. Default: `csvLineNumber`. |
 | `filenameField` | String | No | Field for the source file name. Default: `filename`. |
 | `filePathField` | String | No | Field for the full file path. Default: `source`. |
-| `separatorChar` | String | No | Column delimiter character. Default: `,`. |
-| `useTabs` | Boolean | No | Use tab as the delimiter. Overrides `separatorChar`. Default: `false`. |
+| `separator` | String | No | Column delimiter character. Default: `,`. |
+| `useTabs` | Boolean | No | Use tab as the delimiter. Overrides `separator`. Default: `false`. |
 | `interpretQuotes` | Boolean | No | Treat `"` as a quoting character. Default: `true`. |
 | `ignoreEscapeChar` | Boolean | No | Disable backslash escape handling. Default: `false`. |
 | `lowercaseFields` | Boolean | No | Lowercase the header names used as field names. Default: `false`. |
@@ -225,7 +225,7 @@ If neither `idField` nor `idFields` is set, the Document ID is `{docIdPrefix}{fi
 fileHandlers: {
   csv {
     idField: "article_id"
-    separatorChar: "|"
+    separator: "|"
     filenameField: "source_file"
     lowercaseFields: true
     docIdPrefix: "article-"

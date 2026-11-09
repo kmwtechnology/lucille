@@ -21,8 +21,8 @@ The connection and prepared statement are created at startup. For each document,
 | `keyFields` | List\<String\> | Yes | Document field names whose values are substituted for `?` in the SQL, in order. |
 | `inputTypes` | List\<String\> | Yes | Type of each key field: `String`, `Integer`, `Long`, `Double`, `Boolean`, or `Date` (case-sensitive). Must match `keyFields` length, or the stage fails at startup. |
 | `fieldMapping` | Map\<String, String\> | Yes | Maps result-set column names to document field names. |
-| `connectionRetries` | Integer | No | Number of times to retry connecting at startup after the first attempt fails. Values less than `1` fall back to the default. Default: `1`. |
-| `connectionRetryPauseMs` | Integer | No | Milliseconds to wait between connection attempts. Values less than `1` fall back to the default. Default: `10000`. |
+| `maxConnectionRetries` | Integer | No | Number of times to retry connecting at startup after the first attempt fails. `0` disables retries; a negative value fails at startup. Default: `1`. |
+| `connectionRetryWaitDurationMs` | Integer | No | Milliseconds to wait between connection attempts. Values less than `1` fall back to the default. Default: `10000`. |
 
 ```hocon
 {

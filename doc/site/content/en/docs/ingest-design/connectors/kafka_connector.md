@@ -44,7 +44,7 @@ connectors: [
 | `kafka.consumerGroupId` | String | Yes | Consumer group ID. |
 | `kafka.clientId` | String | Yes | Kafka client identifier. |
 | `kafka.maxPollIntervalMs` | Integer | Yes | Maximum time in milliseconds between polls before the consumer is removed from the consumer group. Sets the consumer's `max.poll.interval.ms`. The Spec declares it as a String, so an integer or a numeric string is accepted, but it must parse as an integer when the connector executes. |
-| `kafka` | Object | Yes | Holds the `kafka.*` parameters in this table, plus optional consumer settings (`securityProtocol`, `metadataMaxAgeMs`, `consumerPropertyFile`, `consumer`); see [Security](#security). Other keys in it are not validated. |
+| `kafka` | Object | Yes | Holds the `kafka.*` parameters in this table, plus optional consumer settings (`securityProtocol`, `metadataMaxAgeMs`, `consumerPropertiesPath`, `consumer`); see [Security](#security). Other keys in it are not validated. |
 | `idField` | String | No | JSON field in the Kafka message whose value becomes the Document ID. If omitted, or if a message lacks this field, the message's `id` field is used. |
 | `kafka.documentDeserializer` | String | No | Fully-qualified class name of a custom Kafka `Deserializer<Document>`. Its `configure()` receives the consumer properties plus `idField` (if set) and `docIdPrefix`. Default: `com.kmwllc.lucille.connector.KafkaConnectorDefaultDeserializer`. |
 | `maxMessages` | Long | No | Maximum number of messages to publish before stopping. If omitted, there is no limit. |
@@ -85,7 +85,7 @@ The connector builds its Kafka consumer only from its own connector config. It d
 
 - `kafka.securityProtocol`: sets the consumer's `security.protocol`.
 - `kafka.metadataMaxAgeMs`: sets `metadata.max.age.ms`. Default: `30000`.
-- `kafka.consumerPropertyFile`: path to a Java properties file used as the base consumer properties instead of the generated ones (`bootstrapServers`, `consumerGroupId`, `securityProtocol`, `maxPollIntervalMs`, `metadataMaxAgeMs` and the `auto.offset.reset`, `max.poll.records` and string key deserializer defaults described above are then not applied, so the file must set `key.deserializer` itself). `kafka.bootstrapServers`, `kafka.consumerGroupId` and `kafka.maxPollIntervalMs` are still required but have no effect.
+- `kafka.consumerPropertiesPath`: path to a Java properties file used as the base consumer properties instead of the generated ones (`bootstrapServers`, `consumerGroupId`, `securityProtocol`, `maxPollIntervalMs`, `metadataMaxAgeMs` and the `auto.offset.reset`, `max.poll.records` and string key deserializer defaults described above are then not applied, so the file must set `key.deserializer` itself). `kafka.bootstrapServers`, `kafka.consumerGroupId` and `kafka.maxPollIntervalMs` are still required but have no effect.
 - `kafka.consumer`: arbitrary Kafka consumer properties, merged over the above, for example TLS or SASL settings. Dotted property names may be quoted (`"ssl.truststore.location": ...`) or unquoted; setting the same property both ways with different values fails when the connector executes, and a list value is rejected.
 
 `enable.auto.commit`, the value deserializer, `idField` and `docIdPrefix` are always set by the connector after these are applied. Other keys under `kafka` are accepted without validation, so a misspelled key is silently ignored.

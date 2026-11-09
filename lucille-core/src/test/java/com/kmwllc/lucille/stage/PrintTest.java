@@ -51,7 +51,7 @@ public class PrintTest {
     // Getting the Config manually so we can override with an absolute path to the resources folder, where we will hold
     // the output files to delete later.
     Config appendThreadConfig = ConfigFactory.parseResourcesAnySyntax("PrintTest/appendThreadNames.conf")
-        .withValue("outputFile", ConfigValueFactory.fromAnyRef(baseOutputFileAbsolute));
+        .withValue("outputPath", ConfigValueFactory.fromAnyRef(baseOutputFileAbsolute));
 
     Document doc = Document.create("doc1");
     doc.setField("field", "value");
@@ -106,7 +106,7 @@ public class PrintTest {
   @Test
   public void testSpec() throws StageException {
     Stage stage = factory.get("PrintTest/config.conf");
-    assertEquals(Set.of("overwriteFile", "outputFile", "logDocuments", "excludeFields", "includeFields", "appendThreadName"),
+    assertEquals(Set.of("overwriteFile", "outputPath", "logDocuments", "excludeFields", "includeFields", "appendThreadName"),
         stage.getNonDefaultLegalProperties());
   }
 

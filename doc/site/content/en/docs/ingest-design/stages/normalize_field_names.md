@@ -7,11 +7,11 @@ description: Renames fields by replacing spaces with underscores and removing ot
 
 `com.kmwllc.lucille.stage.NormalizeFieldNames`
 
-Renames every non-reserved field on the document. Spaces are replaced with `delimiter`, then every character other than an ASCII letter (`a`-`z`, `A`-`Z`), digit, `_`, or `.` is replaced with `nonAlphanumReplacement`, so accented and non-Latin letters are affected too. With the defaults, `First Name!` becomes `First_Name`.
+Renames every non-reserved field on the document. Spaces are replaced with `delimiter`, then every character other than an ASCII letter (`a`-`z`, `A`-`Z`), digit, `_`, or `.` is replaced with `nonAlphanumericReplacement`, so accented and non-Latin letters are affected too. With the defaults, `First Name!` becomes `First_Name`.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `delimiter` | String | No | Replacement for spaces. Default: `_`. |
-| `nonAlphanumReplacement` | String | No | Replacement for each non-alphanumeric character. Default: empty string (the character is removed). |
+| `nonAlphanumericReplacement` | String | No | Replacement for each non-alphanumeric character. Default: empty string (the character is removed). |
 
 If a normalized name matches a field that already exists, that field's value is overwritten. A name that normalizes to an empty string or to a reserved field name (such as `id`) fails the document.

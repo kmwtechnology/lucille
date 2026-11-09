@@ -28,7 +28,7 @@ connectors: [
     pipeline: "my-pipeline"
     path: "/data/embeddings.parquet"
     idField: "doc_id"
-    fsUri: "file:///"
+    fileSystemUri: "file:///"
   }
 ]
 ```
@@ -39,7 +39,7 @@ connectors: [
 |---|---|---|---|
 | `path` | String | Yes | Path to a Parquet file, or a directory that is traversed recursively for Parquet files. |
 | `idField` | String | Yes | Column whose value becomes the Document ID. It must exist in each file's schema and must be a string (`BINARY`) column; a missing schema column or a non-string column fails the run. A row whose ID is null or blank is skipped and logged, does not count toward `limit`, and the number of skipped rows is logged when the file is done. |
-| `fsUri` | String | Yes | URI of the Hadoop filesystem to use (e.g., `"file:///"` for local, `"s3a://my-bucket"` for S3). `path` is resolved on this filesystem. |
+| `fileSystemUri` | String | Yes | URI of the Hadoop filesystem to use (e.g., `"file:///"` for local, `"s3a://my-bucket"` for S3). `path` is resolved on this filesystem. |
 | `s3` | Map | No | AWS credentials, with both `accessKeyId` and `secretAccessKey`. Without it, Hadoop's default S3A credential lookup applies. |
 | `limit` | Long | No | Maximum number of Documents to publish across all files. Default: no limit. |
 | `start` | Long | No | Number of rows to skip at the beginning of each file. Default: `0`. |
@@ -56,7 +56,7 @@ connectors: [
     pipeline: "my-pipeline"
     path: "/prefix/embeddings"
     idField: "doc_id"
-    fsUri: "s3a://my-bucket"
+    fileSystemUri: "s3a://my-bucket"
     s3 {
       accessKeyId: ${AWS_ACCESS_KEY_ID}
       secretAccessKey: ${AWS_SECRET_ACCESS_KEY}
@@ -81,5 +81,5 @@ When `s3` is set, the connector configures Hadoop's S3A filesystem with those cr
 - Only files whose names end in `parquet` are processed.
 - A file whose schema lacks `idField` stops the connector with an error.
 - An I/O error while reading a row group is logged as a warning and the rest of that file is skipped; the run continues with the next file.
-- Local paths (`fsUri` of `file:///`) are listed with Java NIO rather than Hadoop, so no Hadoop native libraries are needed on Windows.
+- Local paths (`fileSystemUri` of `file:///`) are listed with Java NIO rather than Hadoop, so no Hadoop native libraries are needed on Windows.
 - `start` applies to each file, while `limit` is a total across all files. When paginating with `start`/`limit`, it is recommended to use individual Connectors for each Parquet file rather than a directory path.

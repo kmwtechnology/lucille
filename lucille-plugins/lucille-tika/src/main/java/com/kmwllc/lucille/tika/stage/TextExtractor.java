@@ -70,7 +70,7 @@ import org.xml.sax.SAXException;
  * same way when tikaConfigPath is not set: it is used as is, and enableOcr cannot be combined with it.
  * A provided or global config is applied to embedded documents as well as the top-level document.
  * metadataPrefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
- * textContentLimit (Integer, Optional) : limits how large the content of the returned text can be
+ * writeLimit (Integer, Optional) : limits how large the content of the returned text can be
  * parseTimeoutMs (Long, Optional) : timeout for parsing in milliseconds. On timeout, the text extracted so far and the
  * metadataHintFields input hints are added to the document, but no extracted metadata.
  * skipEmbeddedContentTypePrefixes (List&lt;String&gt;, Optional) : content-type prefixes for which embedded documents are
@@ -133,7 +133,7 @@ public class TextExtractor extends Stage {
       .optionalBoolean("replaceDotsInMetadataNames")
       .optionalList("includeMetadata", new TypeReference<List<String>>() {})
       .optionalList("excludeMetadata", new TypeReference<List<String>>() {})
-      .optionalNumber("textContentLimit", "parseTimeoutMs")
+      .optionalNumber("writeLimit", "parseTimeoutMs")
       .optionalList("skipEmbeddedContentTypePrefixes", new TypeReference<List<String>>() {})
       .optionalBoolean("enableOcr")
       .optionalParent("fork", FORK_SPEC)
@@ -177,7 +177,7 @@ public class TextExtractor extends Stage {
   private final String metadataPrefix;
   private final String fieldNamesField;
   private final boolean replaceDotsInMetadataNames;
-  private final Integer textContentLimit;
+  private final Integer writeLimit;
   private final Long parseTimeout;
   private final boolean enableOcr;
   // where the global Tika config honoured by Tika's default constructors comes from (e.g. "tika.config system
@@ -205,7 +205,7 @@ public class TextExtractor extends Stage {
     byteArrayField = ConfigUtils.getStringOrDefault(config, "byteArrayField", null);
     metadataPrefix = ConfigUtils.getStringOrDefault(config, "metadataPrefix", "tika");
     tikaConfigPath = ConfigUtils.getStringOrDefault(config, "tikaConfigPath", null);
-    textContentLimit = ConfigUtils.getIntOrDefault(config, "textContentLimit", Integer.MAX_VALUE);
+    writeLimit = ConfigUtils.getIntOrDefault(config, "writeLimit", Integer.MAX_VALUE);
     parseTimeout = ConfigUtils.getLongOrDefault(config, "parseTimeoutMs", null);
     fieldNamesField = ConfigUtils.getStringOrDefault(config, "fieldNamesField", null);
     replaceDotsInMetadataNames = config.hasPath("replaceDotsInMetadataNames") && config.getBoolean("replaceDotsInMetadataNames");
@@ -515,7 +515,7 @@ public class TextExtractor extends Stage {
    * @param inputStream The {@code InputStream} containing the content to be parsed.
    */
   public void parseInputStream(Metadata metadata, Document doc, InputStream inputStream) throws StageException {
-    ContentHandler bch = new BodyContentHandler(textContentLimit);
+    ContentHandler bch = new BodyContentHandler(writeLimit);
     ParseContext parseCtx = createParseContext();
     // the metadata written to the document; swapped for a fresh copy of the input hints on timeout
     Metadata metadataToWrite = metadata;
@@ -595,10 +595,10 @@ public class TextExtractor extends Stage {
     try {
       parser.parse(inputStream, bch, metadata, parseCtx);
     } catch (IOException | SAXException | TikaException e) {
-      // We expect truncation when textContentLimit is reached.
+      // We expect truncation when writeLimit is reached.
       // It is best to check this condition because exceptions tend to be rewrapped. 
       if (WriteLimitReachedException.isWriteLimitReached(e)) {
-        log.debug("textContentLimit ({}) reached; extracted text truncated.", textContentLimit);
+        log.debug("writeLimit ({}) reached; extracted text truncated.", writeLimit);
       } else if (forkEnabled) {
         throw new StageException("Forked Tika process failed for document: " + doc.getId(), e);
       } else {
