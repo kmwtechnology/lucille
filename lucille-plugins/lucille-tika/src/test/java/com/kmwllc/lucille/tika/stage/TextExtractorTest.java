@@ -406,7 +406,7 @@ public class TextExtractorTest {
     assertEquals(List.of("tika_content_type"), fieldNames);
   }
 
-  // when metadataFields is set, the referenced document fields' values should be copied into the Metadata
+  // when metadataHintFields is set, the referenced document fields' values should be copied into the Metadata
   // handed to Tika (used, for example, to supply content-type detection hints such as resourceName / Content-Type).
   @Test
   public void testMetadataFieldsWiredIn() throws StageException {
@@ -438,7 +438,7 @@ public class TextExtractorTest {
     assertArrayEquals(new String[]{"first.csv", "second.csv"}, metadata.getValues("resourceName"));
   }
 
-  // document fields referenced by metadataFields but absent from the document should be skipped, not error
+  // document fields referenced by metadataHintFields but absent from the document should be skipped, not error
   @Test
   public void testMetadataFieldsMissingDocField() throws StageException {
     TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/metadatafields.conf");
@@ -591,7 +591,7 @@ public class TextExtractorTest {
         "class", "com.kmwllc.lucille.tika.stage.TextExtractor",
         "byteArrayField", "byte_array",
         // 3s so the parse below finishes in time on slow Windows CI runners
-        "parseTimeout", 3000,
+        "parseTimeoutMs", 3000,
         "tikaConfigPath", "src/test/resources/TextExtractorTest/tika-config-hang.xml")));
 
     try {
@@ -690,7 +690,7 @@ public class TextExtractorTest {
 
   @Test
   public void testForkingSizeLimit() throws Exception {
-    // Hitting textContentLimit should be treated as expected truncation, not a document failure,
+    // Hitting writeLimit should be treated as expected truncation, not a document failure,
     // even in fork mode where the write-limit exception crosses the child-JVM boundary.
     Stage stage = factory.get("TextExtractorTest/forking-sizelimit.conf");
     Document doc = Document.create("doc1");

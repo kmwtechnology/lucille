@@ -55,13 +55,13 @@ public class HybridWorkerMessengerTest {
     // the real document consumer reads one record per poll
     consumer.setMaxPollRecords(1);
     pipelineDest = new LinkedBlockingQueue<>();
-    messenger = new HybridWorkerMessenger(config(300), "pipeline1", pipelineDest, consumer);
+    messenger = new HybridWorkerMessenger(config(300000), "pipeline1", pipelineDest, consumer);
     assign(P0, P1);
   }
 
-  private static Config config(int maxPollIntervalSecs) {
+  private static Config config(int maxPollIntervalMs) {
     return ConfigFactory.parseString("kafka { bootstrapServers: \"localhost:9092\", consumerGroupId: \"group\", "
-        + "maxPollIntervalSecs: " + maxPollIntervalSecs + ", maxRequestSize: 1048576, events: false }");
+        + "maxPollIntervalMs: " + maxPollIntervalMs + ", maxRequestSize: 1048576, events: false }");
   }
 
   private void assign(TopicPartition... partitions) {
@@ -169,7 +169,7 @@ public class HybridWorkerMessengerTest {
 
   @Test
   public void testOwnershipEndsAfterThePollDeadline() throws Exception {
-    messenger = new HybridWorkerMessenger(config(1), "pipeline1", pipelineDest, consumer);
+    messenger = new HybridWorkerMessenger(config(1000), "pipeline1", pipelineDest, consumer);
     assign(P0);
     KafkaDocument doc = poll(P0, 0);
     assertTrue(messenger.ownsInput(doc));

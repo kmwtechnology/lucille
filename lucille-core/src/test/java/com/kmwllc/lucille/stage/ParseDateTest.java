@@ -72,7 +72,7 @@ public class ParseDateTest {
         Set.of(
             "formatters",
             "updateMode",
-            "formatStrs",
+            "formatStrings",
             "source",
             "dest",
             "timeZoneId",
@@ -95,7 +95,7 @@ public class ParseDateTest {
     configValues.put("class", "com.kmwllc.lucille.stage.ParseDate");
     configValues.put("source", List.of("date"));
     configValues.put("dest", List.of("output"));
-    configValues.put("formatStrs", List.of("yyyy-MM-dd"));
+    configValues.put("formatStrings", List.of("yyyy-MM-dd"));
 
     // create a map of time zones to expected formatted dates
     List<String> zones = List.of("America/New_York", "Universal", "Europe/Rome", "Australia/Brisbane");
@@ -132,7 +132,7 @@ public class ParseDateTest {
     configValues.put("class", "com.kmwllc.lucille.stage.ParseDate");
     configValues.put("source", List.of("date"));
     configValues.put("dest", List.of("output"));
-    configValues.put("formatStrs", List.of("yyyy-MM-dd'T'HH:mm:ssxxxxx[VV]"));
+    configValues.put("formatStrings", List.of("yyyy-MM-dd'T'HH:mm:ssxxxxx[VV]"));
     String dateString = "2011-12-03T10:15:31+01:00:00[Europe/Paris]";
 
     Stage stage = factory.get(configValues);
@@ -156,7 +156,7 @@ public class ParseDateTest {
       configValues.put("class", "com.kmwllc.lucille.stage.ParseDate");
       configValues.put("source", List.of("date"));
       configValues.put("dest", List.of("output"));
-      configValues.put("formatStrs", List.of("yyyy-MM-dd"));
+      configValues.put("formatStrings", List.of("yyyy-MM-dd"));
       configValues.put("timeZoneId", zoneIdStr);
       Stage stage = factory.get(configValues);
 
@@ -196,7 +196,7 @@ public class ParseDateTest {
     configValues.put("class", "com.kmwllc.lucille.stage.ParseDate");
     configValues.put("source", List.of("date1", "date2"));
     configValues.put("dest", List.of("output1", "output2"));
-    configValues.put("formatStrs", List.of("yyyy-MM-dd z", "yyyy-MM-dd"));
+    configValues.put("formatStrings", List.of("yyyy-MM-dd z", "yyyy-MM-dd"));
     configValues.put("timeZoneId", "Europe/Rome");
 
     // one date has a time zone, the other does not
@@ -210,7 +210,7 @@ public class ParseDateTest {
     assertEquals("2021-02-02T05:00:00Z", doc.getString("output2"));
 
     // switch the order of format strings
-    configValues.put("formatStrs", List.of("yyyy-MM-dd", "yyyy-MM-dd z"));
+    configValues.put("formatStrings", List.of("yyyy-MM-dd", "yyyy-MM-dd z"));
 
     // notice that the time zone is set to the configured default (Europe/Rome) for a date that
     // contains a timezone (EST) because a more general format string occurs first in the  list of format strings
@@ -234,33 +234,33 @@ public class ParseDateTest {
 
   @Test
   public void testTwelveHourFormat() throws StageException {
-    Document doc = parse(Map.of("formatStrs", List.of("MM/dd/yyyy hh:mm a"), "locale", "en-US"),
+    Document doc = parse(Map.of("formatStrings", List.of("MM/dd/yyyy hh:mm a"), "locale", "en-US"),
         "03/04/2021 03:15 PM", "03/04/2021 12:30 AM");
     assertEquals(List.of("2021-03-04T15:15:00Z", "2021-03-04T00:30:00Z"), doc.getStringList("output"));
 
     // without 'a' the hour can't be resolved, so the value is skipped rather than parsed as midnight
-    Document noAmPm = parse(Map.of("formatStrs", List.of("MM/dd/yyyy hh:mm")), "03/04/2021 03:15");
+    Document noAmPm = parse(Map.of("formatStrings", List.of("MM/dd/yyyy hh:mm")), "03/04/2021 03:15");
     assertFalse(noAmPm.has("output"));
   }
 
   @Test
   public void testPartialDates() throws StageException {
-    Document doc = parse(Map.of("formatStrs", List.of("MMMM yyyy", "yyyy"), "locale", "en-US"), "March 1999", "1850");
+    Document doc = parse(Map.of("formatStrings", List.of("MMMM yyyy", "yyyy"), "locale", "en-US"), "March 1999", "1850");
     assertEquals(List.of("1999-03-01T00:00:00Z", "1850-01-01T00:00:00Z"), doc.getStringList("output"));
 
     // a week number isn't dropped in favour of January 1st
-    Document week = parse(Map.of("formatStrs", List.of("yyyy-ww"), "locale", "en-US"), "2024-20");
+    Document week = parse(Map.of("formatStrings", List.of("yyyy-ww"), "locale", "en-US"), "2024-20");
     assertFalse(week.has("output"));
   }
 
   @Test
   public void testLocale() throws StageException {
-    Document doc = parse(Map.of("formatStrs", List.of("MMMM yyyy"), "locale", "fr"), "mars 2020");
+    Document doc = parse(Map.of("formatStrings", List.of("MMMM yyyy"), "locale", "fr"), "mars 2020");
     assertEquals("2020-03-01T00:00:00Z", doc.getString("output"));
 
     // a malformed tag would otherwise fall back to the root locale and silently stop month names parsing
     for (String tag : List.of("en_US", "english")) {
-      assertThrows(StageException.class, () -> parse(Map.of("formatStrs", List.of("MMMM yyyy"), "locale", tag), "March 2020"));
+      assertThrows(StageException.class, () -> parse(Map.of("formatStrings", List.of("MMMM yyyy"), "locale", tag), "March 2020"));
     }
   }
 
@@ -290,7 +290,7 @@ public class ParseDateTest {
 
   @Test
   public void testNullValues() throws Exception {
-    Stage stage = factory.get(Map.of("source", List.of("f"), "dest", List.of("o"), "formatStrs", List.of("yyyy")));
+    Stage stage = factory.get(Map.of("source", List.of("f"), "dest", List.of("o"), "formatStrings", List.of("yyyy")));
 
     Document doc = Document.createFromJson("{\"id\":\"1\",\"f\":null}");
     stage.processDocument(doc);

@@ -126,7 +126,7 @@ public class PromptOllamaTest {
     }
   }
 
-  // The LLM isn't outputting a JSON response. requireJSON is set to false by default.
+  // The LLM isn't outputting a JSON response. requireJson is set to false by default.
   @Test
   public void testNoJsonPrompt() throws Exception {
     OllamaChatResult result = createMockChatResultWithMessage(noJsonResponse);

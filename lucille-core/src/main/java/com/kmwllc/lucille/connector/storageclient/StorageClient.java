@@ -158,7 +158,7 @@ public interface StorageClient {
    *
    * To build the built-in clients for the cloud providers, these arguments must be provided in separate maps:
    * <br> gcp (keyed by "gs"):
-   * "pathToServiceKey" : "path/To/Service/Key.json"
+   * "serviceKeyPath" : "path/To/Service/Key.json"
    * "maxResultsPerPage" : number of results returned per listing request (page size). Optional, defaults to 100
    *
    * <br> s3 (keyed by "s3"):

@@ -18,7 +18,7 @@ connectors: [
     name: "RSSConnector"
     pipeline: "rssPipeline"
     class: "com.kmwllc.lucille.connector.RSSConnector"
-    rssURL: "https://www.cnbc.com/id/15837362/device/rss/rss.html"
+    rssUrl: "https://www.cnbc.com/id/15837362/device/rss/rss.html"
   }
 ]
 ```
@@ -26,7 +26,7 @@ connectors: [
 There are a few additional configuration options that we won't use here, but are useful:
 
 ```hocon
-    useGuidForDocID: true       # defaults to true; set false to use UUID as ID instead
+    useGuidForDocId: true       # defaults to true; set false to use UUID as ID instead
     pubDateCutoff: "24h"        # only publish items from the last 24 hours
     runDuration: "1h"           # run incrementally for 1 hour total
     refreshIncrement: "5m"      # re-fetch the feed every 5 minutes
@@ -58,7 +58,7 @@ pipelines: [
         name: "ApplyJSoup"
         class: "com.kmwllc.lucille.stage.ApplyJSoup"
         byteArrayField: "content"
-        destinationFields: {
+        selectors: {
           paragraphTexts: {
             type: "text",
             selector: ".ArticleBody-articleBody p"
@@ -98,7 +98,7 @@ connectors: [
     name: "RSSConnector"
     pipeline: "rssPipeline"
     class: "com.kmwllc.lucille.connector.RSSConnector"
-    rssURL: "https://www.cnbc.com/id/15837362/device/rss/rss.html"
+    rssUrl: "https://www.cnbc.com/id/15837362/device/rss/rss.html"
   }
 ]
 
@@ -116,7 +116,7 @@ pipelines: [
         name: "ApplyJSoup"
         class: "com.kmwllc.lucille.stage.ApplyJSoup"
         byteArrayField: "content"
-        destinationFields: {
+        selectors: {
           paragraphTexts: {
             type: "text",
             selector: ".ArticleBody-articleBody p"
@@ -155,7 +155,7 @@ connectors: [
     name: "RSSConnector"
     pipeline: "rssPipeline"
     class: "com.kmwllc.lucille.connector.RSSConnector"
-    rssURL: "https://www.cnbc.com/id/15837362/device/rss/rss.html"
+    rssUrl: "https://www.cnbc.com/id/15837362/device/rss/rss.html"
     refreshIncrement: "60s"
     runDuration: "1h"
   }

@@ -146,7 +146,7 @@ public class PoisonRecordKafkaTest {
         "kafka {\n"
             + "  bootstrapServers: \"%s\"\n"
             + "  consumerGroupId: \"%s\"\n"
-            + "  maxPollIntervalSecs: 30\n"
+            + "  maxPollIntervalMs: 30000\n"
             + "  maxRequestSize: 10000000\n"
             + "  %s\n"
             + "}\n"

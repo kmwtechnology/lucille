@@ -155,7 +155,7 @@ private void validateIndexerConfigs(Config config) {
     // Validate the generic settings; nested blocks are left out of genericConfig
     SpecBuilder.withoutDefaults()
         .optionalString("type", "class", "idOverrideField", ...)
-        .optionalNumber("batchSize", "batchTimeout", ...)
+        .optionalNumber("batchSize", "batchTimeoutMs", ...)
         .build()
         .validate(genericConfig, "Indexer");
 
@@ -203,7 +203,7 @@ public static final Spec STORAGE_SPEC = SpecBuilder.withoutDefaults()
 
 // in a Stage that fetches files
 public static final Spec SPEC = SpecBuilder.stage()
-    .requiredString("dictPath")
+    .requiredString("dictionaryPath")
     .include(FileConnector.STORAGE_SPEC).build();
 ```
 

@@ -186,7 +186,7 @@ public class EventTest {
     Spec spec = KafkaUtils.SPEC;
     Config base = ConfigFactory.parseMap(Map.of(
         "bootstrapServers", "localhost:9092", "consumerGroupId", "g",
-        "maxPollIntervalSecs", 10, "maxRequestSize", 1000));
+        "maxPollIntervalMs", 10000, "maxRequestSize", 1000));
     spec.validate(base.withFallback(ConfigFactory.parseMap(
         Map.of("event.includeFields", List.of("a"), "event.maxValueLength", 5))), "kafka");
 

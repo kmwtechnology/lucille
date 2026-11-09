@@ -34,7 +34,7 @@ import java.util.Map;
  * Config Parameters -
  * <ul>
  *   <li>fieldMapping (Map&lt;String, List&lt;String&gt;&gt;) : A mapping of the XPath expression to the list of fields to place the evaluated expression in.</li>
- *   <li>xmlField (String, Optional) : The name of the document field which contains the XML field: defaults to "xml".</li>
+ *   <li>source (String, Optional) : The name of the document field which contains the XML field: defaults to "xml".</li>
  *   <li>allowDoctype (Boolean, Optional) : Whether the XML may contain a DOCTYPE. Even when allowed, external DTDs and external
  *   entities are never loaded. Defaults to false, so XML with a DOCTYPE is not extracted from.</li>
  * </ul>
@@ -42,7 +42,7 @@ import java.util.Map;
 public class XPathExtractor extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("xmlField")
+      .optionalString("source")
       .optionalBoolean("allowDoctype")
       .requiredParent("fieldMapping", new TypeReference<Map<String, List<String>>>(){}).build();
 
@@ -67,7 +67,7 @@ public class XPathExtractor extends Stage {
     factory = DocumentBuilderFactory.newInstance();
     XPathFactory xpathFactory = XPathFactory.newInstance();
     xpath = xpathFactory.newXPath();
-    xmlField = ConfigUtils.getStringOrDefault(config, "xmlField", "xml");
+    xmlField = ConfigUtils.getStringOrDefault(config, "source", "xml");
     allowDoctype = ConfigUtils.getOrDefault(config, "allowDoctype", false);
     expressionMapping = new HashMap<>();
   }

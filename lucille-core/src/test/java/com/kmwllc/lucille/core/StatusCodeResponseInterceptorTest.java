@@ -12,7 +12,7 @@ public class StatusCodeResponseInterceptorTest {
   public void testListContains() {
     List<String> statusCodeList = Arrays.asList("206", "429");
     List<String> statusCodeWildcardList = Arrays.asList("30", "5");
-    // initial statusCodeRetryList in FetchUri would be: ["206", "30x", "429", "5XX"]
+    // initial retryableStatusCodes in FetchUri would be: ["206", "30x", "429", "5XX"]
     StatusCodeResponseInterceptor statusCodeResponseInterceptor = new StatusCodeResponseInterceptor(statusCodeList, statusCodeWildcardList);
 
     int codeForXX = 500;

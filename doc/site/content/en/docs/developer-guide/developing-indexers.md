@@ -14,14 +14,14 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 
 - **Message consumption loop** — Polls the indexing queue, accumulates documents into batches, and flushes on batch size or timeout. You never write this loop.
 - **Config validation** — Validates both the generic `indexer` config block (batchSize, field filtering, deletion markers, retry settings) and your implementation-specific block nested inside it (e.g., `indexer.solr`, `indexer.opensearch`) using your `SPEC`.
-- **Field filtering** — Applies whitelist/blacklist filtering before documents reach `sendToIndex()`. Use `getConvertedIndexerDoc(doc)` to get the filtered field map as plain Java values, or `getRawIndexerDoc(doc)` when your client serializes it to JSON with Jackson.
+- **Field filtering** — Applies `includeFields`/`excludeFields` filtering before documents reach `sendToIndex()`. Use `getConvertedIndexerDoc(doc)` to get the filtered field map as plain Java values, or `getRawIndexerDoc(doc)` when your client serializes it to JSON with Jackson.
 - **Batching** — Configurable batch size and timeout, with support for per-document index routing via `indexOverrideField`.
 - **Concurrent sends** — When `indexer.maxConcurrentBatches` is above 1, sends several batches to the destination at once while keeping writes to the same document id in order and completing batches in dispatch order. See [Concurrent Sends](#concurrent-sends) below.
 - **Retry with backoff** — When `indexer.maxRetries` is configured, retries failed batches with exponential backoff and jitter. Your `sendToIndex()` returns per-document failures; the base class decides whether to retry based on status codes. A retry sends the entire batch again, including documents the destination already accepted. That is safe where writing a document twice has the same effect as writing it once. An append-only destination, or one using external versions, must not report retryable failures unless it can handle receiving those documents again.
 - **Event accounting** — Sends FINISH or FAIL events for each document so the Runner can track run completion.
 - **Metrics** — Tracks documents indexed, throughput rate, and batch latency automatically.
 - **ID and index overrides** — Supports `idOverrideField` and `indexOverrideField` for routing documents to different IDs or indices. Use `getDestinationId(doc)` for the ID to write under, which is the `idOverrideField` value or else the document ID, and `getIndexOverride(doc)` for the target index, which is null when the document has no override.
-- **Deletion support** — Detects documents marked for deletion via `deletionMarkerField`/`deletionMarkerFieldValue` or `deleteByFieldField`/`deleteByFieldValue`. Your implementation checks these in `sendToIndex()` and issues the appropriate delete operation.
+- **Deletion support** — Detects documents marked for deletion via `deletionMarker`, and delete-by-query documents via `deleteByQuery`. Your implementation checks these in `sendToIndex()` and issues the appropriate delete operation.
 
 **What stays with your indexer:** these depend on the destination, and the built-in indexers handle them differently.
 
@@ -209,7 +209,7 @@ protected boolean supportsConcurrentSends() {
 - **The destination client must be safe for concurrent use.** Create it once in the constructor, as usual, but do not rely on per-call state inside it. If the client's thread safety is unknown, leave the default (`false`).
 - **Do not keep per-batch state on the indexer instance** (buffers, counters, "current batch" fields). Two calls to `sendToIndex()` can overlap.
 - **The base class calls `supportsConcurrentSends()` from its constructor**, so it must return a constant and not depend on your subclass fields.
-- **Use `isMarkedForDeletion(doc)` and `hasDeleteByFieldValues(doc)`** to detect deletes. The dispatcher uses the same checks to decide which batches are delete-by-query barriers.
+- **Use `isMarkedForDeletion(doc)` and `isDeleteByQuery(doc)`** to detect deletes, and `getDeleteByQueryFieldName(doc)` and `getDeleteByQueryValue(doc)` for a delete-by-query's target. The dispatcher uses the same checks to decide which batches are delete-by-query barriers.
 - **Connection pools.** If your client is HTTP-based, size its pool for at least `maxConcurrentBatches` simultaneous requests, or the sends will queue for a connection.
 
 To test, set `indexer.maxConcurrentBatches` in the config you pass to your indexer and assert that your `sendToIndex()` can run twice at once without errors. See [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}) for the guarantees, tuning, and Kafka requirements.

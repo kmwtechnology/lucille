@@ -25,7 +25,7 @@ public class APIIntegrationTest {
   // configs are validated when they are created, so the posted body must be a valid Lucille config
   private static final String MINIMAL_CONFIG = """
   {
-    "connectors": [{"class": "com.kmwllc.lucille.connector.SleepConnector", "name": "sleep", "pipeline": "pipeline1", "duration": 1}],
+    "connectors": [{"class": "com.kmwllc.lucille.connector.SleepConnector", "name": "sleep", "pipeline": "pipeline1", "durationMs": 1}],
     "pipelines": [{"name": "pipeline1", "stages": []}],
     "indexer": {"type": "NoOpIndexer", "class": "com.kmwllc.lucille.indexer.NopIndexer"}
   }

@@ -15,7 +15,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>fieldName (String, Optional) : Field name of field where data is placed. Defaults to "data".</li>
+ *   <li>dest (String, Optional) : Field name of field where data is placed. Defaults to "data".</li>
  *   <li>rangeStart (Double, Optional) : Double representing the start of the range for generating random doubles. Defaults to 0.0.</li>
  *   <li>rangeEnd (Double, Optional) : Double representing the end of the range for generating random doubles. Defaults to 1M (1000000.0).</li>
  * </ul>
@@ -23,7 +23,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class AddRandomDouble extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("fieldName")
+      .optionalString("dest")
       .optionalNumber("rangeStart", "rangeEnd").build();
 
   private final String fieldName;
@@ -33,7 +33,7 @@ public class AddRandomDouble extends Stage {
   public AddRandomDouble(Config config) throws StageException {
     super(config);
 
-    this.fieldName = ConfigUtils.getOrDefault(config, "fieldName", "data");
+    this.fieldName = ConfigUtils.getOrDefault(config, "dest", "data");
     this.rangeStart = ConfigUtils.getOrDefault(config, "rangeStart", 0.0);
     this.rangeEnd = ConfigUtils.getOrDefault(config, "rangeEnd", 1000000.0);
 

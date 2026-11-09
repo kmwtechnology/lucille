@@ -62,7 +62,7 @@ public class KafkaIndexerMessengerTest {
     Config config = ConfigFactory.parseMap(Map.of(
         "kafka.bootstrapServers", "localhost:9092",
         "kafka.consumerGroupId", "test-group",
-        "kafka.maxPollIntervalSecs", 300,
+        "kafka.maxPollIntervalMs", 300000,
         "kafka.maxRequestSize", 1048576
     ));
 
@@ -123,7 +123,7 @@ public class KafkaIndexerMessengerTest {
     Config config = ConfigFactory.parseMap(Map.of(
         "kafka.bootstrapServers", "localhost:9092",
         "kafka.consumerGroupId", "test-group",
-        "kafka.maxPollIntervalSecs", 300,
+        "kafka.maxPollIntervalMs", 300000,
         "kafka.maxRequestSize", 1048576
     ));
     try (MockedStatic<KafkaUtils> kafkaUtils = mockStatic(KafkaUtils.class)) {

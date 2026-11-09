@@ -35,7 +35,7 @@ import static com.dashjoin.jsonata.Jsonata.jsonata;
  * <ul>
  *   <li>source (String, Optional) : The field to use for input. Defaults to applying your expression the entire Document and mutating the entire
  *   Document in place. Logs warning and skips document if this transformation fails, mutates reserved fields, or returns a non-object (primitive or array).</li>
- *   <li>destination (String, Optional) : The destination field into which the json response should be placed. Defaults to mutating the source
+ *   <li>dest (String, Optional) : The dest field into which the json response should be placed. Defaults to mutating the source
  *   field. Has no effect if source is not specified.</li>
  *   <li>expression (String) : The Jsonata expression you want to apply to each Document.</li>
  * </ul>
@@ -44,7 +44,7 @@ public class ApplyJSONata extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("expression")
-      .optionalString("source", "destination").build();
+      .optionalString("source", "dest").build();
 
   private static final Logger log = LoggerFactory.getLogger(ApplyJSONata.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -57,7 +57,7 @@ public class ApplyJSONata extends Stage {
   public ApplyJSONata(Config config) throws StageException {
     super(config);
     this.source = ConfigUtils.getStringOrDefault(config, "source", null);
-    this.destination = ConfigUtils.getStringOrDefault(config, "destination", null);
+    this.destination = ConfigUtils.getStringOrDefault(config, "dest", null);
     this.expressionStr = config.getString("expression");
   }
 
@@ -136,7 +136,7 @@ public class ApplyJSONata extends Stage {
   }
 
   /**
-   * Applies a JSONata expression to the value of the source field and places the result in the destination field, or
+   * Applies a JSONata expression to the value of the source field and places the result in the dest field, or
    * in the source field if destField is null.
    *
    * @throws DocumentException if the source field is absent or null, or the expression returns null
