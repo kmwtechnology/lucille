@@ -56,10 +56,14 @@ public class IndexerFailTopicTest {
     return runIndexerOnOneDoc(new TestMessenger(), config);
   }
 
-  /** A TestMessenger whose fail topic rejects every document, recording whether the batch was marked complete. */
+  /**
+   * A TestMessenger whose fail topic rejects every document, recording how many copies were attempted and whether the
+   * batch was marked complete.
+   */
   private static class FailTopicFailingMessenger extends TestMessenger {
 
     private final boolean documentSpecific;
+    int sendFailedAttempts = 0;
     boolean batchCompleted = false;
 
     FailTopicFailingMessenger(boolean documentSpecific) {
@@ -68,6 +72,7 @@ public class IndexerFailTopicTest {
 
     @Override
     public void sendFailed(Document document) throws MessengerException {
+      sendFailedAttempts++;
       throw new MessengerException("Simulated fail topic failure", null, documentSpecific);
     }
 
@@ -123,14 +128,42 @@ public class IndexerFailTopicTest {
     assertTrue(failed.get(0).getString(Document.FAILURE_REASON_FIELD).contains("rejected"));
   }
 
-  /** A document that can't reach the fail topic must be re-delivered rather than lost, so its offset isn't committed. */
+  /** The copy is best-effort: the FAIL event records the document, so the batch is still marked complete. */
   @Test
-  public void testBatchNotCompletedWhenFailTopicIsUnavailable() throws Exception {
+  public void testBatchCompletedWhenFailTopicIsUnavailable() throws Exception {
     FailTopicFailingMessenger messenger = new FailTopicFailingMessenger(false);
     runIndexerOnOneDoc(messenger, config("IndexerFailTopicTest/sendFailedEnabled.conf"));
 
-    assertFalse(messenger.batchCompleted);
-    assertEquals("the run must not hang, so the FAIL event is still sent", Event.Type.FAIL, messenger.getSentEvents().get(0).getType());
+    assertTrue(messenger.batchCompleted);
+    assertEquals(Event.Type.FAIL, messenger.getSentEvents().get(0).getType());
+  }
+
+  /** Once the fail topic is unavailable, the rest of the batch skips the copy rather than waiting out the same failure. */
+  @Test
+  public void testRestOfBatchSkipsCopyWhenFailTopicIsUnavailable() throws Exception {
+    FailTopicFailingMessenger messenger = new FailTopicFailingMessenger(false);
+    messenger.sendForIndexing(Document.create("doc1", "run1"));
+    messenger.sendForIndexing(Document.create("doc2", "run1"));
+    Indexer indexer = new ErroringNopIndexer(config("IndexerFailTopicTest/sendFailedEnabled.conf")
+        .withValue("batchSize", ConfigValueFactory.fromAnyRef(2)), messenger);
+    indexer.run(2);
+
+    assertEquals(1, messenger.sendFailedAttempts);
+    assertTrue(messenger.batchCompleted);
+    assertEquals(2, messenger.getSentEvents().stream().filter(e -> e.getType() == Event.Type.FAIL).count());
+  }
+
+  /** A document-specific rejection doesn't mean the fail topic is unavailable, so the next document is still copied. */
+  @Test
+  public void testRestOfBatchCopiedWhenFailTopicRejectsOneDocument() throws Exception {
+    FailTopicFailingMessenger messenger = new FailTopicFailingMessenger(true);
+    messenger.sendForIndexing(Document.create("doc1", "run1"));
+    messenger.sendForIndexing(Document.create("doc2", "run1"));
+    Indexer indexer = new ErroringNopIndexer(config("IndexerFailTopicTest/sendFailedEnabled.conf")
+        .withValue("batchSize", ConfigValueFactory.fromAnyRef(2)), messenger);
+    indexer.run(2);
+
+    assertEquals(2, messenger.sendFailedAttempts);
   }
 
   /** Re-delivering a document the fail topic itself rejects would only repeat the rejection. */

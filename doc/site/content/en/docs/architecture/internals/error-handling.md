@@ -200,7 +200,7 @@ The document is written to the fail topic before its FAIL event is sent. If that
 
 - **The topic rejects that document** (for example, a record too large for the topic): the failure is logged and the document fails as usual, since sending it again would only repeat the rejection. It does not reach the fail topic, though the FAIL event and the `FailedDocuments` log still record it.
 - **Any other failure, in a Worker:** this is a messenger failure like any other, so the Worker stops without sending a FAIL event or committing the document's offset, and the document is redelivered.
-- **Any other failure, in an Indexer:** the FAIL event is still sent, so the run does not hang, but the batch's offsets are not committed, so its documents are re-delivered on restart rather than lost.
+- **Any other failure, in an Indexer:** the failure is logged and the document fails as usual. The copy is best-effort, since the FAIL event and the `FailedDocuments` log still record the document, so the batch's offsets are committed and the Indexer goes on. The other failed documents in the same batch are not copied either, so that an unavailable fail topic delays a batch by one Kafka producer timeout rather than one per document.
 
 A child document announced before its parent failed gets a FAIL event but is not copied to the fail topic.
 

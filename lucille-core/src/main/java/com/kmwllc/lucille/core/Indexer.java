@@ -153,6 +153,9 @@ public abstract class Indexer implements Runnable {
   private final String deleteByQueryValueField;
 
   private final boolean sendFailedDocsToTopic;
+  // Set when a copy to the fail topic fails for a reason other than the document itself, so the rest of the batch
+  // skips the copy instead of waiting out the same failure once per document. Reset for each batch; indexer thread only.
+  private boolean failTopicUnavailable;
   private final FieldFilter fieldFilter;
 
   private Instant lastLog = Instant.now();
@@ -593,6 +596,7 @@ public abstract class Indexer implements Runnable {
     //    documents that were never indexed; they stay uncommitted and are re-delivered on restart rather than lost.
     //    (markComplete is set false below.)
     boolean markComplete = true;
+    failTopicUnavailable = false;
     try {
       if (outcome.error() != null) {
         throw outcome.error();
@@ -610,7 +614,7 @@ public abstract class Indexer implements Runnable {
       for (IndexerFailure failure : outcome.failures()) {
         Document doc = failure.document();
         if (nonFailedDocs.remove(doc)) {
-          markComplete &= sendFailEvent(doc, failure.cause());
+          sendFailEvent(doc, failure.cause());
         } else {
           log.error("sendToIndex reported a failure for doc {}, which is not an instance from its batch or was already "
               + "reported. The rest of the batch will be failed.", doc.getId(), failure.cause());
@@ -627,7 +631,7 @@ public abstract class Indexer implements Runnable {
             + unmatchedFailure.cause().getMessage(), unmatchedFailure.cause());
         for (Document doc : batchedDocs) {
           if (nonFailedDocs.remove(doc)) {
-            markComplete &= sendFailEvent(doc, cause);
+            sendFailEvent(doc, cause);
           }
         }
       }
@@ -663,7 +667,7 @@ public abstract class Indexer implements Runnable {
       String message = t.getMessage();
       log.error("Error sending documents to index: {}", message, t);
       for (Document d : batchedDocs) {
-        markComplete &= sendFailEvent(d, t);
+        sendFailEvent(d, t);
       }
       // An Error (OutOfMemoryError, etc.) must never be swallowed, and must not mark the batch complete — the documents
       // were not indexed, so committing their offsets would lose them. FAIL events were still sent just above, so the
@@ -689,13 +693,10 @@ public abstract class Indexer implements Runnable {
   /**
    * Sends a FAIL event for the given document, with the cause as its reason, setting up MDC context
    * for structured logging. When indexer.sendFailedDocsToTopic is set, first copies the document to the fail topic.
-   *
-   * @return false if the copy could not be made and the batch must not be marked complete, so that the document is
-   *     re-delivered rather than lost; true otherwise.
    */
-  private boolean sendFailEvent(Document d, Throwable cause) {
+  private void sendFailEvent(Document d, Throwable cause) {
     String reason = Event.failureMessage(cause);
-    boolean mayComplete = sendToFailTopic(d, reason);
+    sendToFailTopic(d, reason);
     try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
       if (d.getRunId() != null) {
         MDC.pushByKey(RUNID_FIELD, d.getRunId());
@@ -711,24 +712,30 @@ public abstract class Indexer implements Runnable {
         MDC.popByKey(RUNID_FIELD);
       }
     }
-    return mayComplete;
   }
 
-  // Returns false if the document could not be copied for any reason other than the transport rejecting that document,
-  // whose re-delivery would only repeat the rejection. The FAIL event is sent either way, so the run does not hang.
-  private boolean sendToFailTopic(Document d, String reason) {
+  // The copy is best-effort: the FAIL event and the FailedDocuments log record the failure whether or not the copy is
+  // made, so a failed copy is logged and the batch is still marked complete. Holding back the batch's offsets instead
+  // would stop commits on the partition until a restart (Kafka) or be overtaken by the next batch's commit (Hybrid).
+  private void sendToFailTopic(Document d, String reason) {
     if (!sendFailedDocsToTopic) {
-      return true;
+      return;
+    }
+    if (failTopicUnavailable) {
+      docLogger.error("Document {} was not copied to the fail topic: an earlier copy in this batch could not be sent, "
+          + "so the rest of the batch is not copied.", d.getId());
+      return;
     }
     try {
       // Document is sealed, so every Document is a JsonDocument
       ((JsonDocument) d).setFailureMetadata(reason, "indexer", Instant.now());
       messenger.sendFailed(d);
-      return true;
     } catch (Exception e) {
       restoreInterrupt(e);
       docLogger.error("Document {} could not be sent to the fail topic.", d.getId(), e);
-      return e instanceof MessengerException messengerException && messengerException.isDocumentSpecific();
+      if (!(e instanceof MessengerException messengerException && messengerException.isDocumentSpecific())) {
+        failTopicUnavailable = true;
+      }
     }
   }
 
