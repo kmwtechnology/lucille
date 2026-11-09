@@ -4,9 +4,12 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.io.File;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -28,6 +31,14 @@ import org.slf4j.LoggerFactory;
  *   <br> - file_extension: The extension of the file.
  *   <br> - file_paths: The parent directories of the file (see includeHierarchy).
  *   <br> - level: The number of segments in the path (see includeLevel).
+ *   <br> - scheme: The URI scheme, like "s3" (only for a URI, see parseUris).
+ *   <br> - authority: The URI authority, like a bucket or host, or "" for file:///a (only for a URI, see parseUris).
+ * <p>
+ * A path that starts with a URI scheme of two or more letters followed by "://" (like s3://bucket/a/file.txt or
+ * file:///a/file.txt) is parsed as a URI: the scheme and authority go in their own fields, and every other field is computed
+ * from the URI's path only, so s3://bucket/a/file.txt gives path "/a/file.txt", folder "/a" and file_paths "a". A query or
+ * fragment is dropped. A one-letter scheme is not matched, so a Windows drive (C://dir) is parsed as a path. If the URI's path
+ * leaves the root (s3://bucket/../a), the whole value is parsed as a path instead.
  * <p>
  * Config Parameters -
  * <ul>
@@ -40,15 +51,15 @@ import org.slf4j.LoggerFactory;
  *   true.</li>
  *   <li>includeHierarchy (Boolean, Optional) : If true, a field ("file_paths") will be populated with all of the normalized subpaths
  *   leading up to the full file path (to aid in building a hierarchical aggregator/facet for a search engine). Defaults to true.</li>
- *   <li>decodeFilePath (Boolean, Optional) : If true, the file path is URL-decoded (UTF-8) before it is parsed, and the "://" after a
- *   URI scheme (like s3://bucket/key) is kept in the normalized path instead of being collapsed to ":/". A "+" is kept as is, and a
- *   path with an invalid escape sequence is parsed without decoding. Defaults to false.</li>
- *   <li>createRelativeHierarchy (Boolean, Optional) : If true, the "file_paths" of a URI are built from its path without the scheme
- *   and authority, so s3://bucket/a/b/file.txt gives "a" and "a/b" instead of "s3:", "s3:/bucket", "s3:/bucket/a" and
- *   "s3:/bucket/a/b". Other paths are not affected. Defaults to false.</li>
+ *   <li>parseUris (Boolean, Optional) : If true, a path that starts with a URI scheme is parsed as a URI, as described above. If
+ *   false, it is parsed like any other path, which collapses the "://" to ":/" and makes the scheme the first value in
+ *   "file_paths" (s3:, s3:/bucket, ...). Defaults to true.</li>
+ *   <li>decodeFilePath (Boolean, Optional) : If true, the file path is URL-decoded (UTF-8) before it is parsed. For a URI, the
+ *   authority and path are decoded after the URI is split. A "+" is kept as is, and a path with an invalid escape sequence or an
+ *   encoded null character (%00) is parsed without decoding. Defaults to false.</li>
  *   <li>includeLevel (Boolean, Optional) : If true, a field ("level") will be populated with the number of segments in the path,
  *   including the file name: 3 for /a/b/file.txt and for C:\a\file.txt. Segments are counted the same way as for "file_paths", so
- *   createRelativeHierarchy applies to the level too. Defaults to false.</li>
+ *   for a URI only the segments of its path are counted. Defaults to false.</li>
  *   <li>clearInvalidExtension (Boolean, Optional) : If true, "file_extension" is set to "" when the extension contains a control
  *   character or a character that looks like a slash (like U+2215 DIVISION SLASH or U+FF3C FULLWIDTH REVERSE SOLIDUS), which is
  *   not a real extension. Defaults to false.</li>
@@ -61,7 +72,7 @@ public class ParseFilePath extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("filePathField", "fileSep")
-      .optionalBoolean("uppercaseExtension", "includeHierarchy", "decodeFilePath", "createRelativeHierarchy", "includeLevel",
+      .optionalBoolean("uppercaseExtension", "includeHierarchy", "parseUris", "decodeFilePath", "includeLevel",
           "clearInvalidExtension", "rootedHierarchy")
       .build();
 
@@ -75,8 +86,8 @@ public class ParseFilePath extends Stage {
   private final String fileSep;
   private final boolean uppercaseExtension;
   private final boolean includeHierarchy;
+  private final boolean parseUris;
   private final boolean decodeFilePath;
-  private final boolean createRelativeHierarchy;
   private final boolean includeLevel;
   private final boolean clearInvalidExtension;
   private final boolean rootedHierarchy;
@@ -96,8 +107,8 @@ public class ParseFilePath extends Stage {
 
     this.uppercaseExtension = ConfigUtils.getOrDefault(config, "uppercaseExtension", true);
     this.includeHierarchy = ConfigUtils.getOrDefault(config, "includeHierarchy", true);
+    this.parseUris = ConfigUtils.getOrDefault(config, "parseUris", true);
     this.decodeFilePath = ConfigUtils.getOrDefault(config, "decodeFilePath", false);
-    this.createRelativeHierarchy = ConfigUtils.getOrDefault(config, "createRelativeHierarchy", false);
     this.includeLevel = ConfigUtils.getOrDefault(config, "includeLevel", false);
     this.clearInvalidExtension = ConfigUtils.getOrDefault(config, "clearInvalidExtension", false);
     this.rootedHierarchy = ConfigUtils.getOrDefault(config, "rootedHierarchy", false);
@@ -112,12 +123,21 @@ public class ParseFilePath extends Stage {
     }
 
     String rawPath = doc.getString(filePathField);
-    String filePath;
-    if (decodeFilePath) {
-      rawPath = decode(rawPath);
-      filePath = normalizeUri(rawPath);
-    } else {
-      filePath = FilenameUtils.normalizeNoEndSeparator(rawPath, useUnix);
+    String filePath = null;
+
+    if (parseUris) {
+      UriParts uri = splitUri(rawPath);
+      if (uri != null) {
+        filePath = FilenameUtils.normalizeNoEndSeparator(decodeIfEnabled(uri.path), useUnix);
+        if (filePath != null) {
+          doc.addToField("scheme", uri.scheme);
+          doc.addToField("authority", decodeIfEnabled(uri.authority));
+        }
+      }
+    }
+
+    if (filePath == null) {
+      filePath = FilenameUtils.normalizeNoEndSeparator(decodeIfEnabled(rawPath), useUnix);
     }
 
     doc.addToField("filename", FilenameUtils.getName(filePath));
@@ -135,27 +155,38 @@ public class ParseFilePath extends Stage {
       doc.addToField("file_extension", extension);
     }
 
-    String hierarchyPath = createRelativeHierarchy ? relativeHierarchyPath(rawPath, filePath) : filePath;
-
     if (includeLevel) {
-      doc.addToField("level", countSegments(hierarchyPath));
+      doc.addToField("level", countSegments(filePath));
     }
 
     if (includeHierarchy) {
-      addHierarchy(doc, hierarchyPath);
+      addHierarchy(doc, filePath);
     }
 
     return null;
   }
 
+  private String decodeIfEnabled(String value) {
+    return decodeFilePath ? decode(value) : value;
+  }
+
   private static String decode(String filePath) {
+    String decoded;
     try {
       // URLDecoder decodes "+" to a space, which is only correct for form data. Encode it so it is kept in the path.
-      return URLDecoder.decode(filePath.replace("+", "%2B"), StandardCharsets.UTF_8);
+      decoded = URLDecoder.decode(filePath.replace("+", "%2B"), StandardCharsets.UTF_8);
     } catch (IllegalArgumentException e) {
       log.warn("Could not URL-decode file path {}, parsing it without decoding: {}", filePath, e.getMessage());
       return filePath;
     }
+
+    // a path can't contain a null character, and FilenameUtils rejects one
+    if (decoded.indexOf('\0') >= 0) {
+      log.warn("URL-decoding file path {} gives a null character, parsing it without decoding", filePath);
+      return filePath;
+    }
+
+    return decoded;
   }
 
   private static boolean isInvalidExtension(String extension) {
@@ -174,40 +205,31 @@ public class ParseFilePath extends Stage {
   }
 
   /**
-   * Normalizes the path. If it starts with a URI scheme, only the part after the "://" is normalized, so the "://" is not
-   * collapsed to ":/".
+   * Splits a path that starts with a URI scheme into its scheme, raw authority and raw path, or returns null if it doesn't start
+   * with one. java.net.URI is used when it accepts the value, so a query or fragment is dropped. Otherwise (for example, a raw
+   * space or a backslash), the authority runs up to the first "/" or "\" after the "://", and the rest is the path.
    */
-  private String normalizeUri(String filePath) {
-    Matcher scheme = URI_SCHEME.matcher(filePath);
-    if (!scheme.lookingAt()) {
-      return FilenameUtils.normalizeNoEndSeparator(filePath, useUnix);
-    }
-
-    String rest = FilenameUtils.normalizeNoEndSeparator(filePath.substring(scheme.end()), useUnix);
-    return rest == null ? null : filePath.substring(0, scheme.end()) + rest;
-  }
-
-  /**
-   * Returns the normalized path without the scheme and authority if the path is a URI (s3://bucket/a/b becomes /a/b), or the
-   * given normalized path otherwise.
-   */
-  private String relativeHierarchyPath(String rawPath, String filePath) {
+  private static UriParts splitUri(String rawPath) {
     Matcher scheme = URI_SCHEME.matcher(rawPath);
     if (!scheme.lookingAt()) {
-      return filePath;
+      return null;
     }
 
-    for (int i = scheme.end(); i < rawPath.length(); i++) {
-      char ch = rawPath.charAt(i);
-      if (ch == '/' || ch == '\\') {
-        String relativePath = FilenameUtils.normalizeNoEndSeparator(rawPath.substring(i), useUnix);
-        // a path that leaves the root, like s3://bucket/../a, has no hierarchy
-        return relativePath == null ? "" : relativePath;
+    String schemeName = rawPath.substring(0, scheme.end() - "://".length());
+
+    try {
+      URI uri = new URI(rawPath);
+      return new UriParts(schemeName, Objects.toString(uri.getRawAuthority(), ""), Objects.toString(uri.getRawPath(), ""));
+    } catch (URISyntaxException e) {
+      int pathStart = scheme.end();
+      while (pathStart < rawPath.length() && rawPath.charAt(pathStart) != '/' && rawPath.charAt(pathStart) != '\\') {
+        pathStart++;
       }
+      return new UriParts(schemeName, rawPath.substring(scheme.end(), pathStart), rawPath.substring(pathStart));
     }
+  }
 
-    // only a scheme and authority, like s3://bucket
-    return "";
+  private record UriParts(String scheme, String authority, String path) {
   }
 
   /**

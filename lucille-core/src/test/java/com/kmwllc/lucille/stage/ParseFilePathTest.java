@@ -5,8 +5,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
-import com.kmwllc.lucille.core.spec.NumberProperty;
-import com.kmwllc.lucille.core.spec.Property;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
@@ -208,52 +206,144 @@ public class ParseFilePathTest {
   }
 
   @Test
+  public void testParseUriFileConnectorForms() throws StageException {
+    Stage stage = factory.get(Map.of("fileSep", "/", "includeLevel", true));
+
+    Document s3 = parse(stage, "s3://acme-docs/legal/2026/contract.docx");
+    assertEquals("s3", s3.getString("scheme"));
+    assertEquals("acme-docs", s3.getString("authority"));
+    assertEquals("contract.docx", s3.getString("filename"));
+    assertEquals("/legal/2026", s3.getString("folder"));
+    assertEquals("/legal/2026/contract.docx", s3.getString("path"));
+    assertEquals("DOCX", s3.getString("file_extension"));
+    assertEquals(List.of("legal", "legal/2026"), s3.getStringList("file_paths"));
+    assertEquals(Integer.valueOf(3), s3.getInt("level"));
+
+    // an empty authority
+    Document file = parse(stage, "file:///data/reports/q3.pdf");
+    assertEquals("file", file.getString("scheme"));
+    assertEquals("", file.getString("authority"));
+    assertEquals("q3.pdf", file.getString("filename"));
+    assertEquals("/data/reports", file.getString("folder"));
+    assertEquals("/data/reports/q3.pdf", file.getString("path"));
+    assertEquals(List.of("data", "data/reports"), file.getStringList("file_paths"));
+    assertEquals(Integer.valueOf(3), file.getInt("level"));
+
+    // Azure: the container is the first segment of the path
+    Document azure = parse(stage, "https://acct.blob.core.windows.net/container/dir/file.txt");
+    assertEquals("https", azure.getString("scheme"));
+    assertEquals("acct.blob.core.windows.net", azure.getString("authority"));
+    assertEquals("/container/dir", azure.getString("folder"));
+    assertEquals("/container/dir/file.txt", azure.getString("path"));
+    assertEquals(List.of("container", "container/dir"), azure.getStringList("file_paths"));
+    assertEquals(Integer.valueOf(3), azure.getInt("level"));
+  }
+
+  @Test
+  public void testParseUriEdgeCases() throws StageException {
+    Stage stage = factory.get(Map.of("fileSep", "/"));
+
+    // the query and fragment are dropped, a port is kept in the authority, and the path is normalized
+    Document query = parse(stage, "https://host:8080/a/b/../c/file.txt?x=1#frag");
+    assertEquals("host:8080", query.getString("authority"));
+    assertEquals("/a/c/file.txt", query.getString("path"));
+    assertEquals(List.of("a", "a/c"), query.getStringList("file_paths"));
+
+    // only a scheme and authority
+    Document bucket = parse(stage, "s3://bucket");
+    assertEquals("bucket", bucket.getString("authority"));
+    assertEquals("", bucket.getString("path"));
+    assertEquals("", bucket.getString("filename"));
+    assertFalse(bucket.has("file_paths"));
+
+    // java.net.URI rejects a raw space and a backslash, so the authority ends at the first separator
+    Document space = parse(stage, "s3://bucket/my folder/file.txt");
+    assertEquals("bucket", space.getString("authority"));
+    assertEquals("/my folder/file.txt", space.getString("path"));
+    Document backslash = parse(stage, "s3://bucket\\a\\file.txt");
+    assertEquals("bucket", backslash.getString("authority"));
+    assertEquals("/a/file.txt", backslash.getString("path"));
+
+    // a path that leaves the root is parsed as a path
+    Document escaping = parse(stage, "s3://bucket/../a/file.txt");
+    assertFalse(escaping.has("scheme"));
+    assertEquals("s3:/a/file.txt", escaping.getString("path"));
+  }
+
+  @Test
+  public void testParseUriWindowsSeparator() throws StageException {
+    Stage stage = factory.get(Map.of("fileSep", "\\"));
+    Document doc = parse(stage, "s3://bucket/a/b/file.txt");
+    assertEquals("bucket", doc.getString("authority"));
+    assertEquals("\\a\\b\\file.txt", doc.getString("path"));
+    assertEquals("\\a\\b", doc.getString("folder"));
+    assertEquals(List.of("a", "a\\b"), doc.getStringList("file_paths"));
+  }
+
+  @Test
+  public void testDriveAndUncPathsAreNotUris() throws StageException {
+    Stage unix = factory.get(Map.of("fileSep", "/"));
+    Document drive = parse(unix, "C://dir/file.txt");
+    assertFalse(drive.has("scheme"));
+    assertEquals("C:/dir/file.txt", drive.getString("path"));
+    assertEquals(List.of("C:", "C:/dir"), drive.getStringList("file_paths"));
+
+    Stage windows = factory.get(Map.of("fileSep", "\\"));
+    Document unc = parse(windows, "\\\\server\\share\\dir\\file.txt");
+    assertFalse(unc.has("scheme"));
+    assertFalse(unc.has("authority"));
+    assertEquals("\\\\server\\share\\dir\\file.txt", unc.getString("path"));
+    assertEquals("\\\\server\\share\\dir", unc.getString("folder"));
+    assertEquals(List.of("server", "server\\share", "server\\share\\dir"), unc.getStringList("file_paths"));
+  }
+
+  @Test
+  public void testParseUrisDisabled() throws StageException {
+    Stage stage = factory.get(Map.of("fileSep", "/", "parseUris", false));
+    Document doc = parse(stage, "s3://acme-docs/legal/2026/contract.docx");
+
+    assertFalse(doc.has("scheme"));
+    assertFalse(doc.has("authority"));
+    assertEquals("s3:/acme-docs/legal/2026/contract.docx", doc.getString("path"));
+    assertEquals("s3:/acme-docs/legal/2026", doc.getString("folder"));
+    assertEquals(List.of("s3:", "s3:/acme-docs", "s3:/acme-docs/legal", "s3:/acme-docs/legal/2026"),
+        doc.getStringList("file_paths"));
+  }
+
+  @Test
   public void testDecodeFilePath() throws StageException {
     Stage stage = factory.get(Map.of("fileSep", "/", "decodeFilePath", true));
 
-    Document doc1 = Document.create("doc1");
-    doc1.setField("file_path", "s3://bucket/my%20folder/caf%C3%A9.txt");
-    stage.processDocument(doc1);
-    assertEquals("s3://bucket/my folder/caf\u00e9.txt", doc1.getString("path"));
+    // a URI is split before its authority and path are decoded, so an encoded "/" in the authority stays in it
+    Document doc1 = parse(stage, "s3://my%2Fbucket/my%20folder/caf%C3%A9.txt");
+    assertEquals("my/bucket", doc1.getString("authority"));
+    assertEquals("/my folder/caf\u00e9.txt", doc1.getString("path"));
     assertEquals("caf\u00e9.txt", doc1.getString("filename"));
-    assertEquals("s3://bucket/my folder", doc1.getString("folder"));
-    assertEquals("TXT", doc1.getString("file_extension"));
-    // the hierarchy splits on runs of separators, as without decodeFilePath
-    assertEquals(List.of("s3:", "s3:/bucket", "s3:/bucket/my folder"), doc1.getStringList("file_paths"));
-
-    // "://" is kept for an empty authority too, and ".." is resolved after the scheme
-    Document doc2 = Document.create("doc2");
-    doc2.setField("file_path", "file:///a/b/../c.txt");
-    stage.processDocument(doc2);
-    assertEquals("file:///a/c.txt", doc2.getString("path"));
-    assertEquals("file:///a", doc2.getString("folder"));
+    assertEquals("/my folder", doc1.getString("folder"));
+    assertEquals(List.of("my folder"), doc1.getStringList("file_paths"));
 
     // "+" is kept, unlike form decoding
-    Document doc3 = Document.create("doc3");
-    doc3.setField("file_path", "/dir/c++%20notes.txt");
-    stage.processDocument(doc3);
-    assertEquals("/dir/c++ notes.txt", doc3.getString("path"));
+    assertEquals("/dir/c++ notes.txt", parse(stage, "/dir/c++%20notes.txt").getString("path"));
 
     // an invalid escape sequence leaves the path undecoded
-    Document doc4 = Document.create("doc4");
-    doc4.setField("file_path", "/dir/100%.txt");
-    stage.processDocument(doc4);
-    assertEquals("/dir/100%.txt", doc4.getString("path"));
-    assertEquals("100%.txt", doc4.getString("filename"));
+    Document invalid = parse(stage, "/dir/100%.txt");
+    assertEquals("/dir/100%.txt", invalid.getString("path"));
+    assertEquals("100%.txt", invalid.getString("filename"));
+
+    // so does an encoded null character, which FilenameUtils would reject
+    Document nul = parse(stage, "/data/a%00b%20c.txt");
+    assertEquals("/data/a%00b%20c.txt", nul.getString("path"));
+    assertEquals("a%00b%20c.txt", nul.getString("filename"));
+    assertEquals("/data/a%00b.txt", parse(stage, "s3://bucket/data/a%00b.txt").getString("path"));
 
     // a drive letter is not a URI scheme
-    Document doc5 = Document.create("doc5");
-    doc5.setField("file_path", "C://dir/a%20b.txt");
-    stage.processDocument(doc5);
-    assertEquals("C:/dir/a b.txt", doc5.getString("path"));
+    assertEquals("C:/dir/a b.txt", parse(stage, "C://dir/a%20b.txt").getString("path"));
   }
 
   @Test
   public void testDecodeFilePathWindowsSeparator() throws StageException {
     Stage stage = factory.get(Map.of("fileSep", "\\", "decodeFilePath", true));
-    Document doc = Document.create("doc");
-    doc.setField("file_path", "C:%5Cmy%20folder%5Cfile.txt");
-    stage.processDocument(doc);
+    Document doc = parse(stage, "C:%5Cmy%20folder%5Cfile.txt");
 
     assertEquals("C:\\my folder\\file.txt", doc.getString("path"));
     assertEquals("C:\\my folder", doc.getString("folder"));
@@ -263,45 +353,10 @@ public class ParseFilePathTest {
   @Test
   public void testDecodeFilePathDisabledByDefault() throws StageException {
     Stage stage = factory.get(Map.of("fileSep", "/"));
-    Document doc = Document.create("doc");
-    doc.setField("file_path", "s3://bucket/my%20folder/file.txt");
-    stage.processDocument(doc);
+    Document doc = parse(stage, "s3://bucket/my%20folder/file.txt");
 
-    assertEquals("s3:/bucket/my%20folder/file.txt", doc.getString("path"));
-    assertEquals("s3:/bucket/my%20folder", doc.getString("folder"));
-  }
-
-  @Test
-  public void testCreateRelativeHierarchy() throws StageException {
-    Stage stage = factory.get(Map.of("fileSep", "/", "createRelativeHierarchy", true));
-
-    assertEquals(List.of("a", "a/b"), parse(stage, "s3://bucket/a/b/file.txt").getStringList("file_paths"));
-    assertEquals(List.of("a"), parse(stage, "file:///a/file.txt").getStringList("file_paths"));
-    assertEquals(List.of("a", "a/c"), parse(stage, "https://host:8080/a/b/../c/file.txt").getStringList("file_paths"));
-    assertFalse(parse(stage, "s3://bucket/file.txt").has("file_paths"));
-    assertFalse(parse(stage, "s3://bucket").has("file_paths"));
-    assertFalse(parse(stage, "s3://bucket/../a/file.txt").has("file_paths"));
-
-    // only the hierarchy is relative
-    Document doc = parse(stage, "s3://bucket/a/b/file.txt");
-    assertEquals("s3:/bucket/a/b/file.txt", doc.getString("path"));
-    assertEquals("s3:/bucket/a/b", doc.getString("folder"));
-
-    // paths that are not URIs are not affected
-    assertEquals(List.of("x", "x/y"), parse(stage, "/x/y/file.txt").getStringList("file_paths"));
-    assertEquals(List.of("C:", "C:/x"), parse(stage, "C://x/file.txt").getStringList("file_paths"));
-  }
-
-  @Test
-  public void testCreateRelativeHierarchyWithDecodeAndWindowsSeparator() throws StageException {
-    Stage decoding = factory.get(Map.of("fileSep", "/", "createRelativeHierarchy", true, "decodeFilePath", true));
-    Document doc = parse(decoding, "s3://bucket/my%20folder/sub/file.txt");
-    assertEquals(List.of("my folder", "my folder/sub"), doc.getStringList("file_paths"));
-    assertEquals("s3://bucket/my folder/sub/file.txt", doc.getString("path"));
-
-    Stage windows = factory.get(Map.of("fileSep", "\\", "createRelativeHierarchy", true));
-    assertEquals(List.of("a", "a\\b"), parse(windows, "s3://bucket/a/b/file.txt").getStringList("file_paths"));
-    assertEquals(List.of("a", "a\\b"), parse(windows, "s3://bucket\\a\\b\\file.txt").getStringList("file_paths"));
+    assertEquals("/my%20folder/file.txt", doc.getString("path"));
+    assertEquals("/my%20folder", doc.getString("folder"));
   }
 
   @Test
@@ -312,15 +367,15 @@ public class ParseFilePathTest {
     assertEquals(Integer.valueOf(1), parse(unix, "file.txt").getInt("level"));
     assertEquals(Integer.valueOf(0), parse(unix, "/").getInt("level"));
     assertEquals(Integer.valueOf(0), parse(unix, "").getInt("level"));
-    assertEquals(Integer.valueOf(4), parse(unix, "s3://bucket/a/file.txt").getInt("level"));
+    assertEquals(Integer.valueOf(2), parse(unix, "s3://bucket/a/file.txt").getInt("level"));
+    assertEquals(Integer.valueOf(0), parse(unix, "s3://bucket").getInt("level"));
     assertFalse(parse(unix, "/a/b/file.txt").has("file_paths"));
 
     Stage windows = factory.get(Map.of("fileSep", "\\", "includeLevel", true));
     assertEquals(Integer.valueOf(3), parse(windows, "C:\\a\\file.txt").getInt("level"));
 
-    Stage relative = factory.get(Map.of("fileSep", "/", "includeLevel", true, "createRelativeHierarchy", true));
-    assertEquals(Integer.valueOf(2), parse(relative, "s3://bucket/a/file.txt").getInt("level"));
-    assertEquals(Integer.valueOf(0), parse(relative, "s3://bucket").getInt("level"));
+    Stage noUris = factory.get(Map.of("fileSep", "/", "includeLevel", true, "parseUris", false));
+    assertEquals(Integer.valueOf(4), parse(noUris, "s3://bucket/a/file.txt").getInt("level"));
 
     Stage defaults = factory.get(Map.of("fileSep", "/"));
     assertFalse(parse(defaults, "/a/b/file.txt").has("level"));
@@ -330,7 +385,7 @@ public class ParseFilePathTest {
   public void testLevelMatchesHierarchy() throws StageException {
     for (String fileSep : List.of("/", "\\")) {
       Stage stage = factory.get(Map.of("fileSep", fileSep, "includeLevel", true, "uppercaseExtension", false));
-      for (String path : equivalencePaths()) {
+      for (String path : levelTestPaths()) {
         if (FilenameUtils.normalizeNoEndSeparator(path, fileSep.equals("/")) == null) {
           continue;
         }
@@ -381,9 +436,7 @@ public class ParseFilePathTest {
 
     Stage windows = factory.get(Map.of("fileSep", "\\", "rootedHierarchy", true));
     assertEquals(List.of("\\C:", "\\C:\\a"), parse(windows, "C:\\a\\file.txt").getStringList("file_paths"));
-
-    Stage relative = factory.get(Map.of("fileSep", "/", "rootedHierarchy", true, "createRelativeHierarchy", true));
-    assertEquals(List.of("/a", "/a/b"), parse(relative, "s3://bucket/a/b/file.txt").getStringList("file_paths"));
+    assertEquals(List.of("/a", "/a/b"), parse(unix, "s3://bucket/a/b/file.txt").getStringList("file_paths"));
   }
 
   private static Document parse(Stage stage, String filePath) throws StageException {
@@ -393,46 +446,8 @@ public class ParseFilePathTest {
     return doc;
   }
 
-  @Test
-  public void testOutputMatchesLegacyImplementation() throws StageException {
-    List<String> paths = equivalencePaths();
-
-    for (String fileSep : List.of("/", "\\")) {
-      for (boolean uppercaseExtension : List.of(true, false)) {
-        for (boolean includeHierarchy : List.of(true, false)) {
-          Stage stage = factory.get(Map.of("fileSep", fileSep, "uppercaseExtension", uppercaseExtension,
-              "includeHierarchy", includeHierarchy));
-
-          for (String path : paths) {
-            String message = "fileSep=" + fileSep + ", uppercaseExtension=" + uppercaseExtension
-                + ", includeHierarchy=" + includeHierarchy + ", path=" + path;
-            Document expected = Document.create("doc");
-            expected.setField("file_path", path);
-            Document actual = expected.deepCopy();
-
-            Class<?> expectedError = errorClass(() -> legacyProcessDocument(expected, fileSep, uppercaseExtension, includeHierarchy));
-            Class<?> actualError = errorClass(() -> stage.processDocument(actual));
-
-            // The legacy implementation normalized the path a second time to build the hierarchy. Normalization is not
-            // idempotent for a few inputs (e.g. "./:/b" normalizes to ":/b", which then normalizes to null), so it threw a
-            // NullPointerException for them. Normalizing once parses these paths instead.
-            String normalized = FilenameUtils.normalizeNoEndSeparator(path, fileSep.equals("/"));
-            if (includeHierarchy && normalized != null
-                && FilenameUtils.normalizeNoEndSeparator(normalized, fileSep.equals("/")) == null) {
-              assertEquals(message, NullPointerException.class, expectedError);
-              assertEquals(message, null, actualError);
-              continue;
-            }
-
-            assertEquals(message, expectedError, actualError);
-            assertEquals(message, expected, actual);
-          }
-        }
-      }
-    }
-  }
-
-  private static List<String> equivalencePaths() {
+  // fixed, deep and seeded random paths, to check that level and file_paths always agree
+  private static List<String> levelTestPaths() {
     List<String> paths = new ArrayList<>(List.of(
         "", "/", "\\", ".", "..", "../x", "/a/../../x", "a", "/a", "a/", "/a/b/", "a//b///c.txt", "///a///b///",
         "/a/./b/../c/file.txt", "~/docs/file.tar.gz", ".hidden", "/dir/.hidden", "/dir/no_extension", "/dir/file.",
@@ -467,19 +482,6 @@ public class ParseFilePathTest {
     return paths;
   }
 
-  private static Class<?> errorClass(ThrowingRunnable runnable) {
-    try {
-      runnable.run();
-      return null;
-    } catch (Exception e) {
-      return e.getClass();
-    }
-  }
-
-  private interface ThrowingRunnable {
-    void run() throws Exception;
-  }
-
   // The implementation before the hierarchy was built in O(depth), kept to check that the output is unchanged.
   private static void legacyProcessDocument(Document doc, String fileSep, boolean uppercaseExtension, boolean includeHierarchy) {
     String filePath = doc.getString("file_path");
@@ -505,6 +507,8 @@ public class ParseFilePathTest {
     }
   }
 
+  // TODO: This is a benchmark rather than a unit test. It should eventually be moved to a benchmarking suite, along with
+  // legacyProcessDocument above, which is only kept as the baseline it compares against.
   @Test
   public void testDeepPathBenchmark() throws StageException {
     Stage stage = factory.get(Map.of("fileSep", "/"));
