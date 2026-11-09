@@ -214,7 +214,7 @@ After chunking, each child document has:
 - `length`: character length of this chunk
 - `text` (or whatever `dest` is set to): the chunk text
 
-Parent document fields are **not** automatically copied to child documents. `EmitNestedChildren` can copy them with `fieldsToCopy`.
+Parent document fields are **not** automatically copied to child documents. `EmitNestedChildren` can copy them with `fieldMapping`.
 
 ## Recipe 5: Keeping Chunks in Sync with Their Source
 

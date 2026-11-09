@@ -45,7 +45,7 @@ Your components and applications interact with these classes. They are public AP
 - `Runner`: runs a pipeline from a config, through `main`, `run`, `runAndLogResult`, or `runInTestMode`. Its `-validate` option checks a config and exits without running.
 - `Runner.RunType`: the kind of run: `LOCAL`, `TEST`, `EXTERNAL` (Kafka), or `DISTRIBUTED`.
 - `RunResult`: the outcome of a run.
-- `TestMessenger`: the recording of a test-mode run, and what you pass to an `IndexerContext` when unit testing an Indexer. Its supported API is `getDocsSentForProcessing()`, `getDocsSentForIndexing()`, and `getSentEvents()`, plus `sendForIndexing()` to queue documents for an Indexer under test; the other messenger methods it implements are internal.
+- `TestMessenger`: the recording of a test-mode run, and what you pass to an `IndexerContext` when unit testing an Indexer. Its supported API is `getDocsSentForProcessing()`, `getDocsSentForIndexing()`, `getDocsSentToFailTopic()`, and `getSentEvents()`, plus `sendForIndexing()` to queue documents for an Indexer under test; the other messenger methods it implements are internal.
 
 **Documents and configuration**
 - `Document`: the unit of data that flows through a pipeline, created with `Document.create`.
