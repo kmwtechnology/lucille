@@ -145,8 +145,8 @@ public class QueryDatabaseTest {
             "keyFields",
             "jdbcPassword",
             "sql",
-            "connectionRetries",
-            "connectionRetryPause",
+            "maxConnectionRetries",
+            "connectionRetryWaitDurationMs",
             "fieldMapping"),
         stage.getNonDefaultLegalProperties());
 

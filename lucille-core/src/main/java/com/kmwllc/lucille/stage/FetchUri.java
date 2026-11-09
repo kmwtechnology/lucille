@@ -45,13 +45,13 @@ import org.slf4j.LoggerFactory;
  *   url --&gt; url_(sizeSuffix) where source name is url.</li>
  *   <li>statusSuffix (String, Optional) : suffix to be appended to end of source field name for the status code of the fetch request.</li>
  *   <li>errorSuffix (String, Optional) : suffix to be appended to end of source field name for any errors in process.</li>
- *   <li>maxSize (Integer, Optional) : max size, in bytes, of data to be read from fetch.</li>
+ *   <li>maxSizeBytes (Integer, Optional) : max size, in bytes, of data to be read from fetch.</li>
  *   <li>maxRetries (Integer, Optional) : max number of tries the request will be made. Defaults to 0 retries.</li>
- *   <li>initialExpiryMs (Integer, Optional) : number of milliseconds that would be waited before retrying the request. Defaults to 100ms.</li>
- *   <li>maxExpiryMs (Integer, Optional) : max number of milliseconds that would be waited before retrying a request. Defaults to 10000ms, 10s.</li>
- *   <li>connectionRequestTimeout (Integer, Optional) : the connection request timeout in milliseconds. Defaults to 60000ms, 1m.</li>
- *   <li>connectTimeout (Integer, Optional) : the connection timeout in milliseconds. Defaults to 60000ms, 1m.</li>
- *   <li>socketTimeout (Integer, Optional) : the socket timeout in milliseconds. Defaults to 60000ms, 1m.</li>
+ *   <li>retryWaitDurationMs (Integer, Optional) : number of milliseconds that would be waited before retrying the request. Defaults to 100ms.</li>
+ *   <li>retryMaxWaitDurationMs (Integer, Optional) : max number of milliseconds that would be waited before retrying a request. Defaults to 10000ms, 10s.</li>
+ *   <li>connectionRequestTimeoutMs (Integer, Optional) : the connection request timeout in milliseconds. Defaults to 60000ms, 1m.</li>
+ *   <li>connectTimeoutMs (Integer, Optional) : the connection timeout in milliseconds. Defaults to 60000ms, 1m.</li>
+ *   <li>socketTimeoutMs (Integer, Optional) : the socket timeout in milliseconds. Defaults to 60000ms, 1m.</li>
  * </ul>
  */
 public class FetchUri extends Stage {
@@ -59,8 +59,8 @@ public class FetchUri extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("source", "dest")
       .optionalString("sizeSuffix", "statusSuffix", "errorSuffix")
-      .optionalNumber("maxRetries", "initialExpiryMs", "maxExpiryMs", "connectionRequestTimeout", "connectTimeout", "socketTimeout", "maxSize")
-      .optionalList("statusCodeRetryList", new TypeReference<List<String>>(){})
+      .optionalNumber("maxRetries", "retryWaitDurationMs", "retryMaxWaitDurationMs", "connectionRequestTimeoutMs", "connectTimeoutMs", "socketTimeoutMs", "maxSizeBytes")
+      .optionalList("retryableStatusCodes", new TypeReference<List<String>>(){})
       .optionalParent("headers", new TypeReference<Map<String, Object>>(){}).build();
 
   private static final Logger log = LoggerFactory.getLogger(FetchUri.class);
@@ -90,15 +90,15 @@ public class FetchUri extends Stage {
     this.statusSuffix = ConfigUtils.getOrDefault(config, "statusSuffix", "status_code");
     this.sizeSuffix = ConfigUtils.getOrDefault(config, "sizeSuffix", "size");
     this.errorSuffix = ConfigUtils.getOrDefault(config, "errorSuffix", "error");
-    this.maxDownloadSize = ConfigUtils.getOrDefault(config, "maxSize", Integer.MAX_VALUE);
+    this.maxDownloadSize = ConfigUtils.getOrDefault(config, "maxSizeBytes", Integer.MAX_VALUE);
     this.headers = ConfigUtils.createHeaderArray(config, "headers");
     this.maxNumRetries = ConfigUtils.getOrDefault(config, "maxRetries", 0);
-    this.initialExpiry = ConfigUtils.getOrDefault(config, "initialExpiryMs", 100);
-    this.maxExpiry = ConfigUtils.getOrDefault(config, "maxExpiryMs", 10000);
-    this.connectionRequestTimeout = ConfigUtils.getOrDefault(config, "connectionRequestTimeout", 60000);
-    this.connectTimeout = ConfigUtils.getOrDefault(config, "connectTimeout", 60000);
-    this.socketTimeout = ConfigUtils.getOrDefault(config, "socketTimeout", 60000);
-    this.statusCodeRetryList = ConfigUtils.getOrDefault(config, "statusCodeRetryList", new ArrayList<String>())
+    this.initialExpiry = ConfigUtils.getOrDefault(config, "retryWaitDurationMs", 100);
+    this.maxExpiry = ConfigUtils.getOrDefault(config, "retryMaxWaitDurationMs", 10000);
+    this.connectionRequestTimeout = ConfigUtils.getOrDefault(config, "connectionRequestTimeoutMs", 60000);
+    this.connectTimeout = ConfigUtils.getOrDefault(config, "connectTimeoutMs", 60000);
+    this.socketTimeout = ConfigUtils.getOrDefault(config, "socketTimeoutMs", 60000);
+    this.statusCodeRetryList = ConfigUtils.getOrDefault(config, "retryableStatusCodes", new ArrayList<String>())
         .stream().map(String::toLowerCase).collect(Collectors.toList());
   }
 
@@ -107,7 +107,7 @@ public class FetchUri extends Stage {
     this.client = client;
   }
 
-  // Method exists for testing statusCodeRetryList logic
+  // Method exists for testing retryableStatusCodes logic
   List<String> getStatusCodeRetryList() {
     return this.statusCodeRetryList;
   }
@@ -116,10 +116,10 @@ public class FetchUri extends Stage {
   public void start() throws StageException {
     // do not allow 200, 20x, or 2xx in the status code retry list.
     if (this.statusCodeRetryList.contains("200") || this.statusCodeRetryList.contains("20x") || this.statusCodeRetryList.contains("2xx")) {
-      throw new StageException("Do not add 200, 2xx, or 20x to the statusCodeRetryList because this is a successful response and "
+      throw new StageException("Do not add 200, 2xx, or 20x to retryableStatusCodes because this is a successful response and "
           + "you will always reach the maximum number of retries (" + this.maxNumRetries + ").");
     }
-    // log warning if any status codes in 200-299 are added to the statusCodeRetryList
+    // log warning if any status codes in 200-299 are added to retryableStatusCodes
     if (this.statusCodeRetryList.stream().anyMatch(code -> code.startsWith("2"))) {
       log.warn("The statusCodeRetryList contains values that are within 200-299. This may not be a good idea because these statuses "
           + "represent successful responses, but will continue processing.");

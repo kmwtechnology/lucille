@@ -56,8 +56,8 @@ public class JsonFileHandler extends BaseFileHandler {
       .optionalString("docIdFormat", "idField")
       .optionalNumber("maxRecordBytes")
       .optionalList("idFields", new TypeReference<List<String>>() {})
-      .optionalList("blacklist", new TypeReference<List<String>>() {})
-      .optionalList("whitelist", new TypeReference<List<String>>() {})
+      .optionalList("excludeFields", new TypeReference<List<String>>() {})
+      .optionalList("includeFields", new TypeReference<List<String>>() {})
       .build();
 
   private static final Logger log = LoggerFactory.getLogger(JsonFileHandler.class);
@@ -90,33 +90,33 @@ public class JsonFileHandler extends BaseFileHandler {
 
     this.fieldFilter = new FieldFilter(config);
 
-    if (!fieldFilter.getBlacklist().isEmpty()) {
-      Collection<String> intersection = CollectionUtils.intersection(this.idFields, fieldFilter.getBlacklist());
+    if (!fieldFilter.getExcludeFields().isEmpty()) {
+      Collection<String> intersection = CollectionUtils.intersection(this.idFields, fieldFilter.getExcludeFields());
       if (!intersection.isEmpty()) {
         throw new IllegalArgumentException(
-            "blacklist cannot contain idFields. Conflicting fields: " + intersection
+            "excludeFields cannot contain idFields. Conflicting fields: " + intersection
         );
       }
     }
 
-    if (!fieldFilter.getWhitelist().isEmpty()) {
-      Collection<String> missing = CollectionUtils.subtract(this.idFields, fieldFilter.getWhitelist());
+    if (!fieldFilter.getIncludeFields().isEmpty()) {
+      Collection<String> missing = CollectionUtils.subtract(this.idFields, fieldFilter.getIncludeFields());
       if (!missing.isEmpty()) {
         throw new IllegalArgumentException(
-            "whitelist must contain all idFields. Missing fields: " + missing
+            "includeFields must contain all idFields. Missing fields: " + missing
         );
       }
     }
 
     if (idFields.isEmpty()) {
-      if (fieldFilter.getBlacklist().contains(Document.ID_FIELD)) {
+      if (fieldFilter.getExcludeFields().contains(Document.ID_FIELD)) {
         throw new IllegalArgumentException(
-            "blacklist cannot contain \"" + Document.ID_FIELD + "\" when no idFields are configured."
+            "excludeFields cannot contain \"" + Document.ID_FIELD + "\" when no idFields are configured."
         );
       }
-      if (!fieldFilter.getWhitelist().isEmpty() && !fieldFilter.getWhitelist().contains(Document.ID_FIELD)) {
+      if (!fieldFilter.getIncludeFields().isEmpty() && !fieldFilter.getIncludeFields().contains(Document.ID_FIELD)) {
         throw new IllegalArgumentException(
-            "whitelist must contain \"" + Document.ID_FIELD + "\" when no idFields are configured."
+            "includeFields must contain \"" + Document.ID_FIELD + "\" when no idFields are configured."
         );
       }
     }

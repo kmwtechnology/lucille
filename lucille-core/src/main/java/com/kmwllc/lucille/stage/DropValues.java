@@ -16,13 +16,13 @@ import java.util.stream.Collectors;
 
 /**
  * Removes all occurrences of a given value from the source fields. Field values are not removed if
- * they contain a blacklisted value, only if it is an exact match between the two Strings. A field is only rewritten when a value
+ * they contain one of the listed values, only if it is an exact match between the two Strings. A field is only rewritten when a value
  * is removed, and the values that remain keep their types. A field whose values are all removed is removed.
  * <p>
  * Config Parameters -
  * <ul>
  *   <li>source (List&lt;String&gt;) : List of source field names.</li>
- *   <li>values (List&lt;String&gt;) : The values to be blacklisted and removed from the source fields.</li>
+ *   <li>values (List&lt;String&gt;) : The values to be removed from the source fields.</li>
  * </ul>
  */
 public class DropValues extends Stage {

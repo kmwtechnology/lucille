@@ -30,7 +30,7 @@ public final class StorageClientOptions {
   /** s3: whether to send unsigned requests, for public buckets. */
   public static final String S3_ANONYMOUS = "anonymous";
   /** gcp: the path to the Google Cloud service key JSON. */
-  public static final String GOOGLE_SERVICE_KEY = "pathToServiceKey";
+  public static final String GOOGLE_SERVICE_KEY = "serviceKeyPath";
   /** Any cloud client: the number of results returned per listing request (page size). */
   public static final String MAX_RESULTS_PER_PAGE = "maxResultsPerPage";
 

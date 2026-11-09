@@ -16,25 +16,25 @@ import java.util.Iterator;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>destField (String) : The field to place the timestamp into.</li>
+ *   <li>dest (String) : The field to place the timestamp into.</li>
  * </ul>
  */
 public class Timestamp extends Stage {
 
-  public static final Spec SPEC = SpecBuilder.stage().requiredString("destField").build();
+  public static final Spec SPEC = SpecBuilder.stage().requiredString("dest").build();
 
-  private final String destField;
+  private final String dest;
 
   public Timestamp(Config config) {
     super(config);
-    this.destField = config.getString("destField");
+    this.dest = config.getString("dest");
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     Instant now = Instant.now();
     String dateStr = DateTimeFormatter.ISO_INSTANT.format(now);
-    doc.setField(destField, dateStr);
+    doc.setField(dest, dateStr);
 
     return null;
   }

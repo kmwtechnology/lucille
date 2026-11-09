@@ -142,7 +142,7 @@ public class CSVFileHandlerTest {
 
   @Test
   public void testSemicolonSeparator() throws Exception {
-    Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("separatorChar",  ";")));
+    Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("separator",  ";")));
     FileHandler handler = FileHandler.create("csv", config);
 
     // contents of FileHandlerTest/CSVFileHandlerTest/semicolons.csv
@@ -193,7 +193,7 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.parseMap(Map.of("csv", Map.of(
         "interpretQuotes", false,
         "useTabs", true,
-        "separatorChar", ";"
+        "separator", ";"
     )));
     FileHandler handler = FileHandler.create("csv", config);
 

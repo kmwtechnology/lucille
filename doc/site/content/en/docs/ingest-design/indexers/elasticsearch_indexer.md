@@ -75,7 +75,7 @@ A missing required join key fails at startup.
 - When `isChild` is `false`, the join field is set to the `parentName` string.
 - When `isChild` is `true`, the join field is set to `{ "name": <childName>, "parent": <value of parentDocumentIdSource> }`. If the document lacks that field, `parent` is null.
 
-The join field is added to the request sent to Elasticsearch, not to the Lucille document. It still follows `indexer.whitelist` and `indexer.blacklist`: include `joinFieldName` in a whitelist or it is not sent. It is applied in partial update mode too.
+The join field is added to the request sent to Elasticsearch, not to the Lucille document. It still follows `indexer.includeFields` and `indexer.excludeFields`: when `includeFields` is set, list `joinFieldName` in it or it is not sent. It is applied in partial update mode too.
 
 If a document already has a field named `joinFieldName`, the indexer throws and the whole batch fails without being retried.
 
@@ -101,7 +101,7 @@ When `update: true`, each document is sent as a bulk `update` operation with the
 
 ## Child Documents
 
-When `childDocumentsField` is set, attached children are written into that field of the parent as a list of objects. They are not indexed as separate Elasticsearch documents. The whitelist and blacklist apply to each child, and children of children are dropped. Map the field as `nested` if you need to query children individually.
+When `childDocumentsField` is set, attached children are written into that field of the parent as a list of objects. They are not indexed as separate Elasticsearch documents. `includeFields` and `excludeFields` apply to each child, and children of children are dropped. Map the field as `nested` if you need to query children individually.
 
 If a document has children and `childDocumentsField` is not set, the children are not indexed and a warning is logged.
 
@@ -129,20 +129,24 @@ Retries follow the generic `indexer.maxRetries` settings (see [Retries]({{< relr
 
 The ElasticsearchIndexer supports both generic deletion mechanisms.
 
-**Delete by ID:** When a document is marked with `deletionMarkerField`/`deletionMarkerFieldValue` (and does not also have `deleteByFieldField`/`deleteByFieldValue`), the Indexer issues a bulk delete-by-ID operation for that document.
+**Delete by ID:** When a document is marked by `deletionMarker` (and does not also have both fields that `deleteByQuery` names), the Indexer issues a bulk delete-by-ID operation for that document.
 
-**Delete by query:** When a document is marked for deletion AND contains both `deleteByFieldField` and `deleteByFieldValue`, the Indexer issues a `_delete_by_query` request. The `deleteByFieldField` value on the document identifies which Elasticsearch field to query, and the `deleteByFieldValue` value identifies the term to match (first value, if multi-valued). Multiple delete-by-query documents in a batch are combined into a single `terms` bool/should query, so a document matching any of them is deleted.
+**Delete by query:** When a document is marked for deletion AND has both fields that `deleteByQuery` names, the Indexer issues a `_delete_by_query` request. The value of the document's `deleteByQuery.fieldNameField` identifies which Elasticsearch field to query, and the value of its `deleteByQuery.valueField` identifies the term to match (first value, if multi-valued). Multiple delete-by-query documents in a batch are combined into a single `terms` bool/should query, so a document matching any of them is deleted.
 
 **Batch ordering:** Delete-by-query documents are sent in batch order: the uploads and deletes by ID before a delete-by-query document are sent before its query, and the ones after it are sent after. Consecutive delete-by-query documents are combined into one delete-by-query. Between two delete-by-query documents, only the last document for a given ID is acted on: if the same ID appears in both an upload and a delete by ID, the last occurrence wins, and earlier documents with that ID are not sent but are still reported as succeeded. A document marked for delete-by-query also cancels an earlier upload with the same ID since the previous delete-by-query document. Each run of uploads and deletes by ID is sent as one bulk request for uploads and one for deletes by ID. Before each delete-by-query, the indexer refreshes the target index, because delete-by-query only matches refreshed documents. So a delete-by-query deletes matching documents uploaded before it, in the same batch or an earlier one, but not documents after it in the batch, such as new children sent after a delete of their parent's old children. Each delete-by-query adds a refresh and more bulk requests to the send, so frequent delete-by-query documents on a large index are slow.
 
 ```hocon
 indexer {
   type: "Elasticsearch"
-  deletionMarkerField: "is_deleted"
-  deletionMarkerFieldValue: "true"
+  deletionMarker {
+    field: "is_deleted"
+    value: "true"
+  }
   # Optional: for query-based deletions
-  deleteByFieldField: "delete_target_field"
-  deleteByFieldValue: "delete_target_value"
+  deleteByQuery {
+    fieldNameField: "delete_target_field"
+    valueField: "delete_target_value"
+  }
 }
 ```
 

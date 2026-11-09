@@ -89,7 +89,7 @@ public class CSVIndexer extends Indexer {
   // delete: a document marked for deletion would be written as a row
   @Override
   protected Set<String> getUnsupportedSettings() {
-    return Set.of("indexOverrideField", "idOverrideField", "whitelist", "blacklist", "deletionMarkerField", "deleteByFieldField");
+    return Set.of("indexOverrideField", "idOverrideField", "includeFields", "excludeFields", "deletionMarker", "deleteByQuery");
   }
 
   /**

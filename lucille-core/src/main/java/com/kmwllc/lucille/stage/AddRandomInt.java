@@ -15,7 +15,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>fieldName (String, Optional) : Field name of field where data is placed. Defaults to "data".</li>
+ *   <li>dest (String, Optional) : Field name of field where data is placed. Defaults to "data".</li>
  *   <li>rangeStart (Integer, Optional) : Integer representing the start of the range for generating random ints. Defaults to 0.</li>
  *   <li>rangeEnd (Integer, Optional) : Integer representing the end of the range for generating random ints. Defaults to 1M (1000000).</li>
  * </ul>
@@ -23,7 +23,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class AddRandomInt extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("fieldName")
+      .optionalString("dest")
       .optionalNumber("rangeStart", "rangeEnd").build();
 
   private final String fieldName;
@@ -33,7 +33,7 @@ public class AddRandomInt extends Stage {
   public AddRandomInt(Config config) throws StageException {
     super(config);
 
-    this.fieldName = ConfigUtils.getOrDefault(config, "fieldName", "data");
+    this.fieldName = ConfigUtils.getOrDefault(config, "dest", "data");
     this.rangeStart = ConfigUtils.getOrDefault(config, "rangeStart", 0);
     this.rangeEnd = ConfigUtils.getOrDefault(config, "rangeEnd", 1000000);
 

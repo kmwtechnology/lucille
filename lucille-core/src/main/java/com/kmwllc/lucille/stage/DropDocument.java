@@ -14,36 +14,37 @@ import java.util.concurrent.ThreadLocalRandom;
  * A stage that drops documents that pass through it. Intended to be used with the conditional framework.
  * By default, this stage drops 100% of documents.
  *
- * If an optional percentage parameter is provided each document will be dropped independently with that probability. This
- * probabilistic behavior is used primarily for testing to simulate loss in a non-deterministic way.
+ * If an optional percentToDrop parameter is provided, each document is dropped independently with that likelihood.
+ * This probabilistic behavior is used primarily for testing to simulate loss in a non-deterministic way.
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>percentage (Double, Optional) : the probability in the inclusive range 0.0-1.0 indicating the chance that an incoming
- *   document will be dropped, defaults to 1.0.</li>
+ *   <li>percentToDrop (Double, Optional) : the percentage, in the inclusive range 0-100, of incoming documents to drop;
+ *   each document is decided independently. Defaults to 100.</li>
  * </ul>
  */
 public class DropDocument extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalNumber("percentage")
+      .optionalNumber("percentToDrop")
       .build();
 
-  private final double percentage;
+  private final double percentToDrop;
 
   public DropDocument(Config config) throws StageException {
     super(config);
-    Number percent = ConfigUtils.getOrDefault(config, "percentage", 1.0);
-    this.percentage = percent.doubleValue(); // Need to convert to double here or passing in 1.0 fails.
+    Number percent = ConfigUtils.getOrDefault(config, "percentToDrop", 100.0);
+    this.percentToDrop = percent.doubleValue(); // Need to convert to double here or passing in 100 fails.
 
-    if (percentage < 0.0 || percentage > 1.0) {
-      throw new StageException("Percentage must be between 0.0 and 1.0.");
+    if (percentToDrop < 0.0 || percentToDrop > 100.0) {
+      throw new StageException("percentToDrop must be between 0 and 100.");
     }
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    if (percentage == 1.0 || (percentage > 0.0 && ThreadLocalRandom.current().nextDouble() < percentage)) {
+    if (percentToDrop == 100.0
+        || (percentToDrop > 0.0 && ThreadLocalRandom.current().nextDouble() * 100.0 < percentToDrop)) {
       doc.setDropped(true);
     }
 

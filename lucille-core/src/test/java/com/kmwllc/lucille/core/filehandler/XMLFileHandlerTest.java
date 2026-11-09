@@ -39,7 +39,7 @@ public class XMLFileHandlerTest {
         "xmlRootPath", "/Company/staff",
         "xmlIdPath", "/Company/staff/id",
         "encoding", "utf-8",
-        "outputField", "xml"
+        "xmlField", "xml"
     )));
 
     FileHandler xmlHandler = FileHandler.create("xml", config);
@@ -61,7 +61,7 @@ public class XMLFileHandlerTest {
   @Test
   public void testBlankIdIsTreatedAsEmpty() throws Exception {
     String xml = "<Company><staff><id>1</id></staff><staff><id>   </id></staff><staff><id>3</id></staff></Company>";
-    Map<String, Object> base = Map.of("xmlRootPath", "/Company/staff", "xmlIdPath", "/Company/staff/id", "outputField", "xml");
+    Map<String, Object> base = Map.of("xmlRootPath", "/Company/staff", "xmlIdPath", "/Company/staff/id", "xmlField", "xml");
 
     // with skipEmptyId, an element whose id is only whitespace is skipped, as one with an empty id is
     Map<String, Object> skipping = new java.util.HashMap<>(base);
@@ -83,7 +83,7 @@ public class XMLFileHandlerTest {
         "xmlRootPath", "/Company/staff",
         "xmlIdPath", "/Company/staff/id",
         "encoding", "utf-8",
-        "outputField", "xml"
+        "xmlField", "xml"
     )));
 
     TestMessenger messenger = new TestMessenger();
@@ -114,7 +114,7 @@ public class XMLFileHandlerTest {
         "xmlRootPath", "/Company/staff",
         "xmlIdPath", "/Company/staff/info/id",
         "encoding", "utf-8",
-        "outputField", "xml"
+        "xmlField", "xml"
     )));
 
     TestMessenger messenger = new TestMessenger();
@@ -136,7 +136,7 @@ public class XMLFileHandlerTest {
         "xmlRootPath", "/Company/staff",
         "xmlIdPath", "/Company/staff/id",
         "encoding", "ISO-2022-KR",
-        "outputField", "xml"
+        "xmlField", "xml"
     )));
 
     TestMessenger messenger = new TestMessenger();
@@ -166,7 +166,7 @@ public class XMLFileHandlerTest {
         "xmlRootPath", "/Company/staff",
         "xmlIdPath", "/Company/staff/id",
         "encoding", "ISO-2022-JP",
-        "outputField", "xml"
+        "xmlField", "xml"
     )));
 
     TestMessenger messenger = new TestMessenger();
@@ -196,7 +196,7 @@ public class XMLFileHandlerTest {
         "xmlRootPath", "/Company/staff",
         "xmlIdPath", "/Company/staff/id",
         "encoding", "utf-16",
-        "outputField", "xml_field"
+        "xmlField", "xml_field"
     )));
 
     TestMessenger messenger = new TestMessenger();
@@ -227,7 +227,7 @@ public class XMLFileHandlerTest {
         "xmlRootPath", "/Company/staff",
         "xmlIdPath", "/Company/staff/id",
         "encoding", "wrongEncoding",
-        "outputField", "xml_field"
+        "xmlField", "xml_field"
     )));
 
     TestMessenger messenger = new TestMessenger();
@@ -245,7 +245,7 @@ public class XMLFileHandlerTest {
         "xmlRootPath", "/Company/staff",
         "xpathIdPath", "@id",
         "encoding", "utf-8",
-        "outputField", "xml_field"
+        "xmlField", "xml_field"
     )));
 
     TestMessenger messenger = new TestMessenger();
@@ -275,7 +275,7 @@ public class XMLFileHandlerTest {
         "xmlRootPath", "/Company/staff",
         "xpathIdPath", "id[. = '1001']",
         "encoding", "utf-8",
-        "outputField", "xml_field",
+        "xmlField", "xml_field",
         "skipEmptyId", true
     )));
 
@@ -300,7 +300,7 @@ public class XMLFileHandlerTest {
         "xmlRootPath", "/Company/staff",
         "xpathIdPath", "@id[. = '1001']",
         "encoding", "utf-8",
-        "outputField", "xml_field",
+        "xmlField", "xml_field",
         "skipEmptyId", true
     )));
 
@@ -326,7 +326,7 @@ public class XMLFileHandlerTest {
         "xmlIdPath", "/Company/staff/id",
         "xpathIdPath", "@id[. = '1001']",
         "encoding", "utf-8",
-        "outputField", "xml_field",
+        "xmlField", "xml_field",
         "skipEmptyId", true
     )));
 
@@ -343,7 +343,7 @@ public class XMLFileHandlerTest {
         "xmlRootPath", "/Company/staff",
         "xmlIdPath", "/Company/staff/id",
         "encoding", "utf-8",
-        "outputField", "xml"
+        "xmlField", "xml"
     )));
 
     TestMessenger messenger = new TestMessenger();
@@ -435,7 +435,7 @@ public class XMLFileHandlerTest {
   public void testDoctype() throws Exception {
     String xml = "<!DOCTYPE Company [<!ENTITY n \"1\"><!ENTITY unused \"x\">]>"
         + "<Company><staff><id>&n;</id></staff><staff><id>2</id></staff></Company>";
-    Map<String, Object> base = Map.of("xmlRootPath", "/Company/staff", "xmlIdPath", "/Company/staff/id", "outputField", "xml");
+    Map<String, Object> base = Map.of("xmlRootPath", "/Company/staff", "xmlIdPath", "/Company/staff/id", "xmlField", "xml");
     assertThrows(FileHandlerException.class, () -> publishXml(base, xml));
 
     Map<String, Object> allowed = new HashMap<>(base);
@@ -447,7 +447,7 @@ public class XMLFileHandlerTest {
     assertEquals("<staff><id>2</id></staff>", docs.get(1).getString("xml"));
 
     // the xpath id is evaluated on the record, so it needs those declarations too
-    Map<String, Object> xpath = Map.of("xmlRootPath", "/Company/staff", "xpathIdPath", "/staff/id", "outputField", "xml",
+    Map<String, Object> xpath = Map.of("xmlRootPath", "/Company/staff", "xpathIdPath", "/staff/id", "xmlField", "xml",
         "allowDoctype", true);
     assertEquals(List.of("1", "2"), publishXml(xpath, xml).stream().map(Document::getId).toList());
   }
@@ -459,7 +459,7 @@ public class XMLFileHandlerTest {
     Files.writeString(secret.toPath(), "secret-contents");
     String xml = "<!DOCTYPE Company [<!ENTITY x SYSTEM \"" + secret.toURI() + "\">]>"
         + "<Company><staff><id>1</id><v>&x;</v></staff><staff><id>&x;</id></staff></Company>";
-    Map<String, Object> config = Map.of("xmlRootPath", "/Company/staff", "xmlIdPath", "/Company/staff/id", "outputField", "xml",
+    Map<String, Object> config = Map.of("xmlRootPath", "/Company/staff", "xmlIdPath", "/Company/staff/id", "xmlField", "xml",
         "allowDoctype", true);
 
     List<Document> docs = publishXml(config, xml);
@@ -474,7 +474,7 @@ public class XMLFileHandlerTest {
 
   @Test
   public void testAllowDoctypeEntityLimits() throws Exception {
-    Map<String, Object> config = Map.of("xmlRootPath", "/Company/staff", "xmlIdPath", "/Company/staff/id", "outputField", "xml",
+    Map<String, Object> config = Map.of("xmlRootPath", "/Company/staff", "xmlIdPath", "/Company/staff/id", "xmlField", "xml",
         "allowDoctype", true);
 
     // more than the JDK's 64,000 entity expansions, each of them small, still parses

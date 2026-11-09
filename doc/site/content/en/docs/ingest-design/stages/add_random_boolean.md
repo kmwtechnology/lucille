@@ -11,5 +11,5 @@ Adds a random boolean to a field.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `fieldName` | String | No | Destination field. Default: `data`. |
+| `dest` | String | No | Destination field. Default: `data`. |
 | `percentTrue` | Integer | No | Percentage chance of `true`, from `0` to `100`. Default: `50`. |
