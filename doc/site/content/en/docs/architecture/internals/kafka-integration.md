@@ -295,19 +295,13 @@ See [Streaming Mode Configuration]({{< relref "docs/operations/deployment" >}}) 
 
 ## The Fail Topic (Dead Letter Queue)
 
-Documents that exceed retry limits are sent to the fail topic:
+The fail topic (`{pipeline}_fail`) acts as a dead letter queue. Documents here can be inspected, fixed, and replayed. Documents are sent to it in three cases:
 
-```java
-// In KafkaWorkerMessenger:
-public void sendFailed(Document document) throws Exception {
-    ProducerRecord<String, Document> producerRecord =
-        new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
-    kafkaDocumentProducer.send(producerRecord).get();
-    kafkaDocumentProducer.flush();
-}
-```
+- A Worker sends a document whose retry count (tracked in ZooKeeper) exceeds `worker.maxRetries`.
+- With `worker.sendFailedDocsToTopic`, a Worker copies a document that fails during pipeline processing.
+- With `indexer.sendFailedDocsToTopic`, an Indexer copies a document that fails to index.
 
-The fail topic (`{pipeline}_fail`) acts as a dead letter queue. Documents here can be inspected, fixed, and replayed. The Worker sends a document to the fail topic when its retry count (tracked in ZooKeeper) exceeds `worker.maxRetries`.
+Each send waits for the broker to acknowledge the record. See [The Fail Topic]({{< relref "docs/architecture/internals/error-handling#the-fail-topic-dead-letter-queue" >}}) for the failure metadata stamped on each document and for what happens when the fail topic can't take one.
 
 ## Kafka Configuration Options
 
@@ -442,7 +436,7 @@ Lucille treats Kafka communication failures as non-recoverable. If the Kafka pro
 - A run that has lost documents to a broken messaging path cannot produce a correct result. Continuing would silently drop data.
 - Simplicity: the framework does not attempt partial recovery or compensating transactions. A failed run is restarted from the beginning.
 
-This policy applies uniformly to all Kafka send paths — publishing documents, forwarding processed documents to the indexer, sending events, and sending to the dead-letter queue.
+This policy applies to all Kafka send paths — publishing documents, forwarding processed documents to the indexer, sending events, and sending to the dead-letter queue — with one exception: an Indexer's copy of a failed document to the fail topic is best-effort. If that copy fails, the Indexer logs it and goes on, since the document's FAIL event and the `FailedDocuments` log still record it. See [The Fail Topic]({{< relref "docs/architecture/internals/error-handling#the-fail-topic-dead-letter-queue" >}}).
 
 ### Asynchronous vs. Synchronous Send Paths
 
@@ -452,7 +446,7 @@ Not all send paths use the same strategy. The choice depends on volume and wheth
 |------|----------|-----------|
 | `KafkaPublisherMessenger.sendForProcessing` | **Asynchronous** — fire-and-forget with a callback; flushed at end of run | High volume. The publisher can emit thousands of documents per second. Blocking on each broker round trip would cap throughput at ~1 doc per RTT. |
 | `KafkaWorkerMessenger.sendForIndexing` | **Synchronous** — `send().get()` | The source offset must not be committed until the processed document is durably on the dest topic. A synchronous ack guarantees this ordering. |
-| `KafkaWorkerMessenger.sendFailed` | **Synchronous** — `send().get()` | Rare path (retry count exceeded). One record per exhausted-retry document; async provides no meaningful benefit. |
+| Worker/Indexer `sendFailed` | **Synchronous** — `send().get()` | Rare path: only failed documents are sent, so async provides no meaningful benefit. The Worker commits the document's offset only after the copy is acknowledged. |
 | Worker/Indexer `sendEvent` (single) | **Synchronous** — `send().get()` | Used for failure events and per-document cases. Low volume; per-document error attribution is straightforward when each send either succeeds or throws immediately. |
 | Indexer `sendEvents` (batch) | **Asynchronous** — fire all sends with callbacks, flush once at end | After a successful index batch, completion events are sent for all documents in the batch. Sending them one-at-a-time with a broker round trip per event would add latency proportional to batch size. |
 
