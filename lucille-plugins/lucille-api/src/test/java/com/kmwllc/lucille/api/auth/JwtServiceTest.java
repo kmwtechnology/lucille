@@ -51,9 +51,12 @@ public class JwtServiceTest {
   public void testVerifyRejectsTamperedToken() {
     JwtService service = new JwtService();
     String token = service.issueToken("alice");
-    // Flip the last character of the signature; still well-formed, but the signature no longer matches.
-    char last = token.charAt(token.length() - 1);
-    String tampered = token.substring(0, token.length() - 1) + (last == 'A' ? 'B' : 'A');
+    // Change the FIRST character of the signature; still well-formed, but the signature no longer matches.
+    // (Not the last: a 32-byte signature is 43 base64url chars and the final char carries only 4 significant
+    // bits, so altering it can leave the decoded bytes unchanged and the token would still verify.)
+    int sigStart = token.lastIndexOf('.') + 1;
+    char first = token.charAt(sigStart);
+    String tampered = token.substring(0, sigStart) + (first == 'A' ? 'B' : 'A') + token.substring(sigStart + 1);
 
     assertFalse(service.verifyToken(tampered).isPresent());
   }
