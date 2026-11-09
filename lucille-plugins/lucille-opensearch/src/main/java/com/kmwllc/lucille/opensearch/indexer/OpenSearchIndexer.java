@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.opensearch.indexer;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
@@ -9,12 +10,15 @@ import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.PendingSend;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerRetryableException;
+import com.kmwllc.lucille.core.JsonDocumentWriter;
+import com.kmwllc.lucille.core.JsonDocumentWriter.ValueWriter;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerType;
 import com.kmwllc.lucille.opensearch.util.OpenSearchUtils;
 import com.typesafe.config.Config;
+import jakarta.json.JsonException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -28,6 +32,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
+import org.opensearch.client.json.JsonpMapper;
+import org.opensearch.client.json.JsonpSerializable;
+import org.opensearch.client.json.jackson.JacksonJsonpGenerator;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.BulkByScrollFailure;
 import org.opensearch.client.opensearch._types.FieldValue;
@@ -86,6 +93,9 @@ import org.slf4j.LoggerFactory;
  * the documents in that request, and a delete by id that OpenSearch rejects fails only that document. When
  * indexer.maxRetries is set, the documents after a retryable failure are held back until the retry, so the retry resumes
  * in input order.
+ * <p>
+ * Each document's body is written straight from its tree into the client's Jackson generator, with the same JSON as a
+ * Map of the document, so the batch isn't copied before it is sent. See {@link JsonDocumentWriter}.
  */
 @AutoService(Indexer.class)
 @IndexerType("OpenSearch")
@@ -638,22 +648,7 @@ public class OpenSearchIndexer extends Indexer {
       String docId = entry.getKey().getRight();
       Document doc = entry.getValue();
 
-      // removing fields in indexer.excludeFields or not in indexer.includeFields
-      Map<String, Object> indexerDoc = getRawIndexerDoc(doc);
-
-      // only add id if our fieldFilter allows it (based on indexer.includeFields and indexer.excludeFields)
-      // - Case 1: id and idOverride filtered out -> idOverride used by Indexer, both removed from Document (tested in testBlacklistWithOverride)
-      // - Case 2: id is filtered, idOverride exists -> idOverride used by Indexer, only id field removed from Document (tested in testBlacklistWithOverride2)
-      // - Case 3: id is filtered, idOverride null -> id used by Indexer, id also removed from Document (tested in testRouting)
-      // - Case 4: both unfiltered, idOverride exists -> idOverride used by Indexer, id and idOverride field exist in Document (tested in testOverride)
-      // - Case 5: both unfiltered, idOverride null -> document id remains and used by Indexer (Default case & tested)
-      if (getFieldFilter().shouldInclude(Document.ID_FIELD)) {
-        indexerDoc.put(Document.ID_FIELD, docId);
-      }
-
-      if (doc.hasChildren()) {
-        addChildren(doc, indexerDoc);
-      }
+      JsonpSerializable indexerDoc = getUploadBody(doc, docId);
 
       Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
           ? getVersionNum(doc)
@@ -753,10 +748,110 @@ public class OpenSearchIndexer extends Indexer {
     return new IndexerRetryableException("Transport failure communicating with OpenSearch", e);
   }
 
-  /** Only call on documents that have children. */
-  private void addChildren(Document doc, Map<String, Object> indexerDoc) {
+  /**
+   * Returns the body of a document's index or update operation: a {@link JsonDocumentBody} that writes the document's
+   * own tree into the client's Jackson generator when the request is serialized, with the same JSON as
+   * {@link #getMapBody}, but without building a Map of every document in the batch first.
+   */
+  JsonpSerializable getUploadBody(Document doc, String docId) {
+    // the fields written in place of the document's own, or added, as getMapBody puts them
+    Map<String, ValueWriter> replacements = new LinkedHashMap<>();
+    if (getFieldFilter().shouldInclude(Document.ID_FIELD)) {
+      replacements.put(Document.ID_FIELD, generator -> generator.writeString(docId));
+    }
+    if (doc.hasChildren() && hasChildDocumentsField(doc)) {
+      List<Document> children = doc.getChildren();
+      replacements.put(childDocumentsField, generator -> {
+        generator.writeStartArray();
+        for (Document child : children) {
+          writeDocument(child, generator, Map.of());
+        }
+        generator.writeEndArray();
+      });
+    }
+    return new JsonDocumentBody(doc, replacements);
+  }
+
+  /**
+   * Returns the body of a document's index or update operation as a Map, as it was built before the body was streamed.
+   * It is the reference for the JSON {@link #getUploadBody} writes, which a test compares byte for byte.
+   */
+  Map<String, Object> getMapBody(Document doc, String docId) {
+    // removing fields in indexer.excludeFields or not in indexer.includeFields
+    Map<String, Object> indexerDoc = getRawIndexerDoc(doc);
+
+    // only add id if our fieldFilter allows it (based on indexer.includeFields and indexer.excludeFields)
+    // - Case 1: id and idOverride filtered out -> idOverride used by Indexer, both removed from Document (tested in testBlacklistWithOverride)
+    // - Case 2: id is filtered, idOverride exists -> idOverride used by Indexer, only id field removed from Document (tested in testBlacklistWithOverride2)
+    // - Case 3: id is filtered, idOverride null -> id used by Indexer, id also removed from Document (tested in testRouting)
+    // - Case 4: both unfiltered, idOverride exists -> idOverride used by Indexer, id and idOverride field exist in Document (tested in testOverride)
+    // - Case 5: both unfiltered, idOverride null -> document id remains and used by Indexer (Default case & tested)
+    if (getFieldFilter().shouldInclude(Document.ID_FIELD)) {
+      indexerDoc.put(Document.ID_FIELD, docId);
+    }
+
+    if (doc.hasChildren()) {
+      addChildren(doc, indexerDoc);
+    }
+    return indexerDoc;
+  }
+
+  private boolean hasChildDocumentsField(Document doc) {
     if (childDocumentsField == null) {
       log.warn("Document {} has children but opensearch.childDocumentsField is not configured. They will not be indexed.", doc.getId());
+      return false;
+    }
+    return true;
+  }
+
+  // the field filter applies to children too, and grandchildren are dropped, as in addChildren
+  private void writeDocument(Document doc, JsonGenerator generator, Map<String, ValueWriter> replacements)
+      throws IOException {
+    JsonDocumentWriter.writeObject(doc, generator, getFieldFilter(), replacements);
+  }
+
+  /**
+   * The body of a JsonDocument's index or update operation. The client hands a {@link JsonpSerializable} its own
+   * generator, so this writes the document's tree into the same Jackson generator, and so with the same number
+   * formatting, string escaping and Base64, that the client's mapper would write a Map with. The body holds the
+   * document until the request is serialized, in client.bulk.
+   */
+  private final class JsonDocumentBody implements JsonpSerializable {
+
+    private final Document doc;
+    private final Map<String, ValueWriter> replacements;
+
+    private JsonDocumentBody(Document doc, Map<String, ValueWriter> replacements) {
+      this.doc = doc;
+      this.replacements = replacements;
+    }
+
+    /**
+     * @throws IllegalArgumentException if the client doesn't serialize with Jackson. OpenSearchUtils always builds the
+     *     client with a JacksonJsonpMapper; the failure is not retried.
+     */
+    @Override
+    public void serialize(jakarta.json.stream.JsonGenerator generator, JsonpMapper mapper) {
+      if (!(generator instanceof JacksonJsonpGenerator jacksonGenerator)) {
+        throw new IllegalArgumentException("OpenSearchIndexer can only write a document to a Jackson generator, not "
+            + generator.getClass().getName() + "; build the client with a JacksonJsonpMapper");
+      }
+      try {
+        writeDocument(doc, jacksonGenerator.jacksonGenerator(), replacements);
+      } catch (IOException e) {
+        throw new JsonException("Couldn't write document " + doc.getId(), e);
+      }
+    }
+
+    @Override
+    public String toString() {
+      return doc.toString();
+    }
+  }
+
+  /** Only call on documents that have children. */
+  private void addChildren(Document doc, Map<String, Object> indexerDoc) {
+    if (!hasChildDocumentsField(doc)) {
       return;
     }
 

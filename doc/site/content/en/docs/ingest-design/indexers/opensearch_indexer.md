@@ -155,6 +155,12 @@ Delete-by-query documents are sent in batch order: the uploads and deletes by ID
 
 ---
 
+## Bulk Request Body
+
+Each document's body is written straight from the document's JSON tree into the client's JSON generator while the bulk request is serialized, rather than copied into a map first. The JSON sent is the same as a map of the document would give: fields excluded by `indexer.includeFields`/`indexer.excludeFields` are left out, the `id` field carries the document's ID (or its `indexer.idOverrideField` value), children go under `childDocumentsField`, and fields with a null value are left out at every depth, while nulls inside arrays are kept. This saves building a copy of every document in the batch, which matters for large batches. It requires the client's default Jackson JSON mapper.
+
+---
+
 ## Troubleshooting
 
 **"index not found":**
