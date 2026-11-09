@@ -86,14 +86,14 @@ public class HybridWorkerMessenger implements WorkerMessenger {
    * Does not commit offsets.
    */
   @Override
-  public KafkaDocument pollDocToProcess() {
+  public KafkaDocument pollDocToProcess() throws MessengerException {
     ConsumerRecords<String, KafkaDocument> consumerRecords;
     try {
       consumerRecords = sourceConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
-      // rethrows unless configured to skip. The skipped offset is committed along with the next document
+      // throws unless configured to skip. The skipped offset is committed along with the next document
       // indexed from this partition; until then, a restart redelivers (and skips) it again.
-      deserializationErrorHandler.handleOrRethrow(e);
+      deserializationErrorHandler.handleOrThrow(e);
       return null;
     }
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
