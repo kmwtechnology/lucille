@@ -165,7 +165,7 @@ public class EmitNestedChildrenTest {
 
   @Test
   public void testCopiedFieldsAreIndependent() throws Exception {
-    Stage stage = factory.get(Map.of("fieldsToCopy", Map.of("meta", "meta", "tags", "tags")));
+    Stage stage = factory.get(Map.of("fieldMapping", Map.of("meta", "meta", "tags", "tags")));
     Document parent = Document.createFromJson("{\"id\":\"p\",\"meta\":{\"k\":1},\"tags\":[{\"t\":1}]}");
     parent.addChild(Document.create("c1"));
     parent.addChild(Document.create("c2"));

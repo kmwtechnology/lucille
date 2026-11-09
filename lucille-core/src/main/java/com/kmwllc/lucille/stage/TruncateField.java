@@ -20,8 +20,8 @@ import com.typesafe.config.Config;
  * <ul>
  *   <li>source (String) : The field to be truncated. If this is not a string it is still parsed as a string to generate a result.
  *   If a document does not have the field, or it holds only nulls, it will be skipped.</li>
- *   <li>maxSize (int) : The maximum number of characters to truncate the input to. If this is negative a StageException is thrown. </li>
- *   <li>destination (String, Optional) : The field where the truncated data should be placed. If this is not provided the operation
+ *   <li>maxLength (int) : The maximum number of characters to truncate the input to. If this is negative a StageException is thrown. </li>
+ *   <li>dest (String, Optional) : The field where the truncated data should be placed. If this is not provided the operation
  *   fis done inplace. If this field already exists it is overwritten.</li>
  * </ul>
  */
@@ -29,8 +29,8 @@ public class TruncateField extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("source")
-      .requiredNumber("maxSize")
-      .optionalString("destination").build();
+      .requiredNumber("maxLength")
+      .optionalString("dest").build();
 
   private final String source;
   private final int maxSize;
@@ -41,14 +41,14 @@ public class TruncateField extends Stage {
 
 
     this.source = config.getString("source");
-    this.maxSize = config.getInt("maxSize");
-    this.destination = ConfigUtils.getStringOrDefault(config, "destination", null);
+    this.maxSize = config.getInt("maxLength");
+    this.destination = ConfigUtils.getStringOrDefault(config, "dest", null);
   }
 
   @Override
   public void start() throws StageException {
     if (maxSize < 0) {
-      throw new StageException("maxSize cannot be negative");
+      throw new StageException("maxLength cannot be negative");
     }
   }
 

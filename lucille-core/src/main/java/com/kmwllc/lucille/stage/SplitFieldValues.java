@@ -18,8 +18,8 @@ import com.typesafe.config.Config;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>inputField (String) : The field to split on.</li>
- *   <li>outputField (String) : The field to place the separated values into.</li>
+ *   <li>source (String) : The field to split on.</li>
+ *   <li>dest (String) : The field to place the separated values into.</li>
  *   <li>delimiter (String) : Java regular expression to split the field by, so characters such as '|' or '.' must be escaped.
  *   Trailing empty pieces are dropped. An invalid expression fails the stage at startup.</li>
  *   <li>trimWhitespace (Boolean) : True if separated values should trim whitespace, false otherwise.</li>
@@ -28,7 +28,7 @@ import com.typesafe.config.Config;
 public class SplitFieldValues extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("inputField", "outputField", "delimiter")
+      .requiredString("source", "dest", "delimiter")
       .requiredBoolean("trimWhitespace").build();
 
   private boolean trimWhitespace = true;
@@ -40,8 +40,8 @@ public class SplitFieldValues extends Stage {
   public SplitFieldValues(Config config) {
     super(config);
 
-    inputField = config.getString("inputField");
-    outputField = config.getString("outputField");
+    inputField = config.getString("source");
+    outputField = config.getString("dest");
     delimiter = config.getString("delimiter");
     trimWhitespace = config.getBoolean("trimWhitespace");
 

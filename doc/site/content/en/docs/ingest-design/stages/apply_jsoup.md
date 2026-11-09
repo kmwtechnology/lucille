@@ -15,11 +15,11 @@ Parses HTML using [JSoup](https://jsoup.org/) and extracts text, attribute value
 | `stringField` | String | No | Field containing the HTML as a string. |
 | `byteArrayField` | String | No | Field containing the HTML as a byte array. |
 | `charset` | String | No | Charset of the HTML. With `filePathField`, if not set, the charset is detected from the byte-order mark or meta tags, falling back to UTF-8. With `byteArrayField`, if not set, UTF-8 is used. Ignored with `stringField`. |
-| `destinationFields` | Map | Yes | Map of destination field name to a selector map. See below. |
+| `selectors` | Map | Yes | Map of destination field name to a selector map. See below. |
 
 Exactly one of `filePathField`, `stringField`, or `byteArrayField` must be set, or the stage fails at startup.
 
-Each selector map in `destinationFields` has:
+Each selector map in `selectors` has:
 - `selector`: CSS selector. Required.
 - `type`: `text` (element text), `attribute` (attribute value), `html` (inner HTML), or `outerHtml` (outer HTML). Required. Any other value fails at startup.
 - `attribute`: the attribute name to extract. Required when `type` is `attribute`.
@@ -36,7 +36,7 @@ Missing `selector` or `type`, or a missing `attribute` for `attribute` extractio
 {
   class: "com.kmwllc.lucille.stage.ApplyJSoup"
   byteArrayField: "html_content"
-  destinationFields: {
+  selectors: {
     title: { type: "text", selector: "h1" }
     body:  { type: "text", selector: ".article-body p" }
     links: { type: "attribute", selector: "a", attribute: "href" }

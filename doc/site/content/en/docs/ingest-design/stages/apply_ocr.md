@@ -7,11 +7,11 @@ description: Performs optical character recognition on image and PDF files using
 
 `com.kmwllc.lucille.ocr.stage.ApplyOCR` *(requires `lucille-ocr`)*
 
-Performs optical character recognition on the image or PDF file at the local path in `pathField`, using [Tesseract](https://tesseract-ocr.github.io/). A file is treated as a PDF when its extension is `pdf`; each PDF page is rendered to an image at 300 DPI. Documents without `pathField` are skipped with a warning, and so are documents whose file cannot be loaded. Only the first value of `pathField` is used.
+Performs optical character recognition on the image or PDF file at the local path in `filePathField`, using [Tesseract](https://tesseract-ocr.github.io/). A file is treated as a PDF when its extension is `pdf`; each PDF page is rendered to an image at 300 DPI. Documents without `filePathField` are skipped with a warning, and so are documents whose file cannot be loaded. Only the first value of `filePathField` is used.
 
 The stage can do full extraction (`extractAllDest`), form extraction with templates (`extractionTemplates` with `pages` and/or `pagesField`), or both.
 
-At startup, Tesseract loads the trained data for `lang` from a `TesseractOcr` directory in the working directory Lucille is run from (for example `TesseractOcr/eng.traineddata`). The stage fails at startup if it cannot be loaded. Temporary images are written to a `lucille-ocr-temp` directory in the working directory.
+At startup, Tesseract loads the trained data for `language` from a `TesseractOcr` directory in the working directory Lucille is run from (for example `TesseractOcr/eng.traineddata`). The stage fails at startup if it cannot be loaded. Temporary images are written to a `lucille-ocr-temp` directory in the working directory.
 
 **Maven dependency:**
 ```xml
@@ -26,16 +26,16 @@ At startup, Tesseract loads the trained data for `lang` from a `TesseractOcr` di
 {
   name: "ocr"
   class: "com.kmwllc.lucille.ocr.stage.ApplyOCR"
-  pathField: "file_path"
-  lang: "eng"
+  filePathField: "file_path"
+  language: "eng"
   extractAllDest: "ocr_text"
 }
 ```
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `lang` | String | Yes | Tesseract language code, such as `eng`. A matching `.traineddata` file must be in the `TesseractOcr` directory. |
-| `pathField` | String | Yes | Field containing the local path of the image or PDF file. |
+| `language` | String | Yes | Tesseract language code, such as `eng`. A matching `.traineddata` file must be in the `TesseractOcr` directory. |
+| `filePathField` | String | Yes | Field containing the local path of the image or PDF file. |
 | `extractAllDest` | String | No | If set, the text of the whole file is written to this field, overwriting any existing value. For a PDF, each page becomes a separate value. |
 | `extractionTemplates` | List\<Object\> | No | Form templates. See [Templates](#templates). Required if `pages` or `pagesField` is set; otherwise the stage fails at startup. |
 | `pages` | Map\<String, String\> | No | Maps page numbers to template names, applied to every document. Pages are numbered from `0`; use `0` for a non-PDF image. |

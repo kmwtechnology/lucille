@@ -11,7 +11,7 @@ import com.kmwllc.lucille.util.LogUtils;
  * @param bypass Whether the Indexer should not contact its destination (test mode, or indexer.sendEnabled: false).
  * @param metricsPrefix The prefix for the names of the Indexer's metrics.
  * @param localRunId The run ID for a local run, null otherwise.
- * @param logSeconds How often the Indexer logs its status, from log.seconds.
+ * @param logSeconds How often the Indexer logs its status, from log.intervalSecs.
  */
 public record IndexerContext(IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId, int logSeconds) {
 

@@ -60,13 +60,13 @@ public class SplitFieldValuesTest {
   public void testSpec() throws StageException {
     Stage stage = factory.get("SplitFieldValuesTest/config.conf");
     assertEquals(
-        Set.of("inputField", "delimiter", "trimWhitespace", "outputField"),
+        Set.of("source", "delimiter", "trimWhitespace", "dest"),
         stage.getNonDefaultLegalProperties());
   }
 
   @Test
   public void testNullValues() throws Exception {
-    Stage stage = factory.get(Map.of("inputField", "f", "outputField", "o", "delimiter", " ", "trimWhitespace", true));
+    Stage stage = factory.get(Map.of("source", "f", "dest", "o", "delimiter", " ", "trimWhitespace", true));
 
     Document doc = Document.createFromJson("{\"id\":\"1\",\"f\":null}");
     stage.processDocument(doc);
@@ -79,13 +79,13 @@ public class SplitFieldValuesTest {
 
   @Test
   public void testDelimiterIsRegex() throws Exception {
-    Stage stage = factory.get(Map.of("inputField", "a", "outputField", "b", "delimiter", "\\|", "trimWhitespace", true));
+    Stage stage = factory.get(Map.of("source", "a", "dest", "b", "delimiter", "\\|", "trimWhitespace", true));
     Document doc = Document.create("doc");
     doc.setField("a", "x|y");
     stage.processDocument(doc);
     assertEquals(List.of("x", "y"), doc.getStringList("b"));
 
     assertThrows(StageException.class,
-        () -> factory.get(Map.of("inputField", "a", "outputField", "b", "delimiter", "(", "trimWhitespace", true)));
+        () -> factory.get(Map.of("source", "a", "dest", "b", "delimiter", "(", "trimWhitespace", true)));
   }
 }

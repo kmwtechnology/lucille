@@ -213,7 +213,7 @@ public class ElasticsearchIndexer extends Indexer {
     // populate which collection each document belongs to
     // upload if document is not marked for deletion
     // else if document is marked for deletion ONLY, then only add to idsToDelete
-    // else document is marked for deletion AND contains deleteByFieldField and deleteByFieldValue, only add to termsToDeleteByQuery
+    // else document is marked for deletion AND carries both indexer.deleteByQuery fields, only add to termsToDeleteByQuery
     // A delete-by-query must not delete documents that come after it in the batch, so the batch is sent in segments, in
     // input order: pending uploads and deletes by id are sent before a run of delete-by-query documents, and the
     // queries are sent before the next upload or delete by id.
@@ -228,7 +228,7 @@ public class ElasticsearchIndexer extends Indexer {
         documentsToUpload.put(id, doc);
       } else {
         documentsToUpload.remove(id);
-        if (!hasDeleteByFieldValues(doc)) {
+        if (!isDeleteByQuery(doc)) {
           // same as above: buffered delete-by-queries go before this delete by id
           sendDeleteByQuerySegment(termsToDeleteByQuery);
           idsToDelete.put(id, doc);
@@ -236,13 +236,11 @@ public class ElasticsearchIndexer extends Indexer {
           // this doc is a delete-by-query, so flush the writes buffered before it first: send the pending uploads and
           // deletes by id, clear both maps, and collect their per-doc failures
           failedDocs.addAll(sendWriteSegment(documentsToUpload, idsToDelete));
-          //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
-          // deletion, so we need to do doc.getString(deleteByFieldField).
-          String deleteField = doc.getString(getDeleteByFieldField());
+          String deleteField = getDeleteByQueryFieldName(doc);
           if (!termsToDeleteByQuery.containsKey(deleteField)) {
             termsToDeleteByQuery.put(deleteField, new ArrayList<>());
           }
-          termsToDeleteByQuery.get(deleteField).add(doc.getString(getDeleteByFieldValue()));
+          termsToDeleteByQuery.get(deleteField).add(getDeleteByQueryValue(doc));
         }
       }
     }
@@ -416,7 +414,7 @@ public class ElasticsearchIndexer extends Indexer {
     BulkRequest.Builder br = new BulkRequest.Builder();
 
     for (Document doc : documentsToUpload) {
-      // removing fields in the blacklist or not in the whitelist in configurations
+      // removing fields in indexer.excludeFields or not in indexer.includeFields
       Map<String, Object> indexerDoc = getRawIndexerDoc(doc);
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
@@ -426,7 +424,7 @@ public class ElasticsearchIndexer extends Indexer {
       // written to the request, not the Document, so a retried batch doesn't find it already set
       joinData.populateJoinData(doc, indexerDoc, getFieldFilter());
 
-      // only add id if our fieldFilter allows it (based on our blacklist and whitelist)
+      // only add id if our fieldFilter allows it (based on indexer.includeFields and indexer.excludeFields)
       // - Case 1: id and idOverride filtered out -> idOverride used by Indexer, both removed from Document (tested in testBlacklistWithOverride)
       // - Case 2: id is filtered, idOverride exists -> idOverride used by Indexer, only id field removed from Document (tested in testBlacklistWithOverride2)
       // - Case 3: id is filtered, idOverride null -> id used by Indexer, id also removed from Document (tested in testRouting)
@@ -543,7 +541,7 @@ public class ElasticsearchIndexer extends Indexer {
     List<Document> children = doc.getChildren();
 
     for (Document child : children) {
-      // calling getRawIndexerDoc applies black/whitelist and drops nested children, which we don't support
+      // calling getRawIndexerDoc applies includeFields/excludeFields and drops nested children, which we don't support
       childDocMaps.add(getRawIndexerDoc(child));
     }
     indexerDoc.put(childDocumentsField, childDocMaps);
@@ -569,7 +567,7 @@ public class ElasticsearchIndexer extends Indexer {
         throw new IllegalStateException("Document already has join field: " + joinFieldName);
       }
 
-      // the join field follows indexer.whitelist and indexer.blacklist like any other field
+      // the join field follows indexer.includeFields and indexer.excludeFields like any other field
       if (!fieldFilter.shouldInclude(joinFieldName)) {
         return;
       }
