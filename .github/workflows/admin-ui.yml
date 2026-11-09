@@ -1,8 +1,12 @@
 # Builds and tests the admin UI independently of the Java build (no JDK/Maven).
-# Runs on merges to main and nightly, not on every PR. Can also be triggered manually.
+# Runs nightly, manually, and on pull requests that change the UI.
 name: Admin UI CI
 
 on:
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'lucille-plugins/lucille-api/lucille-admin-ui/**'
   schedule:
     - cron: '0 0 * * *'
   workflow_dispatch:  # allows manual triggering of the workflow via actions tab

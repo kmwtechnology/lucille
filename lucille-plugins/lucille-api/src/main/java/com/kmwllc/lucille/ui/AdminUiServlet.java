@@ -13,8 +13,9 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Serves the bundled React/Vite admin UI from the classpath at {@code /admin}, falling back to
- * {@code index.html} for unmatched paths so client-side routes resolve. Served without
- * authentication; access control is a separate ticket.
+ * {@code index.html} for unmatched paths without a file extension so client-side routes resolve.
+ * Missing files that do have an extension return 404. Served without authentication; access
+ * control is a separate ticket.
  */
 public class AdminUiServlet extends HttpServlet {
 
@@ -34,7 +35,8 @@ public class AdminUiServlet extends HttpServlet {
   }
 
   /**
-   * Serves the asset matching the request path, or {@code index.html} when none matches.
+   * Serves the asset matching the request path. When none matches, serves {@code index.html} for
+   * a path without a file extension and returns 404 for one with an extension.
    * @param req the request
    * @param resp the response
    * @throws IOException if writing the response fails
@@ -46,9 +48,22 @@ public class AdminUiServlet extends HttpServlet {
     String resourcePath = relativePath.isEmpty() ? null : RESOURCE_ROOT + "/" + relativePath;
     if (resourcePath != null && resourceExists(resourcePath)) {
       serve(resourcePath, resp);
-    } else {
+    } else if (relativePath.isEmpty() || !hasFileExtension(relativePath)) {
       serve(RESOURCE_ROOT + "/" + INDEX_FILE, resp);
+    } else {
+      resp.sendError(HttpServletResponse.SC_NOT_FOUND);
     }
+  }
+
+  /**
+   * Whether the last segment of the path has a file extension, meaning it names a file rather than
+   * a client-side route.
+   * @param relativePath a cleaned, root-relative path
+   * @return true if the last segment contains an extension
+   */
+  private static boolean hasFileExtension(String relativePath) {
+    String lastSegment = relativePath.substring(relativePath.lastIndexOf('/') + 1);
+    return lastSegment.lastIndexOf('.') > 0;
   }
 
   /**

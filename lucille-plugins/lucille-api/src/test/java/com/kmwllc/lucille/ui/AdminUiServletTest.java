@@ -79,6 +79,18 @@ public class AdminUiServletTest {
     assertTrue(body.toString(StandardCharsets.UTF_8).contains("<div id=\"root\">"));
   }
 
+  // A missing file (a path with an extension) returns 404 instead of the index.html fallback.
+  @Test
+  public void testReturns404ForMissingFileWithExtension() throws Exception {
+    when(request.getPathInfo()).thenReturn("/assets/missing.js");
+
+    servlet.service(getRequest(), response);
+
+    verify(response).sendError(HttpServletResponse.SC_NOT_FOUND);
+    verify(response, never()).setContentType("text/html; charset=UTF-8");
+    assertEquals(0, body.size());
+  }
+
   // A "../" traversal attempt cannot escape admin/; it is treated as an unknown route.
   @Test
   public void testRejectsPathTraversalByFallingBackToIndex() throws Exception {
