@@ -134,8 +134,8 @@ public class VideoFileHandlerTest {
   public void testConfigurableFieldNames() throws Exception {
     // Use non-default field names for every configurable field
     Config config = ConfigFactory.parseMap(Map.of(
-        "sourceField", "src_path",
-        "fileNameField", "fname",
+        "filePathField", "src_path",
+        "filenameField", "fname",
         "frameIndexField", "frame_idx",
         "frameTimeMsField", "frame_ms",
         "frameTimecodeField", "tc",

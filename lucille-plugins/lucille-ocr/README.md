@@ -54,6 +54,6 @@ For example, the following document has a field `foo` which stores the json stri
 ## Addtional Properties 
 The config must also contain the following two properties:
 1. `path_field` (String) : The field which stores the path of the image for each document. If a document does not contain this field or the file does not exist, the document is skipped which the appropriate logging.
-2. `lang` (String) : A 3 letter [LangCode](https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html) which tell Tesseract the language to be used for extraction. For whichever language that is specified, 
+2. `language` (String) : A 3 letter [LangCode](https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html) which tell Tesseract the language to be used for extraction. For whichever language that is specified, 
 the appropriate [traineddata](https://github.com/tesseract-ocr/tessdata) file must be placed in a `TesseractOcr` directory located in the working directory from which lucille is run.  
 

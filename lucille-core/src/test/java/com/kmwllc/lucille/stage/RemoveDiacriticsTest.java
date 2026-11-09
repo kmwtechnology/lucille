@@ -27,7 +27,7 @@ public class RemoveDiacriticsTest {
 
   @Test
   public void testNullValues() throws Exception {
-    Stage stage = factory.get(Map.of("source", "f", "destination", "o"));
+    Stage stage = factory.get(Map.of("source", "f", "dest", "o"));
 
     Document doc = Document.createFromJson("{\"id\":\"1\",\"f\":null}");
     stage.processDocument(doc);

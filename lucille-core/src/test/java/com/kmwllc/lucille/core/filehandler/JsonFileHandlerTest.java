@@ -291,7 +291,7 @@ public class JsonFileHandlerTest {
   public void testBlacklist() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
-            "blacklist", List.of("field2"),
+            "excludeFields", List.of("field2"),
             "docIdPrefix", ""
         )
     ));
@@ -312,7 +312,7 @@ public class JsonFileHandlerTest {
   public void testWhitelist() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
-            "whitelist", List.of("field1", "id"),
+            "includeFields", List.of("field1", "id"),
             "docIdPrefix", ""
         )
     ));
@@ -334,7 +334,7 @@ public class JsonFileHandlerTest {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
             "idFields", List.of("field1", "field2"),
-            "blacklist", List.of("field3", "id"),
+            "excludeFields", List.of("field3", "id"),
             "docIdPrefix", ""
         )
     ));
@@ -357,7 +357,7 @@ public class JsonFileHandlerTest {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
             "idFields", List.of("field1", "field2"),
-            "whitelist", List.of("field1", "field2", "id"),
+            "includeFields", List.of("field1", "field2", "id"),
             "docIdPrefix", ""
         )
     ));
@@ -380,7 +380,7 @@ public class JsonFileHandlerTest {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
             "idFields", List.of("field1", "field2"),
-            "blacklist", List.of("field1"),
+            "excludeFields", List.of("field1"),
             "docIdPrefix", ""
         )
     ));
@@ -393,7 +393,7 @@ public class JsonFileHandlerTest {
         "json", Map.of(
             "idFields", List.of("field1", "field2"),
             // no field2
-            "whitelist", List.of("field1"),
+            "includeFields", List.of("field1"),
             "docIdPrefix", ""
         )
     ));
@@ -404,7 +404,7 @@ public class JsonFileHandlerTest {
   public void testIdBlacklistedWithNoIdFields() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
-            "blacklist", List.of("id"),
+            "excludeFields", List.of("id"),
             "docIdPrefix", ""
         )
     ));
@@ -415,7 +415,7 @@ public class JsonFileHandlerTest {
   public void testIdNotWhitelistedWithNoIdFields() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
-            "whitelist", List.of("field1"),
+            "includeFields", List.of("field1"),
             "docIdPrefix", ""
         )
     ));

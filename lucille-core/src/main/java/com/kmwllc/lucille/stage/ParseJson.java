@@ -29,7 +29,7 @@ import org.apache.commons.lang3.StringUtils;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>src (String) : The field containing the JSON string to be parsed.</li>
+ *   <li>source (String) : The field containing the JSON string to be parsed.</li>
  *   <li>sourceIsBase64: When set to true, indicates that the source field is base64 encoded. In this case the stage will decode
  *   the field value before parsing.</li>
  *   <li>jsonFieldPaths (Map&lt;String, Object&gt;) : Defines the mapping from JsonPath expressions to the destination fields in the
@@ -41,14 +41,14 @@ import org.apache.commons.lang3.StringUtils;
 public class ParseJson extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("src")
+      .requiredString("source")
       .optionalBoolean("sourceIsBase64")
       .optionalString("updateMode")
       .optionalParent("jsonFieldPaths", new TypeReference<Map<String, Object>>() {}).build();
 
   private static final ObjectMapper mapper = new ObjectMapper();
 
-  private final String src;
+  private final String source;
   private final Map<String, Object> jsonFieldPaths;
   private final Configuration jsonPathConf;
   private final boolean sourceIsBase64;
@@ -59,7 +59,7 @@ public class ParseJson extends Stage {
   public ParseJson(Config config) {
     super(config);
 
-    this.src = config.getString("src");
+    this.source = config.getString("source");
     this.jsonFieldPaths = config.hasPath("jsonFieldPaths") ? config.getConfig("jsonFieldPaths").root().unwrapped() : null;
     this.sourceIsBase64 = config.hasPath("sourceIsBase64") && config.getBoolean("sourceIsBase64");
     this.updateMode = UpdateMode.fromConfig(config);
@@ -89,12 +89,12 @@ public class ParseJson extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    if (!doc.has(src)) {
+    if (!doc.has(source)) {
       return null;
     }
 
-    // if src is a base-64-encoded string, doc.getBytes() will transparently decode it
-    String jsonString = sourceIsBase64 ? new String(doc.getBytes(src)) : doc.getString(src);
+    // if source is a base-64-encoded string, doc.getBytes() will transparently decode it
+    String jsonString = sourceIsBase64 ? new String(doc.getBytes(source)) : doc.getString(source);
 
     // if jsonFieldPaths is present, we parse the document using a ParseContext instead of an ObjectMapper,
     // and evaluate each provided json path expression to set the corresponding document field
@@ -103,7 +103,7 @@ public class ParseJson extends Stage {
       try {
         ctx = jsonParseCtx.parse(jsonString);
       } catch (Exception e) {
-        throw new StageException("Failed to parse JSON in document " + doc.getId() + " with src field: " + src, e);
+        throw new StageException("Failed to parse JSON in document " + doc.getId() + " with source field: " + source, e);
       }
 
       for (Entry<String, Object> entry : jsonFieldPaths.entrySet()) {
@@ -121,11 +121,11 @@ public class ParseJson extends Stage {
     try {
       node = mapper.readTree(jsonString);
     } catch (Exception e) {
-      throw new StageException("Failed to parse JSON in document " + doc.getId() + " with src field: " + src, e);
+      throw new StageException("Failed to parse JSON in document " + doc.getId() + " with source field: " + source, e);
     }
 
     if (!node.isObject()) {
-      throw new StageException("Non-object JSON in document " + doc.getId() + " with src field: " + src);
+      throw new StageException("Non-object JSON in document " + doc.getId() + " with source field: " + source);
     }
 
     Iterator<Entry<String,JsonNode>> fields = node.fields();

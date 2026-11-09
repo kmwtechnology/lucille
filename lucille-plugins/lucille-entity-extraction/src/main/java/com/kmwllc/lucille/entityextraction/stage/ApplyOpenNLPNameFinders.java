@@ -29,7 +29,7 @@ import opennlp.tools.util.Span;
  *
  * <p> Config Parameters:
  * <ul>
- *   <li>textField (String): The name of the field containing text you want to get names from.</li>
+ *   <li>source (String): The name of the field containing text you want to get names from.</li>
  *   <li>tokenizerPath (String): A path to the binaries of the tokenizer model you want to use. Can be a classpath file or a local file.</li>
  *   <li>models (Map&lt;String, String&gt;): A map of "name types" to paths to OpenNLP model binaries. The keys for this map will become the field names containing the names extracted by that model. Can be a classpath file or a local file.</li>
  * </ul>
@@ -37,7 +37,7 @@ import opennlp.tools.util.Span;
 public class ApplyOpenNLPNameFinders extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("textField", "tokenizerPath")
+      .requiredString("source", "tokenizerPath")
       .requiredParent("models", new TypeReference<Map<String, String>>(){}).build();
 
   private final String textField;
@@ -51,7 +51,7 @@ public class ApplyOpenNLPNameFinders extends Stage {
   public ApplyOpenNLPNameFinders(Config config) {
     super(config);
 
-    this.textField = config.getString("textField");
+    this.textField = config.getString("source");
     this.tokenizerPath = config.getString("tokenizerPath");
     this.modelPathMap = config.getConfig("models").root().unwrapped();
 

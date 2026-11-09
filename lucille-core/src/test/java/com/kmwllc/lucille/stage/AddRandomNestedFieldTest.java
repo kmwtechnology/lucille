@@ -180,7 +180,7 @@ public class AddRandomNestedFieldTest {
 
   @Test
   public void testCopiedSourceIsIndependent() throws Exception {
-    Stage stage = factory.get(Map.of("targetField", "out", "entries", Map.of("meta", "src"), "numObjects", 2));
+    Stage stage = factory.get(Map.of("dest", "out", "entries", Map.of("meta", "src"), "numObjects", 2));
     Document doc = Document.createFromJson("{\"id\":\"1\",\"src\":{\"k\":1}}");
     stage.processDocument(doc);
 

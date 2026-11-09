@@ -697,12 +697,12 @@ public class PineconeIndexerTest {
     try (MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class, (mock, context) -> {
       when(mock.build()).thenReturn(mockClient);
     })) {
-      for (String setting : List.of("deleteByFieldField: \"field\", deleteByFieldValue: \"value\"", "indexOverrideField: \"index\"")) {
+      for (String setting : List.of("deleteByQuery { fieldNameField: \"field\", valueField: \"value\" }", "indexOverrideField: \"index\"")) {
         Config config = ConfigFactory.parseString(setting)
             .withFallback(ConfigFactory.load("PineconeIndexerTest/deletion-config.conf").getConfig("indexer"));
         Exception exception = assertThrows(IllegalArgumentException.class,
             () -> new PineconeIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null)));
-        assertTrue(exception.getMessage(), exception.getMessage().contains(setting.substring(0, setting.indexOf(':'))));
+        assertTrue(exception.getMessage(), exception.getMessage().contains(setting.split("\\W")[0]));
       }
       Mockito.verify(mockClient, Mockito.never()).getIndexConnection(anyString());
     }

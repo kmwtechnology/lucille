@@ -152,7 +152,7 @@ If a connector has no pipeline (e.g., it performs setup work only), you'll see `
 
 ### Phase 3: Periodic Progress (During Processing)
 
-Three types of periodic messages appear every `log.seconds` (default 30 seconds):
+Three types of periodic messages appear every `log.intervalSecs` (default 30 seconds):
 
 **Publisher (main thread):**
 ```
@@ -404,7 +404,7 @@ If a connector failed, the summary indicates which one and why. Subsequent conne
 
 The `WorkerWatcherExecutorService` is a daemon thread started by the `WorkerPool`. It runs a scheduled task every 500ms that:
 
-1. **Logs periodic pipeline statistics** (every `log.seconds`): docs processed, one-minute rate, mean latency
+1. **Logs periodic pipeline statistics** (every `log.intervalSecs`): docs processed, one-minute rate, mean latency
 2. **Detects stuck workers**: checks each worker's last poll timestamp; if any worker hasn't polled within `worker.maxProcessingSecs`, logs an error
 3. **Emits heartbeats** (if `worker.enableHeartbeat` is true): writes to the heartbeat logger for Kubernetes liveness probes
 
