@@ -132,12 +132,12 @@ public class RunnerManager {
     // connector, stage and indexer, and an invalid config should be refused rather than stored
     Map<String, List<Exception>> validationErrors;
     try {
-      validationErrors = Runner.runInValidationMode(config);
+      validationErrors = ConfigValidator.validate(config);
     } catch (Exception e) {
       throw new RunnerManagerException("Config could not be validated: " + e.getMessage(), e);
     }
     if (!validationErrors.isEmpty()) {
-      throw new RunnerManagerException(Runner.stringifyValidation(validationErrors, "Config"));
+      throw new RunnerManagerException(ConfigValidator.format(validationErrors, "Config"));
     }
 
     configMap.put(desiredKey, config);

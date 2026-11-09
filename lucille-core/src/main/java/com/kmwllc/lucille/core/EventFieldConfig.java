@@ -51,7 +51,7 @@ public class EventFieldConfig {
    * Spec for the {@code kafka.event} block; plugged into the Kafka spec so that unknown keys and wrongly typed
    * values are rejected when the config is validated at startup.
    */
-  public static final Spec SPEC = SpecBuilder.parent("event")
+  public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .optionalList("includeFields", new TypeReference<List<String>>(){})
       .optionalNumber("maxValuesPerField", "maxValueLength")
       .build();

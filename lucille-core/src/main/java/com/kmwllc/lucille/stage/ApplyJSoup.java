@@ -33,11 +33,11 @@ import com.typesafe.config.Config;
  *   <li>charset (String, Optional) : the encoding of the html document. If none is provided when filePathField is provided the charset is detected from
  *   the byte-order-mark (BOM) or meta tags and defaults to UTF-8 if none is found. If no charset is provided when byteArrayField is provided the charset defaults
  *   to UTF-8 immediately. Has no effect if stringField is provided.</li>
- *   <li>destinationFields (Map&lt;String, Map&lt;String, String&gt;&gt;) : defines a mapping from destination fields to selector maps. Selector maps have a `selector` field which takes
+ *   <li>selectors (Map&lt;String, Map&lt;String, String&gt;&gt;) : defines a mapping from destination fields to selector maps. Selector maps have a `selector` field which takes
  *   a css selector and a `type` field which takes one of the following: 'text', 'attribute', 'html', or 'outerHtml'. When doing attribute extraction an additional `attribute` with
  *   the desired attribute must be specified. For example:
  *   <p>
- *     destinationFields: {
+ *     selectors: {
  *     <br>  destination1: {
  *     <br>    type: "attribute",
  *     <br>    selector: ".foo",
@@ -59,9 +59,9 @@ public class ApplyJSoup extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("filePathField", "byteArrayField", "stringField", "charset")
-      .requiredParent("destinationFields", new TypeReference<Map<String, Map<String, String>>>(){}).build();
+      .requiredParent("selectors", new TypeReference<Map<String, Map<String, String>>>(){}).build();
 
-  private final Map<String, Object> destinationFields;
+  private final Map<String, Object> selectors;
   private final String charset;
   private final String activeField;
   private final InputType inputType;
@@ -73,7 +73,7 @@ public class ApplyJSoup extends Stage {
   public ApplyJSoup(Config config) throws StageException {
     super(config);
 
-    this.destinationFields = config.getConfig("destinationFields").root().unwrapped();
+    this.selectors = config.getConfig("selectors").root().unwrapped();
     this.charset = ConfigUtils.getStringOrDefault(config, "charset", null);
 
     boolean a = config.hasPath("filePathField");
@@ -99,7 +99,7 @@ public class ApplyJSoup extends Stage {
   @Override
   public void start() throws StageException {
 
-    for (Map.Entry<String, Object> entry : destinationFields.entrySet()) {
+    for (Map.Entry<String, Object> entry : selectors.entrySet()) {
       Object value = entry.getValue();
       if (!(value instanceof Map)) {
         throw new StageException("destination fields must be mapped to a selector map");
@@ -123,7 +123,12 @@ public class ApplyJSoup extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    if (!doc.has(activeField)) {
+    // check the first value, which is what gets parsed; hasNonNull passes for [null, ...]
+    if (inputType == InputType.BYTE) {
+      if (doc.getBytes(activeField) == null) {
+        return null;
+      }
+    } else if (doc.getString(activeField) == null) {
       return null;
     }
 
@@ -149,7 +154,7 @@ public class ApplyJSoup extends Stage {
       }
     }
 
-    for (Map.Entry<String, Object> entry : destinationFields.entrySet()) {
+    for (Map.Entry<String, Object> entry : selectors.entrySet()) {
       Map<String, String> value = (Map<String, String>) entry.getValue();
       Elements selected = jsoupDoc.select(value.get("selector"));
       List<String> extractedText = new ArrayList<>();

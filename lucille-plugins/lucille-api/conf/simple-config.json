@@ -17,11 +17,10 @@
       }
     ],
     "indexer": {
-      "type": "CSV"
-    },
-    "csv": {
-      "columns": ["Name", "Age", "City"],
-      "path": "conf/dummy.csv",
-      "includeHeader": false
+      "csv": {
+        "columns": ["Name", "Age", "City"],
+        "path": "conf/dummy.csv",
+        "includeHeader": false
+      }
     }
 }

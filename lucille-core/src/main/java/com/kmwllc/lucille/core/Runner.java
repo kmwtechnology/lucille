@@ -10,7 +10,6 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.IndexerMessengerFactory;
-import com.kmwllc.lucille.message.KafkaUtils;
 import com.kmwllc.lucille.message.LocalMessenger;
 import com.kmwllc.lucille.message.PublisherMessenger;
 import com.kmwllc.lucille.message.PublisherMessengerFactory;
@@ -28,7 +27,6 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionGroup;
 import org.apache.commons.cli.Options;
 import org.apache.commons.lang3.time.StopWatch;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,15 +34,14 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.slf4j.MDC;
 
 /**
@@ -81,21 +78,7 @@ public class Runner {
 
   public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .optionalString("metricsLoggingLevel")
-      .optionalNumber("connectorTimeout").build();
-
-  // package access for ConfigValidationTest
-  /**
-   * Config Keys & Specs for the "other parents" in a Lucille Config validated here.
-   * If a new "other" parent is added here, it should be added here along with its Spec.
-   */
-  static final List<Pair<String, Spec>> PARENTS_AND_SPECS = List.of(
-      Pair.of("publisher", PublisherImpl.SPEC),
-      Pair.of("log", LogUtils.SPEC),
-      Pair.of("runner", Runner.SPEC),
-      Pair.of("kafka", KafkaUtils.SPEC),
-      Pair.of("zookeeper", ZKRetryCounter.SPEC),
-      Pair.of("worker", Worker.SPEC)
-  );
+      .optionalNumber("connectorTimeoutMs").build();
 
   public static final int DEFAULT_CONNECTOR_TIMEOUT = 1000 * 60 * 60 * 24;
 
@@ -127,7 +110,7 @@ public class Runner {
    * cleanly close or stop them when the process is told to shut down (SIGINT or SIGTERM)
    */
   static class RunnerState {
-    private Publisher publisher;
+    private PublisherImpl publisher;
     private Connector connector;
     private WorkerPool workerPool;
     private Indexer indexer;
@@ -136,7 +119,7 @@ public class Runner {
     public RunnerState() {
     }
 
-    public void set(Publisher publisher, Connector connector, WorkerPool workerPool, Indexer indexer, Thread thread) {
+    public void set(PublisherImpl publisher, Connector connector, WorkerPool workerPool, Indexer indexer, Thread thread) {
       this.publisher = publisher;
       this.connector = connector;
       this.workerPool = workerPool;
@@ -265,195 +248,6 @@ public class Runner {
   public static Map<String, TestMessenger> runInTestMode(Config config) throws Exception {
     RunResult result = run(config, RunType.TEST);
     return result.getHistory();
-  }
-
-  public static Map<String, List<Exception>> runInValidationMode(String configName) throws Exception {
-    return runInValidationMode(ConfigFactory.load(configName));
-  }
-
-  /**
-   * Validates the given Config, including its pipelines, connectors, indexers, and other miscellaneous configuration
-   * (Publisher, Runner, Kafka, etc). Returns a map of entry names to lists of Exceptions, representing errors with the
-   * configuration. The map uses individual pipeline / connector names for keys, and then "indexer" and "other" for the indexer / other
-   * validation issues, respectively. (Keys are only present if there are associated errors.)
-   *
-   * @param config The configuration you want to validate.
-   * @return Returns a map of entry names to lists of Exceptions (errors with the Config).
-   * @throws Exception If a larger error occurs, preventing the Config from being validates.
-   */
-  public static Map<String, List<Exception>> runInValidationMode(Config config) throws Exception {
-    // Resolve any potential substitutions once, to prevent errors about missing values.
-    config = config.resolve();
-    Map<String, List<Exception>> allExceptionsMap = new HashMap<>();
-
-    Map<String, List<Exception>> pipelineExceptions = validatePipelines(config);
-    log.info(stringifyValidation(pipelineExceptions, "Pipeline"));
-
-    Map<String, List<Exception>> connectorExceptions = validateConnectors(config);
-    addUndefinedPipelineExceptions(config, connectorExceptions);
-    log.info(stringifyValidation(connectorExceptions, "Connector"));
-
-    List<Exception> indexerExceptions = validateIndexer(config);
-    log.info(stringifyValidation(indexerExceptions, "Indexer"));
-
-    List<Exception> otherParentExceptions = validateOtherParents(config);
-    log.info(stringifyValidation(otherParentExceptions, "Other (Publisher, Runner, etc.)"));
-
-    allExceptionsMap.putAll(pipelineExceptions);
-    allExceptionsMap.putAll(connectorExceptions);
-
-    // only put "indexer" key in the map if there are errors.
-    if (!indexerExceptions.isEmpty()) {
-      if (allExceptionsMap.containsKey("indexer")) {
-        log.warn("A pipeline or connector was named \"indexer\". Its validation error(s) will be combined with error(s) for indexer configuration.");
-        allExceptionsMap.get("indexer").addAll(indexerExceptions);
-      } else {
-        allExceptionsMap.put("indexer", indexerExceptions);
-      }
-    }
-
-    // only put "other" key in the map if there are errors.
-    if (!otherParentExceptions.isEmpty()) {
-      if (allExceptionsMap.containsKey("other")) {
-        log.warn("A pipeline or connector was named \"other\". Its validation error(s) will be combined with error(s) for other configuration (publisher, worker, etc.).");
-        allExceptionsMap.get("other").addAll(otherParentExceptions);
-      } else {
-        allExceptionsMap.put("other", otherParentExceptions);
-      }
-    }
-
-    return allExceptionsMap;
-  }
-
-  private static Map<String, List<Exception>> validateConnectors(Config rootConfig) {
-    Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
-
-    if (!rootConfig.hasPath("connectors")) {
-      exceptionMap.put("connectors", List.of(new Exception("Configuration does not contain key \"connectors\".")));
-      return exceptionMap;
-    }
-
-    Set<String> seenNames = new HashSet<>();
-    int idx = 0;
-
-    for (Config connectorConfig : rootConfig.getConfigList("connectors")) {
-      idx++;
-      // the name the connector has in a run (see Connector.fromConfig)
-      String connectorName = ConfigUtils.getStringOrDefault(connectorConfig, "name", "connector_" + idx);
-
-      List<Exception> exceptionsForConnector = Connector.getConnectorConfigExceptions(connectorConfig, idx);
-      if (!seenNames.add(connectorName)) {
-        exceptionMap.computeIfAbsent(connectorName, k -> new ArrayList<>()).add(new Exception("There are multiple connectors with the name " + connectorName));
-      }
-
-      if (!exceptionsForConnector.isEmpty()) {
-        exceptionMap.computeIfAbsent(connectorName, k -> new ArrayList<>()).addAll(exceptionsForConnector);
-      }
-    }
-
-    return exceptionMap;
-  }
-
-  /**
-   * Adds an exception for every connector whose <code>pipeline</code> names a pipeline that is not defined. Without this
-   * check a typo passes validation; a local run then fails late with "Error starting workers" and a distributed run
-   * publishes to a topic nobody consumes.
-   */
-  private static void addUndefinedPipelineExceptions(Config rootConfig, Map<String, List<Exception>> exceptionMap) {
-    if (!rootConfig.hasPath("connectors") || !rootConfig.hasPath("pipelines")) {
-      return;
-    }
-
-    Set<String> pipelineNames = new HashSet<>();
-    for (Config pipelineConfig : rootConfig.getConfigList("pipelines")) {
-      if (pipelineConfig.hasPath("name")) {
-        pipelineNames.add(pipelineConfig.getString("name"));
-      }
-    }
-
-    int idx = 0;
-    for (Config connectorConfig : rootConfig.getConfigList("connectors")) {
-      idx++;
-      if (!connectorConfig.hasPath("pipeline")) {
-        continue;
-      }
-      String pipeline = connectorConfig.getString("pipeline");
-      if (!pipelineNames.contains(pipeline)) {
-        // the name the connector has in a run (see Connector.fromConfig)
-        String key = ConfigUtils.getStringOrDefault(connectorConfig, "name", "connector_" + idx);
-        exceptionMap.computeIfAbsent(key, k -> new ArrayList<>()).add(new Exception(
-            "Connector " + key + " references pipeline \"" + pipeline + "\", which is not defined. Defined pipelines: "
-                + pipelineNames));
-      }
-    }
-  }
-
-  /**
-   * Returns a mapping from pipeline names to the list of exceptions produced when validating them. (only includes
-   * a pipeline name if there are errors with its config.)
-   */
-  private static Map<String, List<Exception>> validatePipelines(Config rootConfig) throws Exception {
-    Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
-
-    if (!rootConfig.hasPath("pipelines")) {
-      exceptionMap.put("pipelines", List.of(new Exception("Configuration does not contain key \"pipelines\".")));
-      return exceptionMap;
-    }
-
-    for (Config pipelineConfig : rootConfig.getConfigList("pipelines")) {
-      String pipelineName = pipelineConfig.getString("name");
-
-      List<Exception> exceptionsForPipeline = Pipeline.validateStages(rootConfig, pipelineName);
-
-      if (!exceptionsForPipeline.isEmpty()) {
-        // No checks on whether the map has the pipeline name, since Pipeline checks for duplicate names...
-        exceptionMap.put(pipelineName, exceptionsForPipeline);
-      }
-    }
-
-    return exceptionMap;
-  }
-
-  private static List<Exception> validateIndexer(Config config) {
-    Indexer indexer = null;
-    try {
-      indexer = IndexerFactory.fromConfig(config, new LocalMessenger(), true, "");
-    } catch (Exception e) {
-      return List.of(e);
-    } finally {
-      // the indexer was constructed only to validate its config; release any client its constructor opened
-      if (indexer != null) {
-        try {
-          indexer.closeConnection();
-        } catch (Exception e) {
-          log.debug("Error closing indexer constructed for validation", e);
-        }
-      }
-    }
-
-    return List.of();
-  }
-
-  private static List<Exception> validateOtherParents(Config rootConfig) {
-    List<Exception> exceptions = new ArrayList<>();
-
-    for (Pair<String, Spec> parentAndSpec : PARENTS_AND_SPECS) {
-      String parentName = parentAndSpec.getLeft();
-
-      if (!rootConfig.hasPath(parentName)) {
-        continue;
-      }
-
-      try {
-        Spec spec = parentAndSpec.getRight();
-        Config parentConfig = rootConfig.getConfig(parentName);
-        spec.validate(parentConfig, parentName);
-      } catch (IllegalArgumentException e) {
-        exceptions.add(e);
-      }
-    }
-
-    return exceptions;
   }
 
   public static void renderConfig(Config config) {
@@ -594,7 +388,7 @@ public class Runner {
 
   private static RunResult runInternal(Config config, RunType type, String runId, boolean validate) throws Exception {
     if (validate) {
-      Map<String, List<Exception>> validationErrors = runInValidationMode(config);
+      Map<String, List<Exception>> validationErrors = ConfigValidator.validate(config);
       if (!validationErrors.isEmpty()) {
         log.error("Pre-run validation failed.");
 
@@ -607,6 +401,9 @@ public class Runner {
     }
 
     log.info("Starting run with id {}", runId);
+
+    // fail now rather than when the metrics are logged after the run
+    getMetricsLoggingLevel(config);
 
     List<Connector> connectors = Connector.fromConfig(config);
     List<ConnectorResult> connectorResults = new ArrayList<>();
@@ -660,15 +457,15 @@ public class Runner {
    * an end state in the workflow: either being indexed or erroring-out. Returns a failing ConnectorResult
    * if any connector lifecycle method throws an exception or the publisher itself fails
    */
-  public static ConnectorResult runConnector(Config config, String runId, Connector connector, Publisher publisher) {
+  public static ConnectorResult runConnector(Config config, String runId, Connector connector, PublisherImpl publisher) {
     return runConnector(config, runId, connector, publisher, null);
   }
 
   /**
-   * As {@link #runConnector(Config, String, Connector, Publisher)}, additionally failing the connector as soon as a
+   * As {@link #runConnector(Config, String, Connector, PublisherImpl)}, additionally failing the connector as soon as a
    * worker in the given pool (if any) dies, instead of waiting for the connector timeout.
    */
-  static ConnectorResult runConnector(Config config, String runId, Connector connector, Publisher publisher,
+  static ConnectorResult runConnector(Config config, String runId, Connector connector, PublisherImpl publisher,
       WorkerPool workerPool) {
     try {
       return runConnectorInternal(config, runId, connector, publisher, workerPool);
@@ -708,7 +505,7 @@ public class Runner {
    * 3) call publisher.waitForCompletion()
    * 4) call connector.postExecute()
    */
-  private static ConnectorResult runConnectorInternal(Config config, String runId, Connector connector, Publisher publisher,
+  private static ConnectorResult runConnectorInternal(Config config, String runId, Connector connector, PublisherImpl publisher,
       WorkerPool workerPool) {
     log.info("Running connector {} feeding to pipeline {}",
         connector.getName(), (connector.getPipelineName() == null ? "NOT CONFIGURED" : connector.getPipelineName()));
@@ -744,7 +541,7 @@ public class Runner {
           workerPool.setFailureListener(cause -> connectorThread.abort("Worker failed.", cause));
         }
         connectorThread.start();
-        final int connectorTimeout = ConfigUtils.getIntOrDefault(config, "runner.connectorTimeout", DEFAULT_CONNECTOR_TIMEOUT);
+        final int connectorTimeout = ConfigUtils.getIntOrDefault(config, "runner.connectorTimeoutMs", DEFAULT_CONNECTOR_TIMEOUT);
         pubResult = publisher.waitForCompletion(connectorThread, connectorTimeout);
       } catch (Exception e) {
         log.error("waitForCompletion failed", e);
@@ -819,7 +616,7 @@ public class Runner {
     WorkerPool workerPool = null;
     Indexer indexer = null;
     Thread indexerThread = null;
-    Publisher publisher = null;
+    PublisherImpl publisher = null;
 
     try {
       // If local/test we want to give WorkerPool/Indexer the run_id directly.
@@ -903,54 +700,23 @@ public class Runner {
   }
 
   /**
-   * Returns a stringified version of the given map of exceptions, which is mapping individual "elements" (usually, pipelines) to their associated
-   * exceptions. Map may be empty. Uses the given validation name in logged messages to clarify which element of the Lucille Config is being validated.
+   * Returns the level at which run metrics are logged: runner.metricsLoggingLevel (case-insensitive), or DEBUG if unset.
+   * @throws IllegalArgumentException If runner.metricsLoggingLevel is not one of the levels Slf4jReporter supports.
    */
-  // Package access for unit test
-  static String stringifyValidation(Map<String, List<Exception>> exceptions, String validationName) {
-    if (exceptions.isEmpty()) {
-      return validationName + " Configuration is valid.";
-    } else {
-      StringBuilder message = new StringBuilder(validationName + " Configuration is invalid. See exceptions for each element:\n");
+  static Slf4jReporter.LoggingLevel getMetricsLoggingLevel(Config config) {
+    if (!config.hasPath("runner.metricsLoggingLevel")) {
+      return Slf4jReporter.LoggingLevel.DEBUG;
+    }
 
-      for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
-        message.append("\t").append(entry.getKey()).append(":").append("\n");
-
-        for (Exception e : entry.getValue()) {
-          message.append("\t\t").append(e.getMessage()).append("\n");
-        }
+    String value = config.getString("runner.metricsLoggingLevel");
+    for (Slf4jReporter.LoggingLevel level : Slf4jReporter.LoggingLevel.values()) {
+      if (level.name().equalsIgnoreCase(value.trim())) {
+        return level;
       }
-      return message.delete(message.length() - 1, message.length()).toString();
     }
-  }
 
-  /**
-   * Returns a stringified version of the given list of exceptions. List may be empty. Uses the given validation name in logged messages
-   * to clarify which element of the Lucille Config is being validated.
-   */
-  // package access for unit test
-  static String stringifyValidation(List<Exception> exceptions, String validationName) {
-    if (exceptions.isEmpty()) {
-      return validationName + " Configuration is valid.";
-    } else {
-      StringBuilder message = new StringBuilder(validationName + " Configuration is invalid. Errors:\n");
-
-      for (Exception exc : exceptions) {
-        message.append("\t").append(exc.getMessage()).append("\n");
-      }
-      return message.delete(message.length() - 1, message.length()).toString();
-    }
-  }
-
-  private static Slf4jReporter.LoggingLevel getMetricsLoggingLevel(Config config) {
-    try {
-      return config.hasPath("runner.metricsLoggingLevel") ?
-          Slf4jReporter.LoggingLevel.valueOf(config.getString("runner.metricsLoggingLevel")) :
-          Slf4jReporter.LoggingLevel.DEBUG;
-    } catch (Exception e) {
-      log.error("Error obtaining metrics logging level", e);
-    }
-    return Slf4jReporter.LoggingLevel.DEBUG;
+    throw new IllegalArgumentException("Unknown runner.metricsLoggingLevel \"" + value + "\"; expected one of "
+        + Arrays.stream(Slf4jReporter.LoggingLevel.values()).map(l -> l.name().toLowerCase()).collect(Collectors.joining(", ")));
   }
 
   /**

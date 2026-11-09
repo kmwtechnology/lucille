@@ -1,5 +1,8 @@
 package com.kmwllc.lucille.stage;
 
+import java.util.List;
+import java.util.Map;
+import static org.junit.Assert.assertFalse;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -150,5 +153,45 @@ public class ReplacePatternsTest {
             "dotall",
             "literal"),
         stage.getNonDefaultLegalProperties());
+  }
+
+  @Test
+  public void testNullValues() throws Exception {
+    Stage stage = factory.get(Map.of("source", List.of("f"), "dest", List.of("o"), "regex", List.of("Hi"), "replacement", "Yo"));
+
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"f\":null}");
+    stage.processDocument(doc);
+    assertFalse(doc.has("o"));
+
+    Document mixed = Document.createFromJson("{\"id\":\"1\",\"f\":[null,\"Hi There\"]}");
+    stage.processDocument(mixed);
+    assertEquals("Yo There", mixed.getString("o"));
+  }
+
+  @Test
+  public void testLiteralReplacement() throws Exception {
+    Stage literal = factory.get(Map.of("source", List.of("p"), "dest", List.of("p"), "regex", List.of("USD"),
+        "replacement", "$", "literal", true));
+    Document doc = Document.create("doc");
+    doc.setField("p", "5 USD");
+    literal.processDocument(doc);
+    assertEquals("5 $", doc.getString("p"));
+
+    // without literal, the replacement still supports group references
+    Stage groups = factory.get(Map.of("source", List.of("p"), "dest", List.of("p"), "regex", List.of("(\\d+)"),
+        "replacement", "<$1>"));
+    Document doc2 = Document.create("doc2");
+    doc2.setField("p", "5 USD");
+    groups.processDocument(doc2);
+    assertEquals("<5> USD", doc2.getString("p"));
+
+    // literal also covers a replacement taken from the document, which is data and shouldn't inject group references
+    Stage fromField = factory.get(Map.of("source", List.of("p"), "dest", List.of("p"), "regex", List.of("USD"),
+        "replacementField", "symbol", "literal", true));
+    Document doc3 = Document.create("doc3");
+    doc3.setField("p", "5 USD");
+    doc3.setField("symbol", "$1");
+    fromField.processDocument(doc3);
+    assertEquals("5 $1", doc3.getString("p"));
   }
 }

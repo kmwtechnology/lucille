@@ -29,8 +29,7 @@ A `Spec` is an immutable set of `Property` declarations that describes the legal
 
 ```java
 public class Spec {
-    private final String name;           // Non-null for "parent" specs (nested config blocks)
-    private final Set<Property> properties;
+    private final List<Property> properties;   // in declaration order
 }
 ```
 
@@ -41,20 +40,25 @@ public class Spec {
 
 ## Why SPEC Is a `public static final` Field
 
-You might wonder why Lucille uses a `public static final Spec SPEC` field rather than an abstract method like `abstract Spec getSpec()`. The primary reason is **validation without full instantiation**. A Spec describes what configuration a class accepts — this is a property of the class itself, not of any particular instance. Making it a static field communicates this clearly and allows tooling or documentation generators to inspect a component's legal properties without constructing it.
+You might wonder why Lucille uses a `public static final Spec SPEC` field rather than an abstract method that returns a Spec. The primary reason is **validation without full instantiation**. A Spec describes what configuration a class accepts — this is a property of the class itself, not of any particular instance. Making it a static field communicates this clearly and allows tooling or documentation generators to inspect a component's legal properties without constructing it.
 
 Secondary reasons:
 
 - **Immutability.** A `static final` field is initialized once at class-load time and cannot change. An instance method could theoretically return different values depending on constructor arguments, which would be confusing for a validation contract.
-- **Minimal boilerplate.** Declaring a single field is simpler than overriding an abstract method with `@Override public Spec getSpec() { return SPEC; }` in every subclass.
+- **Minimal boilerplate.** Declaring a single field is simpler than implementing an accessor method in every subclass.
+- **One source of truth.** Validation, the admin UI and documentation tooling all read the same field through `Spec.of(Class)`, so there is no overridable method that could make them disagree.
 
-**The tradeoff: no compile-time enforcement.** The compiler does not force you to declare a `SPEC` field. If you forget it, you won't get a compile error — you'll get a `RuntimeException` the first time the component is instantiated. This happens because the `Stage` base class constructor calls `getSpec().validate(config, ...)`, and the default `getSpec()` implementation uses reflection to look up the `SPEC` field on your class. If the field is missing, the reflective lookup fails immediately with a clear error message:
+**The tradeoff: no compile-time enforcement.** The compiler does not force you to declare a `SPEC` field. If you forget it, you won't get a compile error — you'll get an `IllegalStateException` the first time the component is instantiated. This happens because the `Stage` base class constructor calls `Spec.of(getClass()).validate(config, ...)`, and `Spec.of` uses reflection to look up the `SPEC` field on your class. If the field is missing, the reflective lookup fails immediately with a clear error message:
 
 ```
-RuntimeException: Error accessing com.example.MyStage Spec. Is it publicly and statically available under "SPEC"?
+IllegalStateException: Error accessing the Spec for com.example.MyStage. Lucille looks for a public static final Spec SPEC declared on the component class itself, not on its superclasses; a class extending another component must declare one, for example: public static final Spec SPEC = Parent.SPEC;
 ```
 
 In practice, this is not a significant source of errors. Any unit test that instantiates your component — even the most trivial one — will trigger this failure immediately. You will never get as far as running a pipeline with a missing SPEC; the error is loud and obvious at the earliest possible moment.
+
+**Declare SPEC on each class.** Java lets a subclass see its parent's static `SPEC`, but Lucille's reflective lookup (`Spec.of(Class)`) checks only the component's own class, not its superclasses. So a class that extends another concrete component (for example, `MyCopyFields extends CopyFields`) must declare its own `SPEC`, even if it accepts exactly the same properties: `public static final Spec SPEC = CopyFields.SPEC;`. Redeclaring it makes the choice of accepted properties explicit; if the parent later adds a property, the subclass doesn't silently start accepting a property it may not handle.
+
+Subclassing a built-in component is possible but not recommended. The extension points are the base classes (`Stage`, `AbstractConnector`, `Indexer`, `BaseFileHandler`); a built-in component's internals and properties may change between releases.
 
 ## How SpecBuilder Works
 
@@ -73,11 +77,8 @@ SpecBuilder.indexer()
 // For a FileHandler — includes class, docIdPrefix as defaults
 SpecBuilder.fileHandler()
 
-// For arbitrary config blocks — no defaults
+// For arbitrary config blocks, including nested config objects — no defaults
 SpecBuilder.withoutDefaults()
-
-// For nested config objects
-SpecBuilder.parent("parentName")
 ```
 
 Each factory method pre-populates the builder with default legal properties appropriate for that component type.
@@ -98,9 +99,9 @@ Each factory method pre-populates the builder with default legal properties appr
 ### Objects (Nested Config Blocks)
 
 ```java
-// With a named Spec describing the object's structure
-.requiredParent(myParentSpec)
-.optionalParent(myParentSpec)
+// With a Spec describing the object's structure; the first argument is the object's key
+.requiredParent("name", myParentSpec)
+.optionalParent("name", myParentSpec)
 
 // With a TypeReference for unstructured objects (e.g., Map<String, String>)
 .requiredParent("name", new TypeReference<Map<String, String>>(){})
@@ -119,12 +120,9 @@ Each factory method pre-populates the builder with default legal properties appr
 .optionalList("name", new TypeReference<List<String>>(){})
 ```
 
-### With Descriptions
+### Descriptions
 
-Every method has a `WithDescription` variant for documentation generation:
-```java
-.requiredStringWithDescription("url", "The Solr endpoint URL")
-```
+A Spec declares names, types and whether each property is required; it does not carry descriptions. Describe each property in the component's Javadoc "Config Parameters" list instead (see [Javadoc Standards]({{< relref "docs/developer-guide/javadocs" >}})). The admin UI reads those descriptions from the generated Javadoc and merges them into the Spec's JSON.
 
 ## How Validation Is Triggered
 
@@ -138,46 +136,33 @@ public Stage(Config config) {
     this.config = config;
 
     // Validate using the subclass's SPEC
-    getSpec().validate(config, getDisplayName());
+    Spec.of(getClass()).validate(config, getDisplayName());
 
     this.condition = getMergedConditions();
 }
 ```
 
-The `getSpec()` method uses reflection to access the subclass's static `SPEC` field:
-
-```java
-public Spec getSpec() {
-    try {
-        return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
-    } catch (Exception e) {
-        throw new RuntimeException(
-            "Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
-    }
-}
-```
+`Spec.of(Class)` reflectively reads the static `SPEC` field declared on the subclass. It is public, so tooling can read any component's Spec without instantiating it. The `SPEC` field is the only way for a component to declare its Spec.
 
 This means validation happens automatically when any Stage is constructed — including during the Runner's validation pass.
 
 ### Indexers
 
-The `Indexer` base class validates both the generic `indexer` config block and the implementation-specific block:
+The `Indexer` base class validates both the generic settings in the `indexer` block and the implementation-specific block nested inside it:
 
 ```java
 private void validateIndexerConfigs(Config config) {
-    // Validate generic "indexer" block
-    Config indexerConfig = config.getConfig("indexer");
+    // Validate the generic settings; nested blocks are left out of genericConfig
     SpecBuilder.withoutDefaults()
         .optionalString("type", "class", "idOverrideField", ...)
-        .optionalNumber("batchSize", "batchTimeout", ...)
+        .optionalNumber("batchSize", "batchTimeoutMs", ...)
         .build()
-        .validate(indexerConfig, "Indexer");
+        .validate(genericConfig, "Indexer");
 
     // Validate implementation-specific block (e.g., "solr", "elasticsearch")
-    String indexerConfigKey = getIndexerConfigKey();
     if (indexerConfigKey != null && config.hasPath(indexerConfigKey)) {
         Config specificImplConfig = config.getConfig(indexerConfigKey);
-        getImplementationSpec().validate(specificImplConfig, indexerConfigKey);
+        Spec.of(getClass()).validate(specificImplConfig, indexerConfigKey);
     }
 }
 ```
@@ -194,30 +179,33 @@ The `Property` base class handles this:
 
 ## Nested Specs (Parent Specs)
 
-For complex connectors with cloud provider configs, nested specs describe sub-objects:
+A parent Spec describes a nested config block. It is an ordinary Spec, usually built with `SpecBuilder.withoutDefaults()`; the block's key is given where the parent is added, like any other property:
 
 ```java
-// FileConnector declares parent specs for each cloud provider
-public static final Spec GCP_PARENT_SPEC = SpecBuilder.parent("gcp")
-    .requiredString("pathToServiceKey")
-    .optionalNumber("maxResultsPerPage").build();
-
-public static final Spec S3_PARENT_SPEC = SpecBuilder.parent("s3")
-    .optionalString("accessKeyId", "secretAccessKey", "region")
-    .optionalNumber("maxResultsPerPage").build();
-
-public static final Spec AZURE_PARENT_SPEC = SpecBuilder.parent("azure")
-    .optionalString("connectionString", "accountName", "accountKey")
-    .optionalNumber("maxResultsPerPage").build();
-
-// Used in the connector's SPEC
 public static final Spec SPEC = SpecBuilder.connector()
     .requiredList("paths", new TypeReference<List<String>>(){})
-    .optionalParent(GCP_PARENT_SPEC, AZURE_PARENT_SPEC, S3_PARENT_SPEC)
+    .optionalParent("fileOptions", SpecBuilder.withoutDefaults()
+        .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
+        .optionalNumber("maxSizeBytes").build())
     .build();
 ```
 
-When a parent spec is validated, it checks the properties within that nested config block. The parent's name (e.g., "gcp") becomes a legal top-level property, and its children (e.g., "gcp.pathToServiceKey") are validated against the parent spec's property set.
+When a parent spec is validated, it checks the properties within that nested config block. The parent's key (e.g., "fileOptions") becomes a legal property, and its children (e.g., "fileOptions.getFileContent") are validated against the parent spec's property set. Because the key is not part of the parent Spec, the same Spec can be used under more than one key.
+
+To share a group of parents across components, put them in one Spec and add it with `include()`. `FileConnector.STORAGE_SPEC` declares the `gcp`, `azure`, and `s3` blocks and `storageClients`; every component that reads files through StorageClients includes it, so they all accept the same storage configuration:
+
+```java
+public static final Spec STORAGE_SPEC = SpecBuilder.withoutDefaults()
+    .optionalParent("gcp", GCP_PARENT_SPEC)
+    .optionalParent("azure", AZURE_PARENT_SPEC)
+    .optionalParent("s3", S3_PARENT_SPEC)
+    .optionalParent("storageClients", new TypeReference<Map<String, Map<String, Object>>>(){}).build();
+
+// in a Stage that fetches files
+public static final Spec SPEC = SpecBuilder.stage()
+    .requiredString("dictionaryPath")
+    .include(FileConnector.STORAGE_SPEC).build();
+```
 
 ## Error Collection (Not Fail-Fast)
 
@@ -275,10 +263,10 @@ The `getParent()` helper handles dotted paths: for a key like `s3.region`, it ch
 
 ## The Validate-Without-Execution Mode
 
-The Runner's `-validate` flag triggers `runInValidationMode()`:
+`ConfigValidator.validate()` validates a whole config without running it. The `-validate` flag calls it, the Runner calls it before every run, and the API server calls it before storing a config:
 
 ```java
-public static Map<String, List<Exception>> runInValidationMode(Config config) throws Exception {
+public static Map<String, List<Exception>> validate(Config config) throws Exception {
     config = config.resolve();
     Map<String, List<Exception>> allExceptionsMap = new HashMap<>();
 
@@ -292,7 +280,7 @@ public static Map<String, List<Exception>> runInValidationMode(Config config) th
 }
 ```
 
-This instantiates every Stage, Connector, and Indexer (triggering their SPEC validation) without actually running any connectors. It also validates top-level config blocks (publisher, runner, kafka, etc.) using a `validConfigProperties.conf` resource file.
+This instantiates every Stage, Connector, and Indexer (triggering their SPEC validation) without actually running any connectors. It also validates the top-level framework blocks (publisher, runner, kafka, etc.) against their Specs; see [Validating Top-Level Framework Blocks](#validating-top-level-framework-blocks).
 
 ---
 
@@ -303,6 +291,7 @@ Each component type gets automatic defaults via its `SpecBuilder` factory:
 **Stages** (`SpecBuilder.stage()`):
 - `name` (optional string)
 - `class` (optional string)
+- `enabled` (optional boolean)
 - `conditions` (optional list with its own sub-spec: operator, valuesPath, values, fields)
 - `conditionPolicy` (optional string)
 
@@ -346,37 +335,33 @@ Error with CopyFields Config: [Config contains unknown parent feildMapping, Requ
 
 ---
 
-## Validating without a SPEC
+## Validating Top-Level Framework Blocks
 
 Connectors, Stages, and Indexers all declare a `SPEC` in code. When the `-validate` pass instantiates each component, the constructor triggers SPEC validation automatically — the code is the source of truth for what those components accept.
 
-However, a Lucille config contains more than just component definitions. Top-level blocks like `publisher`, `runner`, `worker`, `kafka`, and `zookeeper` are infrastructure settings read directly by the framework at runtime. They don't correspond to any Connector, Stage, or Indexer, so there is nowhere in code to put a SPEC that would cover them. Without some mechanism to validate these blocks, typos and unrecognized properties in them would pass through the `-validate` pass silently.
+A Lucille config also contains top-level blocks like `publisher`, `runner`, `worker`, `kafka`, `zookeeper`, and `log` that the framework reads directly at runtime. Each of these also has a Spec, declared as a `SPEC` constant on the class that reads the block (`PublisherImpl.SPEC`, `Runner.SPEC`, `Worker.SPEC`, `KafkaUtils.SPEC`, `ZKRetryCounter.SPEC`, `LogUtils.SPEC`). `ConfigValidator.PARENTS_AND_SPECS` pairs each block name with its Spec:
 
-For this purpose, Lucille has a `resources/validConfigProperties.conf` file. It declares the legal properties for each of these framework-level config blocks, giving the `-validate` pass the same typo-catching coverage for infrastructure settings that SPECs provide for components.
-
-### Structure
-
-Each top-level key in the file corresponds to a config block name. Under each key, declare `requiredProperties` and/or `optionalProperties` as lists of property names:
-
-```hocon
-kafka {
-  requiredProperties: ["bootstrapServers", "consumerGroupId", "maxPollIntervalSecs", "maxRequestSize"]
-  optionalProperties: ["documentSerializer", "documentDeserializer", "sourceTopic", "eventTopic"]
-}
-
-worker {
-  optionalProperties: ["pipeline", "threads", "exitOnTimeout", "maxProcessingSecs", "maxRetries"]
-}
+```java
+static final List<Pair<String, Spec>> PARENTS_AND_SPECS = List.of(
+    Pair.of("publisher", PublisherImpl.SPEC),
+    Pair.of("log", LogUtils.SPEC),
+    Pair.of("runner", Runner.SPEC),
+    Pair.of("kafka", KafkaUtils.SPEC),
+    Pair.of("zookeeper", ZKRetryCounter.SPEC),
+    Pair.of("worker", Worker.SPEC)
+);
 ```
 
-During the `-validate` pass, the Runner loads this file and iterates its top-level keys. For each key that is present in the user's config, it builds a `Spec` from the declared properties and validates that config block — catching unknown properties and missing required ones, the same way component SPECs do.
+During the `-validate` pass (and the validation that runs before every run), `validateOtherParents` validates each of these blocks that is present in the config against its Spec, catching unknown properties, missing required ones, and wrong types, the same way component SPECs do. A block that is absent is skipped: all of these blocks are optional at the top level. Because they are ordinary Specs, they can describe nested objects with parent Specs, like any component Spec.
 
-Blocks listed in `validConfigProperties.conf` are all optional at the top level: if a block (e.g., `zookeeper`) is absent from the user's config, it is simply skipped. Validation only runs for blocks that are actually present.
+A Spec cannot restrict a property to a fixed set of values, so closed-set values in these blocks are checked separately in `validateOtherParents`. For example, an unknown `runner.metricsLoggingLevel` is reported there with the allowed values.
 
-### Limitation
+### Unknown top-level keys
 
-The file only supports flat property lists. It cannot describe nested config objects within a block — for example, it cannot validate the structure of `kafka.ssl` or `worker.someNestedBlock`. If a top-level block requires nested validation, that logic must be implemented in the relevant constructor or startup code.
+Lucille does not reject top-level keys it doesn't read, because users can define their own top-level keys, for example to reuse a block through HOCON substitution (`csv_connector { ... }` referenced as `${csv_connector}`). Instead, to help users catch typos, validation logs a warning for an unknown top-level key that is within one or two edits of a key Lucille reads, such as `publsher` for `publisher` or `Indexer` for `indexer`. The warning names the key it probably meant. Without it, a misspelled block would be accepted and its settings silently ignored, leaving the user to wonder why their configuration had no effect. The warning is a hint, not an error: a key that happens to be close to one Lucille reads but is intended as the user's own is still accepted. `ConfigValidator.KNOWN_TOP_LEVEL_KEYS` lists the keys it compares against.
 
-### When to update this file
+### When to add a block
 
-If you add a new top-level config block to Lucille core that is read directly by the framework (not by a component constructor), add an entry here so the `-validate` pass can catch configuration errors in it. If the block belongs to a component that has a SPEC, no entry is needed — the SPEC handles it.
+Adding a top-level block is a change to lucille-core itself, made by a contributor working on the framework's internals. If you add a new top-level config block that is read directly by the framework (not by a component constructor), declare a `SPEC` for it on the class that reads it and add a pair to `ConfigValidator.PARENTS_AND_SPECS`, so the `-validate` pass can catch configuration errors in it and recognizes the block's name.
+
+This does not limit extensibility. A new Connector, Stage, or Indexer takes its configuration inside the block the framework already reads for that kind of component (an entry in `connectors`, a stage in a pipeline, or the `indexer` block), and its own SPEC validates that configuration. Developing a component therefore does not generally require a new top-level key, and never requires an entry in `ConfigValidator`.

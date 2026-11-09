@@ -7,9 +7,16 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.SSLUtils;
 import java.io.IOException;
+import java.net.Socket;
+import java.security.GeneralSecurityException;
+import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509ExtendedTrustManager;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
@@ -27,7 +34,7 @@ import org.slf4j.LoggerFactory;
 public class SolrUtils {
 
   // url is required for the standalone client and for the cloud client without zkHosts; getSolrClient enforces that
-  public static final Spec SOLR_PARENT_SPEC = SpecBuilder.parent("solr")
+  public static final Spec SOLR_PARENT_SPEC = SpecBuilder.withoutDefaults()
       .optionalStringOrList("url")
       .optionalString("zkChroot", "defaultCollection", "userName", "password")
       .optionalBoolean("useCloudClient", "acceptInvalidCert")
@@ -36,18 +43,48 @@ public class SolrUtils {
 
   private static final Logger log = LoggerFactory.getLogger(SolrUtils.class);
 
+  private static final X509ExtendedTrustManager TRUST_ALL = new X509ExtendedTrustManager() {
+    @Override
+    public void checkClientTrusted(X509Certificate[] chain, String authType) {
+    }
+
+    @Override
+    public void checkServerTrusted(X509Certificate[] chain, String authType) {
+    }
+
+    @Override
+    public void checkClientTrusted(X509Certificate[] chain, String authType, Socket socket) {
+    }
+
+    @Override
+    public void checkServerTrusted(X509Certificate[] chain, String authType, Socket socket) {
+    }
+
+    @Override
+    public void checkClientTrusted(X509Certificate[] chain, String authType, SSLEngine engine) {
+    }
+
+    @Override
+    public void checkServerTrusted(X509Certificate[] chain, String authType, SSLEngine engine) {
+    }
+
+    @Override
+    public X509Certificate[] getAcceptedIssuers() {
+      return new X509Certificate[0];
+    }
+  };
+
   /**
    * Generate a SolrClient from the given config file. Supports both Cloud and Http SolrClients.
    * <p>
-   * This method has SIDE EFFECTS.  It will set SSL system properties if corresponding properties
-   * are found in the config.
+   * This method has SIDE EFFECTS: it sets the javax.net.ssl.* system properties (key store, trust store and their
+   * passwords) found in the solr block, unless they are already set.
    *
    * @param config The configuration file to generate a client from
    * @return A SolrClient suitable for the given configuration.
    */
   public static SolrClient getSolrClient(Config config) {
-    // the SSL keys may be given at the root of the config or inside the solr block (the Solr Specs declare them there)
-    SSLUtils.setSSLSystemProperties(config);
+    // the SSL keys are given inside the solr block (the Solr Specs declare them there)
     if (config.hasPath("solr")) {
       SSLUtils.setSSLSystemProperties(config.getConfig("solr"));
     }
@@ -60,7 +97,7 @@ public class SolrUtils {
     if (cloud) {
       return getCloudClient(config);
     } else {
-      return getHttpClientAndSetCheckPeerName(config);
+      return getStandaloneClient(config);
     }
   }
 
@@ -85,8 +122,9 @@ public class SolrUtils {
 
     // Always back CloudHttp2SolrClient with HttpJdkSolrClient (Java's built-in HTTP client).
     // Jetty's default HTTP/2 client throws ClosedChannelException when the server sends GOAWAY
-    // while a request is in flight; HttpJdkSolrClient handles that case transparently.
-    HttpJdkSolrClient httpClient = getHttpClientAndSetCheckPeerName(config);
+    // while a request is in flight; HttpJdkSolrClient handles that case transparently. It is given no base URL, as the
+    // cloud client chooses the node for each request.
+    HttpJdkSolrClient httpClient = getHttpClientBuilder(config).build();
     cloudBuilder.withHttpClient(httpClient);
 
     // CloudHttp2SolrClient does not close a caller-supplied httpClient, so wrap it to prevent leaks.
@@ -106,28 +144,64 @@ public class SolrUtils {
   }
 
   /**
-   * Generates a HttpClient with preemptive authentication if required.
-   * This method has SIDE EFFECTS. It will set SSL system properties if corresponding properties
-   * are found in the config.
+   * Builds the standalone client, which sends every request to the first solr.url and to solr.defaultCollection
+   * when a request names no collection.
+   */
+  static HttpJdkSolrClient getStandaloneClient(Config config) {
+    List<String> urls = ConfigUtils.getStringOrList(config, "solr.url");
+    if (urls.size() > 1) {
+      throw new IllegalArgumentException("solr.url has " + urls.size() + " URLs, but without useCloudClient only one "
+          + "can be used. Give a single URL, or set useCloudClient: true.");
+    }
+    HttpJdkSolrClient.Builder clientBuilder = getHttpClientBuilder(config).withBaseSolrUrl(urls.get(0));
+    if (config.hasPath("solr.defaultCollection")) {
+      clientBuilder.withDefaultCollection(config.getString("solr.defaultCollection"));
+    }
+    return clientBuilder.build();
+  }
+
+  /**
+   * Generates a HttpClient builder with preemptive authentication if required, and one that trusts any certificate
+   * and does not check the host name if solr.acceptInvalidCert is true.
    *
    * @param config The configuration file to generate the HttpClient from.
-   * @return the HttpClient
+   * @return the HttpClient builder
    */
-  static HttpJdkSolrClient getHttpClientAndSetCheckPeerName(Config config) {
+  static HttpJdkSolrClient.Builder getHttpClientBuilder(Config config) {
     HttpJdkSolrClient.Builder clientBuilder = new HttpJdkSolrClient.Builder();
 
     if (getAllowInvalidCert(config)) {
-    	// disable the solr ssl host checking if configured to do so.
-    	System.setProperty("solr.ssl.checkPeerName", "false");
+      // the trust-all SSLContext has no key managers, so a configured client certificate is not sent
+      if (System.getProperty("javax.net.ssl.keyStore") != null) {
+        log.warn("solr.acceptInvalidCert is true, so the client certificate in javax.net.ssl.keyStore will not be sent. "
+            + "If Solr requires client certificates, use javax.net.ssl.trustStore instead of acceptInvalidCert.");
+      }
+      clientBuilder.withSSLContext(buildTrustAllSSLContext());
     }
-    
+
     if (requiresAuth(config)) {
       String userName = config.getString("solr.userName");
       String password = config.getString("solr.password");
       clientBuilder.withBasicAuthCredentials(userName, password);
     }
-    
-    return clientBuilder.build();
+
+    return clientBuilder;
+  }
+
+  /**
+   * Builds an SSLContext that trusts any certificate and skips the host name check. The trust manager has to be an
+   * X509ExtendedTrustManager: JSSE wraps a plain X509TrustManager in one that still checks the host name, and
+   * java.net.http.HttpClient, which backs HttpJdkSolrClient, otherwise only skips that check through a JVM-wide
+   * system property.
+   */
+  static SSLContext buildTrustAllSSLContext() {
+    try {
+      SSLContext sslContext = SSLContext.getInstance("TLS");
+      sslContext.init(null, new TrustManager[] {TRUST_ALL}, null);
+      return sslContext;
+    } catch (GeneralSecurityException e) {
+      throw new IllegalStateException("Unable to build an SSLContext that accepts invalid certificates.", e);
+    }
   }
 
   /**

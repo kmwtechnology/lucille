@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
  */
 public class DateTwoYearsFormatter implements BiFunction<String, ZoneId, ZonedDateTime> {
 
-  private static final Pattern datePattern = Pattern.compile("\\d{1,4}\\W\\d{1,4}");
+  private static final Pattern datePattern = Pattern.compile("(?<!\\d)(\\d{4})\\W(\\d{2}|\\d{4})(?!\\d)");
 
   @Override
   public ZonedDateTime apply(String value, ZoneId zone) {
@@ -23,10 +23,7 @@ public class DateTwoYearsFormatter implements BiFunction<String, ZoneId, ZonedDa
     if (!matcher.find()) {
       return null;
     } else {
-      String dateStr = matcher.group();
-      String firstYear = dateStr.substring(0, 4);
-
-      return ZonedDateTime.of(Integer.parseInt(firstYear), 1, 1, 0, 0, 0, 0, zone);
+      return ZonedDateTime.of(Integer.parseInt(matcher.group(1)), 1, 1, 0, 0, 0, 0, zone);
     }
   }
 }

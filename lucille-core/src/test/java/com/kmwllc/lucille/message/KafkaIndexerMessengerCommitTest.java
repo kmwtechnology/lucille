@@ -3,6 +3,8 @@ package com.kmwllc.lucille.message;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
@@ -188,7 +190,7 @@ public class KafkaIndexerMessengerCommitTest {
     return ConfigFactory.parseMap(Map.of(
         "kafka.bootstrapServers", "localhost:9092",
         "kafka.consumerGroupId", "test-group",
-        "kafka.maxPollIntervalSecs", 300,
+        "kafka.maxPollIntervalMs", 300000,
         "kafka.maxRequestSize", 1048576,
         "kafka.events", false));
   }
@@ -202,8 +204,8 @@ public class KafkaIndexerMessengerCommitTest {
   private static ConsumerRecord<String, KafkaDocument> record(TopicPartition partition, long offset) {
     String id = "doc-" + partition.partition() + "-" + offset;
     try {
-      KafkaDocument doc = new KafkaDocument(
-          new ConsumerRecord<>(partition.topic(), partition.partition(), offset, id, Document.create(id, "run1").toString()));
+      KafkaDocument doc = new KafkaDocument((ObjectNode) new ObjectMapper().readTree(Document.create(id, "run1").toString()));
+      doc.setKafkaMetadata(partition.topic(), partition.partition(), offset, id);
       return new ConsumerRecord<>(partition.topic(), partition.partition(), offset, id, doc);
     } catch (Exception e) {
       throw new RuntimeException(e);

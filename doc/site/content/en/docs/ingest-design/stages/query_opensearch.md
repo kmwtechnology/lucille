@@ -54,7 +54,7 @@ execution, so the template's default value is used by OpenSearch.
 If a parameter without a default value is missing, OpenSearch doesn't throw an Exception - it just returns an empty response with zero hits.
 So, it is very important that `requiredParamNames` and `optionalParamNames` are defined very carefully!
 
-The value at `opensearchResponsePath` is written to `destinationField`, replacing any existing value. If OpenSearch returns a non-2xx
+The value at `opensearchResponsePath` is written to `dest`, replacing any existing value. If OpenSearch returns a non-2xx
 status or an empty body, or the request or response parsing fails, the Document fails. Setting both `templateName` and `searchTemplate`,
 or neither, fails at startup, as does a `searchTemplate` that isn't valid JSON.
 
@@ -79,7 +79,7 @@ The stage connects to OpenSearch via the same `opensearch` config block used by 
   templateName: "my-saved-template"
   requiredParamNames: ["park_to_search"]
   optionalParamNames: ["city"]
-  destinationField: "search_results"
+  dest: "search_results"
   opensearchResponsePath: "/hits/hits"
 }
 ```
@@ -100,4 +100,4 @@ The stage connects to OpenSearch via the same `opensearch` config block used by 
 | `requiredParamNames` | List\<String\> | No | Document fields required for the template. If one is missing, the query is skipped, a warning is logged, and `queryOpensearchError` is set on the Document. |
 | `optionalParamNames` | List\<String\> | No | Document fields used if present; omitted from the query otherwise. |
 | `opensearchResponsePath` | String | No | JsonPointer path into the response (e.g., `/hits/hits`). Default: the entire response. |
-| `destinationField` | String | No | Field name to write the response value to. Default: `response`. |
+| `dest` | String | No | Field name to write the response value to. Default: `response`. |

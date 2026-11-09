@@ -41,7 +41,7 @@ public class LucilleResourceTest {
         "class": "com.kmwllc.lucille.connector.SleepConnector",
         "name": "sleep-connector",
         "pipeline": "pipeline1",
-        "duration": 100
+        "durationMs": 100
       }
     ],
     "pipelines": [
@@ -60,14 +60,14 @@ public class LucilleResourceTest {
   // the smallest config that passes validation: configs are validated when they are created, so a placeholder such as
   // pipeline = "testPipeline" is now refused with a 400
   private static final String MINIMAL_HOCON = """
-  connectors: [{class: "com.kmwllc.lucille.connector.SleepConnector", name: "sleep", pipeline: "pipeline1", duration: 1}]
+  connectors: [{class: "com.kmwllc.lucille.connector.SleepConnector", name: "sleep", pipeline: "pipeline1", durationMs: 1}]
   pipelines: [{name: "pipeline1", stages: []}]
   indexer: {type: "NoOpIndexer", class: "com.kmwllc.lucille.indexer.NopIndexer"}
   """;
 
   private static final String MINIMAL_JSON = """
   {
-    "connectors": [{"class": "com.kmwllc.lucille.connector.SleepConnector", "name": "sleep", "pipeline": "pipeline1", "duration": 1}],
+    "connectors": [{"class": "com.kmwllc.lucille.connector.SleepConnector", "name": "sleep", "pipeline": "pipeline1", "durationMs": 1}],
     "pipelines": [{"name": "pipeline1", "stages": []}],
     "indexer": {"type": "NoOpIndexer", "class": "com.kmwllc.lucille.indexer.NopIndexer"}
   }

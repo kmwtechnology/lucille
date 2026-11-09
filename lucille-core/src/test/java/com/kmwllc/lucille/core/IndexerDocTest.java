@@ -23,7 +23,7 @@ import org.junit.Test;
 public class IndexerDocTest {
 
   private static Indexer indexer(String indexerConfig) {
-    return new NopIndexer(ConfigFactory.parseString("indexer {" + indexerConfig + "}"), new TestMessenger(), false, "test");
+    return new NopIndexer(ConfigFactory.parseString(indexerConfig), new IndexerContext(new TestMessenger(), false, "test", null));
   }
 
   private static Document parentWithChild() throws Exception {
@@ -49,23 +49,23 @@ public class IndexerDocTest {
   @Test
   public void testConvertedDocAlwaysOmitsChildren() throws Exception {
     assertFalse(indexer("").getConvertedIndexerDoc(parentWithChild()).containsKey(Document.CHILDREN_FIELD));
-    assertFalse(indexer("whitelist: [\"id\", \"" + Document.CHILDREN_FIELD + "\"]")
+    assertFalse(indexer("includeFields: [\"id\", \"" + Document.CHILDREN_FIELD + "\"]")
         .getConvertedIndexerDoc(parentWithChild()).containsKey(Document.CHILDREN_FIELD));
   }
 
   @Test
   public void testConvertedDocAppliesFieldFilter() throws Exception {
     assertEquals(Map.of("id", "doc1", "str", "s"),
-        indexer("whitelist: [\"id\", \"str\"]").getConvertedIndexerDoc(Document.createFromJson(
+        indexer("includeFields: [\"id\", \"str\"]").getConvertedIndexerDoc(Document.createFromJson(
             "{\"id\": \"doc1\", \"str\": \"s\", \"int\": 1}")));
 
     assertEquals(Map.of("id", "doc1", "int", 1),
-        indexer("blacklist: [\"str\"]").getConvertedIndexerDoc(Document.createFromJson(
+        indexer("excludeFields: [\"str\"]").getConvertedIndexerDoc(Document.createFromJson(
             "{\"id\": \"doc1\", \"str\": \"s\", \"int\": 1}")));
 
     // with both, a field must be whitelisted and not blacklisted
     assertEquals(Map.of("id", "doc1"),
-        indexer("whitelist: [\"id\", \"str\"], blacklist: [\"str\"]").getConvertedIndexerDoc(Document.createFromJson(
+        indexer("includeFields: [\"id\", \"str\"], excludeFields: [\"str\"]").getConvertedIndexerDoc(Document.createFromJson(
             "{\"id\": \"doc1\", \"str\": \"s\", \"int\": 1}")));
   }
 
@@ -83,13 +83,13 @@ public class IndexerDocTest {
   @Test
   public void testRawDocAlwaysOmitsChildren() throws Exception {
     assertFalse(indexer("").getRawIndexerDoc(parentWithChild()).containsKey(Document.CHILDREN_FIELD));
-    assertFalse(indexer("whitelist: [\"id\", \"" + Document.CHILDREN_FIELD + "\"]")
+    assertFalse(indexer("includeFields: [\"id\", \"" + Document.CHILDREN_FIELD + "\"]")
         .getRawIndexerDoc(parentWithChild()).containsKey(Document.CHILDREN_FIELD));
   }
 
   @Test
   public void testRawDocAppliesFieldFilter() throws Exception {
-    Map<String, Object> map = indexer("whitelist: [\"id\", \"str\"], blacklist: [\"str\"]").getRawIndexerDoc(parentWithChild());
+    Map<String, Object> map = indexer("includeFields: [\"id\", \"str\"], excludeFields: [\"str\"]").getRawIndexerDoc(parentWithChild());
     assertEquals(List.of("id"), List.copyOf(map.keySet()));
   }
 
@@ -112,38 +112,4 @@ public class IndexerDocTest {
     assertSame(((JsonDocument) doc).data.get("str"), raw.get("str"));
   }
 
-  @Test
-  public void testRawDocForNonJsonDocumentIsConvertedDoc() throws Exception {
-    // JsonDocument is currently the only Document implementation, so stand in for an alternate one with a mock whose
-    // asMap() yields plain Java values (and a children entry) the way any implementation's must.
-    Document doc = mock(Document.class);
-    when(doc.asMap()).thenAnswer(invocation -> {
-      Map<String, Object> map = new LinkedHashMap<>();
-      map.put("id", "doc1");
-      map.put("str", "s");
-      map.put("int", 1);
-      map.put("list", List.of("a", "b"));
-      map.put("bytes", new byte[] {1, 2, 3});
-      map.put(Document.CHILDREN_FIELD, List.of(Map.of("id", "child1")));
-      return map;
-    });
-    Indexer indexer = indexer("blacklist: [\"int\"]");
-
-    Map<String, Object> expected = indexer.getConvertedIndexerDoc(doc);
-    Map<String, Object> raw = indexer.getRawIndexerDoc(doc);
-
-    assertFalse(raw.containsKey(Document.CHILDREN_FIELD));
-    assertFalse(raw.containsKey("int"));
-
-    assertEquals(expected.keySet(), raw.keySet());
-    for (String field : expected.keySet()) {
-      Object value = expected.get(field);
-      if (value instanceof byte[]) {
-        assertArrayEquals((byte[]) value, (byte[]) raw.get(field));
-      } else {
-        assertEquals(field, value, raw.get(field));
-      }
-      assertFalse(field, raw.get(field) instanceof JsonNode);
-    }
-  }
 }

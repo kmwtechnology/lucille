@@ -4,8 +4,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 
-import com.kmwllc.lucille.core.spec.NumberProperty;
-import com.kmwllc.lucille.core.spec.Property;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
@@ -179,7 +177,7 @@ public class ParseFilePathTest {
 
   @Test
   public void testInvalidConf() {
-    Map<String, String> confMap = Map.of("fileSep", "*");
+    Map<String, String> confMap = Map.of("fileSeparator", "*");
     Config faultyConfig = ConfigFactory.parseMap(confMap);
 
     assertThrows(IllegalArgumentException.class,

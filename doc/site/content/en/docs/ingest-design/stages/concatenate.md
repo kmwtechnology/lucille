@@ -7,7 +7,7 @@ description: Builds a destination field from a format string with field values s
 
 `com.kmwllc.lucille.stage.Concatenate`
 
-Builds a value from `formatString` by replacing each `{field}` placeholder with the value of that field, and writes the result to `dest`. For example, `"{city}, {state}"` becomes `"Boston, MA"`. Only the first value of a multi-valued field is used. A placeholder for a missing field takes its value from `defaultInputs`; with no default, the placeholder is left as-is.
+Builds a value from `formatString` by replacing each `{field}` placeholder with the value of that field, and writes the result to `dest`. For example, `"{city}, {state}"` becomes `"Boston, MA"`. Only the first value of a multi-valued field is used. A placeholder for a missing field takes its value from `defaultInputs`; with no default, the placeholder is left as-is. A field that is null or an empty array counts as missing. Field values are inserted literally: a `{name}` inside a value is not expanded.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|

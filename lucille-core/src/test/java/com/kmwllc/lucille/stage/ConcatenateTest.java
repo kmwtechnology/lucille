@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import java.util.Map;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -63,5 +64,15 @@ public class ConcatenateTest {
     assertEquals(
         Set.of("updateMode", "formatString", "dest", "defaultInputs"),
         stage.getNonDefaultLegalProperties());
+  }
+
+  @Test
+  public void testValuesAreInsertedLiterally() throws Exception {
+    Stage stage = factory.get(Map.of("dest", "dest", "formatString", "{a} | ${b} | {empty}"));
+
+    // a value naming a placeholder, including itself, is not expanded; '$' is not an escape; an empty array counts as missing
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"a\":\"{a}{b}\",\"b\":\"9.99\",\"empty\":[]}");
+    stage.processDocument(doc);
+    assertEquals("{a}{b} | $9.99 | {empty}", doc.getString("dest"));
   }
 }

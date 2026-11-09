@@ -36,7 +36,8 @@ import java.util.regex.Pattern;
  *   <li>ignoreCase (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.</li>
  *   <li>multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.</li>
  *   <li>dotall (Boolean, Optional) : Turns on the DOTALL functionality for the regex matcher. Defaults to false.</li>
- *   <li>literal (Boolean, Optional) : Toggles treating the regex expression as a literal String. Defaults to false.</li>
+ *   <li>literal (Boolean, Optional) : Toggles treating the regex expression and the replacement as literal Strings, so '$' and '\\'
+ *   in the replacement are not special. Defaults to false.</li>
  * </ul>
  */
 public class ReplacePatterns extends Stage {
@@ -147,17 +148,22 @@ public class ReplacePatterns extends Stage {
     if (replacementForDoc == null) {
       return null;
     }
+    if (literal) {
+      // otherwise '$' and '\' in the replacement are read as group references and escapes
+      replacementForDoc = Matcher.quoteReplacement(replacementForDoc);
+    }
 
     for (int i = 0; i < sourceFields.size(); i++) {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField)) {
+      List<String> values = StageUtils.getNonNullStrings(doc, sourceField);
+      if (values.isEmpty()) {
         continue;
       }
 
       List<String> outputValues = new ArrayList<>();
-      for (String value : doc.getStringList(sourceField)) {
+      for (String value : values) {
         for (Pattern pattern : patterns) {
           Matcher matcher = pattern.matcher(value);
           value = matcher.replaceAll(replacementForDoc);

@@ -52,24 +52,26 @@ The source topic name is validated to contain only safe characters (`[A-Za-z\d._
 `KafkaDocument` extends `JsonDocument` to carry partition/offset/key metadata alongside document fields:
 
 ```java
-public class KafkaDocument extends JsonDocument {
+public final class KafkaDocument extends JsonDocument {
     private String topic;
     private int partition;
     private long offset;
     private String key;
 
-    public void setKafkaMetadata(ConsumerRecord<String, ?> record) {
-        this.topic = record.topic();
-        this.partition = record.partition();
-        this.offset = record.offset();
-        this.key = record.key();
+    public void setKafkaMetadata(String topic, int partition, long offset, String key) {
+        this.topic = topic;
+        this.partition = partition;
+        this.offset = offset;
+        this.key = key;
     }
 }
 ```
 
 This metadata travels with the document through the pipeline. It's essential for the Hybrid mode where the Indexer needs to report back which offsets have been successfully processed.
 
-Plain `Document` objects are written to Kafka. When deserialized, they come back as `KafkaDocument` instances with the Kafka metadata attached from the `ConsumerRecord`.
+Plain `Document` objects are written to Kafka. When deserialized, they come back as `KafkaDocument` instances, and the messenger that polled them attaches the topic, partition, offset and key of the `ConsumerRecord`. `KafkaDocument`'s API names no Kafka types, so the class loads without kafka-clients on the classpath.
+
+A `KafkaDocument` is never equal to a plain `JsonDocument`, even with the same fields, because it also compares its Kafka metadata; equality is symmetric in both directions.
 
 ## Serializer/Deserializer
 
@@ -141,11 +143,11 @@ consumerProps.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1);          // One do
 consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");  // Manual commits
 ```
 
-## The `maxPollIntervalSecs` Setting
+## The `maxPollIntervalMs` Setting
 
 ```java
 consumerProps.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 
-    1000 * config.getInt("kafka.maxPollIntervalSecs"));
+    config.getInt("kafka.maxPollIntervalMs"));
 ```
 
 This is the maximum time between `poll()` calls before Kafka considers the consumer dead and triggers a rebalance. It must be set higher than the longest expected document processing time. If a document takes longer to process than this interval, the consumer will be kicked from the group and the document will be reprocessed by another consumer.
@@ -154,14 +156,20 @@ The standalone Indexer does not poll while it waits on a bulk request, so the sa
 
 ## Topic Creation
 
-The event topic is created explicitly with exactly **one partition**:
+The event topic is created explicitly with exactly **one partition**. Its replication factor and `min.insync.replicas` come from `kafka.eventTopicReplicationFactor` and `kafka.eventTopicMinInsyncReplicas`. The replication factor defaults to 1, and no `min.insync.replicas` is set unless configured. On a multi-broker cluster, set both so the event topic survives a broker loss:
 
 ```java
 public static boolean createEventTopic(Config config, String pipelineName, String runId) {
     String eventTopicName = KafkaUtils.getEventTopicName(config, pipelineName, runId);
 
-    // Single partition is critical for ordering
-    NewTopic eventTopic = new NewTopic(eventTopicName, 1, (short) 1);
+    // Single partition is critical for ordering. Replication comes from kafka.eventTopicReplicationFactor (default 1).
+    short replicationFactor = (short) (config.hasPath("kafka.eventTopicReplicationFactor")
+        ? config.getInt("kafka.eventTopicReplicationFactor") : 1);
+    NewTopic eventTopic = new NewTopic(eventTopicName, 1, replicationFactor);
+    if (config.hasPath("kafka.eventTopicMinInsyncReplicas")) {
+        eventTopic.configs(Map.of(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG,
+            String.valueOf(config.getInt("kafka.eventTopicMinInsyncReplicas"))));
+    }
 
     try (Admin kafkaAdminClient = Admin.create(props)) {
         CreateTopicsResult result = kafkaAdminClient.createTopics(List.of(eventTopic));
@@ -184,7 +192,7 @@ The source and dest topics are NOT explicitly created by Lucille — they're exp
 
 In batch mode, each run gets its own event topic (e.g., `my_pipeline_event_c1d9413a-8191-4f4a-92bb-0fc42b5499e3`). Lucille creates this topic via the Kafka Admin API at the start of each run. This means:
 
-- **Kafka Admin API access is required.** Lucille creates the event topic explicitly via the Admin API to guarantee it has exactly 1 partition (required for FIFO event ordering). Kafka's `auto.create.topics.enable` is NOT sufficient — auto-created topics use the broker's default partition count, which would create a multi-partition topic and break the Publisher's accounting logic. If your Kafka cluster requires separate admin credentials, provide them via `kafka.adminPropertyFile`.
+- **Kafka Admin API access is required.** Lucille creates the event topic explicitly via the Admin API to guarantee it has exactly 1 partition (required for FIFO event ordering). Kafka's `auto.create.topics.enable` is NOT sufficient — auto-created topics use the broker's default partition count, which would create a multi-partition topic and break the Publisher's accounting logic. If your Kafka cluster requires separate admin credentials, provide them via `kafka.adminPropertiesPath`.
 - **Each batch ingest produces a new topic.** Over time, event topics accumulate. Consider a retention policy or periodic cleanup of old event topics.
 - **Each Publisher requires its own dedicated event topic.** There is no support for multiple Publishers sharing a single event topic and filtering events by run_id. The per-run topic IS the isolation mechanism.
 
@@ -313,21 +321,23 @@ All Kafka settings live under the `kafka` config prefix:
 | `kafka.bootstrapServers` | Kafka broker addresses | Yes (unless using property files) |
 | `kafka.securityProtocol` | Security protocol (PLAINTEXT, SSL, SASL_SSL, etc.) | No |
 | `kafka.consumerGroupId` | Consumer group for Workers/Indexers | Yes |
-| `kafka.maxPollIntervalSecs` | Max time between polls before rebalance | Yes |
+| `kafka.maxPollIntervalMs` | Max time between polls before rebalance | Yes |
 | `kafka.pollIntervalMs` | How long each consumer poll blocks waiting for records | No (default: 2000) |
 | `kafka.maxRequestSize` | Max message size in bytes | Yes |
 | `kafka.metadataMaxAgeMs` | Metadata cache TTL | No (default: 30000) |
 | `kafka.sourceTopic` | Override source topic name | No |
 | `kafka.eventTopic` | Override event topic name | No |
+| `kafka.eventTopicReplicationFactor` | Replication factor of the event topic Lucille creates | No (default: 1) |
+| `kafka.eventTopicMinInsyncReplicas` | `min.insync.replicas` of the event topic Lucille creates | No (default: not set) |
 | `kafka.events` | Enable/disable event production | No (default: true) |
 | `kafka.event.includeFields` | Source-document fields to copy onto events as `documentFields` (see [Enriching Events with Document Fields](#enriching-events-with-document-fields)) | No (default: none) |
 | `kafka.event.maxValuesPerField` | Max number of values copied from a multi-valued field (at least 1) | No (default: no cap) |
 | `kafka.event.maxValueLength` | Max length in characters of any copied string value (at least 1); fields with longer values are skipped | No (default: 1024) |
 | `kafka.documentSerializer` | Custom serializer class | No |
 | `kafka.documentDeserializer` | Custom deserializer class | No |
-| `kafka.consumerPropertyFile` | Path to external consumer properties | No |
-| `kafka.producerPropertyFile` | Path to external producer properties | No |
-| `kafka.adminPropertyFile` | Path to external admin properties | No |
+| `kafka.consumerPropertiesPath` | Path to external consumer properties | No |
+| `kafka.producerPropertiesPath` | Path to external producer properties | No |
+| `kafka.adminPropertiesPath` | Path to external admin properties | No |
 | `kafka.consumer` | Arbitrary properties for consumer | No |
 | `kafka.producer` | Arbitrary properties for producer | No |
 | `kafka.admin` | Arbitrary properties for admin | No |
@@ -335,7 +345,7 @@ All Kafka settings live under the `kafka` config prefix:
 As a convenience, in your Config, you can also include additional properties for consumers, producers, and admin under
 `kafka.consumer`, `kafka.producer`, and `kafka.admin`, respectively. This allows you to use HOCON's environment variable 
 resolution for your Kafka properties. Additionally, properties declared here _will_ override any values declared in a 
-`consumerPropertyFile`, `producerPropertyFile`, or `adminPropertyFile`.
+`consumerPropertiesPath`, `producerPropertiesPath`, or `adminPropertiesPath`.
 
 Use the Kafka client's property names. A dotted name can be written quoted or unquoted; both reach the client as the
 same property:
@@ -393,9 +403,9 @@ Lucille does not validate at startup that the source topic has enough partitions
 For complex Kafka setups (SASL, SSL, custom partitioners), external property files can be specified:
 
 ```hocon
-kafka.consumerPropertyFile = "/path/to/consumer.properties"
-kafka.producerPropertyFile = "/path/to/producer.properties"
-kafka.adminPropertyFile = "/path/to/admin.properties"
+kafka.consumerPropertiesPath = "/path/to/consumer.properties"
+kafka.producerPropertiesPath = "/path/to/producer.properties"
+kafka.adminPropertiesPath = "/path/to/admin.properties"
 ```
 
 When a property file is specified, it completely replaces the programmatic configuration (except for `CLIENT_ID_CONFIG` which is always set). The file is loaded via `FileContentFetcher` which supports local files and cloud storage (S3, Azure, GCP).
@@ -459,11 +469,11 @@ Because the publisher send path is asynchronous, a failure can occur after `send
 
 2. **In `PublisherMessenger.flush()`, called at the end of the publishing run.** This drains the producer's buffer (`kafkaProducer.flush()`) and then checks for any latched async failure. If the last document's send failed, this is where it surfaces.
 
-In both cases, the thrown exception propagates up through `Publisher.publish()` or `Publisher.flush()` into the connector's `execute()` method, which terminates the run.
+In the first case the failure reaches the connector's `execute()` method as a `PublisherException` thrown by `Publisher.publish()`; in the second it is thrown as a `PublisherException` by `Publisher.flush()`, either when the connector calls it or when the framework flushes after `execute()` returns. Either way the run terminates.
 
 ### The `Publisher.publish()` Contract
 
-Exceptions thrown by `Publisher.publish()` represent framework-level failures — the messaging infrastructure is unavailable or has rejected a record after exhausting retries. These exceptions are **non-recoverable** and **must not be caught or swallowed** by connectors.
+A `PublisherException` thrown by `Publisher.publish()` represents a framework-level failure — the messaging infrastructure is unavailable or has rejected a record after exhausting retries. It is **non-recoverable** and **must not be caught or swallowed** by connectors.
 
 Connectors that need to handle per-document errors (e.g., a malformed source record that cannot be converted into a Document) should do so *before* calling `publish()`. Once `publish()` is called, any exception means the run should terminate. Catching and continuing past such an exception leaves the run in an inconsistent state: the Publisher's document-tracking accounting assumes every published document will eventually receive a terminal event, and a silently dropped document can never satisfy that assumption.
 
@@ -488,7 +498,7 @@ try {
 
 ### Idempotent Producer
 
-All Kafka producers created by Lucille have `enable.idempotence=true` set explicitly. This setting is forced and cannot be overridden, even via `kafka.producerPropertyFile`.
+All Kafka producers created by Lucille have `enable.idempotence=true` set explicitly. This setting is forced and cannot be overridden, even via `kafka.producerPropertiesPath`.
 
 Why this matters: the asynchronous publish path sends multiple records without waiting for individual acknowledgments. The Kafka producer may have several batches in flight simultaneously (`max.in.flight.requests.per.connection` defaults to 5). Without idempotence, if a batch fails and is retried, it can land *after* a later batch that was already acknowledged — reordering records within a partition.
 

@@ -90,6 +90,17 @@ The framework itself. Contains:
 
 This is the only module required for a minimal Lucille deployment. If your pipeline doesn't need Tika, Pinecone, OCR, etc., you only need lucille-core.
 
+### lucille-logging
+
+Lucille's runtime logging backend, packaged as a separate, opt-in module. lucille-core depends only on `slf4j-api` (the logging facade). It does **not** bundle a logging implementation or configuration. This keeps a project that embeds lucille-core as a library free to supply its own SLF4J backend, rather than having Log4j2 and Lucille's logging config forced on it.
+
+lucille-logging provides:
+
+- The Log4j2 backend bindings (`log4j-slf4j2-impl`, `log4j-core`, etc.)
+- The default logging configuration, shipped as `lucille-log4j2.xml` on the classpath (deliberately **not** named `log4j2.xml`, so it is not auto-discovered and never leaks into an embedder's app)
+
+Lucille's runnable artifacts — the Docker images and the examples — depend on lucille-logging and select its configuration explicitly with `-Dlog4j2.configurationFile` (see the [logging docs]({{< relref "docs/operations/logging" >}})). Projects embedding lucille-core either depend on lucille-logging to get Lucille's defaults, or bring their own backend.
+
 ### lucille-plugins
 
 An aggregator POM containing optional modules. Each plugin:
@@ -106,6 +117,14 @@ The `provided` scope on lucille-core means the plugin compiles against core but 
 - The dependency is licensed in a way that not all users would accept
 - The component is specialized enough that most users won't need it
 - Including it in core would bloat the core JAR or cause transitive dependency conflicts
+
+**Wiring up a new plugin module:**
+
+A new plugin needs to be registered in these places:
+
+- **`lucille-plugins/pom.xml`**: add the module to `<modules>`
+- **`lucille-bom/pom.xml`**: add a `<dependency>` entry so consumers who import the BOM can declare the plugin without a version.
+- **`lucille-all/pom.xml`**: add it if the plugin should ship in the batteries-included `lucille-all` image. Skip it for plugins that should stay opt-in.
 
 ### lucille-examples
 
@@ -280,9 +299,7 @@ lucille-core/
 │   │   │   ├── message/       # Messenger interfaces and implementations
 │   │   │   ├── stage/         # built-in Stages
 │   │   │   └── util/          # utilities (ConfigUtils, LogUtils, etc.)
-│   │   └── resources/
-│   │       ├── reference.conf           # default config values
-│   │       └── validConfigProperties.conf  # config validation rules
+│   │   └── resources/                    # bundled runtime resources (no logging config — see lucille-logging)
 │   └── test/
 │       ├── java/com/kmwllc/lucille/     # test classes
 │       └── resources/                    # test config files
@@ -322,6 +339,7 @@ This publishes lucille-core, lucille-bom, and all plugin modules. Examples are e
 | lucille-parent | Version management, dependency versions, build config | Yes |
 | lucille-bom | Version-aligned dependency declarations for consumers | Yes |
 | lucille-core | The framework (all core components) | Yes |
+| lucille-logging | Runtime logging backend + default config (opt-in) | Yes |
 | lucille-plugins/* | Optional modules with heavy dependencies | Yes (each) |
 | lucille-examples/* | Runnable reference implementations | No |
 
@@ -333,3 +351,4 @@ The key things a developer needs to know:
 4. **Version is in lucille-parent.** All modules inherit it.
 5. **Examples show the patterns.** Start from an example when building a new ingest project.
 6. **The BOM simplifies dependency management.** Import it and you don't need to specify Lucille module versions.
+7. **A new module must be registered in several places.** Add it to the plugins `<modules>` and the BOM (and to `lucille-all` if it ships there).

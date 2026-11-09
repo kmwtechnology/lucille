@@ -24,7 +24,7 @@ public static RunResult run(Config config, RunType type, String runId) throws Ex
     MDC.put(RUNID_FIELD, runId);
 
     // 1. Validate FIRST
-    Map<String, List<Exception>> validationErrors = runInValidationMode(config);
+    Map<String, List<Exception>> validationErrors = ConfigValidator.validate(config);
     if (!validationErrors.isEmpty()) {
         return new RunResult(false, ...);
     }
@@ -48,10 +48,10 @@ public static RunResult run(Config config, RunType type, String runId) throws Ex
 
 ## The Validation Step
 
-Before any work begins, the Runner validates the entire configuration:
+Before any work begins, the Runner validates the entire configuration with `ConfigValidator`, the same validation the `-validate` flag and the API server use:
 
 ```java
-Map<String, List<Exception>> validationErrors = runInValidationMode(config);
+Map<String, List<Exception>> validationErrors = ConfigValidator.validate(config);
 ```
 
 This validates:
@@ -70,7 +70,7 @@ For each connector, the Runner:
 2. **Calls `runConnectorWithComponents()`** which:
    - Starts a `WorkerPool` (if local mode)
    - Creates and starts an `Indexer` thread (if local mode)
-   - Creates a `Publisher`
+   - Creates a `PublisherImpl` (the connector sees it only through the `Publisher` interface)
    - Calls `runConnector()` which:
      - Calls `connector.preExecute(runId)`
      - Launches a `ConnectorThread` that calls `connector.execute(publisher)` then `publisher.flush()`
@@ -191,9 +191,9 @@ When the connector finishes, the state is cleared. The `RunnerState.close()` met
 Each connector has a configurable timeout (default: 24 hours):
 
 ```java
-final int connectorTimeout = config.hasPath("runner.connectorTimeout") ?
-    config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
-pubResult = publisher.waitForCompletion(connectorThread, connectorTimeout);
+final int connectorTimeoutMs = config.hasPath("runner.connectorTimeoutMs") ?
+    config.getInt("runner.connectorTimeoutMs") : DEFAULT_CONNECTOR_TIMEOUT;
+pubResult = publisher.waitForCompletion(connectorThread, connectorTimeoutMs);
 ```
 
 Inside `waitForCompletion`, the timeout is checked on each poll iteration:

@@ -1,11 +1,10 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
-import static com.kmwllc.lucille.connector.FileConnector.S3_ANONYMOUS;
-import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
-import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.S3_ACCESS_KEY_ID;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.S3_ANONYMOUS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.S3_REGION;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.S3_SECRET_ACCESS_KEY;
 
-import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -104,7 +103,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception {
     String startingDirectory = getStartingDirectory(params);
     if (params.getPathsToSkip().isEmpty()) {
       // nothing to prune, so a single flat listing of every key under the prefix replaces one listing per directory
@@ -116,7 +115,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   // Lists one directory level at a time so that skipped directories are never listed.
-  private void traversePrefix(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr, String prefix) {
+  private void traversePrefix(Publisher publisher, TraversalParams params, FileStateTracker stateMgr, String prefix) {
     ListObjectsV2Request request = listRequest(params, prefix).delimiter("/").build();
 
     s3.listObjectsV2Paginator(request).stream().forEachOrdered(resp -> {
@@ -138,18 +137,21 @@ public class S3StorageClient extends BaseStorageClient {
         .maxKeys(maxResultsPerPage);
   }
 
-  private void publishContents(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr,
+  private void publishContents(Publisher publisher, TraversalParams params, FileStateTracker stateMgr,
       ListObjectsV2Response resp) {
     resp.contents().forEach(obj -> {
-      S3FileReference fileRef = new S3FileReference(obj, params);
-      processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+      FileReference fileRef = buildReferenceOrSkip(obj.key(), () -> new S3FileReference(obj, params));
+      if (fileRef != null) {
+        processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+      }
     });
   }
 
   private URI uriForDirectory(String prefix, TraversalParams params) {
     URI paramsUri = params.getURI();
     try {
-      return new URI(paramsUri.getScheme(), paramsUri.getAuthority(), "/" + prefix, null);
+      // takes the bucket as an authority, not a hostname, which could not contain the '_' older bucket names may
+      return new URI(paramsUri.getScheme(), paramsUri.getAuthority(), "/" + prefix, null, null);
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException("Unable to build S3 URI for prefix: " + prefix, e);
     }
@@ -165,12 +167,17 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
+  public boolean moveTargetInsidePath(URI path, URI folder) {
+    return movedKeyInsideBucketPath(path, folder);
+  }
+
+  @Override
   public void moveFile(URI filePath, URI folder) throws IOException {
     String sourceBucket = filePath.getAuthority();
     String sourceKey = filePath.getPath().substring(1);
 
     String destBucket = folder.getAuthority();
-    String destKey = folder.getPath().substring(1) + sourceKey;
+    String destKey = destinationKey(keyPrefix(folder), sourceKey);
 
     CopyObjectRequest copyRequest = CopyObjectRequest.builder()
         .sourceBucket(sourceBucket).sourceKey(sourceKey)
@@ -218,6 +225,11 @@ public class S3StorageClient extends BaseStorageClient {
 
     @Override
     public String getName() {
+      return lastSegment(s3Obj.key());
+    }
+
+    @Override
+    public String getFilterName() {
       return s3Obj.key();
     }
 
@@ -244,7 +256,7 @@ public class S3StorageClient extends BaseStorageClient {
       URI paramsURI = params.getURI();
 
       try {
-        return new URI(paramsURI.getScheme(), paramsURI.getAuthority(), "/" + s3Obj.key(), null);
+        return new URI(paramsURI.getScheme(), paramsURI.getAuthority(), "/" + s3Obj.key(), null, null);
       } catch (Exception e) {
         throw new IllegalArgumentException("Unable to build S3 URI for key: " + s3Obj.key(), e);
       }

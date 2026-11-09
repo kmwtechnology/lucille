@@ -16,6 +16,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
 import org.apache.commons.io.FilenameUtils;
 
@@ -54,8 +55,7 @@ public class ApplyFileHandlers extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){})
-      .optionalParent(FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC, FileConnector.S3_PARENT_SPEC)
-      .optionalParent(FileConnector.STORAGE_CLIENTS, FileConnector.STORAGE_CLIENTS_TYPE)
+      .include(FileConnector.STORAGE_SPEC)
       .optionalString("filePathField", "fileContentField").build();
 
   private final Config fileHandlersConfig;
@@ -94,7 +94,7 @@ public class ApplyFileHandlers extends Stage {
     }
 
     try {
-      fileFetcher.startup();
+      fileFetcher.start();
     } catch (IOException e) {
       throw new StageException("Error starting FileContentFetcher.", e);
     }
@@ -102,7 +102,7 @@ public class ApplyFileHandlers extends Stage {
 
   @Override
   public void stop() {
-    fileFetcher.shutdown();
+    fileFetcher.stop();
   }
 
   @Override
@@ -112,7 +112,8 @@ public class ApplyFileHandlers extends Stage {
     }
 
     String filePath = doc.getString(filePathField);
-    String fileExtension = FilenameUtils.getExtension(filePath);
+    // handler keys are lower case (see FileHandler.createFromConfig)
+    String fileExtension = FilenameUtils.getExtension(filePath).toLowerCase(Locale.ROOT);
 
     if (!fileHandlers.containsKey(fileExtension)) {
       return null;

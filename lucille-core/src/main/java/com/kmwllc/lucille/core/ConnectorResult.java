@@ -14,12 +14,12 @@ public class ConnectorResult {
 
   private final String message;
 
-  public ConnectorResult(Connector connector, Publisher publisher,
+  public ConnectorResult(Connector connector, PublisherImpl publisher,
       boolean status, String errorMsg) {
     this(connector, publisher, status, errorMsg, null);
   }
 
-  public ConnectorResult(Connector connector, Publisher publisher,
+  public ConnectorResult(Connector connector, PublisherImpl publisher,
       boolean status, String errMsg, Double durationSecs) {
     this.status = status;
     this.message = formatMessage(connector, publisher, status, errMsg, durationSecs);
@@ -48,7 +48,7 @@ public class ConnectorResult {
     return message;
   }
 
-  private static String formatMessage(Connector connector, Publisher publisher,
+  private static String formatMessage(Connector connector, PublisherImpl publisher,
       boolean status, String errMsg, Double durationSecs) {
     String msg = connector.getName() + ": ";
     msg += status ? "complete. " : "ERROR. ";
