@@ -14,9 +14,11 @@ import co.elastic.clients.elasticsearch.core.DeleteByQueryRequest;
 import co.elastic.clients.elasticsearch.core.DeleteByQueryResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
+import co.elastic.clients.elasticsearch.core.bulk.DeleteOperation;
 import co.elastic.clients.elasticsearch.core.bulk.IndexOperation;
 import co.elastic.clients.elasticsearch._types.VersionType;
 import co.elastic.clients.elasticsearch.core.bulk.UpdateOperation;
+import co.elastic.clients.elasticsearch.indices.ElasticsearchIndicesClient;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -26,10 +28,13 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -42,12 +47,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 
 import java.io.IOException;
@@ -55,11 +59,13 @@ import java.util.HashMap;
 import java.util.Random;
 import java.util.TreeMap;
 import java.util.List;
+import java.util.function.Function;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -71,6 +77,7 @@ import static org.mockito.Mockito.when;
 public class ElasticsearchIndexerTest {
 
   private ElasticsearchClient mockClient;
+  private ElasticsearchIndicesClient mockIndicesClient;
 
   @Before
   public void setup() throws IOException {
@@ -89,6 +96,9 @@ public class ElasticsearchIndexerTest {
     DeleteByQueryResponse mockDeleteByQueryResponse = Mockito.mock(DeleteByQueryResponse.class);
     when(mockClient.deleteByQuery(any(DeleteByQueryRequest.class))).thenReturn(mockDeleteByQueryResponse);
     when(mockDeleteByQueryResponse.failures()).thenReturn(new ArrayList<>());
+
+    mockIndicesClient = Mockito.mock(ElasticsearchIndicesClient.class);
+    when(mockClient.indices()).thenReturn(mockIndicesClient);
   }
 
   /**
@@ -105,7 +115,7 @@ public class ElasticsearchIndexerTest {
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -133,7 +143,7 @@ public class ElasticsearchIndexerTest {
     doc2.addChild(childDoc2);
     childDoc2.addChild(Document.create("child_childDoc2", "test_run"));
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -157,7 +167,7 @@ public class ElasticsearchIndexerTest {
     parent.addChild(child1);
     parent.addChild(child2);
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(parent);
     indexer.run(1);
 
@@ -185,7 +195,7 @@ public class ElasticsearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     // blacklist.conf blacklists "id", "ignoreField1", and "ignoreField2"
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/blacklist.conf")
-        .withValue("elasticsearch.childDocumentsField", com.typesafe.config.ConfigValueFactory.fromAnyRef("children"));
+        .withValue("indexer.elasticsearch.childDocumentsField", com.typesafe.config.ConfigValueFactory.fromAnyRef("children"));
 
     Document child = Document.create("child1");
     child.setField("ignoreField1", "shouldBeRemoved");
@@ -194,7 +204,7 @@ public class ElasticsearchIndexerTest {
     Document parent = Document.create("doc1");
     parent.addChild(child);
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(parent);
     indexer.run(1);
 
@@ -225,7 +235,7 @@ public class ElasticsearchIndexerTest {
     Document parent = Document.create("parent1");
     parent.addChild(child);
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(parent);
     indexer.run(1);
 
@@ -252,7 +262,7 @@ public class ElasticsearchIndexerTest {
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -278,7 +288,7 @@ public class ElasticsearchIndexerTest {
     Document doc4 = Document.create("doc4", "test_run");
     Document doc5 = Document.create("doc5", "test_run");
 
-    ElasticsearchIndexer indexer = new ErroringElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ErroringElasticsearchIndexer(config.getConfig("indexer"), messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     messenger.sendForIndexing(doc3);
@@ -331,12 +341,12 @@ public class ElasticsearchIndexerTest {
     Document doc3 = Document.create("doc3", "test_run");
     doc3.setField("other_id", "something_else");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient2);
-    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient2);
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
     assertEquals(2, failedDocs.size());
-    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc)));
-    assertFalse(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc2)));
-    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc3)));
+    assertTrue(failedDocs.stream().anyMatch(p -> p.document().equals(doc)));
+    assertFalse(failedDocs.stream().anyMatch(p -> p.document().equals(doc2)));
+    assertTrue(failedDocs.stream().anyMatch(p -> p.document().equals(doc3)));
   }
 
   @Test
@@ -346,15 +356,15 @@ public class ElasticsearchIndexerTest {
 
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     Assert.assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
     Assert.assertFalse(indexer.validateConnection());
     Assert.assertFalse(indexer.validateConnection());
 
-    ElasticsearchIndexer bypassClientIndexer = new ElasticsearchIndexer(config, messenger, true, "testing", null);
+    ElasticsearchIndexer bypassClientIndexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, true, "testing", null));
     Assert.assertTrue(bypassClientIndexer.validateConnection());
 
-    ElasticsearchIndexer failPingClientIndexer = new ElasticsearchIndexer(config, messenger, "testing", mockFailPingClient);
+    ElasticsearchIndexer failPingClientIndexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockFailPingClient);
     Assert.assertFalse(failPingClientIndexer.validateConnection());
   }
 
@@ -362,7 +372,7 @@ public class ElasticsearchIndexerTest {
   public void testMultipleBatches() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf");
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
@@ -440,7 +450,7 @@ public class ElasticsearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf")
         .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(ops.size()));
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     // The model: the final state of each id is its last operation (null means deleted).
     Map<String, String> expected = new TreeMap<>();
@@ -490,7 +500,7 @@ public class ElasticsearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf")
         .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(3));
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document add1 = Document.create("doc1", "test_run");
     add1.setField("version", "1");
@@ -524,7 +534,7 @@ public class ElasticsearchIndexerTest {
   public void testDeletion() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf");
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
@@ -619,7 +629,7 @@ public class ElasticsearchIndexerTest {
   public void testDeleteByQuery() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/testDeleteByQuery.conf");
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document doc1DelByQuery = Document.create("doc1", "test_run");
     doc1DelByQuery.setField("deleted", "true");
@@ -675,12 +685,97 @@ public class ElasticsearchIndexerTest {
     assertEquals("doc2value", fieldValues2.get(0).stringValue());
   }
 
+  // A delete-by-query applies only to documents before it in the batch: "delete the children of P" followed by P's new
+  // children must not delete the new children.
+  @Test
+  public void testDeleteByQueryKeepsBatchOrder() throws Exception {
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(ConfigFactory.load("ElasticsearchIndexerTest/batching.conf").getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
+
+    Document oldChild = Document.create("oldChild");
+    oldChild.setField("parent", "P");
+    Document deleteChildren = Document.create("deleteChildren");
+    deleteChildren.setField("deleted", "true");
+    deleteChildren.setField("field", "parent");
+    deleteChildren.setField("value", "P");
+    Document newChild = Document.create("newChild");
+    newChild.setField("parent", "P");
+    assertTrue(indexer.sendToIndex(List.of(oldChild, deleteChildren, newChild)).isEmpty());
+
+    InOrder inOrder = Mockito.inOrder(mockClient, mockIndicesClient);
+    inOrder.verify(mockClient).bulk(any(BulkRequest.class));
+    inOrder.verify(mockIndicesClient).refresh(any(Function.class));
+    inOrder.verify(mockClient).deleteByQuery(any(DeleteByQueryRequest.class));
+    inOrder.verify(mockClient).bulk(any(BulkRequest.class));
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(2)).bulk(captor.capture());
+    verify(mockClient, times(1)).deleteByQuery(any(DeleteByQueryRequest.class));
+    assertEquals("oldChild", captor.getAllValues().get(0).operations().get(0).index().id());
+    assertEquals(1, captor.getAllValues().get(1).operations().size());
+    assertEquals("newChild", captor.getAllValues().get(1).operations().get(0).index().id());
+  }
+
+  // Several delete-by-query documents, with several writes between them: each one sends the writes before it, then
+  // its query, and the writes after it go in the next bulk.
+  @Test
+  public void testMultipleDeleteByQueriesKeepBatchOrder() throws Exception {
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(ConfigFactory.load("ElasticsearchIndexerTest/batching.conf").getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
+
+    List<Document> batch = new ArrayList<>();
+    for (String id : List.of("add1", "add2", "dbq1", "add3", "add4", "dbq2", "add5", "add6")) {
+      Document doc = Document.create(id);
+      if (id.startsWith("dbq")) {
+        doc.setField("deleted", "true");
+        doc.setField("field", "parent");
+        doc.setField("value", id);
+      }
+      batch.add(doc);
+    }
+    assertTrue(indexer.sendToIndex(batch).isEmpty());
+
+    InOrder inOrder = Mockito.inOrder(mockClient, mockIndicesClient);
+    for (int i = 0; i < 2; i++) {
+      inOrder.verify(mockClient).bulk(any(BulkRequest.class));
+      inOrder.verify(mockIndicesClient).refresh(any(Function.class));
+      inOrder.verify(mockClient).deleteByQuery(any(DeleteByQueryRequest.class));
+    }
+    inOrder.verify(mockClient).bulk(any(BulkRequest.class));
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(3)).bulk(captor.capture());
+    verify(mockClient, times(2)).deleteByQuery(any(DeleteByQueryRequest.class));
+    List<List<String>> idsPerBulk = new ArrayList<>();
+    for (BulkRequest request : captor.getAllValues()) {
+      List<String> ids = new ArrayList<>();
+      request.operations().forEach(op -> ids.add(op.index().id()));
+      idsPerBulk.add(ids);
+    }
+    assertEquals(List.of(List.of("add1", "add2"), List.of("add3", "add4"), List.of("add5", "add6")), idsPerBulk);
+  }
+
+  // A failed refresh before a delete-by-query is retryable, like a failed delete-by-query.
+  @Test
+  public void testRefreshFailureBeforeDeleteByQueryIsRetryable() throws Exception {
+    when(mockIndicesClient.refresh(any(Function.class))).thenThrow(new IOException("Connection refused"));
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(ConfigFactory.load("ElasticsearchIndexerTest/batching.conf").getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
+
+    Document doc = Document.create("doc1");
+    doc.setField("deleted", "true");
+    doc.setField("field", "parent");
+    doc.setField("value", "P");
+
+    IndexerRetryableException exc =
+        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc)));
+    assertEquals(IndexerRetryableException.UNKNOWN_STATUS_CODE, exc.getStatusCode());
+    verify(mockClient, never()).deleteByQuery(any(DeleteByQueryRequest.class));
+  }
+
   @Test
   public void testDeleteUsesIdOverride() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf")
         .withValue("indexer.idOverrideField", ConfigValueFactory.fromAnyRef("other_id"));
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document deletedDoc = Document.create("doc-original", "test_run");
     deletedDoc.setField("other_id", "doc-override");
@@ -702,9 +797,9 @@ public class ElasticsearchIndexerTest {
   public void testDeletionMarkerFieldAndValue() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf")
-        .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef("file_expired"))
-        .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef("true"));
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+        .withValue("indexer.deletionMarker.field", ConfigValueFactory.fromAnyRef("file_expired"))
+        .withValue("indexer.deletionMarker.value", ConfigValueFactory.fromAnyRef("true"));
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document expiredDoc = Document.create("doc-expired", "test_run");
     // deletion marker check uses getString(), so boolean true matches "true".
@@ -731,7 +826,7 @@ public class ElasticsearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -765,7 +860,7 @@ public class ElasticsearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -798,7 +893,7 @@ public class ElasticsearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
     doc.setField("myJsonField", jsonNode);
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -831,7 +926,7 @@ public class ElasticsearchIndexerTest {
     doc.setField("routing", "routing1");
     doc.setField("field1", "value1");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
@@ -860,7 +955,7 @@ public class ElasticsearchIndexerTest {
     doc.setField("routing", "routing1");
     doc.setField("field1", "value1");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
@@ -884,9 +979,9 @@ public class ElasticsearchIndexerTest {
         new ObjectMapper().createObjectNode()
             .put("id", "doc1")
             .put("field1", "value1"));
-    doc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
+    doc.setKafkaMetadata("testing", 0, 100, null);
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -913,9 +1008,9 @@ public class ElasticsearchIndexerTest {
         new ObjectMapper().createObjectNode()
             .put("id", "doc1")
             .put("field1", "value1"));
-    doc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
+    doc.setKafkaMetadata("testing", 0, 100, null);
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -928,6 +1023,183 @@ public class ElasticsearchIndexerTest {
     UpdateOperation indexRequest = requests.get(0).update();
     assertEquals("doc1", indexRequest.id());
     assertEquals(Long.valueOf(100), indexRequest.version());
+    assertTrue(Boolean.TRUE.equals(indexRequest.action().docAsUpsert()));
+  }
+
+  private static Config versionedDeleteConfig() {
+    return ConfigFactory.load("ElasticsearchIndexerTest/versioning.conf")
+        .withValue("indexer.elasticsearch.versionField", ConfigValueFactory.fromAnyRef("my_version_field"))
+        .withValue("indexer.deletionMarker.field", ConfigValueFactory.fromAnyRef("deleted"))
+        .withValue("indexer.deletionMarker.value", ConfigValueFactory.fromAnyRef("true"));
+  }
+
+  // A delete by id carries the document's elasticsearch.versionField value, with elasticsearch.versionType.
+  @Test
+  public void testVersionedDeleteById() throws Exception {
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(versionedDeleteConfig().getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
+
+    Document doc = Document.create("doc1");
+    doc.setField("my_version_field", 12345L);
+    doc.setField("deleted", "true");
+    assertTrue(indexer.sendToIndex(List.of(doc)).isEmpty());
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+    DeleteOperation delete = captor.getValue().operations().get(0).delete();
+    assertEquals("doc1", delete.id());
+    assertEquals(Long.valueOf(12345L), delete.version());
+    assertEquals(VersionType.ExternalGte, delete.versionType());
+  }
+
+  // A delete without elasticsearch.versionField is unversioned, and never takes its version from the Kafka offset, which is
+  // not comparable to a versionField value.
+  @Test
+  public void testUnversionedDeleteById() throws Exception {
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(versionedDeleteConfig().getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
+
+    Document doc = Document.create("doc1");
+    doc.setField("deleted", "true");
+    KafkaDocument kafkaDoc = new KafkaDocument(
+        new ObjectMapper().createObjectNode()
+            .put("id", "doc2")
+            .put("deleted", "true"));
+    kafkaDoc.setKafkaMetadata("testing", 0, 100, null);
+    assertTrue(indexer.sendToIndex(List.of(doc, kafkaDoc)).isEmpty());
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+    List<BulkOperation> operations = captor.getValue().operations();
+    assertEquals(2, operations.size());
+    for (BulkOperation operation : operations) {
+      assertNull(operation.delete().version());
+      assertNull(operation.delete().versionType());
+    }
+  }
+
+  // Without elasticsearch.versionType, a delete is unversioned even when the document has a version-like field.
+  @Test
+  public void testDeleteByIdWithoutVersionType() throws Exception {
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
+
+    Document doc = Document.create("doc1");
+    doc.setField("my_version_field", 12345L);
+    doc.setField("deleted", "true");
+    assertTrue(indexer.sendToIndex(List.of(doc)).isEmpty());
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+    assertNull(captor.getValue().operations().get(0).delete().version());
+    assertNull(captor.getValue().operations().get(0).delete().versionType());
+  }
+
+  // Stubs the delete bulk to reject doc1 with the given status.
+  private void rejectDeleteWith(int status) throws Exception {
+    BulkResponse response = Mockito.mock(BulkResponse.class);
+    BulkResponseItem item = Mockito.mock(BulkResponseItem.class);
+    when(item.id()).thenReturn("doc1");
+    when(item.status()).thenReturn(status);
+    when(item.error()).thenReturn(new ErrorCause.Builder().reason("rejected").type("version_conflict_engine_exception").build());
+    when(response.errors()).thenReturn(true);
+    when(response.items()).thenReturn(List.of(item));
+    when(mockClient.bulk(any(BulkRequest.class))).thenReturn(response);
+  }
+
+  private static Document deleteDoc(Long version) {
+    Document doc = Document.create("doc1");
+    if (version != null) {
+      doc.setField("my_version_field", version);
+    }
+    doc.setField("deleted", "true");
+    return doc;
+  }
+
+  // A 409 on a versioned delete means the index already holds that version or a newer one, so the delete succeeds.
+  @Test
+  public void testStaleVersionedDeleteSucceeds() throws Exception {
+    rejectDeleteWith(409);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(versionedDeleteConfig().getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
+
+    assertTrue(indexer.sendToIndex(List.of(deleteDoc(1L))).isEmpty());
+  }
+
+  // Any other error on a versioned delete still fails the batch.
+  @Test
+  public void testVersionedDeleteOtherErrorFails() throws Exception {
+    rejectDeleteWith(400);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(versionedDeleteConfig().getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
+
+    assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(deleteDoc(1L))));
+  }
+
+  // A 409 counts as success only for a delete sent with a version.
+  @Test
+  public void testUnversionedDeleteConflictFails() throws Exception {
+    rejectDeleteWith(409);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(versionedDeleteConfig().getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
+
+    assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(deleteDoc(null))));
+  }
+
+  // A retry resends the whole batch, including a versioned delete that already succeeded. Under External the replay
+  // has the same version as the delete it repeats, so Elasticsearch rejects it (409); that must not fail the batch.
+  @Test
+  public void testReplayedVersionedDeleteSucceeds() throws Exception {
+    ElasticsearchClient replayClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(replayClient.ping()).thenReturn(new BooleanResponse(true));
+    Mockito.when(replayClient.indices()).thenReturn(Mockito.mock(ElasticsearchIndicesClient.class));
+
+    BulkResponse deleted = Mockito.mock(BulkResponse.class);
+    Mockito.when(deleted.items()).thenReturn(List.of());
+    BulkResponse conflict = Mockito.mock(BulkResponse.class);
+    BulkResponseItem item = Mockito.mock(BulkResponseItem.class);
+    when(item.id()).thenReturn("doc1");
+    when(item.status()).thenReturn(409);
+    when(item.error()).thenReturn(new ErrorCause.Builder().reason("version conflict").type("version_conflict_engine_exception").build());
+    when(conflict.errors()).thenReturn(true);
+    when(conflict.items()).thenReturn(List.of(item));
+    Mockito.when(replayClient.bulk(any(BulkRequest.class))).thenReturn(deleted, conflict);
+    // fails the first attempt after the delete by id was sent, so the batch is retried
+    DeleteByQueryResponse noFailures = Mockito.mock(DeleteByQueryResponse.class);
+    Mockito.when(noFailures.failures()).thenReturn(new ArrayList<>());
+    Mockito.when(replayClient.deleteByQuery(any(DeleteByQueryRequest.class)))
+        .thenThrow(new IOException("Connection reset"))
+        .thenReturn(noFailures);
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = versionedDeleteConfig()
+        .withValue("indexer.elasticsearch.versionType", ConfigValueFactory.fromAnyRef("External"))
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2))
+        .withValue("indexer.deleteByQuery.fieldNameField", ConfigValueFactory.fromAnyRef("field"))
+        .withValue("indexer.deleteByQuery.valueField", ConfigValueFactory.fromAnyRef("value"))
+        .withValue("indexer.maxRetries", ConfigValueFactory.fromAnyRef(1))
+        .withValue("indexer.retryWaitDurationMs", ConfigValueFactory.fromAnyRef(1));
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), replayClient);
+
+    Document delete = Document.create("doc1", "test_run");
+    delete.setField("my_version_field", 5L);
+    delete.setField("deleted", "true");
+    Document deleteByQuery = Document.create("doc2", "test_run");
+    deleteByQuery.setField("deleted", "true");
+    deleteByQuery.setField("field", "parent");
+    deleteByQuery.setField("value", "P");
+    messenger.sendForIndexing(delete);
+    messenger.sendForIndexing(deleteByQuery);
+    indexer.run(2);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(replayClient, times(2)).bulk(captor.capture());
+    for (BulkRequest request : captor.getAllValues()) {
+      assertEquals("doc1", request.operations().get(0).delete().id());
+      assertEquals(Long.valueOf(5L), request.operations().get(0).delete().version());
+    }
+    verify(replayClient, times(2)).deleteByQuery(any(DeleteByQueryRequest.class));
+
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(2, events.size());
+    for (Event event : events) {
+      assertEquals(Event.Type.FINISH, event.getType());
+    }
   }
 
   private void testJoin(String configPath, Document doc, Map<String, Object> expected) throws Exception {
@@ -935,7 +1207,7 @@ public class ElasticsearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load(configPath);
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -981,6 +1253,26 @@ public class ElasticsearchIndexerTest {
     testJoin("ElasticsearchIndexerTest/joinChild.conf", doc, expected);
   }
 
+  // A document that already has the join field fails even when the whitelist leaves the join field out, so a misconfigured
+  // pipeline is caught instead of indexing documents with no join value.
+  @Test
+  public void testJoinFieldCollisionFailsWhenFiltered() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/joinParent.conf")
+        .withValue("indexer.includeFields", ConfigValueFactory.fromIterable(List.of("id")));
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
+
+    Document doc = Document.create("doc1", "test_run");
+    doc.setField("my_join_field", "fromUpstream");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    verify(mockClient, never()).bulk(any(BulkRequest.class));
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(1, events.size());
+    assertEquals(Event.Type.FAIL, events.get(0).getType());
+  }
+
   @Test
   public void testBulkResponseErroring() throws Exception {
     ElasticsearchClient mockClient2 = Mockito.mock(ElasticsearchClient.class);
@@ -1009,7 +1301,7 @@ public class ElasticsearchIndexerTest {
     Document doc2 = Document.create("doc2", "test_run");
     Document doc3 = Document.create("doc3", "test_run");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient2);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient2);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     messenger.sendForIndexing(doc3);
@@ -1043,7 +1335,7 @@ public class ElasticsearchIndexerTest {
     doc.setField("ignoreField2", "value2");
     doc.setField("normalField", "normalValue");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1069,7 +1361,7 @@ public class ElasticsearchIndexerTest {
     doc.setField("includeField2", "value2");
     doc.setField("normalField", "normalValue");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1095,7 +1387,7 @@ public class ElasticsearchIndexerTest {
     doc.setField("includeField2", "value2");
     doc.setField("normalField", "normalValue");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1127,7 +1419,7 @@ public class ElasticsearchIndexerTest {
     doc.setField("normalField", "normalValue");
     doc.setField("other_id", "otherId");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1152,7 +1444,7 @@ public class ElasticsearchIndexerTest {
     doc.setField("normalField", "normalValue");
     doc.setField("other_id", "otherId");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1182,7 +1474,7 @@ public class ElasticsearchIndexerTest {
     doc.setField("normalField", "normalValue");
     doc.setField("other_id", "otherId");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1207,7 +1499,7 @@ public class ElasticsearchIndexerTest {
     doc.setField("normalField", "normalValue");
     doc.setField("other_id", "otherId");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1236,7 +1528,7 @@ public class ElasticsearchIndexerTest {
     Document doc = Document.create("doc1");
     doc.setField("other_id", "otherId");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -1259,7 +1551,7 @@ public class ElasticsearchIndexerTest {
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/invalidConfig.conf");
 
     assertThrows(IllegalArgumentException.class,
-        () -> new ElasticsearchIndexer(config, messenger, "testing", mockClient)
+        () -> new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient)
     );
   }
 
@@ -1272,16 +1564,16 @@ public class ElasticsearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/testOverride.conf");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", null);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), null);
     // will print out to the logs but no errors despite null client.
     indexer.closeConnection();
 
     // only the call to check if it is null
-    indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     indexer.closeConnection();
     verify(mockClient, times(1))._transport();
 
-    indexer = new ElasticsearchIndexer(config, messenger, "testing", mockTransportClient);
+    indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockTransportClient);
     indexer.closeConnection();
     // call to check if null (it isn't) and then a call to close.
     verify(mockTransportClient, times(2))._transport();
@@ -1310,7 +1602,7 @@ public class ElasticsearchIndexerTest {
 
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", throwingClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), throwingClient);
 
     Document doc = Document.create("doc1", "test_run");
 
@@ -1332,7 +1624,7 @@ public class ElasticsearchIndexerTest {
 
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", throwingClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), throwingClient);
 
     Document doc = Document.create("doc1", "test_run");
 
@@ -1364,13 +1656,13 @@ public class ElasticsearchIndexerTest {
 
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", itemErrorClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), itemErrorClient);
 
     Document doc = Document.create("doc1", "test_run");
-    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc));
 
     assertEquals(1, failedDocs.size());
-    Exception failure = failedDocs.iterator().next().getRight();
+    Exception failure = failedDocs.get(0).cause();
     assertTrue(failure instanceof IndexerRetryableException);
     assertEquals(429, ((IndexerRetryableException) failure).getStatusCode());
   }
@@ -1388,7 +1680,7 @@ public class ElasticsearchIndexerTest {
 
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf");
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", throwingClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), throwingClient);
 
     // marked for deletion by id only (no deleteByField field/value present) -> routed to deleteById
     Document doc = Document.create("doc1", "test_run");
@@ -1403,6 +1695,7 @@ public class ElasticsearchIndexerTest {
   public void testDeleteByQueryExceptionRethrownAsRetryableWithStatus() throws Exception {
     ElasticsearchClient throwingClient = Mockito.mock(ElasticsearchClient.class);
     Mockito.when(throwingClient.ping()).thenReturn(new BooleanResponse(true));
+    Mockito.when(throwingClient.indices()).thenReturn(Mockito.mock(ElasticsearchIndicesClient.class));
 
     ErrorResponse errorResponse = ErrorResponse.of(b -> b
         .status(503)
@@ -1412,7 +1705,7 @@ public class ElasticsearchIndexerTest {
 
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/testDeleteByQuery.conf");
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", throwingClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), throwingClient);
 
     // marked for deletion with deleteByField field/value present -> routed to deleteByQuery
     Document doc = Document.create("doc1", "test_run");
@@ -1448,13 +1741,50 @@ public class ElasticsearchIndexerTest {
 
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/retry.conf");
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", retryClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), retryClient);
 
     Document doc = Document.create("doc1", "test_run");
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
     verify(retryClient, times(2)).bulk(any(BulkRequest.class));
+
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(1, events.size());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+  // The join field must not be left on the Document, or the retry finds it already set and fails the batch.
+  @Test
+  public void testJoinRetrySucceedsOnSecondAttempt() throws Exception {
+    ElasticsearchClient retryClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(retryClient.ping()).thenReturn(new BooleanResponse(true));
+
+    ErrorResponse errorResponse = ErrorResponse.of(b -> b
+        .status(503)
+        .error(ec -> ec.type("unavailable_shards_exception").reason("service unavailable")));
+    BulkResponse successResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(successResponse.items()).thenReturn(List.of());
+
+    Mockito.when(retryClient.bulk(any(BulkRequest.class)))
+        .thenThrow(new ElasticsearchException("es/bulk", errorResponse))
+        .thenReturn(successResponse);
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/joinParent.conf")
+        .withValue("indexer.maxRetries", ConfigValueFactory.fromAnyRef(3))
+        .withValue("indexer.retryWaitDurationMs", ConfigValueFactory.fromAnyRef(1));
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), retryClient);
+
+    Document doc = Document.create("doc1");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(retryClient, times(2)).bulk(captor.capture());
+    assertEquals(Map.of("id", "doc1", "my_join_field", "parentName1"),
+        asSent(captor.getAllValues().get(1).operations().get(0).index().document()));
+    assertFalse(doc.has("my_join_field"));
 
     List<Event> events = messenger.getSentEvents();
     assertEquals(1, events.size());
@@ -1479,7 +1809,7 @@ public class ElasticsearchIndexerTest {
 
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/retryWith429Only.conf");
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", retryClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), retryClient);
 
     Document doc = Document.create("doc1", "test_run");
     messenger.sendForIndexing(doc);
@@ -1498,12 +1828,12 @@ public class ElasticsearchIndexerTest {
 
     public ErroringElasticsearchIndexer(Config config, IndexerMessenger messenger,
         String metricsPrefix, ElasticsearchClient client) {
-      super(config, messenger, "testing", client);
+      super(config, new IndexerContext(messenger, false, "testing", null), client);
     }
 
     @Override
-    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
-      throw new Exception("Test that errors when sending to indexer are correctly handled");
+    public List<IndexerFailure> sendToIndex(List<Document> docs) throws IndexerException {
+      throw new IndexerException("Test that errors when sending to indexer are correctly handled");
     }
   }
 
@@ -1533,7 +1863,7 @@ public class ElasticsearchIndexerTest {
     List<String> completedBatches = Collections.synchronizedList(new ArrayList<>());
     TestMessenger messenger = new TestMessenger() {
       @Override
-      public void batchComplete(List<Document> batch) throws Exception {
+      public void batchComplete(List<Document> batch) throws MessengerException {
         completedBatches.add(batch.get(0).getId());
         super.batchComplete(batch);
       }
@@ -1541,7 +1871,7 @@ public class ElasticsearchIndexerTest {
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf")
         .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2))
         .withValue("indexer.maxConcurrentBatches", ConfigValueFactory.fromAnyRef(maxConcurrentBatches));
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     for (int i = 0; i < 6; i++) {
       messenger.sendForIndexing(Document.create("doc" + i, "test_run"));
     }
@@ -1580,7 +1910,7 @@ public class ElasticsearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf")
         .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2));
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     for (int i = 0; i < 6; i++) {
       messenger.sendForIndexing(Document.create("doc" + i, "test_run"));
     }

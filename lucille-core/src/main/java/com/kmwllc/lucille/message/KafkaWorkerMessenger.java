@@ -53,13 +53,13 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
    *
    */
   @Override
-  public Document pollDocToProcess() throws Exception {
+  public Document pollDocToProcess() throws MessengerException {
     ConsumerRecords<String, KafkaDocument> consumerRecords;
     try {
       consumerRecords = sourceConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
-      // rethrows unless configured to skip; the Worker commits the advanced position when we return null
-      deserializationErrorHandler.handleOrRethrow(e);
+      // throws unless configured to skip; the Worker commits the advanced position when we return null
+      deserializationErrorHandler.handleOrThrow(e);
       return null;
     }
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
@@ -67,14 +67,14 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
-      doc.setKafkaMetadata(record);
+      doc.setKafkaMetadata(record.topic(), record.partition(), record.offset(), record.key());
       return doc;
     }
     return null;
   }
 
   @Override
-  public void commitPendingDocOffsets() throws Exception {
+  public void commitPendingDocOffsets() {
     // offsets are committed synchronously to ensure that offsets are successfully committed before the documents are sent to
     // the destination (typically an indexer). This reduces the number of documents that might
     // be re-processed through the pipeline in the event of worker crash and/or consumer group rebalance.
@@ -142,7 +142,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   }
 
   @Override
-  public void close() throws Exception {
+  public void close() {
     if (sourceConsumer != null) {
       sourceConsumer.close();
     }

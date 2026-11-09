@@ -40,6 +40,7 @@
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-layout-template-json</artifactId>
       <version>2.26.0</version>
+      <scope>test</scope>
   </dependency>
 
     <dependency>
@@ -150,16 +151,19 @@
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-slf4j2-impl</artifactId>
       <version>${log4j.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-api</artifactId>
       <version>${log4j.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-core</artifactId>
       <version>${log4j.version}</version>
+      <scope>test</scope>
     </dependency>
 
     <!-- argument parsing -->
@@ -223,14 +227,6 @@
       <version>5.11.2</version>
     </dependency>
 
-    <!--  Note that this is also one of the dependencies for solr that we had to pull in manually. However,
-       it is not test scoped because we use this in RunDetails.java as well. -->
-    <dependency>
-      <groupId>io.swagger.core.v3</groupId>
-      <artifactId>swagger-annotations-jakarta</artifactId>
-      <version>2.2.22</version>
-    </dependency>
-
     <!-- FileConnector -->
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
@@ -264,17 +260,17 @@
     <dependency>
       <groupId>io.projectreactor</groupId>
       <artifactId>reactor-core</artifactId>
-      <version>3.8.7</version>
+      <version>3.7.19</version>
     </dependency>
     <dependency>
       <groupId>io.projectreactor.netty</groupId>
       <artifactId>reactor-netty-core</artifactId>
-      <version>1.3.8</version>
+      <version>1.2.18</version>
     </dependency>
     <dependency>
       <groupId>io.projectreactor.netty</groupId>
       <artifactId>reactor-netty-http</artifactId>
-      <version>1.3.8</version>
+      <version>1.2.18</version>
     </dependency>
 
     <dependency>
@@ -319,6 +315,19 @@
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
       <version>2.2.224</version>
+    </dependency>
+    <!-- Test-only: lets FileConnectorStateManagerDatabaseIT run the state lifecycle against PostgreSQL and MySQL. -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.6.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <version>9.1.0</version>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
@@ -396,6 +405,7 @@
       <groupId>com.chavaillaz</groupId>
       <artifactId>opensearch-log4j-appender</artifactId>
       <version>1.1.3</version>
+      <scope>test</scope>
     </dependency>
 
     <!-- GraalVM SDK -->
@@ -405,12 +415,18 @@
        <version>25.0.4</version>
     </dependency>
 
-    <!-- GraalVM JavaScript -->
+    <!-- GraalVM JavaScript. -->
     <dependency>
        <groupId>org.graalvm.js</groupId>
-       <artifactId>js</artifactId>
+       <artifactId>js-language</artifactId>
        <version>25.0.4</version>
-       <type>pom</type>
+       <scope>runtime</scope>
+    </dependency>
+    <dependency>
+       <groupId>org.graalvm.truffle</groupId>
+       <artifactId>truffle-runtime</artifactId>
+       <version>25.0.4</version>
+       <scope>runtime</scope>
     </dependency>
 
     <!-- GraalVM Python -->

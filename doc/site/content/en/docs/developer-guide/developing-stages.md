@@ -10,11 +10,11 @@ To create a Stage, extend the abstract `Stage` class and implement `processDocum
 
 **What the base class does for you:**
 
-- **Config validation** — The constructor calls `getSpec().validate(config)` using your class's `SPEC` field. If the config has missing required properties, unknown properties, or type mismatches, validation fails at startup with a clear error message. You never call this yourself.
+- **Config validation** — The constructor validates `config` against your class's `SPEC` field. If the config has missing required properties, unknown properties, or type mismatches, validation fails at startup with a clear error message. You never call this yourself.
 - **Condition evaluation** — If the user configures `conditions` on your stage, the base class evaluates them before calling `processDocument()`. If conditions are not met, your method is never invoked for that document. You write `processDocument()` as if conditions are always satisfied.
 - **Thread isolation** — Each worker thread gets its own instance of your stage. Instance fields are effectively thread-local; no synchronization is needed.
 - **Metrics** — The base class tracks per-stage document count, latency, error count, and child count automatically.
-- **Error handling** — If `processDocument()` throws a `StageException`, the framework catches it, marks the document as failed, and continues processing other documents.
+- **Error handling** — If `processDocument()` throws a `StageException`, the framework catches it, marks the document as failed, and continues processing other documents. A `RuntimeException` (or an `Error` local to the document, such as a `StackOverflowError`) is handled the same way; only a fatal `Error` such as `OutOfMemoryError` stops the worker. Every failure, including one thrown while producing a child document, is counted in the stage's error metric.
 
 **What you implement:**
 
@@ -141,7 +141,7 @@ private FileContentFetcher fileFetcher;
 public void start() throws StageException {
   this.fileFetcher = FileContentFetcher.create(config);
   try {
-    fileFetcher.startup();
+    fileFetcher.start();
   } catch (IOException e) {
     throw new StageException("Failed to initialize file fetcher", e);
   }
@@ -160,7 +160,7 @@ public Iterator<Document> processDocument(Document doc) throws StageException {
 
 @Override
 public void stop() throws StageException {
-  fileFetcher.shutdown();
+  fileFetcher.stop();
 }
 ```
 

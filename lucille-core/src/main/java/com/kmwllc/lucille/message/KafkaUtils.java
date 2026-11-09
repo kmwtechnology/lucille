@@ -28,6 +28,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.errors.RecordTooLargeException;
+import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -58,17 +59,18 @@ public class KafkaUtils {
 
   public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .requiredString("bootstrapServers", "consumerGroupId")
-      .requiredNumber("maxPollIntervalSecs", "maxRequestSize")
+      .requiredNumber("maxPollIntervalMs", "maxRequestSize")
       .optionalBoolean("events")
-      .optionalString("documentSerializer", "documentDeserializer", "consumerPropertyFile",
-          "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic",
+      .optionalString("documentSerializer", "documentDeserializer", "consumerPropertiesPath",
+          "producerPropertiesPath", "adminPropertiesPath", "securityProtocol", "sourceTopic", "eventTopic",
           "onDeserializationError")
-      .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors")
+      .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors",
+          "eventTopicReplicationFactor", "eventTopicMinInsyncReplicas")
       .optionalParent("consumer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("producer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("admin", new TypeReference<Map<String, Object>>(){})
       // controls optional enrichment of lifecycle events with source-document fields; see EventFieldConfig
-      .optionalParent(EventFieldConfig.SPEC).build();
+      .optionalParent("event", EventFieldConfig.SPEC).build();
 
   /** Default for <code>kafka.pollIntervalMs</code>: how long a consumer poll blocks waiting for records. */
   public static final int DEFAULT_POLL_INTERVAL_MS = 2000;
@@ -149,8 +151,8 @@ public class KafkaUtils {
   public static Properties createConsumerProps(Config config, String clientId) {
     Properties props;
 
-    if (config.hasPath("kafka.consumerPropertyFile")) {
-      props = loadExternalProps(config.getString("kafka.consumerPropertyFile"), config);
+    if (config.hasPath("kafka.consumerPropertiesPath")) {
+      props = loadExternalProps(config.getString("kafka.consumerPropertiesPath"), config);
       props.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
     } else {
       props = new Properties();
@@ -163,7 +165,7 @@ public class KafkaUtils {
 
       props.put(ConsumerConfig.GROUP_ID_CONFIG, config.getString("kafka.consumerGroupId"));
       props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-      props.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 1000 * config.getInt("kafka.maxPollIntervalSecs"));
+      props.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, config.getInt("kafka.maxPollIntervalMs"));
       props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1);
       props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
       props.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
@@ -182,7 +184,7 @@ public class KafkaUtils {
    *               - kafka.bootstrapServers - The bootstrap servers to use for connecting to Kafka.
    *               - kafka.securityProtocol - The security protocol to use when connecting to Kafka.
    *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the event topic.
-   *               - kafka.maxPollIntervalSecs - The maximum time in seconds allowed between polls before the consumer is evicted from its consumer group (also the rebalance timeout).
+   *               - kafka.maxPollIntervalMs - The maximum time in milliseconds allowed between polls before the consumer is evicted from its consumer group (also the rebalance timeout).
    *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata about topics and partitions..
    *               - kafka.documentDeserializer - The deserializer class to use when deserializing documents. Defaults to KafkaDocumentDeserializer.
    * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
@@ -206,7 +208,7 @@ public class KafkaUtils {
    *
    * <p> It is not enough to reject an explicit {@code true}: kafka-clients defaults {@code enable.auto.commit} to
    * {@code true} when it is unset, so an absent value is just as unsafe as an explicit {@code true}. The non-property-file
-   * path sets it to {@code false} here, but a {@code kafka.consumerPropertyFile} that omits it (or a
+   * path sets it to {@code false} here, but a {@code kafka.consumerPropertiesPath} that omits it (or a
    * {@code kafka.consumer.enable.auto.commit} override) would otherwise auto-commit at poll. So this requires the
    * resolved value to be present and {@code false}.
    */
@@ -218,7 +220,7 @@ public class KafkaUtils {
           + "indexer's document consumer: offsets are committed on batch completion, and auto-commit would commit them "
           + "at poll time (before indexing), which could skip documents on a crash. It is "
           + (autoCommit == null ? "unset (kafka-clients defaults it to true)" : "set to " + autoCommit)
-          + "; set " + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + "=false (e.g. in kafka.consumerPropertyFile or via "
+          + "; set " + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + "=false (e.g. in kafka.consumerPropertiesPath or via "
           + "kafka.consumer." + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + ").");
     }
   }
@@ -233,7 +235,7 @@ public class KafkaUtils {
    *               - kafka.bootstrapServers - The bootstrap servers to use for connecting to Kafka.
    *               - kafka.securityProtocol - The security protocol to use when connecting to Kafka.
    *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the event topic.
-   *               - kafka.maxPollIntervalSecs - The maximum time in seconds allowed between polls before the consumer is evicted from its consumer group (also the rebalance timeout).
+   *               - kafka.maxPollIntervalMs - The maximum time in milliseconds allowed between polls before the consumer is evicted from its consumer group (also the rebalance timeout).
    *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata about topics and partitions..
    * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
    * @return A Kafka consumer for events. The provided Consumer will *always* be configured to commit offsets automatically.
@@ -250,8 +252,8 @@ public class KafkaUtils {
   static Properties createProducerProps(Config config) {
     Properties producerProps;
 
-    if (config.hasPath("kafka.producerPropertyFile")) {
-      producerProps = loadExternalProps(config.getString("kafka.producerPropertyFile"), config);
+    if (config.hasPath("kafka.producerPropertiesPath")) {
+      producerProps = loadExternalProps(config.getString("kafka.producerPropertiesPath"), config);
     } else {
       producerProps = new Properties();
 
@@ -341,9 +343,9 @@ public class KafkaUtils {
     return pipelineName + "_fail";
   }
 
-  public static void validateAtMostOneRecord(ConsumerRecords<?, ?> consumerRecords) throws Exception {
+  public static void validateAtMostOneRecord(ConsumerRecords<?, ?> consumerRecords) {
     if (consumerRecords.count() > 1) {
-      throw new Exception("Kafka poll returned more than 1 message but this shouldn't happen");
+      throw new IllegalStateException("Kafka poll returned more than 1 message but this shouldn't happen");
     }
   }
 
@@ -364,8 +366,8 @@ public class KafkaUtils {
     // interfere with the publisher's logic for determining when the run is complete
 
     Properties adminProps;
-    if (config.hasPath("kafka.adminPropertyFile")) {
-      adminProps = loadExternalProps(config.getString("kafka.adminPropertyFile"), config);
+    if (config.hasPath("kafka.adminPropertiesPath")) {
+      adminProps = loadExternalProps(config.getString("kafka.adminPropertiesPath"), config);
     } else {
       adminProps = new Properties();
       adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
@@ -373,8 +375,17 @@ public class KafkaUtils {
 
     mergeConfigProps(adminProps, config, "kafka.admin");
 
+    // defaults keep a single-broker cluster working. On a multi-broker cluster, set the replication factor and
+    // min.insync.replicas so the event topic survives a broker loss.
+    short replicationFactor = (short) (config.hasPath("kafka.eventTopicReplicationFactor")
+        ? config.getInt("kafka.eventTopicReplicationFactor") : 1);
+
     try (Admin kafkaAdminClient = Admin.create(adminProps)) {
-      NewTopic eventTopic = new NewTopic(eventTopicName, 1, (short) 1);
+      NewTopic eventTopic = new NewTopic(eventTopicName, 1, replicationFactor);
+      if (config.hasPath("kafka.eventTopicMinInsyncReplicas")) {
+        eventTopic.configs(Map.of(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG,
+            String.valueOf(config.getInt("kafka.eventTopicMinInsyncReplicas"))));
+      }
       CreateTopicsResult result = kafkaAdminClient.createTopics(List.of(eventTopic), new CreateTopicsOptions());
       KafkaFuture<Void> future = result.all();
       future.get();

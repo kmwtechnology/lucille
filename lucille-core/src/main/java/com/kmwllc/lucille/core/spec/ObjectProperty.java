@@ -5,31 +5,23 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 
-public class ObjectProperty extends Property {
+class ObjectProperty extends Property {
 
   private final TypeReference<?> typeReference;
   private final Spec parentSpec;
 
-  public ObjectProperty(Spec parentSpec, boolean required) {
-    this(parentSpec, required, null);
-  }
-
-  public ObjectProperty(String name, boolean required, TypeReference<?> type) {
-    this(name, required, type, null);
-  }
-
-  public ObjectProperty(String name, boolean required, TypeReference<?> type, String description) {
-    super(name, required, description);
-
-    this.parentSpec = null;
-    this.typeReference = type;
-  }
-
-  public ObjectProperty(Spec parentSpec, boolean required, String description) {
-    super(parentSpec.getName(), required, description);
+  public ObjectProperty(String name, boolean required, Spec parentSpec) {
+    super(name, required);
 
     this.parentSpec = parentSpec;
     this.typeReference = null;
+  }
+
+  public ObjectProperty(String name, boolean required, TypeReference<?> type) {
+    super(name, required);
+
+    this.parentSpec = null;
+    this.typeReference = type;
   }
 
   @Override

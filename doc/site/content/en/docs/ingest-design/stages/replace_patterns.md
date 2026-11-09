@@ -9,7 +9,7 @@ description: Replaces all matches of one or more regular expressions in source f
 
 For every value of each `source` field, replaces all matches of each pattern in `regex` with the replacement string, applying the patterns in order, and writes the results to the corresponding `dest` field. Every value is written, changed or not. Source fields missing from the Document are skipped. An invalid regex fails the stage at startup.
 
-The replacement is the value of `replacementField` on the Document if that field is present, otherwise `replacement`. At least one of the two must be configured, or the stage fails at startup. A Document with neither a `replacementField` value nor a configured `replacement` is left unchanged. The replacement follows Java `Matcher.replaceAll` syntax, so `$1` refers to a capture group and a literal `$` or `\` must be escaped.
+The replacement is the value of `replacementField` on the Document if that field is present, otherwise `replacement`. At least one of the two must be configured, or the stage fails at startup. A Document with neither a `replacementField` value nor a configured `replacement` is left unchanged. The replacement follows Java `Matcher.replaceAll` syntax, so `$1` refers to a capture group and a literal `$` or `\` must be escaped. With `literal: true`, the replacement is used as-is instead.
 
 `source` and `dest` must have the same number of fields (1-1 mapping), or `dest` must have one field that receives the results from every `source` field.
 
@@ -23,7 +23,7 @@ The replacement is the value of `replacementField` on the Document if that field
 | `ignoreCase` | Boolean | No | Case-insensitive matching (`Pattern.CASE_INSENSITIVE`). Default: `false`. |
 | `multiline` | Boolean | No | `^` and `$` match at line boundaries (`Pattern.MULTILINE`). Default: `false`. |
 | `dotall` | Boolean | No | `.` matches line terminators (`Pattern.DOTALL`). Default: `false`. |
-| `literal` | Boolean | No | Treat each `regex` as a literal string (`Pattern.LITERAL`). Default: `false`. |
+| `literal` | Boolean | No | Treat each `regex` (`Pattern.LITERAL`) and the replacement as literal strings, so `$` and `\` in the replacement are not special. Default: `false`. |
 | `updateMode` | String | No | `overwrite`, `append`, or `skip`. Default: `overwrite`. |
 
 ```hocon

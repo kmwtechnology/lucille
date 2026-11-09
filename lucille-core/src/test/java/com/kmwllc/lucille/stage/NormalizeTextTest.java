@@ -1,5 +1,8 @@
 package com.kmwllc.lucille.stage;
 
+import java.util.List;
+import java.util.Map;
+import static org.junit.Assert.assertFalse;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -54,5 +57,23 @@ public class NormalizeTextTest {
   public void testSpec() throws StageException {
     Stage stage = factory.get("NormalizeTextTest/lowercase.conf");
     assertEquals(Set.of("mode", "updateMode", "source", "dest"), stage.getNonDefaultLegalProperties());
+  }
+
+  @Test
+  public void testNullAndEmptyValues() throws Exception {
+    Stage stage = factory.get(Map.of("source", List.of("f"), "dest", List.of("o"), "mode", "sentence_case"));
+
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"f\":null}");
+    stage.processDocument(doc);
+    assertFalse(doc.has("o"));
+
+    Document mixed = Document.createFromJson("{\"id\":\"1\",\"f\":[null,\"Hi There\"]}");
+    stage.processDocument(mixed);
+    assertEquals("Hi there", mixed.getString("o"));
+
+    Document empty = Document.create("empty");
+    empty.setField("f", "");
+    stage.processDocument(empty);
+    assertEquals("", empty.getString("o"));
   }
 }

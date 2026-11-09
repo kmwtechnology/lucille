@@ -51,6 +51,7 @@ import java.util.stream.Collectors;
  *   <li>s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>storageClients (Map, Optional) : If your dictionary files are held in storage with a custom StorageClient. See FileConnector for the appropriate arguments to provide.</li>
  * </ul>
  */
 public class ExtractEntities extends Stage {
@@ -62,7 +63,7 @@ public class ExtractEntities extends Stage {
       .optionalBoolean("ignoreCase", "onlyWhitespaceSeparated", "stopOnHit",
           "onlyWholeWords", "ignoreOverlaps", "usePayloads")
       .optionalString("updateMode", "entityField")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC).build();
+      .include(FileConnector.STORAGE_SPEC).build();
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -107,7 +108,7 @@ public class ExtractEntities extends Stage {
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Extract Entities");
 
     try {
-      fileFetcher.startup();
+      fileFetcher.start();
     } catch (IOException e) {
       throw new StageException("Error occurred initializing FileContentFetcher.", e);
     }
@@ -116,7 +117,7 @@ public class ExtractEntities extends Stage {
 
   @Override
   public void stop() throws StageException {
-    fileFetcher.shutdown();
+    fileFetcher.stop();
   }
 
   /**
@@ -197,14 +198,15 @@ public class ExtractEntities extends Stage {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField)) {
+      List<String> values = StageUtils.getNonNullStrings(doc, sourceField);
+      if (values.isEmpty()) {
         continue;
       }
 
       // Parse the matches and then convert the PayloadEmits into a List of Strings, representing the payloads for
       // each match which occurred in the input string.
       Collection<PayloadEmit<String>> results = new ArrayList<>();
-      for (String value : doc.getStringList(sourceField)) {
+      for (String value : values) {
         results.addAll(dictTrie.parseText(value));
       }
 

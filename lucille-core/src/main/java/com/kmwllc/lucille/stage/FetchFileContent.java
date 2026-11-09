@@ -25,6 +25,7 @@ import java.util.Iterator;
  *   <li>s3 (Map, Optional) : Add if you will be fetching contents from S3 files. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : Add if you will be fetching contents from Azure files. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>gcp (Map, Optional) : Add if you will be fetching contents from Google cloud. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>storageClients (Map, Optional) : Add if you will be fetching contents with custom StorageClients, keyed by URI scheme. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>maxSizeBytes (Long, Optional) : The maximum size, in bytes, of a file this stage will load. Must be positive and at most Integer.MAX_VALUE - 9. Defaults to
  *   unlimited. When set, at most maxSizeBytes + 1 bytes are read from a file; if the file is larger than the limit, a StageException
  *   is thrown (as for any other failure to get a file's contents) and the document's content field is left untouched.</li>
@@ -36,7 +37,7 @@ public class FetchFileContent extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("filePathField", "fileContentField")
       .optionalNumber("maxSizeBytes")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC).build();
+      .include(FileConnector.STORAGE_SPEC).build();
 
   private final String filePathField;
   private final String fileContentField;
@@ -73,7 +74,7 @@ public class FetchFileContent extends Stage {
   @Override
   public void start() throws StageException {
     try {
-      fileFetcher.startup();
+      fileFetcher.start();
     } catch (IOException e) {
       throw new StageException("Error starting up FileContentFetcher.", e);
     }
@@ -81,7 +82,7 @@ public class FetchFileContent extends Stage {
 
   @Override
   public void stop() throws StageException {
-    fileFetcher.shutdown();
+    fileFetcher.stop();
   }
 
   @Override

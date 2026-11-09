@@ -1,9 +1,11 @@
 package com.kmwllc.lucille.core.spec;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.List;
@@ -107,6 +109,24 @@ public class ListPropertyTest {
 
     Config justStringConfig = ConfigFactory.parseResourcesAnySyntax("PropertyTest/ListProperty/listIsJustAString.conf");
     assertThrows(IllegalArgumentException.class, () -> property.validate(justStringConfig));
+  }
+
+  @Test
+  public void testTypeJson() {
+    // 1. a ListProperty w/ a Spec for its objects
+    Spec bookSpec = SpecBuilder.withoutDefaults().requiredString("author", "title").build();
+    Property property = new ListProperty("books", true, bookSpec);
+
+    JsonNode typeNode = property.typeJson();
+    assertEquals("LIST", typeNode.get("type").asText());
+    assertEquals(bookSpec.toJson(), typeNode.get("child"));
+
+    // 2. a ListProperty w/ a TypeReference
+    property = new ListProperty("list", true, new TypeReference<List<String>>(){});
+
+    typeNode = property.typeJson();
+    assertEquals("LIST", typeNode.get("type").asText());
+    assertEquals("java.util.List<java.lang.String>", typeNode.get("typeReference").asText());
   }
 
   private static class BookItem {

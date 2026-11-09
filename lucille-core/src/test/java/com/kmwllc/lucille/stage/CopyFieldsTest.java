@@ -1,5 +1,8 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.List;
+import java.util.Map;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
@@ -10,6 +13,7 @@ import org.junit.Test;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNull;
 
 public class CopyFieldsTest {
@@ -51,7 +55,7 @@ public class CopyFieldsTest {
     assertEquals("Value from input2 should be copied to alsoOutput2", inputVal2, doc3.getStringList("alsoOutput2").get(0));
     assertEquals("Value from input3 should be copied to output3", inputVal3, doc3.getStringList("output3").get(0));
 
-    // Ensure that if isNested is false, dotted fields will be treated as literals
+    // Ensure that if useNestedPaths is false, dotted fields will be treated as literals
     Document doc4 = Document.create("doc4");
     doc4.setField("input4.nested", "This will be copied to output4.nested (literal field)");
     stage.processDocument(doc4);
@@ -155,7 +159,38 @@ public class CopyFieldsTest {
   public void testSpec() throws StageException {
     Stage stage = factory.get("CopyFieldsTest/replace.conf");
     assertEquals(
-        Set.of("fieldMapping", "isNested", "updateMode"),
+        Set.of("fieldMapping", "useNestedPaths", "updateMode"),
         stage.getNonDefaultLegalProperties());
+  }
+
+  @Test
+  public void testNestedCopyIsIndependent() throws Exception {
+    Stage stage = factory.get(Map.of("fieldMapping", Map.of("src", "dst"), "useNestedPaths", true));
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"src\":{\"k\":1}}");
+    stage.processDocument(doc);
+    ((ObjectNode) doc.getJson("src")).put("k", 99);
+    assertEquals(1, doc.getJson("dst").get("k").asInt());
+  }
+
+  @Test
+  public void testCopyPreservesTypes() throws Exception {
+    Stage stage = factory.get(Map.of("fieldMapping", Map.of("n", "n2", "o", "o2", "l", "l2")));
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"n\":5,\"o\":{\"k\":1},\"l\":[{\"a\":1},{\"b\":2}]}");
+    stage.processDocument(doc);
+    assertEquals(Integer.valueOf(5), doc.getInt("n2"));
+    assertEquals(doc.getJson("o"), doc.getJson("o2"));
+    assertEquals(doc.getJson("l"), doc.getJson("l2"));
+
+    // updateMode applies to the destination, and appended values keep their types too
+    Stage append = factory.get(Map.of("fieldMapping", Map.of("n", "dst"), "updateMode", "append"));
+    Document appendDoc = Document.createFromJson("{\"id\":\"2\",\"n\":5,\"dst\":1}");
+    append.processDocument(appendDoc);
+    assertEquals(List.of(1, 5), appendDoc.getIntList("dst"));
+    assertTrue(appendDoc.getJsonList("dst").get(1).isInt());
+
+    Stage skip = factory.get(Map.of("fieldMapping", Map.of("n", "dst"), "updateMode", "skip"));
+    Document skipDoc = Document.createFromJson("{\"id\":\"3\",\"n\":5,\"dst\":1}");
+    skip.processDocument(skipDoc);
+    assertEquals(Integer.valueOf(1), skipDoc.getInt("dst"));
   }
 }

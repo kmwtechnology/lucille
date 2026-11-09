@@ -42,6 +42,9 @@ import java.util.Set;
  * dictionary-style access (`doc["field"]`) for dynamic or non-identifier field names. Both forms operate on the same
  * underlying data.
  * <p>
+ * Each document is processed with a fresh global namespace, so variables set while processing one document are not
+ * visible when processing the next.
+ * <p>
  * Config Parameters:
  * <ul>
  *   <li>scriptPath (String, Optional) : Path to the Python script to run.</li>
@@ -49,20 +52,30 @@ import java.util.Set;
  *   <li>s3 (Map, Optional) : If your Python file is held in S3. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : If your javascript file is held in Azure. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>gcp (Map, Optional) : If your javascript file is held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>storageClients (Map, Optional) : If your javascript file is held in storage with a custom StorageClient. See FileConnector for the appropriate arguments to provide.</li>
  * </ul>
  */
 public class EmbeddedPython extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("scriptPath", "script")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
+      .include(FileConnector.STORAGE_SPEC)
       .build();
 
   private final String scriptPath;
   private final String inlineScript;
 //  private final String pythonRoot;
 
+  // Runs the compiled script in a fresh global namespace for each document so that names assigned while processing one
+  // document are not visible while processing the next.
+  private static final String RUN_HELPER = """
+    def _lucille_run(code, doc, rawDoc):
+        exec(code, {"__name__": "__main__", "doc": doc, "rawDoc": rawDoc})
+    """;
+
   private Source source;
+  private Value compiledScript;
+  private Value runScript;
   private Context context;
   private Engine engine;
 
@@ -104,6 +117,9 @@ public class EmbeddedPython extends Stage {
           .allowAllAccess(true)
           .build();
 
+      this.context.eval("python", RUN_HELPER);
+      this.runScript = context.getBindings("python").getMember("_lucille_run");
+
       // Code for Python dependencies, but requires JDK 21
 
 //      if (pythonRoot != null) {
@@ -140,9 +156,11 @@ public class EmbeddedPython extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     try {
-      context.getBindings("python").putMember("doc", PyDocProxy.root(doc));
-      context.getBindings("python").putMember("rawDoc", doc);
-      context.eval(source);
+      // Compiled on first use so that syntax errors are reported per document, as before.
+      if (compiledScript == null) {
+        compiledScript = context.eval("python", "compile").execute(source.getCharacters().toString(), source.getName(), "exec");
+      }
+      runScript.execute(compiledScript, PyDocProxy.root(doc), doc);
       return null;
     } catch (Exception e) {
       throw new StageException("Python failed for doc '" + doc.getId() + "' using '" + scriptPath + "'.", e);

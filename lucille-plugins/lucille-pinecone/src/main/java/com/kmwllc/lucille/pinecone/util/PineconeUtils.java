@@ -1,10 +1,13 @@
 package com.kmwllc.lucille.pinecone.util;
 
 import io.pinecone.clients.Pinecone;
-import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
+import java.util.Set;
 
 public class PineconeUtils {
-  private static final String DEFAULT_NAMESPACE = "default";
+  // An empty namespace is Pinecone's default namespace, the one used by requests that don't name a namespace.
+  private static final String DEFAULT_NAMESPACE = "";
+
+  private static final Set<String> UNSTABLE_STATES = Set.of("Initializing", "InitializationFailed", "Terminating");
 
   private PineconeUtils() {
   }
@@ -16,9 +19,6 @@ public class PineconeUtils {
   public static boolean isClientStable(Pinecone client, String indexName) {
     if (client == null) return false;
 
-    StateEnum state = client.describeIndex(indexName).getStatus().getState();
-    return state != StateEnum.INITIALIZING &&
-        state != StateEnum.INITIALIZATIONFAILED &&
-        state != StateEnum.TERMINATING;
+    return !UNSTABLE_STATES.contains(client.describeIndex(indexName).getStatus().getState());
   }
 }

@@ -51,11 +51,10 @@
     }
   ],
   "indexer": {
-    "type": "CSV"
-  },
-  "csv": {
-    "columns": ["id", "run", "num", "run_label", "scratch"],
-    "path": "/output/run_b.csv",
-    "includeHeader": false
+    "csv": {
+      "columns": ["id", "run", "num", "run_label", "scratch"],
+      "path": "/output/run_b.csv",
+      "includeHeader": false
+    }
   }
 }

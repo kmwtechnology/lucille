@@ -59,7 +59,7 @@ connectors: [
 | [Kafka Connector]({{< relref "docs/ingest-design/connectors/kafka_connector" >}}) | Reads documents from a Kafka topic as a data source. |
 | [RSS Connector]({{< relref "docs/ingest-design/connectors/rss_connector" >}}) | Publishes documents from an RSS feed, with optional incremental refresh. |
 | [Sequence Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SequenceConnector.java) *(source only)* | Generates `numDocs` (required) empty Documents with numeric IDs `0`, `1`, ..., offset by `startWith` (integer, default `0`) and prefixed with `docIdPrefix`. Requires a `pipeline`. Useful for testing. |
-| [Sleep Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SleepConnector.java) *(source only)* | Sleeps for `duration` (required) milliseconds and publishes nothing, so it can run without a `pipeline`. Useful for testing. |
+| [Sleep Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SleepConnector.java) *(source only)* | Sleeps for `durationMs` (required) milliseconds and publishes nothing, so it can run without a `pipeline`. Useful for testing. |
 
 ## Lucille Connectors (Plugins)
 

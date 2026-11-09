@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -13,7 +14,6 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.net.URI;
 
 import java.io.File;
 import java.io.StringReader;
@@ -23,9 +23,12 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -47,6 +50,8 @@ import org.mockito.MockedStatic;
 
 public class FileConnectorStateManagerTest {
 
+  // Table the state manager creates for the connector named "file-connector-1" (the name in FileConnectorTest/state.conf).
+  private static final String CONNECTOR_TABLE = FileConnectorStateManager.toSqlTableName("file-connector-1");
   private static final String helloFile = "/hello.txt";
   private static final String infoFile = "/files/info.txt";
   private static final String secretsFile = "/files/subdir/secrets.txt";
@@ -62,6 +67,12 @@ public class FileConnectorStateManagerTest {
 
   // Note that every FCSM shares the same (static) set of tables in use, so each test must shut down every manager it
   // initializes.
+
+  // Reads last_published (epoch microseconds) as an Instant, or null if the file has never been published.
+  private static Instant publishedAt(ResultSet rs) throws SQLException {
+    long epochMicros = rs.getLong("last_published");
+    return rs.wasNull() ? null : Instant.EPOCH.plus(epochMicros, ChronoUnit.MICROS);
+  }
 
   // The publish time is taken right after start, and can equal it on a coarse clock.
   private static void assertPublishedDuringTest(Instant start, Instant published) {
@@ -96,13 +107,13 @@ public class FileConnectorStateManagerTest {
 
       assertTrue(helloRS.next());
       // the timestamp should be after the start of the test
-      assertPublishedDuringTest(start, helloRS.getTimestamp("last_published").toInstant());
+      assertPublishedDuringTest(start, publishedAt(helloRS));
 
       assertTrue(infoRS.next());
-      assertPublishedDuringTest(start, infoRS.getTimestamp("last_published").toInstant());
+      assertPublishedDuringTest(start, publishedAt(infoRS));
 
       assertTrue(secretRS.next());
-      assertPublishedDuringTest(start, secretRS.getTimestamp("last_published").toInstant());
+      assertPublishedDuringTest(start, publishedAt(secretRS));
     }
 
     manager.shutdown();
@@ -147,7 +158,7 @@ public class FileConnectorStateManagerTest {
         ResultSet infoRS = RunScript.execute(connection, new StringReader("SELECT * FROM file WHERE name = '/newdir/info.txt'"))) {
 
       assertTrue(infoRS.next());
-      assertPublishedDuringTest(start, infoRS.getObject("last_published", Instant.class));
+      assertPublishedDuringTest(start, publishedAt(infoRS));
     }
 
     manager.shutdown();
@@ -229,13 +240,13 @@ public class FileConnectorStateManagerTest {
         ResultSet infoRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/info.txt'"));
         ResultSet secretRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/subdir/secrets.txt'"))) {
       assertTrue(helloRS.next());
-      assertPublishedDuringTest(start, helloRS.getObject("last_published", Instant.class));
+      assertPublishedDuringTest(start, publishedAt(helloRS));
 
       assertTrue(infoRS.next());
-      assertPublishedDuringTest(start, infoRS.getObject("last_published", Instant.class));
+      assertPublishedDuringTest(start, publishedAt(infoRS));
 
       assertTrue(secretRS.next());
-      assertPublishedDuringTest(start, secretRS.getObject("last_published", Instant.class));
+      assertPublishedDuringTest(start, publishedAt(secretRS));
     }
 
     manager.shutdown();
@@ -256,7 +267,7 @@ public class FileConnectorStateManagerTest {
 
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
         Statement stmt = connection.createStatement()) {
-      ResultSet rs = stmt.executeQuery("SELECT * FROM \"FILE-CONNECTOR-1\"");
+      ResultSet rs = stmt.executeQuery("SELECT * FROM " + CONNECTOR_TABLE + "");
       assertNotNull(rs);
       System.out.println(rs);
     }
@@ -276,7 +287,7 @@ public class FileConnectorStateManagerTest {
 
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
         Statement stmt = connection.createStatement()) {
-        stmt.executeQuery("SELECT * FROM \"FILE-CONNECTOR-1\"");
+        stmt.executeQuery("SELECT * FROM " + CONNECTOR_TABLE + "");
     }
   }
 
@@ -299,23 +310,23 @@ public class FileConnectorStateManagerTest {
     // See above - textExampleTraversal has 16 files. This has 18, since we don't exclude "skipFile.txt".
     assertEquals(18, messenger1.getDocsSentForProcessing().size());
 
-    Timestamp publishedTimestamp;
-    String baseQuery = "SELECT * FROM \"FILE-CONNECTOR-1\" WHERE name = '" + fileConnectorExampleDir;
+    Instant publishedTimestamp;
+    String baseQuery = "SELECT * FROM " + CONNECTOR_TABLE + " WHERE name = '" + fileConnectorExampleDir;
 
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
         ResultSet aJSONResults = RunScript.execute(connection, new StringReader(baseQuery + "a.json'"));
         ResultSet subdirCSVResults = RunScript.execute(connection, new StringReader(baseQuery + "subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv'"))) {
 
       assertTrue(aJSONResults.next());
-      publishedTimestamp = aJSONResults.getTimestamp("last_published");
-      assertPublishedDuringTest(start, publishedTimestamp.toInstant());
+      publishedTimestamp = publishedAt(aJSONResults);
+      assertPublishedDuringTest(start, publishedTimestamp);
 
       assertTrue(subdirCSVResults.next());
-      assertEquals(publishedTimestamp, subdirCSVResults.getTimestamp("last_published"));
+      assertEquals(publishedTimestamp, publishedAt(subdirCSVResults));
 
       // before we run again, we will set these two files to have been published a long time ago, while everything else will still be
       // very recently published.
-      String baseUpdate = "UPDATE \"FILE-CONNECTOR-1\" SET last_published='2022-01-01 14:30:00' WHERE name='" + fileConnectorExampleDir;
+      String baseUpdate = "UPDATE " + CONNECTOR_TABLE + " SET last_published=1641047400000000 WHERE name='" + fileConnectorExampleDir;
       try (Statement statement = connection.createStatement()) {
         statement.executeUpdate(baseUpdate + "a.json'");
         statement.executeUpdate(baseUpdate + "subdirWith1csv1xml.tar.gz'");
@@ -354,6 +365,42 @@ public class FileConnectorStateManagerTest {
 
       FileUtils.deleteDirectory(stateDirectory);
     }
+  }
+
+  // LIKE wildcards in the prefix ('_', '%', '[') and the escape character match only themselves.
+  @Test
+  public void testMarkAllEntriesEncounteredEscapesWildcards() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    List<String> names = List.of("file:///tmp/a_b.zip!e.txt", "file:///tmp/aXb.zip!e.txt",
+        "file:///tmp/100%.zip!e.txt", "file:///tmp/100XYZ.zip!e.txt",
+        "file:///tmp/[a].zip!e.txt", "file:///tmp/a.zip!e.txt",
+        "file:///tmp/x!y.zip!e.txt", "file:///tmp/xy.zip!e.txt");
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        Statement stmt = connection.createStatement()) {
+      for (String name : names) {
+        stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('" + name + "', NULL, FALSE, 0)");
+      }
+    }
+
+    for (String archive : List.of("a_b.zip", "100%.zip", "[a].zip", "x!y.zip")) {
+      manager.markAllEntriesEncountered("file:///tmp/" + archive + "!");
+    }
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        Statement stmt = connection.createStatement();
+        ResultSet rs = stmt.executeQuery("SELECT name FROM \"FILE\" WHERE encountered = TRUE")) {
+      Set<String> encountered = new HashSet<>();
+      while (rs.next()) {
+        encountered.add(rs.getString("name"));
+      }
+      assertEquals(Set.of("file:///tmp/a_b.zip!e.txt", "file:///tmp/100%.zip!e.txt", "file:///tmp/[a].zip!e.txt",
+          "file:///tmp/x!y.zip!e.txt"), encountered);
+    }
+
+    manager.shutdown();
   }
 
   @Test
@@ -414,14 +461,14 @@ public class FileConnectorStateManagerTest {
 
     // Even though "skipFile.txt" is excluded, we should still have a state entry for it, without a lastPublished time
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
-        ResultSet skipFile1Results = RunScript.execute(connection, new StringReader("SELECT * FROM \"FILE-CONNECTOR-1\" WHERE name='" + fileConnectorExampleDir + "skipFile.txt'"));
-        ResultSet skipFile2Results = RunScript.execute(connection, new StringReader("SELECT * FROM \"FILE-CONNECTOR-1\" WHERE name='" + fileConnectorExampleDir + "subdir/skipFile.txt'"))) {
+        ResultSet skipFile1Results = RunScript.execute(connection, new StringReader("SELECT * FROM " + CONNECTOR_TABLE + " WHERE name='" + fileConnectorExampleDir + "skipFile.txt'"));
+        ResultSet skipFile2Results = RunScript.execute(connection, new StringReader("SELECT * FROM " + CONNECTOR_TABLE + " WHERE name='" + fileConnectorExampleDir + "subdir/skipFile.txt'"))) {
 
       assertTrue(skipFile1Results.next());
-      assertNull(skipFile1Results.getTimestamp("last_published"));
+      assertNull(publishedAt(skipFile1Results));
 
       assertTrue(skipFile2Results.next());
-      assertNull(skipFile2Results.getTimestamp("last_published"));
+      assertNull(publishedAt(skipFile2Results));
     }
   }
 
@@ -463,13 +510,13 @@ public class FileConnectorStateManagerTest {
     // - subdirWith1csv1xml.tar.gz (which has default.csv with 3 docs)
     // All other files/entries were just published, so their last_published is newer than the files on disk and
     // modifiedSinceLastPublish correctly skips them
-    String baseQuery = "SELECT * FROM \"FILE-CONNECTOR-1\" WHERE name = '" + fileConnectorExampleDir;
+    String baseQuery = "SELECT * FROM " + CONNECTOR_TABLE + " WHERE name = '" + fileConnectorExampleDir;
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
         ResultSet aJSONResults = RunScript.execute(connection, new StringReader(baseQuery + "a.json'"));
         ResultSet subdirCSVResults = RunScript.execute(connection, new StringReader(baseQuery + "subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv'"))) {
       assertTrue(aJSONResults.next());
       assertTrue(subdirCSVResults.next());
-      String baseUpdate = "UPDATE \"FILE-CONNECTOR-1\" SET last_published='2022-01-01 14:30:00' WHERE name='" + fileConnectorExampleDir;
+      String baseUpdate = "UPDATE " + CONNECTOR_TABLE + " SET last_published=1641047400000000 WHERE name='" + fileConnectorExampleDir;
       try (Statement statement = connection.createStatement()) {
         statement.executeUpdate(baseUpdate + "a.json'");
         statement.executeUpdate(baseUpdate + "subdirWith1csv1xml.tar.gz'");
@@ -602,9 +649,9 @@ public class FileConnectorStateManagerTest {
     manager.markFileEncountered(infoFile);
     manager.incrementRunsNotEncountered();
 
-    List<URI> expired = manager.listExpiredFiles();
+    List<String> expired = manager.listExpiredFiles();
     assertEquals(1, expired.size());
-    assertTrue(expired.contains(URI.create(secretsFile)));
+    assertTrue(expired.contains(secretsFile));
 
     manager.shutdown();
   }
@@ -623,7 +670,7 @@ public class FileConnectorStateManagerTest {
     manager.incrementRunsNotEncountered();
 
     assertEquals(1, manager.listExpiredFiles().size());
-    assertTrue(manager.listExpiredFiles().contains(URI.create(secretsFile)));
+    assertTrue(manager.listExpiredFiles().contains(secretsFile));
 
     manager.shutdown();
   }
@@ -804,6 +851,79 @@ public class FileConnectorStateManagerTest {
     manager3.init();
     manager3.markFileEncountered(helloFile);
     manager3.shutdown();
+  }
+
+  @Test
+  public void testExplicitTableNameMustBeValid() {
+    Config config = ConfigFactory.parseMap(Map.of("connectionString", "jdbc:h2:mem:invalidname", "tableName", "my-state"));
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnectorStateManager(config, null));
+    assertTrue(e.getMessage(), e.getMessage().contains("\"my-state\""));
+  }
+
+  // A table in the old TIMESTAMP WITH TIME ZONE format must fail at init, not fail every read and write silently later.
+  @Test
+  public void testOldSchemaTableFailsAtInit() throws Exception {
+    String url = "jdbc:h2:mem:oldschema;DB_CLOSE_DELAY=-1";
+    try (Connection connection = DriverManager.getConnection(url, "", "");
+        Statement statement = connection.createStatement()) {
+      statement.executeUpdate("CREATE TABLE OLDSTATE (name VARCHAR(200) PRIMARY KEY, last_published TIMESTAMP WITH TIME ZONE, "
+          + "encountered BOOLEAN, runs_not_encountered INTEGER)");
+
+      Config config = ConfigFactory.parseMap(Map.of("connectionString", url, "tableName", "oldstate"));
+      FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+      IllegalStateException e = assertThrows(IllegalStateException.class, manager::init);
+      assertTrue(e.getMessage(), e.getMessage().contains("older version of Lucille"));
+      manager.shutdown();
+    }
+  }
+
+  // Every generated name ends in a hash of the exact connector name, so the table for a name is always distinct.
+  private static final String HASH_PATTERN = "[0-9A-F]{8}";
+
+  @Test
+  public void testToSqlTableNameIsPrefixedAndHashed() {
+    assertTrue(FileConnectorStateManager.toSqlTableName("file").matches("STATE_FILE_" + HASH_PATTERN));
+    assertTrue(FileConnectorStateManager.toSqlTableName("connector_2").matches("STATE_CONNECTOR_2_" + HASH_PATTERN));
+  }
+
+  // Connector names that differ only by case are different connectors, so they must get different tables.
+  @Test
+  public void testToSqlTableNameDistinguishesCase() {
+    assertNotEquals(FileConnectorStateManager.toSqlTableName("file"), FileConnectorStateManager.toSqlTableName("File"));
+    assertNotEquals(FileConnectorStateManager.toSqlTableName("FILE"), FileConnectorStateManager.toSqlTableName("file"));
+  }
+
+  @Test
+  public void testToSqlTableNamePrefixesReservedWords() {
+    // A reserved word is valid unquoted once prefixed.
+    assertTrue(FileConnectorStateManager.toSqlTableName("order").matches("STATE_ORDER_" + HASH_PATTERN));
+    assertTrue(FileConnectorStateManager.toSqlTableName("select").matches("STATE_SELECT_" + HASH_PATTERN));
+  }
+
+  @Test
+  public void testToSqlTableNameRewritesInvalidNames() {
+    String mapped = FileConnectorStateManager.toSqlTableName("file-connector-1");
+    assertTrue(mapped, mapped.matches("STATE_FILE_CONNECTOR_1_" + HASH_PATTERN));
+    // Names that differ only in their invalid characters must not collide.
+    assertNotEquals(FileConnectorStateManager.toSqlTableName("my-conn"), FileConnectorStateManager.toSqlTableName("my_conn"));
+    assertNotEquals(FileConnectorStateManager.toSqlTableName("my conn"), FileConnectorStateManager.toSqlTableName("my.conn"));
+  }
+
+  @Test
+  public void testToSqlTableNameAlwaysStartsWithPrefix() {
+    assertTrue(FileConnectorStateManager.toSqlTableName("1st-connector").startsWith("STATE_1ST_CONNECTOR_"));
+    assertTrue(FileConnectorStateManager.toSqlTableName("").startsWith("STATE_"));
+  }
+
+  @Test
+  public void testToSqlTableNameIsLengthLimited() {
+    String longName = "s3-" + "x".repeat(200);
+    String mapped = FileConnectorStateManager.toSqlTableName(longName);
+    assertTrue(mapped.length() <= FileConnectorStateManager.MAX_TABLE_NAME_LENGTH);
+    assertTrue(mapped, mapped.matches("[A-Z][A-Z0-9_]*"));
+    // a long name that is already a valid identifier is still bounded
+    String validLong = "A".repeat(FileConnectorStateManager.MAX_TABLE_NAME_LENGTH + 1);
+    assertTrue(FileConnectorStateManager.toSqlTableName(validLong).length() <= FileConnectorStateManager.MAX_TABLE_NAME_LENGTH);
   }
 
   @Test

@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.core.spec.Spec;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValueFactory;
 
@@ -63,6 +62,8 @@ public interface Connector extends AutoCloseable {
    *
    * Will not be called if preExecute() throws an exception.
    *
+   * The run ID is passed to preExecute(); a Connector that needs it during execute() should keep it from there.
+   *
    * @param publisher An object that provides a publish() method accepting a document to be published.
    * @throws ConnectorException in the event an error occurs.
    */
@@ -80,91 +81,120 @@ public interface Connector extends AutoCloseable {
   void postExecute(String runId) throws ConnectorException;
 
   /**
-   * @return The Spec describing this Connector's Config properties. Must be declared as <code>public static final Spec SPEC</code>.
-   * @throws RuntimeException If this Connector does not have a <code>public static final Spec SPEC</code>.
-   */
-  Spec getSpec();
-
-  /**
-   * Instantiates a list of Connectors from the designated Config.
+   * Instantiates a list of Connectors from the designated Config. A connector without a <code>name</code> is named
+   * <code>connector_N</code>, where N is its 1-based position in <code>connectors</code>.
    *
    * @param config The configuration you want to extract Connectors from.
-   * @throws ReflectiveOperationException If a reflective error occurs while constructing a Connector.
-   * @throws ConnectorException In the event you specify multiple connectors with the same name.
+   * @throws ConnectorException If two connectors share a name, a connector class cannot be found or instantiated, or a
+   *     connector's constructor throws a ConnectorException or another checked exception.
+   * @throws IllegalArgumentException If a connector config names no class or a class that is not a Connector, or if a
+   *     Connector's constructor rejects its config.
    * @return A list of Connectors build from the given Config.
    */
-  static List<Connector> fromConfig(Config config) throws ReflectiveOperationException, ConnectorException {
+  static List<Connector> fromConfig(Config config) throws ConnectorException {
     List<? extends Config> connectorConfigs = config.getConfigList("connectors");
 
     List<Connector> connectors = new ArrayList<>();
-    int index = 1;
+    int position = 1;
     for (Config c : connectorConfigs) {
-      final String name = ConfigUtils.getStringOrDefault(c, "name", ("connector_" + index));
-      if (!c.hasPath("name")) {
-        c = c.withValue("name", ConfigValueFactory.fromAnyRef(name));
-      }
+      Config named = withDefaultName(c, position);
+      String name = named.getString("name");
       if (connectors.stream().anyMatch(x -> name.equals(x.getName()))) {
         throw new ConnectorException("Two connectors cannot share the same name: " + name);
       }
-
-      Class<?> clazz = Class.forName(c.getString("class"));
-      Constructor<?> constructor = clazz.getConstructor(Config.class);
-      Connector connector = (Connector) constructor.newInstance(c);
-      connectors.add(connector);
-      index++;
+      connectors.add(newInstance(named));
+      position++;
     }
     return connectors;
   }
 
   /**
-   * Gets a List of Exceptions associated with the given configuration for connectors. Use to get the invalid / missing properties
-   * in the given Config.
+   * Gets a List of Exceptions associated with the given configuration for a connector. Use to get the invalid / missing
+   * properties in the given Config. A connector without a <code>name</code> is validated under the name it would have in
+   * a run, <code>connector_N</code>.
    *
-   * @param connectorConfig Configuration for Connectors that you want to get Exceptions for.
-   * @return A List of Exceptions associated with the given Connectors (primarily to do with whether the Configuration is valid).
+   * @param connectorConfig Configuration for the Connector that you want to get Exceptions for.
+   * @param position The connector's 1-based position in <code>connectors</code>.
+   * @return A List of Exceptions associated with the given Connector (primarily to do with whether the Configuration is
+   *     valid).
    */
-  static List<Exception> getConnectorConfigExceptions(Config connectorConfig) {
+  static List<Exception> getConnectorConfigExceptions(Config connectorConfig, int position) {
     // We still use a list so we can support adding extra exceptions in the event of duplicate connector names,
     // even though we will only ever add one exception in the body of this method!
     List<Exception> exceptionList = new ArrayList<>();
 
+    // Creates the connector; AbstractConnector runs validation and throws an exception as needed. The connector is
+    // constructed rather than only its Spec checked, because a constructor can reject combinations the Spec cannot
+    // express (such as FileConnector's collapse with several threads).
+    Connector connector = null;
     try {
-      // so validation logs / messages look a bit clearer.
-      // (if we just blindly access class, and it doesn't exist, a more verbose / less descriptive Exception message is printed)
-      if (!connectorConfig.hasPath("class")) {
-        throw new IllegalArgumentException("No Connector class specified.");
-      }
-
-      Class<?> clazz = Class.forName(connectorConfig.getString("class"));
-      Constructor<?> constructor = clazz.getConstructor(Config.class);
-
-      // Creates the connector, AbstractConnector will run validation and throw an exception as needed.
-      Connector connector = null;
-      try {
-        connector = (Connector) constructor.newInstance(connectorConfig);
-      } catch (InvocationTargetException e) {
-        if (e.getTargetException() instanceof Exception) {
-          throw (Exception) e.getCause();
-        } else {
-          throw e;
-        }
-      } finally {
-        // the connector was constructed only to validate its config; release any client its constructor opened
-        if (connector != null) {
-          try {
-            connector.close();
-          } catch (Exception e) {
-            LoggerFactory.getLogger(Connector.class).debug("Error closing connector constructed for validation", e);
-          }
-        }
-      }
-    } catch (ReflectiveOperationException e) {
-      exceptionList.add(new ConnectorException("Error with Connector class / constructor: " + e.getMessage()));
+      connector = newInstance(withDefaultName(connectorConfig, position));
     } catch (Exception e) {
       exceptionList.add(e);
+    } finally {
+      // the connector was constructed only to validate its config; release any client its constructor opened
+      if (connector != null) {
+        try {
+          connector.close();
+        } catch (Exception e) {
+          LoggerFactory.getLogger(Connector.class).debug("Error closing connector constructed for validation", e);
+        }
+      }
     }
 
     return exceptionList;
+  }
+
+  // the name a connector has in a run: its configured name, or connector_N for the one at 1-based position N
+  // (Runner.validateConnectors applies the same rule to key its validation errors)
+  private static Config withDefaultName(Config connectorConfig, int position) {
+    return connectorConfig.hasPath("name")
+        ? connectorConfig
+        : connectorConfig.withValue("name", ConfigValueFactory.fromAnyRef("connector_" + position));
+  }
+
+  private static Connector newInstance(Config config) throws ConnectorException {
+    // checked first so validation reports a clear message rather than the Config library's missing-path error
+    if (!config.hasPath("class")) {
+      throw new IllegalArgumentException("No Connector class specified.");
+    }
+    String className = config.getString("class");
+
+    Class<?> clazz;
+    try {
+      clazz = Class.forName(className);
+    } catch (ClassNotFoundException e) {
+      throw new ConnectorException("Connector class not found: " + className, e);
+    }
+    if (!Connector.class.isAssignableFrom(clazz)) {
+      throw new IllegalArgumentException("Class " + className + " is not a Connector");
+    }
+
+    Constructor<?> constructor;
+    try {
+      constructor = clazz.getConstructor(Config.class);
+    } catch (NoSuchMethodException e) {
+      throw new ConnectorException("Connector class " + className + " has no public constructor taking a Config", e);
+    }
+
+    try {
+      return (Connector) constructor.newInstance(config);
+    } catch (InvocationTargetException e) {
+      // rethrow what the constructor threw, so a validation error reaches the caller unwrapped
+      Throwable cause = e.getCause();
+      if (cause instanceof ConnectorException connectorException) {
+        throw connectorException;
+      }
+      if (cause instanceof RuntimeException runtimeException) {
+        throw runtimeException;
+      }
+      if (cause instanceof Error error) {
+        throw error;
+      }
+      throw new ConnectorException("Error creating connector " + className, cause);
+    } catch (InstantiationException | IllegalAccessException e) {
+      throw new ConnectorException("Could not instantiate connector class " + className, e);
+    }
   }
 
   /**

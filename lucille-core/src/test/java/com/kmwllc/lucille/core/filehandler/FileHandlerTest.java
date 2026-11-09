@@ -100,4 +100,16 @@ public class FileHandlerTest {
     result = FileHandler.createFromConfig(overrideCSV);
     assertInstanceOf(JsonFileHandler.class, result.get("csv"));
   }
+
+  // fileHandlers keys are extensions, matched without regard to case
+  @Test
+  public void testCreateFromConfigLowerCasesKeys() {
+    Map<String, FileHandler> result = FileHandler.createFromConfig(ConfigFactory.parseMap(Map.of("CSV", Map.of(), "Json", Map.of())));
+    assertInstanceOf(CSVFileHandler.class, result.get("csv"));
+    assertInstanceOf(JsonFileHandler.class, result.get("json"));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> FileHandler.createFromConfig(ConfigFactory.parseMap(Map.of("csv", Map.of(), "CSV", Map.of()))));
+    assertTrue(e.getMessage().contains("case"));
+  }
 }

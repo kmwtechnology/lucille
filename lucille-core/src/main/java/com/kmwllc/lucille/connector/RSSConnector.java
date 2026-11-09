@@ -36,8 +36,8 @@ import org.slf4j.LoggerFactory;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>rssURL (String, Required) : URL of the RSS feed.</li>
- *   <li>useGuidForDocID (Boolean, Optional) : Use the RSS item GUID as the Document ID. Defaults to true; if false, a UUID is generated per Document.</li>
+ *   <li>rssUrl (String, Required) : URL of the RSS feed.</li>
+ *   <li>useGuidForDocId (Boolean, Optional) : Use the RSS item GUID as the Document ID. Defaults to true; if false, a UUID is generated per Document.</li>
  *   <li>pubDateCutoff (String, Optional) : Duration string; only publish items with a pubDate within this period. Defaults to including all items.
  *   If the pubDate is missing, the item will be included.</li>
  *   <li>runDuration (String, Optional) : Total time to run when refreshing incrementally; must be used with refreshIncrement.</li>
@@ -47,8 +47,8 @@ import org.slf4j.LoggerFactory;
 public class RSSConnector extends AbstractConnector {
 
   public static final Spec SPEC = SpecBuilder.connector()
-      .requiredString("rssURL")
-      .optionalBoolean("useGuidForDocID")
+      .requiredString("rssUrl")
+      .optionalBoolean("useGuidForDocId")
       // best to reference durations as Strings
       .optionalString("pubDateCutoff", "runDuration", "refreshIncrement").build();
 
@@ -69,12 +69,12 @@ public class RSSConnector extends AbstractConnector {
     super(config);
 
     try {
-      this.rssURL = new URL(config.getString("rssURL"));
+      this.rssURL = new URL(config.getString("rssUrl"));
     } catch (MalformedURLException e) {
-      throw new IllegalArgumentException("Attempted to create RSSConnector with malformed rssURL.", e);
+      throw new IllegalArgumentException("Attempted to create RSSConnector with malformed rssUrl.", e);
     }
 
-    this.useGuidForDocID = ConfigUtils.getOrDefault(config, "useGuidForDocID", true);
+    this.useGuidForDocID = ConfigUtils.getOrDefault(config, "useGuidForDocId", true);
 
     if (config.hasPath("pubDateCutoff")) {
       this.pubDateCutoffDuration = config.getDuration("pubDateCutoff");

@@ -82,7 +82,7 @@ When two documents with the same ID reach the Indexer (either because collapsing
 
 ### At the Indexer Level: Ordering Within a Batch
 
-If a batch contains both an upsert and a delete for the same ID, the Indexer implementations (SolrIndexer, OpenSearchIndexer) explicitly handle ordering — flushing pending upserts before processing a delete for the same ID, or vice versa. This ensures that the operations are applied in the correct sequence even within a single batch.
+If a batch contains both an upsert and a delete for the same ID, the Indexer implementations make sure the last one wins, even within a single batch. SolrIndexer sends them in sequence, flushing pending upserts before processing a delete for the same ID, or vice versa. OpenSearchIndexer and ElasticsearchIndexer send only the last upsert or delete for each ID and report the earlier ones as succeeded.
 
 ---
 
@@ -106,7 +106,7 @@ indexer {
 1. The Connector creates the document with a stable internal ID (e.g., `"source-record-42"`)
 2. A pipeline Stage computes a better ID and stores it in a field (e.g., `doc.setField("computed_id", "hash-abc123")`)
 3. The document flows through the system tracked by its internal ID (`"source-record-42"`)
-4. At indexing time, the Indexer calls `getDocIdOverride(doc)` which returns `"hash-abc123"`
+4. At indexing time, the Indexer calls `getDestinationId(doc)` which returns `"hash-abc123"`
 5. The document is sent to the search backend with ID `"hash-abc123"`
 
 ### What Uses Which ID

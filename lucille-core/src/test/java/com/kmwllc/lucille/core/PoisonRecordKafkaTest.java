@@ -14,6 +14,7 @@ import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.kmwllc.lucille.message.KafkaWorkerMessenger;
 import com.kmwllc.lucille.message.MessengerException;
+import com.kmwllc.lucille.message.UndeserializableRecordException;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.util.StoringAppender;
 import com.typesafe.config.Config;
@@ -145,7 +146,7 @@ public class PoisonRecordKafkaTest {
         "kafka {\n"
             + "  bootstrapServers: \"%s\"\n"
             + "  consumerGroupId: \"%s\"\n"
-            + "  maxPollIntervalSecs: 30\n"
+            + "  maxPollIntervalMs: 30000\n"
             + "  maxRequestSize: 10000000\n"
             + "  %s\n"
             + "}\n"
@@ -187,18 +188,22 @@ public class PoisonRecordKafkaTest {
     return null;
   }
 
-  /** Polls until the poll throws a RecordDeserializationException. */
-  private static RecordDeserializationException pollUntilPoison(PollFn poll) throws Exception {
+  /** Polls until the poll throws an UndeserializableRecordException. */
+  private static UndeserializableRecordException pollUntilPoison(PollFn poll) throws Exception {
     long deadline = System.currentTimeMillis() + 60000;
     while (System.currentTimeMillis() < deadline) {
       try {
         assertNull("no document should be returned past the poison record", poll.poll());
-      } catch (RecordDeserializationException e) {
+      } catch (UndeserializableRecordException e) {
         return e;
       }
     }
-    fail("poll did not throw RecordDeserializationException within 60s");
+    fail("poll did not throw UndeserializableRecordException within 60s");
     return null;
+  }
+
+  private static long offsetOf(UndeserializableRecordException e) {
+    return ((RecordDeserializationException) e.getCause()).offset();
   }
 
   private interface PollFn {
@@ -264,13 +269,14 @@ public class PoisonRecordKafkaTest {
     try {
       assertEquals("doc1", pollUntilDoc(messenger::pollDocToProcess).getId());
 
-      RecordDeserializationException poison = pollUntilPoison(messenger::pollDocToProcess);
-      assertEquals(1L, poison.offset());
+      UndeserializableRecordException poison = pollUntilPoison(messenger::pollDocToProcess);
+      assertEquals(1L, offsetOf(poison));
+      assertTrue(poison.getMessage(), poison.getMessage().contains("offset=1"));
 
       // the position was not advanced: the same record fails again
-      RecordDeserializationException again =
-          assertThrows(RecordDeserializationException.class, messenger::pollDocToProcess);
-      assertEquals(1L, again.offset());
+      UndeserializableRecordException again =
+          assertThrows(UndeserializableRecordException.class, messenger::pollDocToProcess);
+      assertEquals(1L, offsetOf(again));
     } finally {
       messenger.close();
     }
@@ -299,7 +305,7 @@ public class PoisonRecordKafkaTest {
 
     workerThread.join(120000);
     assertFalse("worker should stop on the poison record", workerThread.isAlive());
-    assertTrue(messenger.lastPollFailure instanceof RecordDeserializationException);
+    assertTrue(messenger.lastPollFailure instanceof UndeserializableRecordException);
     assertTrue("worker should close its messenger on the way out", messenger.closed);
 
     assertEquals(1L, committedOffset(config, groupId, sourceTopic));
@@ -358,8 +364,8 @@ public class PoisonRecordKafkaTest {
       // poison2 is skipped; doc3 resets the streak
       assertEquals("doc3", pollUntilDoc(messenger::pollDocToProcess).getId());
       // poison4 is skipped, poison5 is the second in a row and escalates
-      RecordDeserializationException e = pollUntilPoison(messenger::pollDocToProcess);
-      assertEquals(4L, e.offset());
+      UndeserializableRecordException e = pollUntilPoison(messenger::pollDocToProcess);
+      assertEquals(4L, offsetOf(e));
     } finally {
       messenger.close();
     }
@@ -475,17 +481,17 @@ public class PoisonRecordKafkaTest {
     }
 
     @Override
-    public Document pollDocToProcess() throws Exception {
+    public Document pollDocToProcess() throws MessengerException {
       try {
         return delegate.pollDocToProcess();
-      } catch (Exception e) {
+      } catch (MessengerException | RuntimeException e) {
         lastPollFailure = e;
         throw e;
       }
     }
 
     @Override
-    public void commitPendingDocOffsets() throws Exception {
+    public void commitPendingDocOffsets() throws MessengerException {
       delegate.commitPendingDocOffsets();
     }
 
@@ -510,7 +516,7 @@ public class PoisonRecordKafkaTest {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
       closed = true;
       delegate.close();
     }

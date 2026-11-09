@@ -59,8 +59,9 @@ If you need to see what fields and values the document had at the point of failu
 **Re-run with a CSV indexer.** Swap your indexer to CSV and re-run. Documents that would have been rejected by the real backend are written to the CSV file where you can inspect their fields. This helps with indexer rejections but not pipeline failures (the document never reaches the indexer if a stage throws).
 
 ```hocon
-indexer { type: "CSV" }
-csv { path: "./debug-output.csv", columns: ["id", "title", "problematic_field"] }
+indexer {
+  csv { path: "./debug-output.csv", columns: ["id", "title", "problematic_field"] }
+}
 ```
 
 **Re-run in test mode (Java).** Use `Runner.runInTestMode()` with the same config and source data. After the run, inspect documents programmatically:
@@ -167,11 +168,11 @@ If unset, refer to the [installation guide]({{< relref "docs/getting-started/ins
 
 **Cause:**
 
-The standalone Indexer (distributed mode) does not poll Kafka while it waits on a bulk request, and during a rebalance it finishes its in-progress requests before rejoining the group. If that takes longer than `kafka.maxPollIntervalSecs`, Kafka evicts the Indexer, and the documents it had in progress are re-delivered and indexed again; no document is skipped. A request still running at eviction can, however, finish after the new owner's replay and leave stale destination state, such as a deleted document reappearing.
+The standalone Indexer (distributed mode) does not poll Kafka while it waits on a bulk request, and during a rebalance it finishes its in-progress requests before rejoining the group. If that takes longer than `kafka.maxPollIntervalMs`, Kafka evicts the Indexer, and the documents it had in progress are re-delivered and indexed again; no document is skipped. A request still running at eviction can, however, finish after the new owner's replay and leave stale destination state, such as a deleted document reappearing.
 
 **Fix:**
 
-* Set `kafka.maxPollIntervalSecs` to at least three times the slowest bulk request, including retries. See [maxPollIntervalSecs]({{< relref "docs/operations/performance-tuning#maxpollintervalsecs" >}}) for how to estimate it.
+* Set `kafka.maxPollIntervalMs` to at least three times the slowest bulk request, including retries. See [maxPollIntervalMs]({{< relref "docs/operations/performance-tuning#maxpollintervalms" >}}) for how to estimate it.
 * Or shorten the slowest bulk request: lower `indexer.maxRetries` or `indexer.retryMaxWaitDurationMs`, or the client's `socketTimeoutMs`.
 
 ## Solr / Elasticsearch / OpenSearch Connectivity
@@ -212,5 +213,5 @@ The standalone Indexer (distributed mode) does not poll Kafka while it waits on 
 
 ## Timeouts
 
-Lucille has a default timeout specified in `runner.connectorTimeout` of 24 hours. You can override this timeout in the configuration file. This may be necessary in the case of very large or long-running jobs that may take more than 24 hours to complete.
+Lucille has a default timeout specified in `runner.connectorTimeoutMs` of 24 hours. You can override this timeout in the configuration file. This may be necessary in the case of very large or long-running jobs that may take more than 24 hours to complete.
 

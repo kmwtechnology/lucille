@@ -7,7 +7,7 @@ description: Finds dictionary terms in text fields using a Lucene FST and writes
 
 `com.kmwllc.lucille.stage.ExtractEntitiesFST`
 
-Finds occurrences of dictionary terms anywhere inside the values of each `source` field, using a Lucene finite-state transducer (FST), and writes the payloads of the matched terms to the corresponding `dest` field. It is an alternative to [ExtractEntities]({{< relref "docs/ingest-design/stages/extract_entities" >}}) with the same configuration, minus `onlyWhitespaceSeparated` and plus `dictsSorted`.
+Finds occurrences of dictionary terms anywhere inside the values of each `source` field, using a Lucene finite-state transducer (FST), and writes the payloads of the matched terms to the corresponding `dest` field. It is an alternative to [ExtractEntities]({{< relref "docs/ingest-design/stages/extract_entities" >}}) with the same configuration, minus `onlyWhitespaceSeparated` and plus `dictionariesSorted`.
 
 Dictionaries are CSV files read as UTF-8. Each row is `term` or `term, payload`; columns after the second are ignored. A row with no payload uses the term as its payload. Terms and payloads are trimmed, and terms are lowercased when `ignoreCase` is `true`. If a term appears more than once, across all dictionaries, the first row wins. Rows containing malformed characters are skipped with a warning. All dictionaries are loaded at startup, and a dictionary that cannot be read fails the stage at startup.
 
@@ -24,11 +24,12 @@ Dictionaries are CSV files read as UTF-8. Each row is `term` or `term, payload`;
 | `onlyWholeWords` | Boolean | No | Matches must not be preceded or followed by a letter. Default: `true`. |
 | `ignoreOverlaps` | Boolean | No | Keep only the longest match starting at each position and continue scanning after it. If `false`, all matches starting at each position are kept, including overlapping ones. Default: `false`. |
 | `stopOnHit` | Boolean | No | Stop scanning a field after the first position where a match starts. Default: `false`. |
-| `dictsSorted` | Boolean | No | Skip sorting dictionary terms at startup, to reduce startup time. Set only if the terms are already sorted (after trimming, and lowercasing if `ignoreCase` is `true`). Default: `false`. |
+| `dictionariesSorted` | Boolean | No | Skip sorting dictionary terms at startup, to reduce startup time. Set only if the terms are already sorted (after trimming, and lowercasing if `ignoreCase` is `true`). Default: `false`. |
 | `updateMode` | String | No | `overwrite`, `append`, or `skip`. Applies to `dest` and `entityField`. Default: `overwrite`. |
 | `s3` | Object | No | S3 credentials for reading dictionaries from S3: `accessKeyId`, `secretAccessKey`, `region`, `anonymous`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 | `azure` | Object | No | Azure credentials for reading dictionaries from Azure: `connectionString`, `accountName`, `accountKey`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
-| `gcp` | Object | No | Google Cloud credentials for reading dictionaries from GCS: `pathToServiceKey` (required within `gcp`), `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `gcp` | Object | No | Google Cloud credentials for reading dictionaries from GCS: `serviceKeyPath` (required within `gcp`), `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `storageClients` | Object | No | Custom StorageClients, keyed by URI scheme, for reading dictionaries from other storage systems, or in place of a built-in client. See [Custom Storage Clients]({{< relref "docs/ingest-design/connectors/file_connector#custom-storage-clients" >}}). |
 
 ```hocon
 {

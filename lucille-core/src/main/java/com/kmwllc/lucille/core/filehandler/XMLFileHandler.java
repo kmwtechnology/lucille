@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.util.XMLUtils;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,7 +38,7 @@ import org.xml.sax.XMLReader;
  *   <li><code>xpathIdPath</code> (String): An xpath expression, <i>relative</i> to <code>xmlRootPath</code>, specifying the XML element
  *   or attribute that will be used to create Document IDs. This path can be a qualifier - be sure to enable <code>skipEmptyId</code>, if so!</li>
  *   <li><code>encoding</code> (String, Optional): The encoding the xml files use. Defaults to utf-8.</li>
- *   <li><code>outputField</code> (String, Optional): The field you want to put the extracted XML text into. Defaults to "xml".</li>
+ *   <li><code>xmlField</code> (String, Optional): The field that holds each element's raw XML, including its own tags. Defaults to "xml".</li>
  *   <li><code>skipEmptyId</code> (Boolean, Optional): Whether you want to skip a document when your <code>xmlIdPath</code> or <code>xpathIdPath</code>
  *   evaluates to an empty or null String. You should enable if using an <code>xpathIdPath</code> that is a qualifier. Defaults to false.</li>
  *   <li><code>maxRecordBytes</code> (Integer, Optional): The maximum number of bytes the handler may hold in memory while
@@ -45,6 +46,9 @@ import org.xml.sax.XMLReader;
  *   from earlier records will already have been published. The limit is approximate, since bytes read ahead by the parser
  *   are counted too, and it also applies to any content before the first record (so a file where <code>xmlRootPath</code>
  *   never matches will hit it). No limit by default.</li>
+ *   <li><code>allowDoctype</code> (Boolean, Optional): Whether files may contain a DOCTYPE. Even when allowed, external DTDs
+ *   and external entities are never loaded. A record that uses an entity declared in the DOCTYPE is published
+ *   with a DOCTYPE declaring just those entities, so it parses on its own. Defaults to false, so a file with a DOCTYPE fails to parse.</li>
  * </ul>
  *
  * <b>Note:</b> You cannot specify both an <code>xmlIdPath</code> and an <code>xpathIdPath</code>. <code>xmlIdPath</code> runs
@@ -54,9 +58,9 @@ public class XMLFileHandler extends BaseFileHandler {
 
   public static final Spec SPEC = SpecBuilder.fileHandler()
       .requiredString("xmlRootPath")
-      .optionalString("xmlIdPath", "xpathIdPath", "docIdPrefix", "outputField", "encoding")
+      .optionalString("xmlIdPath", "xpathIdPath", "xmlField", "encoding")
       .optionalNumber("maxRecordBytes")
-      .optionalBoolean("skipEmptyId").build();
+      .optionalBoolean("skipEmptyId", "allowDoctype").build();
 
   private static final Logger log = LoggerFactory.getLogger(XMLFileHandler.class);
 
@@ -68,6 +72,7 @@ public class XMLFileHandler extends BaseFileHandler {
   private final boolean skipEmptyId;
   // 0 means no limit
   private final int maxRecordBytes;
+  private final boolean allowDoctype;
 
   private SAXParserFactory spf = null;
   private SAXParser saxParser = null;
@@ -80,8 +85,9 @@ public class XMLFileHandler extends BaseFileHandler {
     this.xmlIdPath = ConfigUtils.getStringOrDefault(config, "xmlIdPath", null);
     this.xpathIdPath = ConfigUtils.getStringOrDefault(config, "xpathIdPath", null);
     this.encoding = ConfigUtils.getStringOrDefault(config, "encoding", "utf-8");
-    this.outputField = ConfigUtils.getStringOrDefault(config, "outputField", "xml");
+    this.outputField = ConfigUtils.getStringOrDefault(config, "xmlField", "xml");
     this.skipEmptyId = ConfigUtils.getOrDefault(config, "skipEmptyId", false);
+    this.allowDoctype = ConfigUtils.getOrDefault(config, "allowDoctype", false);
 
     this.maxRecordBytes = ConfigUtils.getIntOrDefault(config, "maxRecordBytes", 0);
     if (config.hasPath("maxRecordBytes") && maxRecordBytes <= 0) {
@@ -128,8 +134,16 @@ public class XMLFileHandler extends BaseFileHandler {
   private void setUpSAXParserIfNeeded(SAXParserFactory spf, String path) throws FileHandlerException {
     if (saxParser == null) {
       try {
-        spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, false);
+        // secure processing's entity expansion limits only matter when a DTD can declare entities; without one it stays
+        // off, so large files are not held to its size limits
+        spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, allowDoctype);
+        XMLUtils.secure(spf, allowDoctype);
         saxParser = spf.newSAXParser();
+        if (allowDoctype) {
+          // the 64,000 expansion count fails large files that use a declared entity once per record; the node and size limits
+          // still stop billion laughs
+          saxParser.setProperty("jdk.xml.entityExpansionLimit", "0");
+        }
       } catch (ParserConfigurationException | SAXException e) {
         throw new FileHandlerException(String.format("SAX Parser Error. (%s)", path), e);
       }
@@ -156,6 +170,9 @@ public class XMLFileHandler extends BaseFileHandler {
 
     try {
       xmlHandler = new ChunkingXMLHandler();
+      if (allowDoctype) {
+        xmlReader.setProperty("http://xml.org/sax/properties/declaration-handler", xmlHandler);
+      }
     } catch (Exception e) {
       throw new FileHandlerException(String.format("Error setting up ChunkingXMLHandler. (%s)", path), e);
     }

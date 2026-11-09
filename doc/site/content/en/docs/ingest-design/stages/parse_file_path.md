@@ -32,11 +32,11 @@ Set `parseUris` to `false` to parse URIs like any other path, as before: `s3://a
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `filePathField` | String | No | Field containing the file path. Default: `file_path`. |
-| `fileSep` | String | No | Separator used in the output paths. Must be `/` or `\` (escape it as `"\\"` in HOCON). Default: the operating system's separator. |
+| `fileSeparator` | String | No | Separator used in the output paths. Must be `/` or `\` (escape it as `"\\"` in HOCON). Default: the operating system's separator. |
 | `uppercaseExtension` | Boolean | No | Write `file_extension` in uppercase. Default: `true`. |
 | `includeHierarchy` | Boolean | No | Populate `file_paths`. Default: `true`. |
 | `parseUris` | Boolean | No | Parse a value that starts with a URI scheme as a URI, as described above. Default: `true`. |
 | `decodeFilePath` | Boolean | No | URL-decode (UTF-8) the path before parsing it. For a URI, the authority and path are decoded after the URI is split. `+` is kept as is, and a path with an invalid escape such as `100%.txt`, or with an encoded null character (`%00`), is parsed without decoding. Default: `false`. |
 | `includeLevel` | Boolean | No | Populate `level`. Default: `false`. |
 | `clearInvalidExtension` | Boolean | No | Set `file_extension` to `""` when the extension contains a control character or a character that looks like a slash: `/`, `\`, U+2215, U+2044, U+29F8, U+FF0F, U+FE68, U+2216, U+29F9 or U+FF3C. Default: `false`. |
-| `rootedHierarchy` | Boolean | No | Start each `file_paths` value with `fileSep`: `/a/b/c.txt` gives `/a` and `/a/b`. Windows paths get one too: `C:\a\c.txt` gives `\C:` and `\C:\a`. Default: `false`. |
+| `rootedHierarchy` | Boolean | No | Start each `file_paths` value with `fileSeparator`: `/a/b/c.txt` gives `/a` and `/a/b`. Windows paths get one too: `C:\a\c.txt` gives `\C:` and `\C:\a`. Default: `false`. |

@@ -60,6 +60,7 @@ import java.util.Set;
  *   <li>s3 (Map, Optional) : If your javascript file is held in S3. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : If your javascript file is held in Azure. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>gcp (Map, Optional) : If your javascript file is held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>storageClients (Map, Optional) : If your javascript file is held in storage with a custom StorageClient. See FileConnector for the appropriate arguments to provide.</li>
  * </ul>
  */
 public class ApplyJavascript extends Stage {
@@ -67,7 +68,7 @@ public class ApplyJavascript extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("scriptPath")
       .optionalString("script")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
+      .include(FileConnector.STORAGE_SPEC)
       .build();
 
   private final String scriptPath;
@@ -90,13 +91,21 @@ public class ApplyJavascript extends Stage {
 
     if (inlineScript != null) {
       try {
-        this.source = Source.newBuilder("js", inlineScript, "<inline>").build();
+        String wrappedScript = wrapScriptInIIFE(inlineScript);
+        this.source = Source.newBuilder("js", wrappedScript, "<inline>").build();
       } catch (Exception e) {
         throw new StageException("Failed to build inline JavaScript source.", e);
       }
     } else {
       try (Reader reader = FileContentFetcher.getOneTimeReader(scriptPath, config)) {
-        this.source = Source.newBuilder("js", reader, scriptPath).build();
+        StringBuilder scriptContent = new StringBuilder();
+        char[] buffer = new char[1024];
+        int length;
+        while ((length = reader.read(buffer)) != -1) {
+          scriptContent.append(buffer, 0, length);
+        }
+        String wrappedScript = wrapScriptInIIFE(scriptContent.toString());
+        this.source = Source.newBuilder("js", wrappedScript, scriptPath).build();
       } catch (Exception e) {
         throw new StageException("Failed to read JavaScript from '" + scriptPath + "'.", e);
       }
@@ -126,6 +135,12 @@ public class ApplyJavascript extends Stage {
     if (engine != null) {
       engine.close();
     }
+  }
+
+  private String wrapScriptInIIFE(String script) {
+    // Wraps user defined script in an IIFE (Immediately Invoked Function Express) which avoids variable declaration collisions when
+    // rerunning the script in the same GraalVM instance for each document.
+    return "(function() {\n" + script + "\n})();";
   }
 
   @Override

@@ -7,7 +7,6 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.message.KafkaDocumentDeserializer;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.typesafe.config.Config;
 import java.time.Duration;
@@ -39,7 +38,7 @@ import org.slf4j.LoggerFactory;
  *   <li>idField (String, Optional) : The field in the Kafka message to use as the Lucille document ID.</li>
  *   <li>offsets (Map &lt;Integer, Long&gt;, Optional) : A map of partition numbers to initial offsets.</li>
  *   <li>maxMessages (Long, Optional) : The maximum number of messages to process before stopping.</li>
- *   <li>messageTimeout (Long, Optional) : The timeout in milliseconds to use when polling Kafka. Defaults to 100ms.</li>
+ *   <li>messageTimeoutMs (Long, Optional) : The timeout in milliseconds to use when polling Kafka. Defaults to 100ms.</li>
  *   <li>continueOnTimeout (Boolean, Optional) : Whether to continue polling after a timeout. Defaults to true.</li>
  * </ul>
  */
@@ -49,15 +48,15 @@ public class KafkaConnector extends AbstractConnector {
 
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredString("kafka.bootstrapServers", "kafka.topic", "kafka.consumerGroupId", "kafka.clientId",
-          "kafka.maxPollIntervalSecs")
+          "kafka.maxPollIntervalMs")
       .optionalString("idField", "kafka.documentDeserializer")
       // the kafka block may also carry any of the keys KafkaUtils.createConsumerProps reads from this connector's
-      // config (securityProtocol, consumerPropertyFile, consumer.*, metadataMaxAgeMs, pollIntervalMs, ...)
+      // config (securityProtocol, consumerPropertiesPath, consumer.*, metadataMaxAgeMs, pollIntervalMs, ...)
       .optionalParent("kafka", new TypeReference<Map<String, Object>>() {
       })
       .optionalParent("offsets", new TypeReference<Map<Integer, Long>>() {
       })
-      .optionalNumber("maxMessages", "messageTimeout")
+      .optionalNumber("maxMessages", "messageTimeoutMs")
       .optionalBoolean("continueOnTimeout")
       .build();
 
@@ -80,7 +79,7 @@ public class KafkaConnector extends AbstractConnector {
     this.clientId = config.getString("kafka.clientId");
     this.idField = ConfigUtils.getStringOrDefault(config, "idField", null);
     this.maxMessages = ConfigUtils.getLongOrDefault(config, "maxMessages", null);
-    this.messageTimeout = ConfigUtils.getOrDefault(config, "messageTimeout", 100L);
+    this.messageTimeout = ConfigUtils.getOrDefault(config, "messageTimeoutMs", 100L);
     this.continueOnTimeout = ConfigUtils.getOrDefault(config, "continueOnTimeout", true);
     this.offsets = parseOffsets(config);
   }
