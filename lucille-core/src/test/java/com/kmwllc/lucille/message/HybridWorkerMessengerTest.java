@@ -71,11 +71,16 @@ public class HybridWorkerMessengerTest {
     }
   }
 
-  // Adds a record, polls it as the Worker would and hands it to the Indexer's queue.
-  private KafkaDocument poll(TopicPartition partition, long offset) throws Exception {
+  // Adds a record to the partition, for the next poll.
+  private void addRecord(TopicPartition partition, long offset) throws Exception {
     String id = "doc-" + partition.partition() + "-" + offset;
     KafkaDocument value = new KafkaDocument((ObjectNode) new ObjectMapper().readTree(Document.create(id, "run1").toString()));
     consumer.addRecord(new ConsumerRecord<>(partition.topic(), partition.partition(), offset, id, value));
+  }
+
+  // Adds a record, polls it as the Worker would and hands it to the Indexer's queue.
+  private KafkaDocument poll(TopicPartition partition, long offset) throws Exception {
+    addRecord(partition, offset);
     KafkaDocument doc = messenger.pollDocToProcess();
     messenger.sendForIndexing(doc);
     return doc;
@@ -122,6 +127,80 @@ public class HybridWorkerMessengerTest {
     messenger.commitPendingDocOffsets();
 
     assertEquals(Long.valueOf(3L), committed(P0));
+  }
+
+  @Test
+  public void testRecordThatSendsNothingIsFinishedByTheCommit() throws Exception {
+    // dropped or failed in the pipeline, or sent to the dead letter queue: the worker commits after it, without polling again
+    addRecord(P0, 0);
+    messenger.pollDocToProcess();
+    messenger.commitPendingDocOffsets();
+    assertEquals(Long.valueOf(1L), committed(P0));
+  }
+
+  @Test
+  public void testDroppedParentWaitsForItsChildren() throws Exception {
+    // a parent dropped after a stage created two children from it, as EmitNestedChildren does with dropParent
+    addRecord(P0, 0);
+    messenger.pollDocToProcess();
+    Document child1 = Document.create("child1");
+    Document child2 = Document.create("child2");
+    messenger.sendForIndexing(child1);
+    messenger.sendForIndexing(child2);
+    messenger.commitPendingDocOffsets();
+    assertNull("the children are not indexed yet", committed(P0));
+
+    messenger.batchCompleted(List.of(child1));
+    messenger.commitPendingDocOffsets();
+    assertNull("child2 is not indexed yet", committed(P0));
+
+    messenger.batchCompleted(List.of(child2));
+    messenger.commitPendingDocOffsets();
+    assertEquals(Long.valueOf(1L), committed(P0));
+  }
+
+  @Test
+  public void testIndexedParentWaitsForItsChildren() throws Exception {
+    // children are sent before their parent, but a concurrent Indexer can complete the parent's batch first
+    addRecord(P0, 0);
+    KafkaDocument parent = messenger.pollDocToProcess();
+    Document child = Document.create("child");
+    messenger.sendForIndexing(child);
+    messenger.sendForIndexing(parent);
+
+    messenger.batchCompleted(List.of(parent));
+    messenger.commitPendingDocOffsets();
+    assertNull("the child is not indexed yet", committed(P0));
+
+    messenger.batchCompleted(List.of(child));
+    messenger.commitPendingDocOffsets();
+    assertEquals(Long.valueOf(1L), committed(P0));
+  }
+
+  @Test
+  public void testChildNotSentRewindsItsRecord() throws Exception {
+    addRecord(P0, 0);
+    messenger.pollDocToProcess();
+    Document child = Document.create("child");
+    messenger.sendForIndexing(child);
+    pipelineDest.remove(child);   // taken by the Indexer
+    messenger.commitPendingDocOffsets();
+
+    // the Indexer could not confirm ownership and skipped the child's batch, though P0 is still assigned
+    messenger.batchNotSent(List.of(child));
+    assertNull(messenger.pollDocToProcess());
+
+    assertNull(committed(P0));
+    assertEquals("the record is polled again, so its child is created and indexed again", 0L, consumer.position(P0));
+  }
+
+  @Test
+  public void testRecordStillBeingProcessedIsNotCommittedOnClose() throws Exception {
+    // the worker stopped while processing the record, after a messenger failure: it must be redelivered
+    addRecord(P0, 0);
+    messenger.pollDocToProcess();
+    messenger.close();
+    assertNull(committed(P0));
   }
 
   @Test

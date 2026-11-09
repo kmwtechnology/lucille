@@ -136,7 +136,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
 Key behaviors:
 - **`pollDocToProcess()`** — polls the source topic, blocking for up to `kafka.pollIntervalMs` (default 2000ms). Returns at most one record per poll (`MAX_POLL_RECORDS_CONFIG = 1`). Sets Kafka metadata on the returned `KafkaDocument`.
 - **`commitPendingDocOffsets()`** — calls `sourceConsumer.commitSync()`. Offsets are committed synchronously to minimize reprocessing after crashes.
-- **`sendForIndexing(doc)`** — produces to the dest topic using the document ID as the Kafka key. Calls `.get()` to wait for acknowledgment, then `flush()`.
+- **`sendForIndexing(doc)`** — produces to the dest topic using the document ID as the Kafka key. Calls `.get()` to wait for acknowledgment, so the record it came from is safe to commit once the document is sent.
 - **`sendFailed(doc)`** — produces to the fail topic (dead letter queue).
 - **`sendEvent(event)`** — serializes the event as JSON string and produces to the event topic.
 
@@ -179,63 +179,86 @@ On a consumer-group rebalance the tracker's rebalance listener first runs the In
 
 ## HybridWorkerMessenger: Kafka In, Memory Out
 
-The hybrid mode reads from Kafka but writes to an in-memory queue shared with a co-located Indexer:
+The hybrid mode reads from Kafka but writes to an in-memory queue shared with a co-located Indexer. The worker's messenger commits the source offsets itself, from the Indexer's reports:
 
 ```java
 public class HybridWorkerMessenger implements WorkerMessenger {
     private final Consumer<String, KafkaDocument> sourceConsumer;
-    private final KafkaProducer<String, String> kafkaEventProducer;
-    private final LinkedBlockingQueue<Document> pipelineDest;           // Shared with Indexer
-    private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;  // From Indexer
+    private final BlockingQueue<Document> pipelineDest;       // shared with the Indexer
+    private final OffsetCommitTracker offsetCommitTracker;    // the same frontier as KafkaIndexerMessenger
+    private final Queue<BatchResult> batchResults;            // the Indexer's reports, applied on the worker thread
 }
 ```
 
 Key behaviors:
-- **`pollDocToProcess()`** — reads from Kafka (same as `KafkaWorkerMessenger`)
-- **`sendForIndexing(doc)`** — puts on the shared `pipelineDest` queue (in-memory, not Kafka)
-- **`commitPendingDocOffsets()`** — drains the `offsets` queue and commits each batch of offsets to Kafka. These offsets come from the Indexer after it successfully indexes documents.
+- **`pollDocToProcess()`** — reads one record from Kafka and records its offset as polled. It first marks the record polled before it as processed.
+- **`sendForIndexing(doc)`** — puts the document on the shared `pipelineDest` queue and remembers which polled record it came from. A child a stage created has no Kafka metadata of its own, so this is how its completion counts toward its parent's offset.
+- **`commitPendingDocOffsets()`** — marks the record being processed as processed, applies the Indexer's reports, and commits the frontier.
 
-The offset feedback loop:
-1. Worker polls document from Kafka (records topic/partition/offset)
-2. Worker processes document, puts on `pipelineDest`
-3. Indexer picks up document, indexes it, puts offset info on `offsets` queue
-4. Worker's next `commitPendingDocOffsets()` call commits those offsets to Kafka
+A polled record is finished once the Worker has processed it and every document it sent for indexing (the record itself, its children, or both) has been reported complete. A record that sends nothing, because the pipeline dropped or failed it or it went to the dead letter queue, is finished as soon as the Worker is done with it. As in distributed mode, the tracker commits the offset after the longest unbroken run of finished records in each partition. So a dropped parent's offset is committed only once its children are indexed, and a record that never reaches the Indexer does not hold the frontier back.
 
-This ensures offsets are only committed after documents are actually indexed, providing at-least-once delivery guarantees without requiring the Indexer to have direct Kafka access.
+**Why only hybrid mode needs this count.** In distributed mode, the destination topic sits between the Worker and the Indexer, and each commits its own offsets:
 
-## HybridIndexerMessenger: Memory In, Offsets Out
+- **The Worker** commits a source record once every document made from it is on the destination topic. If the document was dropped or failed, nothing is sent, so the Worker commits right after sending the DROP or FAIL event.
+- **The Indexer** reads one document from each destination record. Every offset it commits belongs to one document it indexed.
+
+In hybrid mode there is no destination topic. Documents pass from the Worker to the Indexer in memory, so the source record's offset is the only one. It can't be committed until every document made from that record has been indexed, and that is what the count tracks.
+
+If the Indexer reports a batch as not sent, because it could not confirm that the worker still owns the input, the records its documents came from stay unfinished, and after the next poll the worker rewinds the partition to the frontier so they are processed again. When partitions are revoked or lost, the documents from them still waiting in the queue, children included, are removed, so the partitions' next owner processes them.
+
+This ensures offsets are only committed after everything a record produced has been indexed, providing at-least-once delivery without the Indexer having direct Kafka access.
+
+### Walkthrough: One Record, Three Cases
+
+For each polled record, the messenger keeps a count of what the record is still waiting for. The count starts at 1 for the Worker's processing of the record, each document sent for indexing adds 1, and each one the Indexer reports complete subtracts 1. The record is finished when the count reaches 0. The three cases below follow the record at partition 0, offset 5, with the Indexer's report arriving before the commit. The count exists only in hybrid mode; see *Why only hybrid mode needs this count* above.
+
+**A document with no children**, indexed itself:
+
+| Call | What happens | Count |
+|---|---|---|
+| `pollDocToProcess()` | Polls the record, records offset 5 as polled, and starts its count at 1 for the Worker's processing. | 1 |
+| `sendForIndexing(doc)` | Queues the document for the Indexer and notes that it came from the record at offset 5. | 2 |
+| `batchCompleted([doc])` | On the Indexer's thread, queues the report for the Worker thread. Nothing is counted yet. | 2 |
+| `commitPendingDocOffsets()` | Subtracts 1 for the finished processing and 1 for the reported document. At 0, offset 5 completes and the frontier is committed if it moved. | 0 |
+
+**A document with one child**, both indexed:
+
+| Call | What happens | Count |
+|---|---|---|
+| `pollDocToProcess()` | Polls the record, records offset 5 as polled, and starts its count at 1. | 1 |
+| `sendForIndexing(child)` | Queues the child and notes that it came from the record at offset 5, though the child has no Kafka metadata of its own. | 2 |
+| `sendForIndexing(parent)` | Queues the parent and notes that it came from the record at offset 5. | 3 |
+| `batchCompleted([child, parent])` | Queues the report for the Worker thread. | 3 |
+| `commitPendingDocOffsets()` | Subtracts 1 for the finished processing and 1 for each reported document. At 0, offset 5 completes and the frontier is committed if it moved. | 0 |
+
+**A dropped document**:
+
+| Call | What happens | Count |
+|---|---|---|
+| `pollDocToProcess()` | Polls the record, records offset 5 as polled, and starts its count at 1. | 1 |
+| (the pipeline drops it) | The Worker sends a DROP event, which the messenger does not count, and never calls `sendForIndexing`. | 1 |
+| `commitPendingDocOffsets()` | Subtracts 1 for the finished processing. At 0, offset 5 completes at once, so it doesn't hold back the frontier. | 0 |
+
+Two variations give the same result. If the Indexer reports after the commit, the count stops at 1 and the record is finished by a later poll or commit, once the report has been applied. If the child and the parent are in separate batches and the parent's is reported first, the record waits for the child. The count can't reach 0 while the Worker is still sending a record's documents, because the 1 for its processing is subtracted only after the Worker has sent them all, and reports are applied on the Worker thread, after the sends they report were counted.
+
+## HybridIndexerMessenger: Memory In, Reports Out
 
 The counterpart to `HybridWorkerMessenger`:
 
 ```java
 public class HybridIndexerMessenger implements IndexerMessenger {
-    private final LinkedBlockingQueue<Document> pipelineDest;
-    private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
+    private final BlockingQueue<Document> pipelineDest;        // shared with the Worker
+    private final HybridWorkerMessenger workerMessenger;       // receives the batch reports
     private final KafkaProducer<String, String> kafkaEventProducer;
-    private final Set idSet;  // Optional: tracks unique indexed doc IDs
+    private final Set<String> idSet;  // Optional: tracks unique indexed doc IDs
 }
 ```
 
 Key behaviors:
 - **`pollDocToIndex()`** — takes from the shared `pipelineDest` queue (50ms timeout)
 - **`sendEvent(event)`** — produces to the Kafka event topic (same as other Kafka messengers). Also adds the doc ID to `idSet` if configured.
-- **`batchComplete(batch)`** — extracts Kafka metadata from each `KafkaDocument` in the batch, builds an offset map, and puts it on the `offsets` queue for the Worker to commit:
-
-```java
-public void batchComplete(List<Document> batch) throws InterruptedException {
-    Map<TopicPartition, OffsetAndMetadata> batchOffsets = new HashMap<>();
-    for (Document doc : batch) {
-        if (!(doc instanceof KafkaDocument)) continue;
-        KafkaDocument kDoc = (KafkaDocument) doc;
-        TopicPartition tp = new TopicPartition(kDoc.getTopic(), kDoc.getPartition());
-        OffsetAndMetadata offset = new OffsetAndMetadata(kDoc.getOffset() + 1);  // +1 per Kafka convention
-        batchOffsets.put(tp, offset);
-    }
-    if (!batchOffsets.isEmpty()) {
-        offsets.put(batchOffsets);
-    }
-}
-```
+- **`batchComplete(batch)`** — passes the batch to the worker messenger, which applies it on the worker thread before its next poll or commit.
+- **`batchNotSent(batch)`** — likewise, for a batch the Indexer skipped because the ownership check failed.
 
 ## The MessengerFactory Pattern
 

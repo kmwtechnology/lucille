@@ -420,7 +420,7 @@ Different components use different commit strategies:
 | Worker (source) | `commitSync()` after processing | Minimize reprocessing after crash |
 | Indexer (dest) | `commitSync()` when a batch completes, via `OffsetCommitTracker` | At-least-once: a crash redelivers uncommitted documents, which is safe because indexing is idempotent |
 | Publisher (events) | None; reads its partition with `assign()` and no group | Each run's event topic is read only by its own Publisher |
-| Hybrid Worker | `commitSync()` when its paired Indexer reports a batch complete, via `OffsetCommitTracker` | Only commit after the Indexer confirms; a rebalance never moves a committed offset back |
+| Hybrid Worker | `commitSync()` via `OffsetCommitTracker`, once its paired Indexer has reported everything a record sent for indexing complete (at once, for a record that sent nothing) | Only commit after the Indexer confirms; a rebalance never moves a committed offset back |
 
 The Worker's synchronous commit ensures that if a Worker crashes, the document it was processing will be redelivered to another Worker. Without this, the document could be lost (committed but not processed).
 

@@ -168,25 +168,60 @@ public class HybridKafkaTest {
     WorkerIndexer workerIndexer = new WorkerIndexer();
     Set<String> idSet = CounterUtils.getThreadSafeSet();
     workerIndexer.start(config, "pipeline1", new LinkedBlockingQueue<>(), true, idSet);
+    try {
+      // doc2 and doc3 are indexed; doc1 is dropped
+      CounterUtils.waitUnique(idSet, 2);
+      assertEquals("the dropped doc1 at offset 0 must not hold back the commit (-1: nothing committed)", 3,
+          awaitCommittedOffset(config, topicName, 3));
+    } finally {
+      workerIndexer.stop();
+    }
+  }
+
+  /**
+   * A parent the pipeline drops after creating children never reaches the Indexer itself, but its children do. Its offset
+   * must be committed once they are indexed.
+   */
+  @Test
+  public void testDroppedParentIsCommittedOnceItsChildrenAreIndexed() throws Exception {
+    Config config = loadTestConfig("HybridKafkaTest/dropParentConfig.conf");
+    String topicName = config.getString("kafka.sourceTopic");
+    embeddedKafka.addTopics(new NewTopic(topicName, 1, (short) 1));
+    sendDoc("doc1", topicName);
+    sendDoc("doc2", topicName);
+
+    WorkerIndexer workerIndexer = new WorkerIndexer();
+    Set<String> idSet = CounterUtils.getThreadSafeSet();
+    workerIndexer.start(config, "pipeline1", new LinkedBlockingQueue<>(), true, idSet);
+    try {
+      // two children of each parent are indexed; the parents are dropped
+      CounterUtils.waitUnique(idSet, 4);
+      assertEquals("the dropped parents must not hold back the commit (-1: nothing committed)", 2,
+          awaitCommittedOffset(config, topicName, 2));
+    } finally {
+      workerIndexer.stop();
+    }
+  }
+
+  // The worker commits after each poll, so a commit follows shortly after the documents are indexed. Waits up to 10
+  // seconds for the group's committed offset on partition 0 to reach the expected one, and returns the last seen (-1 if
+  // nothing was committed).
+  private static long awaitCommittedOffset(Config config, String topicName, long expected) throws Exception {
     TopicPartition topicPartition = new TopicPartition(topicName, 0);
     Properties props = new Properties();
     props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     try (Admin kafkaAdminClient = Admin.create(props)) {
-      // doc2 and doc3 are indexed; doc1 is dropped
-      CounterUtils.waitUnique(idSet, 2);
-
-      // the worker commits after each poll, so a commit past offset 2 follows shortly
       long committed = -1;
       long deadline = System.currentTimeMillis() + 10000;
-      while (committed != 3 && System.currentTimeMillis() < deadline) {
+      while (committed != expected && System.currentTimeMillis() < deadline) {
         OffsetAndMetadata offset = kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
             .partitionsToOffsetAndMetadata().get().get(topicPartition);
         committed = offset == null ? -1 : offset.offset();
-        Thread.sleep(100);
+        if (committed != expected) {
+          Thread.sleep(100);
+        }
       }
-      assertEquals("the dropped doc1 at offset 0 must not hold back the commit (-1: nothing committed)", 3, committed);
-    } finally {
-      workerIndexer.stop();
+      return committed;
     }
   }
 

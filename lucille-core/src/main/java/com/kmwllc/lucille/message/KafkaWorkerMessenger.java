@@ -75,9 +75,9 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
 
   @Override
   public void commitPendingDocOffsets() {
-    // offsets are committed synchronously to ensure that offsets are successfully committed before the documents are sent to
-    // the destination (typically an indexer). This reduces the number of documents that might
-    // be re-processed through the pipeline in the event of worker crash and/or consumer group rebalance.
+    // Called after the documents made from the polled record have been sent to the destination topic, each send waiting for
+    // the broker's acknowledgment, so the record is safe to commit. The commit is synchronous, so that a worker crash or a
+    // consumer group rebalance re-processes as few records as possible.
     sourceConsumer.commitSync();
   }
 
