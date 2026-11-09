@@ -161,7 +161,7 @@ The standalone Indexer does not poll while it waits on a bulk request, so the sa
 
 ## Topic Creation
 
-The event topic is created explicitly with exactly **one partition**:
+The event topic is created explicitly with exactly **one partition**. Its replication factor and `min.insync.replicas` come from `kafka.eventTopicReplicationFactor` and `kafka.eventTopicMinInsyncReplicas`. Both default to the broker's defaults (`default.replication.factor` and `min.insync.replicas`). On a multi-broker cluster whose defaults are too low for the event topic to survive a broker loss, set both:
 
 ```java
 public static boolean createEventTopic(Config config, String pipelineName, String runId) {
