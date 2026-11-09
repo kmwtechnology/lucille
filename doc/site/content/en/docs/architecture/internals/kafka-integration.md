@@ -445,7 +445,7 @@ Lucille treats Kafka communication failures as non-recoverable. If the Kafka pro
 - A run that has lost documents to a broken messaging path cannot produce a correct result. Continuing would silently drop data.
 - Simplicity: the framework does not attempt partial recovery or compensating transactions. A failed run is restarted from the beginning.
 
-This policy applies uniformly to all Kafka send paths — publishing documents, forwarding processed documents to the indexer, sending events, and sending to the dead-letter queue.
+There is one exception: a record the broker rejects as too large (`RecordTooLargeException`, raised when a serialized document exceeds `kafka.maxRequestSize` or the topic's `max.message.bytes`). That failure belongs to the document, not to the messaging path, and the producer can still send the next record. When it happens on one of the worker's document sends (forwarding a processed document to the indexer, or sending a document to the dead-letter queue), the worker fails that document with a FAIL event, commits its offset, and continues. Every other failure, on any send path (publishing documents, forwarding processed documents to the indexer, sending events, and sending to the dead-letter queue), aborts the run.
 
 ### Asynchronous vs. Synchronous Send Paths
 
