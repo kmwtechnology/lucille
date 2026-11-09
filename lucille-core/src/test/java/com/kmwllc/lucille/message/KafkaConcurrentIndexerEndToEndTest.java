@@ -441,7 +441,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     Map<String, Object> settings = new HashMap<>(Map.of(
         "kafka.bootstrapServers", embeddedKafka.getBrokersAsString(),
         "kafka.consumerGroupId", "group-" + pipeline,
-        "kafka.maxPollIntervalSecs", 300,
+        "kafka.maxPollIntervalMs", 300000,
         "kafka.maxRequestSize", 1048576,
         "kafka.events", false,
         "indexer.maxConcurrentBatches", maxConcurrentBatches));

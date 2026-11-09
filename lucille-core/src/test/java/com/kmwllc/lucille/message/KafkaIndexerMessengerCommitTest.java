@@ -190,7 +190,7 @@ public class KafkaIndexerMessengerCommitTest {
     return ConfigFactory.parseMap(Map.of(
         "kafka.bootstrapServers", "localhost:9092",
         "kafka.consumerGroupId", "test-group",
-        "kafka.maxPollIntervalSecs", 300,
+        "kafka.maxPollIntervalMs", 300000,
         "kafka.maxRequestSize", 1048576,
         "kafka.events", false));
   }

@@ -169,7 +169,7 @@ In distributed mode the indexer reads from Kafka and commits a document's offset
 
 In distributed mode, when a partition is about to be revoked in a consumer-group rebalance, the indexer sends its open batch and waits for in-flight batches before the handoff, so a clean rebalance does not re-deliver them. On a normal stop it also sends the open batch, drains in-flight batches, and commits.
 
-While the indexer waits on a send it does not poll Kafka. `kafka.maxPollIntervalSecs` must therefore exceed about twice the slowest send including retries when `maxConcurrentBatches` is 1, and about three times when it is greater than 1. See [Kafka integration]({{< relref "docs/architecture/internals/kafka-integration" >}}).
+While the indexer waits on a send it does not poll Kafka. `kafka.maxPollIntervalMs` must therefore exceed about twice the slowest send including retries when `maxConcurrentBatches` is 1, and about three times when it is greater than 1. See [Kafka integration]({{< relref "docs/architecture/internals/kafka-integration" >}}).
 
 A record on the destination topic that cannot be deserialized stops the indexer, unless `kafka.onDeserializationError` is `skip`. In `skip` mode the record is logged and skipped, but `kafka.maxConsecutiveDeserializationErrors` (default 10; `-1` for unlimited) bad records in a row on one partition still stop the indexer. A skipped record produces no completion event, so in a batch run the run waits until `runner.connectorTimeoutMs` expires.
 

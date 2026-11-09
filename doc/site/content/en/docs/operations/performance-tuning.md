@@ -456,11 +456,11 @@ To improve this: reduce chunk count (larger chunks), or add more Worker threads 
 
 ## Kafka Tuning for Distributed Mode
 
-### maxPollIntervalSecs
+### maxPollIntervalMs
 
 ```hocon
 kafka {
-  maxPollIntervalSecs: 600  # 10 minutes
+  maxPollIntervalMs: 600000  # 10 minutes
 }
 ```
 
@@ -550,7 +550,7 @@ During a run, track these from the periodic log messages:
 - [ ] Set `indexer.batchSize` and `batchTimeoutMs` for your backend's optimal batch size
 - [ ] Set `-Xmx` heap size with headroom for GC
 - [ ] In distributed mode: ensure source topic partition count >= desired Worker count
-- [ ] Set `kafka.maxPollIntervalSecs` higher than your slowest document processing time and, for a standalone Indexer, at least three times its slowest bulk request including retries
+- [ ] Set `kafka.maxPollIntervalMs` higher than your slowest document processing time and, for a standalone Indexer, at least three times its slowest bulk request including retries
 - [ ] Set `publisher.maxPendingDocs` or `publisher.queueCapacity` to prevent memory exhaustion
 - [ ] Monitor for increasing latency over time (indicates resource pressure)
 

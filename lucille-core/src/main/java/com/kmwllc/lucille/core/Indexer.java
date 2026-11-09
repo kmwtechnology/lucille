@@ -105,7 +105,7 @@ import org.slf4j.MDC.MDCCloseable;
  *   <li>indexer.maxConcurrentBatches (Integer, Optional) : Maximum number of batches that may be in flight to the destination
  *   at once. Defaults to {@value #DEFAULT_MAX_CONCURRENT_BATCHES}, which sends each batch synchronously on the indexer thread.
  *   Values greater than 1 are only accepted by implementations whose {@link #supportsConcurrentSends()} returns true.
- *   With a Kafka messenger, kafka.maxPollIntervalSecs must exceed about three times the slowest send, including
+ *   With a Kafka messenger, kafka.maxPollIntervalMs must exceed about three times the slowest send, including
  *   retries (about two when this is 1), since the indexer does not poll while it waits and drains in-flight sends
  *   before rejoining a rebalance.</li>
  * </ul>

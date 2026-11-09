@@ -168,11 +168,11 @@ If unset, refer to the [installation guide]({{< relref "docs/getting-started/ins
 
 **Cause:**
 
-The standalone Indexer (distributed mode) does not poll Kafka while it waits on a bulk request, and during a rebalance it finishes its in-progress requests before rejoining the group. If that takes longer than `kafka.maxPollIntervalSecs`, Kafka evicts the Indexer, and the documents it had in progress are re-delivered and indexed again; no document is skipped. A request still running at eviction can, however, finish after the new owner's replay and leave stale destination state, such as a deleted document reappearing.
+The standalone Indexer (distributed mode) does not poll Kafka while it waits on a bulk request, and during a rebalance it finishes its in-progress requests before rejoining the group. If that takes longer than `kafka.maxPollIntervalMs`, Kafka evicts the Indexer, and the documents it had in progress are re-delivered and indexed again; no document is skipped. A request still running at eviction can, however, finish after the new owner's replay and leave stale destination state, such as a deleted document reappearing.
 
 **Fix:**
 
-* Set `kafka.maxPollIntervalSecs` to at least three times the slowest bulk request, including retries. See [maxPollIntervalSecs]({{< relref "docs/operations/performance-tuning#maxpollintervalsecs" >}}) for how to estimate it.
+* Set `kafka.maxPollIntervalMs` to at least three times the slowest bulk request, including retries. See [maxPollIntervalMs]({{< relref "docs/operations/performance-tuning#maxpollintervalms" >}}) for how to estimate it.
 * Or shorten the slowest bulk request: lower `indexer.maxRetries` or `indexer.retryMaxWaitDurationMs`, or the client's `socketTimeoutMs`.
 
 ## Solr / Elasticsearch / OpenSearch Connectivity

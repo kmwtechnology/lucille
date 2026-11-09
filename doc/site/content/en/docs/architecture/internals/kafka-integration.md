@@ -143,11 +143,11 @@ consumerProps.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1);          // One do
 consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");  // Manual commits
 ```
 
-## The `maxPollIntervalSecs` Setting
+## The `maxPollIntervalMs` Setting
 
 ```java
 consumerProps.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 
-    1000 * config.getInt("kafka.maxPollIntervalSecs"));
+    config.getInt("kafka.maxPollIntervalMs"));
 ```
 
 This is the maximum time between `poll()` calls before Kafka considers the consumer dead and triggers a rebalance. It must be set higher than the longest expected document processing time. If a document takes longer to process than this interval, the consumer will be kicked from the group and the document will be reprocessed by another consumer.
@@ -321,7 +321,7 @@ All Kafka settings live under the `kafka` config prefix:
 | `kafka.bootstrapServers` | Kafka broker addresses | Yes (unless using property files) |
 | `kafka.securityProtocol` | Security protocol (PLAINTEXT, SSL, SASL_SSL, etc.) | No |
 | `kafka.consumerGroupId` | Consumer group for Workers/Indexers | Yes |
-| `kafka.maxPollIntervalSecs` | Max time between polls before rebalance | Yes |
+| `kafka.maxPollIntervalMs` | Max time between polls before rebalance | Yes |
 | `kafka.pollIntervalMs` | How long each consumer poll blocks waiting for records | No (default: 2000) |
 | `kafka.maxRequestSize` | Max message size in bytes | Yes |
 | `kafka.metadataMaxAgeMs` | Metadata cache TTL | No (default: 30000) |

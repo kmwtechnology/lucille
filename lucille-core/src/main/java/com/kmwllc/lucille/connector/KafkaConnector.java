@@ -48,7 +48,7 @@ public class KafkaConnector extends AbstractConnector {
 
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredString("kafka.bootstrapServers", "kafka.topic", "kafka.consumerGroupId", "kafka.clientId",
-          "kafka.maxPollIntervalSecs")
+          "kafka.maxPollIntervalMs")
       .optionalString("idField", "kafka.documentDeserializer")
       // the kafka block may also carry any of the keys KafkaUtils.createConsumerProps reads from this connector's
       // config (securityProtocol, consumerPropertyFile, consumer.*, metadataMaxAgeMs, pollIntervalMs, ...)

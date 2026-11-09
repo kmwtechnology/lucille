@@ -252,7 +252,7 @@ kafka {
   bootstrapServers: "kafka-host:9093"
   securityProtocol: "SSL"
   consumerGroupId: "lucille_workers"
-  maxPollIntervalSecs: 600
+  maxPollIntervalMs: 600000
   maxRequestSize: 250000000
 }
 ```

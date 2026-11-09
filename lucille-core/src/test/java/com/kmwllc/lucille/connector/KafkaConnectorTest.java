@@ -52,7 +52,7 @@ public class KafkaConnectorTest {
       "kafka.bootstrapServers", "localhost:9092",
       "kafka.topic", "test-topic",
       "kafka.consumerGroupId", "test-group",
-      "kafka.maxPollIntervalSecs", 600,
+      "kafka.maxPollIntervalMs", 600000,
       "kafka.clientId", "test-client",
       "continueOnTimeout", false);
 

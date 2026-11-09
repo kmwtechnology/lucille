@@ -59,7 +59,7 @@ public class KafkaUtils {
 
   public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .requiredString("bootstrapServers", "consumerGroupId")
-      .requiredNumber("maxPollIntervalSecs", "maxRequestSize")
+      .requiredNumber("maxPollIntervalMs", "maxRequestSize")
       .optionalBoolean("events")
       .optionalString("documentSerializer", "documentDeserializer", "consumerPropertyFile",
           "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic",
@@ -165,7 +165,7 @@ public class KafkaUtils {
 
       props.put(ConsumerConfig.GROUP_ID_CONFIG, config.getString("kafka.consumerGroupId"));
       props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-      props.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 1000 * config.getInt("kafka.maxPollIntervalSecs"));
+      props.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, config.getInt("kafka.maxPollIntervalMs"));
       props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1);
       props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
       props.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
@@ -184,7 +184,7 @@ public class KafkaUtils {
    *               - kafka.bootstrapServers - The bootstrap servers to use for connecting to Kafka.
    *               - kafka.securityProtocol - The security protocol to use when connecting to Kafka.
    *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the event topic.
-   *               - kafka.maxPollIntervalSecs - The maximum time in seconds allowed between polls before the consumer is evicted from its consumer group (also the rebalance timeout).
+   *               - kafka.maxPollIntervalMs - The maximum time in milliseconds allowed between polls before the consumer is evicted from its consumer group (also the rebalance timeout).
    *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata about topics and partitions..
    *               - kafka.documentDeserializer - The deserializer class to use when deserializing documents. Defaults to KafkaDocumentDeserializer.
    * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
@@ -235,7 +235,7 @@ public class KafkaUtils {
    *               - kafka.bootstrapServers - The bootstrap servers to use for connecting to Kafka.
    *               - kafka.securityProtocol - The security protocol to use when connecting to Kafka.
    *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the event topic.
-   *               - kafka.maxPollIntervalSecs - The maximum time in seconds allowed between polls before the consumer is evicted from its consumer group (also the rebalance timeout).
+   *               - kafka.maxPollIntervalMs - The maximum time in milliseconds allowed between polls before the consumer is evicted from its consumer group (also the rebalance timeout).
    *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata about topics and partitions..
    * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
    * @return A Kafka consumer for events. The provided Consumer will *always* be configured to commit offsets automatically.

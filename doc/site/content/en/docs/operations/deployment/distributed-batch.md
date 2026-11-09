@@ -53,7 +53,7 @@ kafka {
 
   # Maximum time between polls before consumer is evicted from consumer group.
   # Must exceed the slowest document processing time and ~3x the slowest bulk request (incl. retries).
-  maxPollIntervalSecs: 600
+  maxPollIntervalMs: 600000
 
   # Maximum request size in bytes — increase for large documents
   maxRequestSize: 250000000

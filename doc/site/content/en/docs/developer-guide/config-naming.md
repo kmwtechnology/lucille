@@ -19,7 +19,7 @@ Four principles sit behind the more specific conventions:
 - **Same concept, same name.** If two components have a setting that does the same thing, give it the same name, even if one of them came first with a different one.
 - **Say what the property holds.** A reader should be able to tell from the name whether a property is a field name or a literal value, a single name or a list, and which unit a number is in.
 - **Follow the majority.** When existing components disagree, follow the form most of them already use.
-- **Spell words out.** Write `source`, `length` and `separator`, not `src`, `len` and `sep`. There are two exceptions, both well established and so common that brevity is preferable: `dest`, for a stage's output field, rather than `destination`; and `doc` or `docs` inside a longer name (`numDocs`, `docIdFormat`), rather than `document` or `documents`.
+- **Spell words out.** Write `source`, `length` and `separator`, not `src`, `len` and `sep`. There are two exceptions, both well established and so common that brevity is preferable: `dest`, for a stage's output field, rather than `destination`; and `doc` or `docs` inside a longer name (`numDocs`, `docIdFormat`), rather than `document` or `documents`. A property that sets a setting of another system keeps that system's name for it (see [Settings of External Systems](#settings-of-external-systems)).
 
 ## Field Names: `source`, `dest`, `fields`
 
@@ -84,7 +84,7 @@ A bare `path` is also used for JSON and XML paths in some components, so use `fi
 
 ## Units
 
-**Every numeric duration names its unit.** End the name in `Ms` for milliseconds or `Secs` for seconds: `connectTimeoutMs`, `batchTimeoutMs`, `pollIntervalMs`, `timeoutSecs`, `maxPollIntervalSecs`. Write `Ms`, not `Millis`. Without the suffix, a reader has to look up whether `timeout: 30` means 30 seconds or 30 milliseconds.
+**Every numeric duration names its unit.** End the name in `Ms` for milliseconds or `Secs` for seconds: `connectTimeoutMs`, `batchTimeoutMs`, `pollIntervalMs`, `timeoutSecs`, `maxProcessingSecs`. Write `Ms`, not `Millis`. Without the suffix, a reader has to look up whether `timeout: 30` means 30 seconds or 30 milliseconds.
 
 A property that takes a duration *string*, such as `"1h"` or `"30s"`, doesn't need a suffix, because the unit is in the value. `RSSConnector.runDuration` and `FileConnector.lastModifiedCutoff` work this way.
 
@@ -139,6 +139,12 @@ When a setting already exists in another component, reuse its name and meaning i
 | Cloud storage credentials | `s3`, `gcp` and `azure` blocks, with keys such as `accessKeyId`, `secretAccessKey`, `serviceKeyPath` | `FileConnector`, `ParquetConnector`, the stages that fetch file content |
 | Model names | `modelName` | `OpenAIEmbed`, `JlamaEmbed`, `PromptOllama` |
 
+## Settings of External Systems
+
+When a property sets a specific, named setting of another system, such as a Kafka client property, a ZooKeeper connect string or a SolrJ client parameter, use that system's name for it, converted to camel case word for word: Kafka's `max.request.size` becomes `maxRequestSize`, and `min.insync.replicas` becomes `minInsyncReplicas`. Keep the external system's words, abbreviations and units, even where they differ from the conventions on this page, so that someone who knows that system recognizes the setting and can look it up in that system's documentation. Examples: `kafka.bootstrapServers`, `kafka.maxRequestSize`, `solr.zkHosts`, `zookeeper.connectString`.
+
+A prefix that says which part of Lucille the setting applies to is fine (`eventTopicReplicationFactor`). The convention does not apply when a property is only related to a concept in another system without corresponding to one of its settings; name such properties by the conventions on this page.
+
 ## Nested Blocks
 
 Put settings that only make sense together in a nested block, and give the keys inside short names, since the block already says what they belong to: `deletionMarker { field, value }`, `s3 { accessKeyId, secretAccessKey }`. Declare the block with `optionalParent` or `requiredParent` and make its keys required in the block's Spec (see [Nested Specs]({{< relref "docs/developer-guide/spec-validation#nested-specs-parent-specs" >}})). Validation then rejects a block with a key missing, so the component doesn't need its own "set both or neither" check.
@@ -163,4 +169,5 @@ If you rename a property:
 - Every numeric duration ends in `Ms` or `Secs`, and every size names its unit.
 - Acronyms are in camel case.
 - Settings that already exist elsewhere use the same name.
+- A property that sets a setting of an external system uses that system's name for it.
 - Settings that must be set together are in a nested block with required keys.
