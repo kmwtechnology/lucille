@@ -103,7 +103,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
    * Does not commit offsets.
    */
   @Override
-  public KafkaDocument pollDocToProcess() {
+  public KafkaDocument pollDocToProcess() throws MessengerException {
     // so that offsets the Indexer has reported as not sent can be checked by rewindUnsent below
     drainBatchResults();
     ConsumerRecords<String, KafkaDocument> consumerRecords;
@@ -111,9 +111,9 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     try {
       consumerRecords = sourceConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
-      // rethrows unless configured to skip. The skipped offset is never recorded as polled, so the commit frontier moves
+      // throws unless configured to skip. The skipped offset is never recorded as polled, so the commit frontier moves
       // past it once the surrounding documents complete; until then, a restart redelivers (and skips) it again.
-      deserializationErrorHandler.handleOrRethrow(e);
+      deserializationErrorHandler.handleOrThrow(e);
       return null;
     } finally {
       lastReturnedPollStartNanos = pollStartNanos;

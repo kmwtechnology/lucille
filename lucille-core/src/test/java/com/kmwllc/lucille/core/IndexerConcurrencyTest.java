@@ -1035,8 +1035,7 @@ public class IndexerConcurrencyTest {
           if (!doc.has("op")) {
             continue;
           }
-          String override = getDocIdOverride(doc);
-          String destId = override != null ? override : doc.getId();
+          String destId = getDestinationId(doc);
           switch (doc.getString("op")) {
             case "add" -> destination.put(destId, doc.getString("version"));
             case "delete" -> destination.remove(destId);

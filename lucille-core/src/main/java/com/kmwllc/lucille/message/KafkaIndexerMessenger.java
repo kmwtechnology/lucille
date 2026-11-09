@@ -76,7 +76,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
    * Polls for a document that has been processed by the pipeine and is waiting to be indexed.
    */
   @Override
-  public Document pollDocToIndex() {
+  public Document pollDocToIndex() throws MessengerException {
     // This is the only place the consumer is polled during a run, so it is the only place (besides close()) a rebalance
     // callback, and with it the pre-revocation hook, can run. The Indexer calls this from its run loop, never while
     // dispatching or draining a batch, so the hook never re-enters the dispatcher.
@@ -85,11 +85,11 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     try {
       consumerRecords = destConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
-      // Rethrows unless configured to skip. Nothing is committed here: committing the consumer's position would commit
+      // Throws unless configured to skip. Nothing is committed here: committing the consumer's position would commit
       // past documents still in the open batch or in flight. The skipped offset is never recorded as polled, so the
       // commit frontier moves past it once the surrounding documents complete; until then, a restart re-reads (and
       // skips) it again.
-      deserializationErrorHandler.handleOrRethrow(e);
+      deserializationErrorHandler.handleOrThrow(e);
       return null;
     } finally {
       lastReturnedPollStartNanos = pollStartNanos;

@@ -14,9 +14,11 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.UndeserializableRecordException;
 import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigList;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
 import io.github.resilience4j.core.IntervalFunction;
@@ -33,7 +35,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -373,6 +374,16 @@ public abstract class Indexer implements Runnable {
   protected abstract String getIndexerConfigKey();
 
   /**
+   * The settings of the generic indexer block that this Indexer can't apply, which fail at startup if they are set. An
+   * empty list counts as not set. Called during construction, so an implementation should return a constant.
+   *
+   * @return the names of the unsupported settings, such as "indexOverrideField". By default, none.
+   */
+  protected Set<String> getUnsupportedSettings() {
+    return Set.of();
+  }
+
+  /**
    * Returns the key of this Indexer's block in the indexer block, as given by {@link #getIndexerConfigKey()}.
    */
   public final String getConfigKey() {
@@ -490,9 +501,9 @@ public abstract class Indexer implements Runnable {
       // blocking poll with a timeout which we assume to be in the range of
       // several milliseconds to several seconds
       doc = messenger.pollDocToIndex();
-    } catch (RecordDeserializationException e) {
-      // already logged with the record's location by the messenger
-      log.error("Indexer stopping: could not deserialize record {}@{}", e.topicPartition(), e.offset());
+    } catch (UndeserializableRecordException e) {
+      // already logged in full by the messenger
+      log.error("Indexer stopping: {}", e.getMessage());
       terminate();
       return;
     } catch (Exception e) {
@@ -811,9 +822,19 @@ public abstract class Indexer implements Runnable {
   }
 
   /**
+   * Returns the id the given document is written under at the destination: its {@link #getDocIdOverride} value when it
+   * has one, otherwise its document id.
+   */
+  protected final String getDestinationId(Document doc) {
+    String override = getDocIdOverride(doc);
+    return override != null ? override : doc.getId();
+  }
+
+  /**
    * Returns the value of the configured idOverrideField on the given document, to be used as the
    * document's ID when sending to the index in place of {@link Document#ID_FIELD}.
-   * Returns null if idOverrideField is not configured, or the document does not have that field.
+   * Returns null if idOverrideField is not configured, or the document does not have that field. To get the id to write
+   * a document under, use {@link #getDestinationId}.
    */
   protected String getDocIdOverride(Document doc) {
     if (idOverrideField != null && doc.has(idOverrideField)) {
@@ -890,8 +911,7 @@ public abstract class Indexer implements Runnable {
   private Set<String> destinationIds(List<Document> batchedDocs) {
     Set<String> ids = new HashSet<>();
     for (Document doc : batchedDocs) {
-      String idOverride = getDocIdOverride(doc);
-      ids.add(idOverride != null ? idOverride : doc.getId());
+      ids.add(getDestinationId(doc));
       addChildIds(doc, ids);
     }
     return ids;
@@ -962,6 +982,10 @@ public abstract class Indexer implements Runnable {
     Launch.indexer(args);
   }
 
+  private static boolean isEmptyList(ConfigValue value) {
+    return value instanceof ConfigList list && list.isEmpty();
+  }
+
   private void validateIndexerConfigs(Config config) {
     // Validate the general "indexer" entry in the Config. (This Spec is same for all indexers.)
     String indexerConfigKey = getIndexerConfigKey();
@@ -1000,6 +1024,14 @@ public abstract class Indexer implements Runnable {
         .optionalList("blacklist", new TypeReference<List<String>>(){})
         .optionalList("retryableStatusCodes", new TypeReference<List<Integer>>(){}).build()
         .validate(genericConfig, "Indexer");
+
+    List<String> unsupported = getUnsupportedSettings().stream()
+        .filter(setting -> config.hasPath(setting) && !isEmptyList(config.getValue(setting)))
+        .sorted()
+        .collect(Collectors.toList());
+    if (!unsupported.isEmpty()) {
+      throw new IllegalArgumentException(getClass().getSimpleName() + " does not support these indexer settings: " + unsupported + ".");
+    }
 
     // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.
     // This spec is unique to the implementation and must be public + static under "SPEC".
