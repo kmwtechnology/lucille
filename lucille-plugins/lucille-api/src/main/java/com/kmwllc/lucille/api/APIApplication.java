@@ -119,7 +119,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
    * Starts the Lucille API server, configures authentication, and registers resources.
    * @param config the Lucille API configuration
    * @param env the Dropwizard environment
-   * @throws IllegalArgumentException if authentication is enabled and AuthType is NO_AUTH
+   * @throws IllegalArgumentException if authentication is enabled and AuthType is NO_AUTH, or the password is missing or blank
    * @throws Exception for other startup failures
    */
   @Override
@@ -138,6 +138,11 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
 
       if (AuthType.NO_AUTH.equals(authType)) {
         throw new IllegalArgumentException("auth.type must be set to basicAndBearer when auth.enabled is true.");
+      }
+
+      String password = config.getAuthConfig().getPassword();
+      if (password == null || password.isBlank()) {
+        throw new IllegalArgumentException("auth.password must be set and not blank when auth.enabled is true.");
       }
 
       env.jersey().register(new RequireAuthDynamicFeature(buildAuthFilter(config, jwtService), AUTH_EXEMPT_PACKAGES));

@@ -10,24 +10,25 @@ The API can be run locally or in a Docker container:
 ### Local Run
 
 1. Replace the placeholders with your config file names or export them as environment variables. See [Configuration](#configuration) for more information
-2. `java -jar target/lucille-api-plugin.jar server ${DROPWIZARD_CONF}`
+2. Auth is enabled in the default `conf/api.yml`, so export a password first: `export LUCILLE_API_PASSWORD=<password>`. See [Setting the password](#setting-the-password)
+3. `java -jar target/lucille-api-plugin.jar server ${DROPWIZARD_CONF}`
 
 ### Dockerized Run
 
 1. Create the docker image: `docker build -t lucille-api .`
 2. Replace the placeholders with your config file names or export them as environment variables. See [Configuration](#configuration) for more information
-3. Run the image: `docker run --env DROPWIZARD_CONF=${DROPWIZARD_CONF} -p 8080:8080 lucille-api`
+3. Run the image, passing the auth password (required while auth is enabled): `docker run --env DROPWIZARD_CONF=${DROPWIZARD_CONF} --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 lucille-api`
 
 ### Upload Lucille Config
 1. This should be a HOCON file
-2. `curl -X POST http://localhost:8080/v1/config -H "Content-Type: application/hocon" -d @${LUCILLE_CONF}`
+2. `curl -u user:${LUCILLE_API_PASSWORD} -X POST http://localhost:8080/v1/config -H "Content-Type: application/hocon" -d @${LUCILLE_CONF}` (drop `-u` if auth is disabled)
 3. This will respond with a configId for your config
 
 **Note:** Uploaded configs cannot resolve / use environment variables. 
 
 ### Run Lucille with the Config
-1. `curl -X POST http://localhost:8080/v1/run -H "Content-Type: application/json" -d '{"configId":"CONFIG_ID"}'`
-2. You can do `curl http://localhost:8080/v1/run` to check the status of your runs
+1. `curl -u user:${LUCILLE_API_PASSWORD} -X POST http://localhost:8080/v1/run -H "Content-Type: application/json" -d '{"configId":"CONFIG_ID"}'`
+2. You can do `curl -u user:${LUCILLE_API_PASSWORD} http://localhost:8080/v1/run` to check the status of your runs
 
 ## Available Endpoints
 
@@ -116,36 +117,41 @@ Note: Only the password is validated, so any non-empty username works for Basic.
 
 #### Setting the password
 
-The shipped `conf/api.yml` ships with auth disabled and no password, and reads the password from an environment variable so no secret is committed:
+The shipped `conf/api.yml` has auth **enabled** by default, and reads the password from an environment variable so no secret is committed:
 
 ```yaml
 auth:
-  type: basicAndBearer
-  enabled: false
+  type: "basicAndBearer"
+  enabled: true
   password: ${LUCILLE_API_PASSWORD:-}
 ```
 
-The `${LUCILLE_API_PASSWORD:-}` syntax is resolved at startup (Dropwizard's `SubstitutingSourceProvider`, wired in `APIApplication.initialize()`). If the variable is unset it resolves to an empty string rather than failing startup.
+The `${LUCILLE_API_PASSWORD:-}` syntax is resolved at startup (Dropwizard's `SubstitutingSourceProvider`, wired in `APIApplication.initialize()`). If the variable is unset it resolves to an empty string.
 
-**Local testing:** flip `enabled: true` in `conf/api.yml` and export the password in your shell before starting the server:
+Because auth is enabled, **`LUCILLE_API_PASSWORD` must be set to a non-blank value or the API will refuse to start** with
+`auth.password must be set and not blank when auth.enabled is true.`
+
+**Local run:** export the password in your shell before starting the server:
 
 ```bash
 export LUCILLE_API_PASSWORD=password
 java -Dconfig.file=conf/simple-config.conf -jar target/lucille-api-plugin.jar server conf/api.yml
 ```
 
-**Production:** the committed config stays `enabled: false` with no password. Enable auth at deploy time with either:
+**Docker:** pass the password to the container:
 
-- **Inject the env var** into the container. The Docker image reads `LUCILLE_API_PASSWORD` the same way; set it alongside a config whose `enabled: true`:
-  ```bash
-  docker run --env LUCILLE_API_PASSWORD=<secret> --env DROPWIZARD_CONF=conf/api.yml -p 8080:8080 lucille-api
-  ```
-- **Mount a config** that has `enabled: true` and point `DROPWIZARD_CONF` at it (it can still use `${LUCILLE_API_PASSWORD}` or an injected value):
-  ```bash
-  docker run --env LUCILLE_API_PASSWORD=<secret> \
-    --env DROPWIZARD_CONF=/mnt/conf/api.yml \
-    -v /host/conf:/mnt/conf -p 8080:8080 lucille-api
-  ```
+```bash
+docker run --env LUCILLE_API_PASSWORD=<secret> --env DROPWIZARD_CONF=conf/api.yml -p 8080:8080 lucille-api
+```
+
+**Disabling auth:** to run without authentication (for example, local experimentation), set `enabled: false` in your config. You can
+mount your own config and point `DROPWIZARD_CONF` at it; it can still use `${LUCILLE_API_PASSWORD}` or an injected value:
+
+```bash
+docker run --env LUCILLE_API_PASSWORD=<secret> \
+  --env DROPWIZARD_CONF=/mnt/conf/api.yml \
+  -v /host/conf:/mnt/conf -p 8080:8080 lucille-api
+```
 
 Do not commit a real password to `api.yml`.
 
