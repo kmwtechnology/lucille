@@ -80,7 +80,7 @@ public class DictionaryLookupTest {
             "updateMode",
             "source",
             "dest",
-            "dictPath",
+            "dictionaryPath",
             "setOnly",
             "useAnyMatch",
             "ignoreMissingSource",

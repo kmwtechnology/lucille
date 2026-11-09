@@ -11,11 +11,11 @@ Parses a JSON array string (e.g., `"[0.1, 0.2, 0.3]"`) into a multi-valued field
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `field` | String | Yes | Field containing the JSON array string. If the field is multi-valued, only the first value is parsed. |
-| `dest` | String | No | Destination field for the floats. Any existing value is replaced. If not set, `field` is overwritten. |
+| `source` | String | Yes | Field containing the JSON array string. If the field is multi-valued, only the first value is parsed. |
+| `dest` | String | No | Destination field for the floats. Any existing value is replaced. If not set, `source` is overwritten. |
 
 ## Behavior
 
-- Documents without `field` are not changed.
+- Documents without `source` are not changed.
 - If the string cannot be parsed as an array of numbers, a warning is logged and the document is not changed.
 - If the array is empty, the destination field is removed.

@@ -35,7 +35,7 @@ import org.slf4j.MDC;
  * <p> <b>Waiting.</b> While {@link #dispatch} waits for room, the indexer thread does not poll its messenger. The wait
  * is bounded by the sends already in flight, which run in parallel and all started before it: about one send for a
  * full window or a shared destination id, and about two for a barrier (the in-flight sends, then its own). For a Kafka
- * messenger, kafka.maxPollIntervalSecs (also Kafka's rebalance timeout) must exceed that, and also the time from the
+ * messenger, kafka.maxPollIntervalMs (also Kafka's rebalance timeout) must exceed that, and also the time from the
  * start of a rebalance to rejoining: the wait in progress plus the flush-and-drain the revocation hook runs at the
  * next poll, about three sends. Retries count toward a send.
  */

@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Stores documents in a CSV file by writing selected fields as rows.
@@ -66,22 +67,6 @@ public class CSVIndexer extends Indexer {
 
   private CSVIndexer(Config config, IndexerContext context, ICSVWriter writer, String path) {
     super(config, context);
-    if (getIndexOverrideField() != null) {
-      // a writer passed in has already opened its output; close it so the file isn't left locked
-      if (writer != null) {
-        try {
-          writer.close();
-        } catch (IOException e) {
-          log.warn("Error occurred when closing csv indexer writer.", e);
-        }
-      }
-      throw new IllegalArgumentException(
-          "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
-    }
-    if (getDeletionMarkerField() != null || getDeleteByFieldField() != null) {
-      log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be written as regular rows.");
-    }
-    
     this.writer = writer;
     this.path = path;
     this.append = ConfigUtils.getBooleanOrDefault(config, "csv.append", false);
@@ -99,6 +84,13 @@ public class CSVIndexer extends Indexer {
 
   @Override
   protected String getIndexerConfigKey() { return "csv"; }
+
+  // columns decides what is written, so a field filter or id override would have nothing to apply to, and a file can't
+  // delete: a document marked for deletion would be written as a row
+  @Override
+  protected Set<String> getUnsupportedSettings() {
+    return Set.of("indexOverrideField", "idOverrideField", "includeFields", "excludeFields", "deletionMarker", "deleteByQuery");
+  }
 
   /**
    * Returns the writer, opening the output file first if this indexer was created from config and has not opened it

@@ -52,7 +52,7 @@ public class KafkaConnectorTest {
       "kafka.bootstrapServers", "localhost:9092",
       "kafka.topic", "test-topic",
       "kafka.consumerGroupId", "test-group",
-      "kafka.maxPollIntervalSecs", 600,
+      "kafka.maxPollIntervalMs", 600000,
       "kafka.clientId", "test-client",
       "continueOnTimeout", false);
 
@@ -163,7 +163,7 @@ public class KafkaConnectorTest {
   @Test
   public void testMessageTimeoutConfig() throws Exception {
     Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
-    configMap.put("messageTimeout", 500L);
+    configMap.put("messageTimeoutMs", 500L);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
@@ -324,7 +324,7 @@ public class KafkaConnectorTest {
   @Test
   public void testThreadTerminatesUponClose() throws Exception {
     Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
-    configMap.put("messageTimeout", 10000L); // Long timeout
+    configMap.put("messageTimeoutMs", 10000L); // Long timeout
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
@@ -356,7 +356,7 @@ public class KafkaConnectorTest {
     connectorThread.start();
     Thread.sleep(200);
     connector.close();
-    connectorThread.join(config.getLong("messageTimeout"));
+    connectorThread.join(config.getLong("messageTimeoutMs"));
 
     assertEquals(Thread.State.TERMINATED, connectorThread.getState());
     verify(mockConsumer, times(1)).poll(any(Duration.class));
@@ -365,7 +365,7 @@ public class KafkaConnectorTest {
   @Test
   public void testThreadTerminatesUponPollTimedOut() throws Exception {
     Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
-    configMap.put("messageTimeout", 10L);
+    configMap.put("messageTimeoutMs", 10L);
     // continue on timeout is false, after the poll times out the connector should terminate
     configMap.put("continueOnTimeout", false);
     Config config = ConfigFactory.parseMap(configMap);
@@ -374,7 +374,7 @@ public class KafkaConnectorTest {
 
     // Mock poll to wait LONGER than messageTimeout
     doAnswer(invocation -> {
-      Thread.sleep(config.getLong("messageTimeout") + 10L);
+      Thread.sleep(config.getLong("messageTimeoutMs") + 10L);
       return ConsumerRecords.empty();
     }).when(mockConsumer).poll(any(Duration.class));
 

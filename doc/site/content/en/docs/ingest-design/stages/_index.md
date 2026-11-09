@@ -16,12 +16,12 @@ To configure a Stage, provide its `class` in the config. You can also specify a 
 {
   name: "AddRandomBoolean-First"
   class: "com.kmwllc.lucille.stage.AddRandomBoolean"
-  fieldName: "rand_bool_1"
+  dest: "rand_bool_1"
   percentTrue: 65
 }
 ```
 
-Each Stage also accepts its own implementation-specific parameters (like `fieldName` and `percentTrue` above). See the individual stage pages below for details.
+Each Stage also accepts its own implementation-specific parameters (like `dest` and `percentTrue` above). See the individual stage pages below for details.
 
 ---
 

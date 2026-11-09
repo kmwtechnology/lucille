@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.CSVIndexer;
+import com.kmwllc.lucille.indexer.NopIndexer;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
@@ -19,14 +20,15 @@ import org.junit.Test;
 /**
  * Tests validation of the generic {@code indexer} config block performed by the {@link Indexer} base class.
  *
- * <p> Currently this covers only indexer.maxConcurrentBatches: the default, explicit and string values, the lower
- * bound, and the {@link Indexer#supportsConcurrentSends()} capability gate. (Concurrency behavior itself is not
- * exercised here — the dispatcher is still synchronous at this stage.)
+ * <p> Currently this covers indexer.maxConcurrentBatches (the default, explicit and string values, the lower bound,
+ * and the {@link Indexer#supportsConcurrentSends()} capability gate), and that the generic block is validated against
+ * its Spec before the constructor reads any of it, so an invalid value fails with the Spec's message rather than a raw
+ * config error. (Concurrency behavior itself is not exercised here — the dispatcher is still synchronous at this stage.)
  *
  * <p> The Indexer base class also validates other generic parameters that currently have no direct coverage here —
- * the deletionMarkerField / deletionMarkerFieldValue and deleteByFieldField / deleteByFieldValue "both or neither"
- * rules, and the retry parameters (maxRetries greater than 0, the retry sub-parameters requiring maxRetries, and a
- * non-empty retryableStatusCodes). Those predate this test and should be backfilled here in a separate PR.
+ * deleteByQuery requiring deletionMarker, and the retry parameters (maxRetries greater than 0, the retry
+ * sub-parameters requiring maxRetries, and a non-empty retryableStatusCodes). Those predate this test and should be
+ * backfilled here in a separate PR.
  */
 public class IndexerConfigTest {
 
@@ -70,6 +72,24 @@ public class IndexerConfigTest {
         "indexer.type", "csv", "indexer.maxConcurrentBatches", 1,
         "indexer.csv.columns", List.of("id"), "indexer.csv.path", "target/IndexerConfigTest.csv"));
     new CSVIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null)).closeConnection();
+  }
+
+  @Test
+  public void testIncompleteDeletionMarkerFailsWithSpecError() {
+    // the constructor reads deletionMarker.value, so a missing key would otherwise surface as a raw config error
+    Config config = ConfigFactory.parseString("deletionMarker { field: \"is_deleted\", valu: \"true\" }");
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> new NopIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null)));
+    assertTrue(e.getMessage(), e.getMessage().contains("missing required property value"));
+    assertTrue(e.getMessage(), e.getMessage().contains("unknown property valu"));
+  }
+
+  @Test
+  public void testWrongTypeFailsWithSpecError() {
+    Config config = ConfigFactory.parseString("batchSize: \"abc\"");
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> new NopIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null)));
+    assertTrue(e.getMessage(), e.getMessage().contains("batchSize must be a number"));
   }
 
   @Test

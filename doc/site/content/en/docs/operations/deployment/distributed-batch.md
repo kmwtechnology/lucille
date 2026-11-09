@@ -53,16 +53,16 @@ kafka {
 
   # Maximum time between polls before consumer is evicted from consumer group.
   # Must exceed the slowest document processing time and ~3x the slowest bulk request (incl. retries).
-  maxPollIntervalSecs: 600
+  maxPollIntervalMs: 600000
 
   # Maximum request size in bytes — increase for large documents
   maxRequestSize: 250000000
 
   # TLS/SASL — provide Java properties files for detailed Kafka client config
   securityProtocol: "SSL"
-  consumerPropertyFile: "/path/to/consumer.properties"
-  producerPropertyFile: "/path/to/producer.properties"
-  adminPropertyFile: "/path/to/admin.properties"
+  consumerPropertiesPath: "/path/to/consumer.properties"
+  producerPropertiesPath: "/path/to/producer.properties"
+  adminPropertiesPath: "/path/to/admin.properties"
 
   # Custom document serializer/deserializer (override only if needed)
   documentDeserializer: "com.kmwllc.lucille.message.KafkaDocumentDeserializer"
@@ -124,7 +124,7 @@ kafka-topics.sh --create --topic my-pipeline_fail \
   --bootstrap-server kafka:9092
 ```
 
-You do **not** need to create the event topic — Lucille creates it automatically at the start of each run via the Admin API. This requires that the Kafka user Lucille connects with has `CreateTopics` permission. If your Kafka cluster requires separate admin credentials, provide them via `kafka.adminPropertyFile`.
+You do **not** need to create the event topic — Lucille creates it automatically at the start of each run via the Admin API. This requires that the Kafka user Lucille connects with has `CreateTopics` permission. If your Kafka cluster requires separate admin credentials, provide them via `kafka.adminPropertiesPath`.
 
 ### Topic details
 

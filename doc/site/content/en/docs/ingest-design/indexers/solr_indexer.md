@@ -76,7 +76,7 @@ indexer {
 
 When a document has children (via `doc.addChild()`), they are added to the Solr document as nested child documents. The `___children` field itself is never sent to Solr. Children of children are not sent.
 
-The blacklist and whitelist apply to parents and children alike, except for `id`: Solr needs it on every document, so it is always sent. For the parent it is the `indexer.idOverrideField` value when set; children use their own `id`.
+`includeFields` and `excludeFields` apply to parents and children alike, except for `id`: Solr needs it on every document, so it is always sent. For the parent it is the `indexer.idOverrideField` value when set; children use their own `id`.
 
 ---
 
@@ -98,7 +98,7 @@ Internally, the indexer flushes pending adds before queuing a delete for an ID t
 
 ## Delete-by-Query via Terms Queries
 
-When `deleteByFieldField` and `deleteByFieldValue` are configured, SolrIndexer constructs Solr terms queries rather than issuing individual delete-by-query calls. Values for the same field are combined into a single terms query, and the queries for different fields (plus any pending deletes by ID) are joined with `OR` into one request:
+When `deleteByQuery` is configured, SolrIndexer constructs Solr terms queries rather than issuing individual delete-by-query calls. Values for the same field are combined into a single terms query, and the queries for different fields (plus any pending deletes by ID) are joined with `OR` into one request:
 
 ```
 (+{!terms f="category" separator="," v="obsolete,deprecated"})

@@ -690,4 +690,35 @@ public class PineconeIndexerTest {
       assertThrows(IndexerException.class,() -> new PineconeIndexer(configGood.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null)));
     }
   }
+
+  @Test
+  public void testUnsupportedSettingsOpenNoConnection() throws Exception {
+    Pinecone mockClient = Mockito.mock(Pinecone.class);
+    try (MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class, (mock, context) -> {
+      when(mock.build()).thenReturn(mockClient);
+    })) {
+      for (String setting : List.of("deleteByQuery { fieldNameField: \"field\", valueField: \"value\" }", "indexOverrideField: \"index\"")) {
+        Config config = ConfigFactory.parseString(setting)
+            .withFallback(ConfigFactory.load("PineconeIndexerTest/deletion-config.conf").getConfig("indexer"));
+        Exception exception = assertThrows(IllegalArgumentException.class,
+            () -> new PineconeIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null)));
+        assertTrue(exception.getMessage(), exception.getMessage().contains(setting.split("\\W")[0]));
+      }
+      Mockito.verify(mockClient, Mockito.never()).getIndexConnection(anyString());
+    }
+  }
+
+  @Test
+  public void testInvalidConfigOpensNoConnection() throws Exception {
+    Pinecone mockClient = Mockito.mock(Pinecone.class);
+    try (MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class, (mock, context) -> {
+      when(mock.build()).thenReturn(mockClient);
+    })) {
+      Config config = ConfigFactory.parseString("pinecone.mode: \"invalid\"")
+          .withFallback(ConfigFactory.load("PineconeIndexerTest/deletion-config.conf").getConfig("indexer"));
+      assertThrows(IndexerException.class,
+          () -> new PineconeIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null)));
+      Mockito.verify(mockClient, Mockito.never()).getIndexConnection(anyString());
+    }
+  }
 }

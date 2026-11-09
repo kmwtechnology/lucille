@@ -70,36 +70,36 @@ import org.xml.sax.SAXException;
  * same way when tikaConfigPath is not set: it is used as is, and enableOcr cannot be combined with it.
  * A provided or global config is applied to embedded documents as well as the top-level document.
  * metadataPrefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
- * textContentLimit (Integer, Optional) : limits how large the content of the returned text can be
- * parseTimeout (Long, Optional) : timeout for parsing in milliseconds. On timeout, the text extracted so far and the
- * metadataFields input hints are added to the document, but no extracted metadata.
+ * writeLimit (Integer, Optional) : limits how large the content of the returned text can be
+ * parseTimeoutMs (Long, Optional) : timeout for parsing in milliseconds. On timeout, the text extracted so far and the
+ * metadataHintFields input hints are added to the document, but no extracted metadata.
  * skipEmbeddedContentTypePrefixes (List&lt;String&gt;, Optional) : content-type prefixes for which embedded documents are
  * skipped (not parsed), e.g. ["image/"] to skip embedded images. Defaults to empty (all embedded documents parsed).
  * Embedded parts with no content type are always parsed.
- * whitelist (List&lt;String&gt;, Optional) : list of metadata names that are to be included in document
- * blacklist (List&lt;String&gt;, Optional) : list of metadata names that are not to be included in document
+ * includeMetadata (List&lt;String&gt;, Optional) : list of metadata names that are to be included in document
+ * excludeMetadata (List&lt;String&gt;, Optional) : list of metadata names that are not to be included in document
  * fieldNamesField (String, Optional) : if set, each extracted metadata field's prefixed name is added as a separate value to this
  * multi-valued field.
  * replaceDotsInMetadataNames (Boolean, Optional) : if true, "." in metadata names is replaced with "_", as spaces, "-" and ":"
  * always are. Defaults to false. Recommended when indexing into OpenSearch or Elasticsearch, which treat a dotted field
  * name as an object path: Tika emits keys such as "dc.date" and "dc.date.created", whose dotted field names cannot both be
- * mapped, so the document is rejected. Applies to metadata names only, not to metadataPrefix. When enabled, whitelist and
- * blacklist entries must use the replaced form (e.g. "dc_date"; dotted entries never match and are logged as a warning), and a dotted key that collapses onto an existing name (e.g. "dc.date" and "dc_date") has its values added
+ * mapped, so the document is rejected. Applies to metadata names only, not to metadataPrefix. When enabled, includeMetadata and
+ * excludeMetadata entries must use the replaced form (e.g. "dc_date"; dotted entries never match and are logged as a warning), and a dotted key that collapses onto an existing name (e.g. "dc.date" and "dc_date") has its values added
  * to the same multi-valued field.
  * fork.enabled (Boolean, Optional) : Whether parsing should be run in a child JVM via the <code>ForkParser</code>.
  * This adds overhead to each document but isolates OOM crashes from the parent. Defaults to false.
  * fork.poolSize (Integer, Optional) : number of child JVM processes kept alive in the pool. Defaults to 5.
  * fork.jvmArgs (List&lt;String&gt;, Optional) : JVM command and arguments for each child process. Defaults to ["java", "-Djava.awt.headless=true"].
  * "java" will be prepended to the jvmArgs, whenever you specify them.
- * fork.serverPulseMillis (Long, Optional) : Heartbeat interval (in ms) between parent and child processes. Defaults to 1000.
+ * fork.serverPulseMs (Long, Optional) : Heartbeat interval (in ms) between parent and child processes. Defaults to 1000.
  * s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
  * azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
  * gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
  * storageClients (Map, Optional) : If your files are held in storage with a custom StorageClient. See FileConnector for the appropriate arguments to provide.
- * metadataFields (Map, Optional) : Maps Tika metadata keys to the names of document fields whose values should be
+ * metadataHintFields (Map, Optional) : Maps Tika metadata keys to the names of document fields whose values should be
  * copied into the {@link Metadata} handed to Tika <i>before</i> parsing. This is the input to Tika, and is distinct
  * from the metadata Tika produces <i>after</i> parsing (Both input and output metadata are written back to the document under
- * metadataPrefix unless they are filtered out by the whitelist and/or blacklist configuration).
+ * metadataPrefix unless they are filtered out by includeMetadata and/or excludeMetadata).
  * <br>
  * The primary use case is supplying content-type detection hints. Because this stage parses from a plain
  * {@link InputStream}, Tika's container-aware detectors are skipped and detection falls back to "Mime Magic" on the
@@ -114,7 +114,7 @@ import org.xml.sax.SAXException;
  * See <a href="https://tika.apache.org/3.2.3/detection.html">Tika content type detection</a> for details. Example: a
  * document with "filename" and "content_type" fields would be configured as
  * {
- *   "metadataFields": {
+ *   "metadataHintFields": {
  *     "resourceName": "filename",
  *     "Content-Type": "content_type"
  *   }
@@ -125,20 +125,20 @@ public class TextExtractor extends Stage {
   public static final Spec FORK_SPEC = SpecBuilder.withoutDefaults()
       .optionalBoolean("enabled")
       .optionalList("jvmArgs", new TypeReference<List<String>>() {})
-      .optionalNumber("poolSize", "serverPulseMillis")
+      .optionalNumber("poolSize", "serverPulseMs")
       .build();
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("textField", "filePathField", "byteArrayField", "tikaConfigPath", "metadataPrefix", "fieldNamesField")
       .optionalBoolean("replaceDotsInMetadataNames")
-      .optionalList("whitelist", new TypeReference<List<String>>() {})
-      .optionalList("blacklist", new TypeReference<List<String>>() {})
-      .optionalNumber("textContentLimit", "parseTimeout")
+      .optionalList("includeMetadata", new TypeReference<List<String>>() {})
+      .optionalList("excludeMetadata", new TypeReference<List<String>>() {})
+      .optionalNumber("writeLimit", "parseTimeoutMs")
       .optionalList("skipEmbeddedContentTypePrefixes", new TypeReference<List<String>>() {})
       .optionalBoolean("enableOcr")
       .optionalParent("fork", FORK_SPEC)
       .include(FileConnector.STORAGE_SPEC)
-      .optionalParent("metadataFields", new TypeReference<Map<String, Object>>() {})
+      .optionalParent("metadataHintFields", new TypeReference<Map<String, Object>>() {})
       .include(FileContentFetcher.SPEC).build();
 
   // Default Tika config minus the Tesseract parser. With no parser able to OCR, PDFParser also skips rendering pages for OCR.
@@ -177,7 +177,7 @@ public class TextExtractor extends Stage {
   private final String metadataPrefix;
   private final String fieldNamesField;
   private final boolean replaceDotsInMetadataNames;
-  private final Integer textContentLimit;
+  private final Integer writeLimit;
   private final Long parseTimeout;
   private final boolean enableOcr;
   // where the global Tika config honoured by Tika's default constructors comes from (e.g. "tika.config system
@@ -205,11 +205,11 @@ public class TextExtractor extends Stage {
     byteArrayField = ConfigUtils.getStringOrDefault(config, "byteArrayField", null);
     metadataPrefix = ConfigUtils.getStringOrDefault(config, "metadataPrefix", "tika");
     tikaConfigPath = ConfigUtils.getStringOrDefault(config, "tikaConfigPath", null);
-    textContentLimit = ConfigUtils.getIntOrDefault(config, "textContentLimit", Integer.MAX_VALUE);
-    parseTimeout = ConfigUtils.getLongOrDefault(config, "parseTimeout", null);
+    writeLimit = ConfigUtils.getIntOrDefault(config, "writeLimit", Integer.MAX_VALUE);
+    parseTimeout = ConfigUtils.getLongOrDefault(config, "parseTimeoutMs", null);
     fieldNamesField = ConfigUtils.getStringOrDefault(config, "fieldNamesField", null);
     replaceDotsInMetadataNames = config.hasPath("replaceDotsInMetadataNames") && config.getBoolean("replaceDotsInMetadataNames");
-    metadataFields = config.hasPath("metadataFields") ? config.getConfig("metadataFields").root().unwrapped() : null;
+    metadataFields = config.hasPath("metadataHintFields") ? config.getConfig("metadataHintFields").root().unwrapped() : null;
     skipEmbeddedContentTypePrefixes = config.hasPath("skipEmbeddedContentTypePrefixes")
         ? config.getStringList("skipEmbeddedContentTypePrefixes")
         : List.of();
@@ -227,11 +227,11 @@ public class TextExtractor extends Stage {
       forkJvmArgs = DEFAULT_FORK_JVM_ARGS;
     }
 
-    forkServerPulseMillis = ConfigUtils.getOrDefault(config, "fork.serverPulseMillis", 1000L);
+    forkServerPulseMillis = ConfigUtils.getOrDefault(config, "fork.serverPulseMs", 1000L);
 
-    this.fieldFilter = new FieldFilter(config);
+    this.fieldFilter = new FieldFilter(config, "includeMetadata", "excludeMetadata");
     if (replaceDotsInMetadataNames) {
-      for (String listName : List.of("whitelist", "blacklist")) {
+      for (String listName : List.of("includeMetadata", "excludeMetadata")) {
         if (config.hasPath(listName) && config.getStringList(listName).stream().anyMatch(n -> n.contains("."))) {
           log.warn("replaceDotsInMetadataNames is enabled but {} contains a dotted name, which will never match; use \"_\" instead of \".\"", listName);
         }
@@ -335,7 +335,7 @@ public class TextExtractor extends Stage {
   }
 
   /**
-   * Creates the single-thread executor parses run on when parseTimeout is set. Its thread is a daemon so a
+   * Creates the single-thread executor parses run on when parseTimeoutMs is set. Its thread is a daemon so a
    * parse that ignores interruption after a timeout can't keep the JVM alive.
    */
   private static ExecutorService createParseExecutor() {
@@ -473,14 +473,14 @@ public class TextExtractor extends Stage {
 
   /**
    * Builds the input {@link Metadata} handed to Tika before parsing, copying values from the given document into the
-   * metadata according to the configured {@code metadataFields} mapping.
+   * metadata according to the configured {@code metadataHintFields} mapping.
    *
    * <p>Each entry maps a Tika metadata key to the name of a document field to read from. Fields the document does not
    * contain are skipped, and multi-valued fields contribute all of their values. These values act as detection hints
    * (see the class-level documentation), not as extracted output.
    *
    * @param doc the document to read the configured hint fields from.
-   * @return a {@code Metadata} populated with the configured hints (empty when {@code metadataFields} is unset).
+   * @return a {@code Metadata} populated with the configured hints (empty when {@code metadataHintFields} is unset).
    */
   public Metadata createMetadataInput(Document doc) {
     Metadata metadata = new Metadata();
@@ -515,7 +515,7 @@ public class TextExtractor extends Stage {
    * @param inputStream The {@code InputStream} containing the content to be parsed.
    */
   public void parseInputStream(Metadata metadata, Document doc, InputStream inputStream) throws StageException {
-    ContentHandler bch = new BodyContentHandler(textContentLimit);
+    ContentHandler bch = new BodyContentHandler(writeLimit);
     ParseContext parseCtx = createParseContext();
     // the metadata written to the document; swapped for a fresh copy of the input hints on timeout
     Metadata metadataToWrite = metadata;
@@ -595,10 +595,10 @@ public class TextExtractor extends Stage {
     try {
       parser.parse(inputStream, bch, metadata, parseCtx);
     } catch (IOException | SAXException | TikaException e) {
-      // We expect truncation when textContentLimit is reached.
+      // We expect truncation when writeLimit is reached.
       // It is best to check this condition because exceptions tend to be rewrapped. 
       if (WriteLimitReachedException.isWriteLimitReached(e)) {
-        log.debug("textContentLimit ({}) reached; extracted text truncated.", textContentLimit);
+        log.debug("writeLimit ({}) reached; extracted text truncated.", writeLimit);
       } else if (forkEnabled) {
         throw new StageException("Forked Tika process failed for document: " + doc.getId(), e);
       } else {

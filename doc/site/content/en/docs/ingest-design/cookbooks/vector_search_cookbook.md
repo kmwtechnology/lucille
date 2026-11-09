@@ -130,7 +130,7 @@ pipelines: [
         class: "com.kmwllc.lucille.jlama.stage.JlamaEmbed"
         source: "text"
         dest: "content_vector"
-        modelPath: "/models/all-MiniLM-L6-v2"
+        modelDownloadPath: "/models/all-MiniLM-L6-v2"
         embedDocument: false
         embedChildren: true
       }
@@ -253,7 +253,7 @@ pipelines: [
       # Generate a concise summary using a local Ollama model
       {
         class: "com.kmwllc.lucille.stage.PromptOllama"
-        hostURL: "http://localhost:11434"
+        hostUrl: "http://localhost:11434"
         modelName: "llama3"
         systemPrompt: "Summarize the following document in 2-3 sentences. Output only a JSON object with a single field: summary."
         fields: ["body"]

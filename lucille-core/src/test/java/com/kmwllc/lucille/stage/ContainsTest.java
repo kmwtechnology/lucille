@@ -53,13 +53,13 @@ public class ContainsTest {
   public void testSpec() throws StageException {
     Stage stage = factory.get("ContainsTest/config.conf");
     assertEquals(
-        Set.of("output", "contains", "ignoreCase", "fields", "value"),
+        Set.of("dest", "contains", "ignoreCase", "fields", "value"),
         stage.getNonDefaultLegalProperties());
   }
 
   @Test
   public void testNullValues() throws Exception {
-    Stage stage = factory.get(Map.of("contains", List.of("Hi"), "output", "o", "value", "y", "fields", List.of("f")));
+    Stage stage = factory.get(Map.of("contains", List.of("Hi"), "dest", "o", "value", "y", "fields", List.of("f")));
 
     Document doc = Document.createFromJson("{\"id\":\"1\",\"f\":null}");
     stage.processDocument(doc);

@@ -28,10 +28,10 @@ import org.slf4j.LoggerFactory;
  * Config Parameters -
  * <ul>
  *   <li>filePathField (String, Optional) : The field name that contains the file path. Defaults to "file_path".</li>
- *   <li>fileSep (String, Optional) : The separator to use in the normalized path output from this stage. Defaults to the operating
+ *   <li>fileSeparator (String, Optional) : The separator to use in the normalized path output from this stage. Defaults to the operating
  *   system's separator. <b>Must</b> be either "/" or "\". You should specify the separator if you are running Lucille on Windows but
  *   working with Unix file paths (or vice versa) and you want the original separators to be preserved. Note that this stage will
- *   parse Windows and Unix paths regardless of fileSep / operating system - this property only controls output behavior.</li>
+ *   parse Windows and Unix paths regardless of fileSeparator / operating system - this property only controls output behavior.</li>
  *   <li>uppercaseExtension (Boolean, Optional) : If true, the extracted file extension will be in all uppercase letters. Defaults to
  *   true.</li>
  *   <li>includeHierarchy (Boolean, Optional) : If true, a field ("file_paths") will be populated with all of the normalized subpaths
@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
 public class ParseFilePath extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("filePathField", "fileSep")
+      .optionalString("filePathField", "fileSeparator")
       .optionalBoolean("uppercaseExtension", "includeHierarchy").build();
 
   private final String filePathField;
@@ -54,10 +54,10 @@ public class ParseFilePath extends Stage {
   public ParseFilePath(Config config) {
     super(config);
     this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "file_path");
-    this.fileSep = ConfigUtils.getOrDefault(config, "fileSep", File.separator);
+    this.fileSep = ConfigUtils.getOrDefault(config, "fileSeparator", File.separator);
 
     if (!fileSep.equals("/") && !fileSep.equals("\\")) {
-      throw new IllegalArgumentException("ParseFilePath must have fileSep set to either / or \\. Remember to escape \\ in your .conf.");
+      throw new IllegalArgumentException("ParseFilePath must have fileSeparator set to either / or \\. Remember to escape \\ in your .conf.");
     }
 
     this.uppercaseExtension = ConfigUtils.getOrDefault(config, "uppercaseExtension", true);

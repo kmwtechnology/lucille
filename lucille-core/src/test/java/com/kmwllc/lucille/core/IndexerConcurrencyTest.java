@@ -633,8 +633,7 @@ public class IndexerConcurrencyTest {
   public void testThrowingBarrierCheckFailsBatchWithoutStalling() throws Exception {
     // The dispatcher also calls the barrier predicate (Indexer::isDeleteByQuery) before a batch is sent, and it too can
     // throw on a malformed field value. Like a throwing id extractor, it must not escape and stall the run: the batch
-    // must FAIL cleanly. The deletion-marker config and fields make isDeleteByQuery evaluate through to the (throwing)
-    // hasDeleteByFieldValues check.
+    // must FAIL cleanly. The test indexer's isDeleteByQuery override throws for the chosen document.
     RecordingMessenger messenger = new RecordingMessenger();
     ControlledIndexer controlled = new ControlledIndexer(config(2, deleteByQuerySettings()).getConfig("indexer"), messenger);
     indexer = controlled;
@@ -740,14 +739,14 @@ public class IndexerConcurrencyTest {
     assertFullBatchesDespiteSlowSends(2);
   }
 
-  // A send slower than batchTimeout must not make the next add flush the leftover document as a batch of its own: time
+  // A send slower than batchTimeoutMs must not make the next add flush the leftover document as a batch of its own: time
   // the indexer thread spends blocked sending (K=1) or waiting for a free slot (K>1) is excluded from the batch timer.
   private void assertFullBatchesDespiteSlowSends(int maxConcurrentBatches) throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     ControlledIndexer controlled = new ControlledIndexer(
-        config(maxConcurrentBatches, Map.of("indexer.batchSize", 2, "indexer.batchTimeout", 50)).getConfig("indexer"), messenger);
+        config(maxConcurrentBatches, Map.of("indexer.batchSize", 2, "indexer.batchTimeoutMs", 50)).getConfig("indexer"), messenger);
     indexer = controlled;
-    // Each send takes far longer than the 50 ms batchTimeout.
+    // Each send takes far longer than the 50 ms batchTimeoutMs.
     controlled.setSendDelayMs(200);
     for (String docId : List.of("doc1", "doc2", "doc3", "doc4", "doc5", "doc6")) {
       messenger.queueDoc(Document.create(docId));
@@ -764,10 +763,10 @@ public class IndexerConcurrencyTest {
     return config(maxConcurrentBatches, Map.of());
   }
 
-  /** Base config (batchSize 1, short batchTimeout) with the given maxConcurrentBatches, plus any extra settings. */
+  /** Base config (batchSize 1, short batchTimeoutMs) with the given maxConcurrentBatches, plus any extra settings. */
   private static Config config(int maxConcurrentBatches, Map<String, Object> extraSettings) {
     Map<String, Object> settings = new HashMap<>(Map.of(
-        "indexer.batchSize", 1, "indexer.batchTimeout", 20, "indexer.maxConcurrentBatches", maxConcurrentBatches));
+        "indexer.batchSize", 1, "indexer.batchTimeoutMs", 20, "indexer.maxConcurrentBatches", maxConcurrentBatches));
     settings.putAll(extraSettings);
     return ConfigFactory.parseMap(settings);
   }
@@ -805,10 +804,10 @@ public class IndexerConcurrencyTest {
   /** Indexer settings that enable deletion handling, so a document can be a delete-by-id or delete-by-query request. */
   private static Map<String, Object> deleteByQuerySettings() {
     return Map.of(
-        "indexer.deletionMarkerField", "isDeleted",
-        "indexer.deletionMarkerFieldValue", "true",
-        "indexer.deleteByFieldField", "deleteField",
-        "indexer.deleteByFieldValue", "deleteValue");
+        "indexer.deletionMarker.field", "isDeleted",
+        "indexer.deletionMarker.value", "true",
+        "indexer.deleteByQuery.fieldNameField", "deleteField",
+        "indexer.deleteByQuery.valueField", "deleteValue");
   }
 
   /** A document marked for deletion and carrying the deleteByField fields, making it a delete-by-query request. */
@@ -920,7 +919,7 @@ public class IndexerConcurrencyTest {
     // Document ids for which id extraction (getDocIdOverride, reached via the dispatcher's destinationIdExtractor)
     // should throw, simulating a malformed field value that makes the extractor fail before the batch is sent.
     private final Set<String> idExtractionFailures = ConcurrentHashMap.newKeySet();
-    // Document ids for which the barrier check (hasDeleteByFieldValues, reached via the dispatcher's isBarrierDocument
+    // Document ids for which the barrier check (isDeleteByQuery, reached via the dispatcher's isBarrierDocument
     // predicate) should throw, simulating a malformed field value that makes the predicate fail before the batch is sent.
     private final Set<String> barrierCheckFailures = ConcurrentHashMap.newKeySet();
 
@@ -993,8 +992,7 @@ public class IndexerConcurrencyTest {
           if (!doc.has("op")) {
             continue;
           }
-          String override = getDocIdOverride(doc);
-          String destId = override != null ? override : doc.getId();
+          String destId = getDestinationId(doc);
           switch (doc.getString("op")) {
             case "add" -> destination.put(destId, doc.getString("version"));
             case "delete" -> destination.remove(destId);
@@ -1031,21 +1029,19 @@ public class IndexerConcurrencyTest {
 
     /**
      * Makes the barrier check throw for the given document id. The dispatcher calls the barrier predicate
-     * ({@code Indexer::isDeleteByQuery}, which calls {@link #hasDeleteByFieldValues}) before a batch is sent, so this
-     * simulates a malformed field value that makes that callback throw, and lets a test assert the batch still FAILs
-     * cleanly rather than stalling the run. (The test must supply deletion-marker config/fields so isDeleteByQuery
-     * evaluates through to hasDeleteByFieldValues.)
+     * ({@code Indexer::isDeleteByQuery}) before a batch is sent, so this simulates a malformed field value that makes
+     * that callback throw, and lets a test assert the batch still FAILs cleanly rather than stalling the run.
      */
     void failBarrierCheck(String docId) {
       barrierCheckFailures.add(docId);
     }
 
     @Override
-    protected boolean hasDeleteByFieldValues(Document doc) {
+    protected boolean isDeleteByQuery(Document doc) {
       if (barrierCheckFailures.contains(doc.getId())) {
         throw new IllegalArgumentException("simulated barrier check failure for " + doc.getId());
       }
-      return super.hasDeleteByFieldValues(doc);
+      return super.isDeleteByQuery(doc);
     }
 
     /** Makes the next {@code count} send attempts for the given document id throw a retryable exception, then succeed. */

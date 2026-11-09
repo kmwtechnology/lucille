@@ -53,7 +53,7 @@ public class CopyFields extends Stage {
 
   private final Map<String, Object> fieldMapping;
   private final UpdateMode updateMode;
-  private final boolean isNested;
+  private final boolean useNestedPaths;
 ```
 
 **Local variables:** camelCase. Short, descriptive names. Loop variables use standard conventions (`i`, `doc`, `node`, `entry`).
@@ -119,7 +119,7 @@ private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.luci
  * <ul>
  *   <li>fieldMapping (Map&lt;String, Object&gt;) : A mapping of source field names to destination field names.</li>
  *   <li>updateMode (String, Optional) : Determines how writing will be handled. Defaults to 'overwrite'.</li>
- *   <li>isNested (Boolean, Optional) : Sets whether to treat field names as nested json paths. Defaults to false.</li>
+ *   <li>useNestedPaths (Boolean, Optional) : Sets whether to treat field names as nested json paths. Defaults to false.</li>
  * </ul>
  */
 ```
@@ -178,8 +178,8 @@ Stage stage = factory.get("CopyFieldsTest/config.conf");
 **Config reading pattern:** Required parameters use direct Typesafe Config getters. Optional parameters use `ConfigUtils.getOrDefault`:
 
 ```java
-this.sourceField = config.getString("sourceField");           // required
-this.destField = ConfigUtils.getOrDefault(config, "destField", "output");  // optional with default
+this.source = config.getString("source");                 // required
+this.dest = ConfigUtils.getOrDefault(config, "dest", "output");  // optional with default
 ```
 
 **Exception handling in stages:** Stages throw `StageException` for errors that should fail the current document. They do not catch and swallow exceptions silently. The Worker handles the exception and routes the document to a failure state.

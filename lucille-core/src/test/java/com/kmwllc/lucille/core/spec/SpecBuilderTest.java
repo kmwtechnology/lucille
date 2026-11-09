@@ -22,8 +22,8 @@ public class SpecBuilderTest {
 
     Spec spec2 = SpecBuilder.stage()
         .optionalString("textField")
-        .optionalList("whitelist", new TypeReference<List<String>>() {})
-        .optionalList("blacklist", new TypeReference<List<String>>() {})
+        .optionalList("includeFields", new TypeReference<List<String>>() {})
+        .optionalList("excludeFields", new TypeReference<List<String>>() {})
         .optionalNumber("textContentLimit")
         .include(FileConnector.STORAGE_SPEC)
         .include(spec1).build();
@@ -32,8 +32,8 @@ public class SpecBuilderTest {
 
     assertTrue(spec2.getLegalProperties().contains("fetcherClass"));
     assertTrue(spec2.getLegalProperties().contains("textField"));
-    assertTrue(spec2.getLegalProperties().contains("whitelist"));
-    assertTrue(spec2.getLegalProperties().contains("blacklist"));
+    assertTrue(spec2.getLegalProperties().contains("includeFields"));
+    assertTrue(spec2.getLegalProperties().contains("excludeFields"));
     assertTrue(spec2.getLegalProperties().contains("textContentLimit"));
     assertTrue(spec2.getLegalProperties().contains("azure"));
 

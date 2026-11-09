@@ -150,7 +150,7 @@ You just call `publisher.publish(doc)` and the framework handles everything else
 
 ### What the framework handles (you don't have to)
 
-**Batching with size and timeout.** The base `Indexer` class accumulates documents in a `Batch` and flushes when either the configured `batchSize` is reached or `batchTimeout` milliseconds have elapsed. Your `sendToIndex()` method receives a pre-batched list of documents. You never manage batch accumulation or timeout logic.
+**Batching with size and timeout.** The base `Indexer` class accumulates documents in a `Batch` and flushes when either the configured `batchSize` is reached or `batchTimeoutMs` milliseconds have elapsed. Your `sendToIndex()` method receives a pre-batched list of documents. You never manage batch accumulation or timeout logic.
 
 **MultiBatch for index routing.** When `indexOverrideField` is configured, the framework uses a `MultiBatch` that maintains separate batches per destination index, flushing them independently. Your implementation receives documents already grouped by destination.
 
@@ -160,9 +160,9 @@ You just call `publisher.publish(doc)` and the framework handles everything else
 
 **Event reporting for accounting.** After each batch, the framework sends FINISH events for successful documents and FAIL events for failed ones. You return a list of `IndexerFailure`s from `sendToIndex()`; the framework handles all event communication with the Publisher.
 
-**Field filtering (whitelist/blacklist).** The `getConvertedIndexerDoc()` and `getRawIndexerDoc()` methods apply the configured field filter before you see the document. The filter treats reserved fields such as `run_id` and `___skipped` like any other field, so they reach the backend unless the whitelist leaves them out or the blacklist names them. Both always omit `___children`; an indexer that sends child documents reads them from `doc.getChildren()`. You call `getConvertedIndexerDoc(doc)` (or `getRawIndexerDoc(doc)` for a Jackson-based client) and get a clean map ready for the search backend.
+**Field filtering (`includeFields`/`excludeFields`).** The `getConvertedIndexerDoc()` and `getRawIndexerDoc()` methods apply the configured field filter before you see the document. The filter treats reserved fields such as `run_id` and `___skipped` like any other field, so they reach the backend unless `includeFields` leaves them out or `excludeFields` names them. Both always omit `___children`; an indexer that sends child documents reads them from `doc.getChildren()`. You call `getConvertedIndexerDoc(doc)` (or `getRawIndexerDoc(doc)` for a Jackson-based client) and get a clean map ready for the search backend.
 
-**ID override.** `getDocIdOverride(doc)` returns the override ID if configured, or null. You check this and use it as the document ID in the search backend.
+**ID override.** `getDestinationId(doc)` returns the override ID if configured, or else the document ID. You use it as the document ID in the search backend.
 
 **Index override.** `getIndexOverride(doc)` returns the destination index/collection override if configured, or null.
 
@@ -182,7 +182,7 @@ You just call `publisher.publish(doc)` and the framework handles everything else
 
 **Per-document failure extraction from bulk responses.** The bulk API may succeed overall but report failures for individual documents. You must parse the response, identify which documents failed, and return them as a `List<IndexerFailure>`. See `OpenSearchIndexer` (iterates `BulkResponseItem` checking for errors) and `SolrIndexer` (catches exceptions per-collection).
 
-**Deletion handling.** Detect documents marked for deletion (using `deletionMarkerField`/`deletionMarkerFieldValue`) and issue the appropriate delete operation (delete-by-ID or delete-by-query). The framework provides the config values and the detection helpers `isMarkedForDeletion(doc)` and `hasDeleteByFieldValues(doc)`; you branch on them and make the delete API call. See `OpenSearchIndexer.sendToIndex()`. The base class uses the same two helpers to decide which batches are delete-by-query barriers when sends run concurrently, so use them (rather than your own check) to keep that decision consistent with yours.
+**Deletion handling.** Detect documents marked for deletion (using `deletionMarker` and `deleteByQuery`) and issue the appropriate delete operation (delete-by-ID or delete-by-query). The framework provides the config values and the detection helpers `isMarkedForDeletion(doc)` and `isDeleteByQuery(doc)`, and `getDeleteByQueryFieldName(doc)` and `getDeleteByQueryValue(doc)` for a delete-by-query's target; you branch on them and make the delete API call. See `OpenSearchIndexer.sendToIndex()`. The base class uses the same two helpers to decide which batches are delete-by-query barriers when sends run concurrently, so use them (rather than your own check) to keep that decision consistent with yours.
 
 **Ordering within a batch.** If a batch contains both an upsert and a delete for the same document ID, you must ensure the operations are sent in the correct order. The SolrIndexer handles this by flushing pending upserts before processing a delete for the same ID. The OpenSearch indexer handles it by removing conflicting entries from the upload/delete maps.
 
@@ -212,7 +212,7 @@ You just call `publisher.publish(doc)` and the framework handles everything else
 | **Document lifecycle tracking** | Publisher accounting, events | — |
 | **Backpressure** | maxPendingDocs, queue capacity | — |
 | **Error routing** | Catching StageException, sending FAIL events | Deciding what to throw vs. handle |
-| **Field filtering** | Whitelist/blacklist application | — |
+| **Field filtering** | `includeFields`/`excludeFields` application | — |
 | **Connection lifecycle** | Calling validate/close at right time | Implementing validate/close |
 | **Bulk API** | — | Constructing backend-specific requests |
 | **Deletion semantics** | Providing config values | Detecting markers, issuing deletes |

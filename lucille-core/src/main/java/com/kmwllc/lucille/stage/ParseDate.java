@@ -40,12 +40,12 @@ import java.util.stream.Collectors;
  *   for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
  *   <li>formatters (List&lt;Function&gt;) : List of formatter classes to be used for parsing dates. Formatters must implement the
  *   Function&lt;String, LocalDate&gt; Interface.</li>
- *   <li>formatStrs (List&lt;String&gt;, Optional) : A List of format Strings to try and apply to the dates. Defaults to an empty list.</li>
+ *   <li>formatStrings (List&lt;String&gt;, Optional) : A List of format Strings to try and apply to the dates. Defaults to an empty list.</li>
  *   <li>updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
  *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
  *   <li>timeZoneId (String, Optional) : The time zone ID to use when parsing dates. Defaults to the system default.
  *   <a href="https://docs.oracle.com/javase/7/docs/api/java/util/TimeZone.html">See here for more info about time zone ids</a></li>
- *   <li>locale (String, Optional) : IETF BCP 47 language tag (e.g. "en-US", "fr") used for month and day names in formatStrs.
+ *   <li>locale (String, Optional) : IETF BCP 47 language tag (e.g. "en-US", "fr") used for month and day names in formatStrings.
  *   An invalid tag fails the stage at startup. Defaults to the JVM default locale.</li>
  * </ul>
  * <p>
@@ -57,7 +57,7 @@ public class ParseDate extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredList("source", new TypeReference<List<String>>(){})
       .requiredList("dest", new TypeReference<List<String>>(){})
-      .optionalList("formatStrs", new TypeReference<List<String>>(){})
+      .optionalList("formatStrings", new TypeReference<List<String>>(){})
       .optionalList("formatters", SpecBuilder.withoutDefaults().requiredString("class").build())
       .optionalString("timeZoneId", "updateMode", "locale").build();
 
@@ -108,8 +108,8 @@ public class ParseDate extends Stage {
   private static List<DateTimeFormatter> getFormats(Config config, ZoneId zoneId, Locale locale, boolean partial) {
 
     // convert format strings to a set to remove duplicates
-    List<String> formatStrings = !config.hasPath("formatStrs") ? new ArrayList<>() :
-        config.getStringList("formatStrs").stream().distinct().collect(Collectors.toList());
+    List<String> formatStrings = !config.hasPath("formatStrings") ? new ArrayList<>() :
+        config.getStringList("formatStrings").stream().distinct().collect(Collectors.toList());
 
     // create date formatters from format strings with a timezone
     List<DateTimeFormatter> formats = new ArrayList<>();

@@ -279,7 +279,7 @@ public class PipelineTest {
     Config pipelineConfig = ConfigFactory.load("PipelineTest/all-disabled.conf");
     Pipeline pipeline = Pipeline.fromConfig(pipelineConfig, "my-pipeline", "");
 
-    // Note: two of the stages have invalid config (missing "destField").
+    // Note: two of the stages have invalid config (missing "dest").
     // However, no validation errors are thrown - since disabled stages are not instantiated in Pipeline.fromConfig()
     // (Disabled Stages are still validated in Pipeline.validateStages()... see next test. So, from the end user's perspective,
     // disabled Stages "are validated" - the Runner does validation before building & starting a pipeline.)
@@ -288,13 +288,13 @@ public class PipelineTest {
 
   @Test
   public void testDisabledStagesAreValidated() throws Exception {
-    // all three stages are disabled. the two timestamp stages do not have the "destField".
+    // all three stages are disabled. the two timestamp stages do not have the "dest".
     Config pipelineConfig = ConfigFactory.load("PipelineTest/all-disabled.conf");
     List<Exception> validationErrors = Pipeline.validateStages(pipelineConfig, "my-pipeline");
 
     assertEquals(2, validationErrors.size());
-    assertTrue(validationErrors.get(0).getMessage().contains("destField"));
-    assertTrue(validationErrors.get(1).getMessage().contains("destField"));
+    assertTrue(validationErrors.get(0).getMessage().contains("dest"));
+    assertTrue(validationErrors.get(1).getMessage().contains("dest"));
   }
 
   private static class Stage1 extends Stage {

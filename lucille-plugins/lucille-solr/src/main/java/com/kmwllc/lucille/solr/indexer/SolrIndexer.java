@@ -156,11 +156,6 @@ public class SolrIndexer extends Indexer {
 
     for (Document doc : documents) {
 
-      // if an id override field has been specified, use its value as the id to send to solr,
-      // instead
-      // of the document's own id
-      String idOverride = getDocIdOverride(doc);
-
       // if an index override field has been specified, use its value as the solr collection to send
       // the document to,
       // instead of the default collection. Remove the field from the solr document.
@@ -170,7 +165,7 @@ public class SolrIndexer extends Indexer {
         solrDocRequestsByCollection.put(collection, new SolrDocRequests());
       }
       SolrDocRequests solrDocRequests = solrDocRequestsByCollection.get(collection);
-      String solrId = idOverride != null ? idOverride : doc.getId();
+      String solrId = getDestinationId(doc);
 
       if (isMarkedForDeletion(doc)) {
 
@@ -178,14 +173,13 @@ public class SolrIndexer extends Indexer {
         // immediately so the add/update
         // of the document is processed before this delete.
 
-        if (solrDocRequests.containsIdForAddUpdate(solrId) || hasDeleteByFieldValues(doc)) {
+        if (solrDocRequests.containsIdForAddUpdate(solrId) || isDeleteByQuery(doc)) {
           sendAddUpdateBatch(collection, solrDocRequests.getAddUpdateDocs());
           solrDocRequests.resetAddUpdates();
         }
 
-        if (hasDeleteByFieldValues(doc)) {
-          solrDocRequests.addDeleteByFieldValue(
-              doc.getString(getDeleteByFieldField()), doc.getString(getDeleteByFieldValue()));
+        if (isDeleteByQuery(doc)) {
+          solrDocRequests.addDeleteByFieldValue(getDeleteByQueryFieldName(doc), getDeleteByQueryValue(doc));
         } else {
           solrDocRequests.addIdForDeletion(solrId);
         }
@@ -369,7 +363,7 @@ public class SolrIndexer extends Indexer {
       return;
     }
     for (Document child : children) {
-      // remove key:value pair mappings if they appear in blacklist
+      // remove key:value pair mappings if they appear in indexer.excludeFields
       Map<String, Object> map = getConvertedIndexerDoc(child);
 
       SolrInputDocument solrChild = new SolrInputDocument();

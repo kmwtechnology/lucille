@@ -46,7 +46,7 @@ The Indexer sends documents in batches. Both batch size and timeout are independ
 ```hocon
 indexer {
   batchSize: 200        # Flush when this many docs accumulate
-  batchTimeout: 5000    # Flush after 5 seconds if batchSize is not reached
+  batchTimeoutMs: 5000    # Flush after 5 seconds if batchSize is not reached
 }
 ```
 
@@ -74,7 +74,7 @@ INFO WorkerPool: 27017 docs processed. One minute rate: 1787.10 docs/sec. Mean p
 INFO Indexer: 17016 docs indexed. One minute rate: 455.07 docs/sec. Mean backend latency: 6.90 ms/doc.
 ```
 
-The frequency is controlled by `log.seconds` (default: 30).
+The frequency is controlled by `log.intervalSecs` (default: 30).
 
 ## Run Summary
 
@@ -112,7 +112,7 @@ The specific conditions that produce exit 1:
 | **Indexer** | Indexer cannot be created from config, or fails to validate its connection to the search backend |
 | **Connector lifecycle** | `preExecute()`, `execute()`, or `postExecute()` throws a `ConnectorException` |
 | **Publisher** | `waitForCompletion()` throws an exception |
-| **Connector timeout** | Connector exceeds `runner.connectorTimeout` (default: 24 hours) without completing |
+| **Connector timeout** | Connector exceeds `runner.connectorTimeoutMs` (default: 24 hours) without completing |
 | **Connector thread exception** | The connector thread throws an unhandled exception during execution |
 | **Resource cleanup** | Error closing the connector or publisher after execution |
 
@@ -149,9 +149,9 @@ When the Runner receives `SIGINT` (e.g. from Kubernetes sending `SIGTERM` → th
 
 - [ ] Set `-Xmx` heap limit appropriate for your pipeline's memory usage.
 - [ ] Configure `publisher.queueCapacity` (local mode) or `publisher.maxPendingDocs` (distributed).
-- [ ] Tune `indexer.batchSize` and `indexer.batchTimeout` for your backend's throughput.
+- [ ] Tune `indexer.batchSize` and `indexer.batchTimeoutMs` for your backend's throughput.
 - [ ] Use environment variable substitution for credentials (`${?VAR_NAME}`) — never hard-code secrets in config files.
 - [ ] Route `DocLogger` output to a separate file in production (see [Logging]({{< relref "docs/operations/logging" >}})).
 - [ ] Enable `runner.metricsLoggingLevel: "INFO"` for stage-by-stage metrics at run completion.
 - [ ] Configure `worker.maxRetries` and ZooKeeper if poison-pill protection is needed — without this, a document that repeatedly crashes a Worker will stall the pipeline indefinitely. Failed documents are routed to the `{pipeline}_fail` topic for inspection and replay.
-- [ ] Set `runner.connectorTimeout` if any connector might run longer than 24 hours (the default timeout).
+- [ ] Set `runner.connectorTimeoutMs` if any connector might run longer than 24 hours (the default timeout).

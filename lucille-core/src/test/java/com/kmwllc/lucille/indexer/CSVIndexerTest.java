@@ -118,6 +118,24 @@ public class CSVIndexerTest {
   }
 
   @Test
+  public void testUnsupportedSettingsAreRejected() {
+    for (String setting : List.of("idOverrideField: \"other_id\"", "includeFields: [\"id\"]", "excludeFields: [\"id\"]",
+        "indexOverrideField: \"index\"", "deletionMarker { field: \"deleted\", value: \"true\" }",
+        "deleteByQuery { fieldNameField: \"field\", valueField: \"value\" }, deletionMarker { field: \"deleted\", value: \"true\" }")) {
+      Config config = ConfigFactory.parseString(setting + ", csv { columns: [\"id\"], path: \"target/unused.csv\" }");
+      Exception exception = assertThrows(IllegalArgumentException.class,
+          () -> new CSVIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null)));
+      assertTrue(exception.getMessage(), exception.getMessage().contains(setting.split("\\W")[0]));
+    }
+  }
+
+  @Test
+  public void testEmptyFilterListsAreAllowed() {
+    Config config = ConfigFactory.parseString("includeFields: [], excludeFields: [], csv { columns: [\"id\"], path: \"target/unused.csv\" }");
+    new CSVIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null));
+  }
+
+  @Test
   public void testValidateConnection() {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/includeHeader.conf");

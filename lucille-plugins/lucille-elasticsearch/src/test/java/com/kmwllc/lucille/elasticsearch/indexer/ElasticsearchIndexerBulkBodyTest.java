@@ -122,12 +122,12 @@ public class ElasticsearchIndexerBulkBodyTest {
 
     assertEquals("{\"index\":{\"_id\":\"doc1\",\"_index\":\"lucille-default\"}}\n"
         + "{\"str\":\"s\",\"bytes\":\"AQID/w==\"}\n",
-        bulkBody(config("indexer.whitelist: [\"str\", \"bytes\", \"nullField\"]"), doc));
+        bulkBody(config("indexer.includeFields: [\"str\", \"bytes\", \"nullField\"]"), doc));
 
     assertEquals("{\"index\":{\"_id\":\"doc1\",\"_index\":\"lucille-default\"}}\n"
         + "{\"id\":\"doc1\",\"int\":1,\"long\":1234567890123,\"double\":1.5,\"float\":1.1,\"bool\":true,"
         + "\"multi\":[\"v1\",\"v2\"]}\n",
-        bulkBody(config("indexer.blacklist: [\"str\", \"bytes\", \"nullField\"]"), doc));
+        bulkBody(config("indexer.excludeFields: [\"str\", \"bytes\", \"nullField\"]"), doc));
   }
 
   @Test
@@ -144,12 +144,12 @@ public class ElasticsearchIndexerBulkBodyTest {
     // id filtered out: the id field is not added back
     assertEquals("{\"index\":{\"_id\":\"other1\",\"_index\":\"lucille-default\"}}\n"
         + "{\"other_id\":\"other1\",\"field1\":\"value1\"}\n",
-        bulkBody(config("indexer.idOverrideField: \"other_id\"\nindexer.blacklist: [\"id\"]"), doc));
+        bulkBody(config("indexer.idOverrideField: \"other_id\"\nindexer.excludeFields: [\"id\"]"), doc));
 
     // id and override both filtered out
     assertEquals("{\"index\":{\"_id\":\"other1\",\"_index\":\"lucille-default\"}}\n"
         + "{\"field1\":\"value1\"}\n",
-        bulkBody(config("indexer.idOverrideField: \"other_id\"\nindexer.blacklist: [\"id\", \"other_id\"]"), doc));
+        bulkBody(config("indexer.idOverrideField: \"other_id\"\nindexer.excludeFields: [\"id\", \"other_id\"]"), doc));
 
     // override configured but absent from the document
     Document noOverride = Document.create("doc2");
@@ -180,7 +180,7 @@ public class ElasticsearchIndexerBulkBodyTest {
         + "{\"id\":\"parent1\",\"parent_field\":\"p\",\"after_children\":\"a\",\"kids\":["
         + "{\"id\":\"child1\",\"child_field\":\"c1\",\"child_float\":2.2,\"child_bytes\":\"BAU=\"},"
         + "{\"id\":\"child2\"}]}\n",
-        bulkBody(config("indexer.elasticsearch.childDocumentsField: \"kids\"\nindexer.blacklist: [\"ignored\"]"), parent));
+        bulkBody(config("indexer.elasticsearch.childDocumentsField: \"kids\"\nindexer.excludeFields: [\"ignored\"]"), parent));
 
     // without childDocumentsField the children are dropped
     assertEquals("{\"index\":{\"_id\":\"parent1\",\"_index\":\"lucille-default\"}}\n"

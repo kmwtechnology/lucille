@@ -55,7 +55,7 @@ public class CopyFieldsTest {
     assertEquals("Value from input2 should be copied to alsoOutput2", inputVal2, doc3.getStringList("alsoOutput2").get(0));
     assertEquals("Value from input3 should be copied to output3", inputVal3, doc3.getStringList("output3").get(0));
 
-    // Ensure that if isNested is false, dotted fields will be treated as literals
+    // Ensure that if useNestedPaths is false, dotted fields will be treated as literals
     Document doc4 = Document.create("doc4");
     doc4.setField("input4.nested", "This will be copied to output4.nested (literal field)");
     stage.processDocument(doc4);
@@ -159,13 +159,13 @@ public class CopyFieldsTest {
   public void testSpec() throws StageException {
     Stage stage = factory.get("CopyFieldsTest/replace.conf");
     assertEquals(
-        Set.of("fieldMapping", "isNested", "updateMode"),
+        Set.of("fieldMapping", "useNestedPaths", "updateMode"),
         stage.getNonDefaultLegalProperties());
   }
 
   @Test
   public void testNestedCopyIsIndependent() throws Exception {
-    Stage stage = factory.get(Map.of("fieldMapping", Map.of("src", "dst"), "isNested", true));
+    Stage stage = factory.get(Map.of("fieldMapping", Map.of("src", "dst"), "useNestedPaths", true));
     Document doc = Document.createFromJson("{\"id\":\"1\",\"src\":{\"k\":1}}");
     stage.processDocument(doc);
     ((ObjectNode) doc.getJson("src")).put("k", 99);

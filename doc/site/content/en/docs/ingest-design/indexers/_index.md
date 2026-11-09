@@ -14,8 +14,8 @@ Indexer configuration lives in the `indexer` block. It holds generic settings co
 ```hocon
 indexer {
   batchSize: 100
-  batchTimeout: 100
-  blacklist: ["internal_field"]
+  batchTimeoutMs: 100
+  excludeFields: ["internal_field"]
 
   solr {
     useCloudClient: true
@@ -78,17 +78,15 @@ The generic settings and the backend block are validated when the indexer is con
 | `class` | String | No | Fully qualified class name, for a custom indexer. Takes precedence over `type` if both are set. |
 | `batchSize` | Integer | No | Number of documents a batch holds before it is sent. If only `batchByteSize` is set, count-based batching is disabled. Default: `100`. |
 | `batchByteSize` | Long | No | Estimated size in bytes a batch may hold before it is sent. The size is estimated from the document's JSON structure, not measured from the serialized request. When set alone, count-based batching is disabled. When set alongside `batchSize`, whichever limit is reached first sends the batch. Default: disabled. |
-| `batchTimeout` | Integer | No | Milliseconds since the last add or flush after which a partly filled batch is sent. Default: `100`. |
+| `batchTimeoutMs` | Integer | No | Milliseconds since the last add or flush after which a partly filled batch is sent. Default: `100`. |
 | `maxConcurrentBatches` | Integer | No | Maximum number of batches in flight to the destination at once. `1` sends each batch synchronously on the indexer thread. Values below 1 fail at startup. Values above 1 are accepted only by the Solr, OpenSearch, and Elasticsearch indexers (and NopIndexer); other indexers fail at startup. See [Concurrent Batches](#concurrent-batches). Default: `1`. |
 | `idOverrideField` | String | No | Document field whose value is used as the ID at the destination instead of `id`. The document's own `id` is not changed. If a document lacks the field, its `id` is used. A multi-valued field uses its first value. |
 | `indexOverrideField` | String | No | Document field whose value selects the target index or collection for that document. Enables per-index batching. Used by the Solr and OpenSearch indexers. The Elasticsearch, CSV, Pinecone, and Weaviate indexers fail at startup if it is set. |
-| `whitelist` | List\<String\> | No | Only these fields are sent to the destination. Fields on the blacklist are still excluded. |
-| `blacklist` | List\<String\> | No | These fields are never sent to the destination. |
+| `includeFields` | List\<String\> | No | Only these fields are sent to the destination. Fields in `excludeFields` are still excluded. |
+| `excludeFields` | List\<String\> | No | These fields are never sent to the destination. |
 | `sendEnabled` | Boolean | No | Set to `false` to run without sending anything to the destination. The Solr, OpenSearch, Elasticsearch, Pinecone, and Weaviate indexers then skip creating their client and their connection check, and report every document as succeeded. The CSV indexer writes no file and also reports every document as succeeded. Default: `true`. |
-| `deletionMarkerField` | String | No | Field that marks a document for deletion when its value equals `deletionMarkerFieldValue`. Setting only one of the two fails at startup. |
-| `deletionMarkerFieldValue` | String | No | Value of `deletionMarkerField` that marks a document for deletion. Compared with the field's value as a string (first value, if multi-valued), so `"true"` matches a boolean `true` field. |
-| `deleteByFieldField` | String | No | Name of a document field whose value is the destination field to match in a delete-by-query. Setting only one of `deleteByFieldField` and `deleteByFieldValue` fails at startup. |
-| `deleteByFieldValue` | String | No | Name of a document field whose value is the value to match in a delete-by-query. |
+| `deletionMarker` | Object | No | Marks documents for deletion. `field` is the document field to check, and `value` the value of that field that marks a document for deletion. The value is compared with the field's value as a string (first value, if multi-valued), so `"true"` matches a boolean `true` field. Both keys are required. |
+| `deleteByQuery` | Object | No | Turns a marked document into a delete-by-query. `fieldNameField` is the document field holding the name of the destination field to match, and `valueField` the document field holding the value to match. Both keys are required, and so is `deletionMarker`. |
 | `maxRetries` | Integer | No | Maximum number of retries for a failed batch, after the first attempt. Must be greater than 0 when set (0 or less fails at startup). Omit it to disable retries. Default: retries disabled. |
 | `retryWaitDurationMs` | Integer | No | Wait before the first retry, in ms. Each later wait is 1.5 times the previous one (before jitter). Setting it without `maxRetries` fails at startup. Default: `1000`. |
 | `retryMaxWaitDurationMs` | Long | No | Upper bound on the wait between retries, in ms. Setting it without `maxRetries` fails at startup. Default: `30000`. |
@@ -98,11 +96,11 @@ The generic settings and the backend block are validated when the indexer is con
 
 ### Field Filtering
 
-Whitelist and blacklist are applied **at indexing time**, not during pipeline processing. Stages see all fields on a document; only the Indexer strips fields before sending to the backend. When both are set, a field is sent only if it is on the whitelist and not on the blacklist. Dropped documents never reach the Indexer.
+`includeFields` and `excludeFields` are applied **at indexing time**, not during pipeline processing. Stages see all fields on a document; only the Indexer strips fields before sending to the backend. When both are set, a field is sent only if it is in `includeFields` and not in `excludeFields`. Dropped documents never reach the Indexer.
 
-The filter applies to every top-level field, including `id` and `run_id`. `run_id` is sent as a regular field unless you blacklist it (or leave it off the whitelist). For the OpenSearch and Elasticsearch indexers, filtering `id` out removes it from the document body only; the destination ID is still set from `id` or `idOverrideField`. The Solr indexer sends the document with no `id` field, even when `idOverrideField` is set. The filter is also applied to each child document.
+The filter applies to every top-level field, including `id` and `run_id`. `run_id` is sent as a regular field unless you add it to `excludeFields` (or leave it out of `includeFields`). For the OpenSearch and Elasticsearch indexers, filtering `id` out removes it from the document body only; the destination ID is still set from `id` or `idOverrideField`. The Solr indexer always sends the `id` field, set from `idOverrideField` or `id`, because Solr needs it on every document. The Weaviate indexer always writes the ID to its `idDestinationName` property. The filter is also applied to each child document.
 
-The Solr, OpenSearch, Elasticsearch, Pinecone, and Weaviate indexers apply `whitelist`, `blacklist`, and `idOverrideField`. The Pinecone indexer filters before selecting `metadataFields` and writes the `idOverrideField` value as the vector ID; the Weaviate indexer writes it to `idDestinationName` and derives the object UUID from it. The CSV indexer ignores all three.
+The Solr, OpenSearch, Elasticsearch, Pinecone, and Weaviate indexers apply `includeFields`, `excludeFields`, and `idOverrideField`. The Pinecone indexer filters before selecting `metadataFields` and writes the `idOverrideField` value as the vector ID; the Weaviate indexer writes it to `idDestinationName` and derives the object UUID from it. The CSV indexer fails at startup if any of the three is set, because `columns` decides what it writes.
 
 `___children` is never sent as a regular field. The Solr indexer sends children as nested child documents; the OpenSearch and Elasticsearch indexers embed them in `childDocumentsField` when it is set, and otherwise skip them with a warning. Children of children are dropped by all three. The Pinecone and Weaviate indexers do not send children.
 
@@ -110,35 +108,39 @@ The Solr, OpenSearch, Elasticsearch, Pinecone, and Weaviate indexers apply `whit
 
 Two distinct deletion mechanisms are available:
 
-**Delete by ID:** Set `deletionMarkerField` and `deletionMarkerFieldValue`. When a document's marker field (first value, if multi-valued) equals the marker value, the Indexer deletes that document's ID (or its `idOverrideField` value) at the destination instead of indexing it.
+**Delete by ID:** Set `deletionMarker`. When a document's `deletionMarker.field` (first value, if multi-valued) equals `deletionMarker.value`, the Indexer deletes that document's ID (or its `idOverrideField` value) at the destination instead of indexing it.
 
-**Delete by query:** Also set `deleteByFieldField` and `deleteByFieldValue`. When a document marked for deletion also has both fields named by `deleteByFieldField` and `deleteByFieldValue`, the Indexer issues a delete-by-query instead of a delete by ID: it deletes all documents in the index whose field named by the document's `deleteByFieldField` value matches the document's `deleteByFieldValue` value. A marked document that lacks either field is deleted by ID.
+**Delete by query:** Also set `deleteByQuery`. When a document marked for deletion also has both fields that `deleteByQuery` names, the Indexer issues a delete-by-query instead of a delete by ID. For example, a marked document with `delete_by_field: "parent_id"` and `delete_by_value: "123"` deletes every document in the index whose `parent_id` is `123`. A marked document that lacks either field is deleted by ID.
 
 ```hocon
 indexer {
   type: "Solr"
-  deletionMarkerField: "file_expired"
-  deletionMarkerFieldValue: "true"
-  deleteByFieldField: "delete_by_field"
-  deleteByFieldValue: "delete_by_value"
+  deletionMarker {
+    field: "file_expired"
+    value: "true"
+  }
+  deleteByQuery {
+    fieldNameField: "delete_by_field"
+    valueField: "delete_by_value"
+  }
 }
 ```
 
-Deletion is performed by the Solr, OpenSearch, and Elasticsearch indexers. The Pinecone indexer supports delete by ID only. The CSV indexer does not support deletion: it logs a warning and writes documents marked for deletion as regular rows. The Weaviate indexer likewise logs a warning and indexes them as regular documents.
+Deletion is performed by the Solr, OpenSearch, and Elasticsearch indexers. The Pinecone indexer supports delete by ID only, and fails at startup if `deleteByQuery` is set. The CSV and Weaviate indexers do not support deletion, and fail at startup if `deletionMarker` or `deleteByQuery` is set.
 
 ### Batching Behavior
 
 Documents accumulate in a batch, which is sent when:
 - It holds `batchSize` documents and another document arrives. The full batch is sent and the new document starts the next one.
 - Adding the next document would take the estimated size over `batchByteSize`. The batch is sent without that document, so a batch stays within the limit unless a single document exceeds it, in which case that document is sent alone.
-- `batchTimeout` milliseconds have passed since the last add or flush. Expiry is checked when a document is added and whenever the indexer polls and finds nothing.
+- `batchTimeoutMs` milliseconds have passed since the last add or flush. Expiry is checked when a document is added and whenever the indexer polls and finds nothing.
 - The indexer stops: the open batch is sent and in-flight batches are completed.
 
-Time the indexer spends blocked sending a batch or waiting for a free concurrency slot does not count toward `batchTimeout`, so a slow send does not cause the next batch to be sent partly filled.
+Time the indexer spends blocked sending a batch or waiting for a free concurrency slot does not count toward `batchTimeoutMs`, so a slow send does not cause the next batch to be sent partly filled.
 
-When only `batchByteSize` is set (without `batchSize`), count-based batching is disabled and batches are sent purely on size. When both are set, whichever limit is reached first sends the batch. This is useful for backends with request-size limits (e.g., a 10 MB bulk API limit) where a fixed document count may produce unpredictably sized payloads. The size estimate covers the whole document, including fields the whitelist or blacklist will remove and attached children.
+When only `batchByteSize` is set (without `batchSize`), count-based batching is disabled and batches are sent purely on size. When both are set, whichever limit is reached first sends the batch. This is useful for backends with request-size limits (e.g., a 10 MB bulk API limit) where a fixed document count may produce unpredictably sized payloads. The size estimate covers the whole document, including fields that `includeFields` or `excludeFields` will remove and attached children.
 
-When `indexOverrideField` is set, the Indexer keeps a separate batch per distinct field value (documents without the field share one batch for the default index). Each sub-batch follows the rules above, and whenever a document is added, any other sub-batch that has passed `batchTimeout` is sent along with it.
+When `indexOverrideField` is set, the Indexer keeps a separate batch per distinct field value (documents without the field share one batch for the default index). Each sub-batch follows the rules above, and whenever a document is added, any other sub-batch that has passed `batchTimeoutMs` is sent along with it.
 
 **Batch-level vs. per-document failures:** If the send throws (for example the whole bulk request is rejected or a delete fails), every document in the batch gets a FAIL event. Individual document rejections in a bulk response (e.g., mapping errors) fail only those documents; the rest get FINISH events.
 
@@ -167,9 +169,9 @@ In distributed mode the indexer reads from Kafka and commits a document's offset
 
 In distributed mode, when a partition is about to be revoked in a consumer-group rebalance, the indexer sends its open batch and waits for in-flight batches before the handoff, so a clean rebalance does not re-deliver them. On a normal stop it also sends the open batch, drains in-flight batches, and commits.
 
-While the indexer waits on a send it does not poll Kafka. `kafka.maxPollIntervalSecs` must therefore exceed about twice the slowest send including retries when `maxConcurrentBatches` is 1, and about three times when it is greater than 1. See [Kafka integration]({{< relref "docs/architecture/internals/kafka-integration" >}}).
+While the indexer waits on a send it does not poll Kafka. `kafka.maxPollIntervalMs` must therefore exceed about twice the slowest send including retries when `maxConcurrentBatches` is 1, and about three times when it is greater than 1. See [Kafka integration]({{< relref "docs/architecture/internals/kafka-integration" >}}).
 
-A record on the destination topic that cannot be deserialized stops the indexer, unless `kafka.onDeserializationError` is `skip`. In `skip` mode the record is logged and skipped, but `kafka.maxConsecutiveDeserializationErrors` (default 10; `-1` for unlimited) bad records in a row on one partition still stop the indexer. A skipped record produces no completion event, so in a batch run the run waits until `runner.connectorTimeout` expires.
+A record on the destination topic that cannot be deserialized stops the indexer, unless `kafka.onDeserializationError` is `skip`. In `skip` mode the record is logged and skipped, but `kafka.maxConsecutiveDeserializationErrors` (default 10; `-1` for unlimited) bad records in a row on one partition still stop the indexer. A skipped record produces no completion event, so in a batch run the run waits until `runner.connectorTimeoutMs` expires.
 
 ---
 
