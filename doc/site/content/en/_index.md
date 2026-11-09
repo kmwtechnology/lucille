@@ -22,8 +22,6 @@ title: Lucille
 {{% blocks/lead color="primary" %}}
 **Search ETL** is the work of turning data from databases, file shares, cloud storage and message streams into documents a search engine or vector database can index well.
 It looks like ordinary ETL, but the destination is not a table, the transformation is not a type conversion, and the unit of work is not a row.
-
-<a class="btn btn-lg btn-secondary text-white mt-3" href="{{< relref "docs/getting-started/what-is-search-etl" >}}">What is search ETL? <i class="fas fa-arrow-alt-circle-right ms-2"></i></a>
 {{% /blocks/lead %}}
 
 {{% blocks/section color="dark" type="row" %}}
