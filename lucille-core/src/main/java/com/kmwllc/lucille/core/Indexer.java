@@ -751,7 +751,7 @@ public abstract class Indexer implements Runnable {
 
   // The copy is best-effort: the FAIL event and the FailedDocuments log record the failure whether or not the copy is
   // made, so a failed copy is logged and the batch is still marked complete. Holding back the batch's offsets instead
-  // would stop commits on the partition until a restart (Kafka) or be overtaken by the next batch's commit (Hybrid).
+  // would stop the commit frontier on the partition until a restart or rebalance.
   private void sendToFailTopic(Document d, String reason) {
     if (!sendFailedDocsToTopic) {
       return;

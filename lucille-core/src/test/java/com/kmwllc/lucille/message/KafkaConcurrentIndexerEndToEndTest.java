@@ -491,7 +491,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
 
     Config workerConfig = config(pipeline, 1, Map.of("worker.maxRetries", 1));
     HybridWorkerMessenger workerMessenger =
-        new HybridWorkerMessenger(workerConfig, pipeline, new LinkedBlockingQueue<>(), new LinkedBlockingQueue<>());
+        new HybridWorkerMessenger(workerConfig, pipeline, new LinkedBlockingQueue<>());
     try {
       workerMessenger.sendFailed(Document.create("fromWorker", "run"));
     } finally {
@@ -500,8 +500,9 @@ public class KafkaConcurrentIndexerEndToEndTest {
     assertEquals("fromWorker", readFailTopic(workerConfig, failTopic).getId());
 
     Config indexerConfig = config(pipeline, 1, Map.of("indexer.sendFailedDocsToTopic", true));
+    // sendFailed and close don't use the worker messenger
     HybridIndexerMessenger indexerMessenger =
-        new HybridIndexerMessenger(indexerConfig, new LinkedBlockingQueue<>(), new LinkedBlockingQueue<>(), null, pipeline);
+        new HybridIndexerMessenger(indexerConfig, new LinkedBlockingQueue<>(), null, null, pipeline);
     try {
       indexerMessenger.sendFailed(Document.create("fromIndexer", "run"));
     } finally {
