@@ -197,7 +197,7 @@ s3: {
 
 A traversal with several threads publishes the same documents as one with a single thread, but in no fixed order. With one thread, a directory's files are published first, then each of its child directories in listing order. If a thread fails, for example when a listing fails, the others stop and the run fails. Each thread uses its own instances of the configured File Handlers.
 
-**`maxDocuments`.** Every published document counts, including each one from a File Handler or archive, so a CSV file can use up many. Once the limit is reached, listing stops and the traversal ends without failing; other entries in `paths` still get their own limit. A file whose documents were cut off by the limit isn't moved to `moveToAfterProcessing` or `moveToErrorFolder`. A limit can't be used with `state`, because files the traversal doesn't reach would look deleted and would be tombstoned and removed from state.
+**`maxDocuments`.** Every published document counts, including each one from a File Handler or archive, so a CSV file can use up many. A document that fails to publish doesn't count. Once the limit is reached, listing stops and the traversal ends without failing; other entries in `paths` still get their own limit. A file whose documents were cut off by the limit isn't moved to `moveToAfterProcessing` or `moveToErrorFolder`. A limit can't be used with `state`, because files the traversal doesn't reach would look deleted and would be tombstoned and removed from state.
 
 ---
 

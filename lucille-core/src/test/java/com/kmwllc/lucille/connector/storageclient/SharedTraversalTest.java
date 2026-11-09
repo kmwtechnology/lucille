@@ -32,6 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -272,6 +273,33 @@ public class SharedTraversalTest {
     TreeStorageClient client = client(manyKeys(), Map.of("maxDocuments", 3, "listingMode", "flat"));
 
     assertEquals(3, traverse(client, params(ROOT)).size());
+  }
+
+  // A document that fails to publish only skips its file, so it mustn't use up one of the maxDocuments.
+  @Test
+  public void testAFailedPublishDoesNotCountTowardMaxDocuments() throws Exception {
+    TreeStorageClient client = client(List.of("1.txt", "2.txt", "3.txt", "4.txt", "5.txt"), Map.of("maxDocuments", 3));
+    TestMessenger messenger = new TestMessenger();
+    AtomicBoolean failed = new AtomicBoolean();
+    Publisher failsOnce = new PublisherImpl(ConfigFactory.empty(), messenger, "run", "pipeline") {
+      @Override
+      public void publish(Document document) throws PublisherException {
+        if (failed.compareAndSet(false, true)) {
+          throw new PublisherException("Simulated failure publishing " + document.getId());
+        }
+        super.publish(document);
+      }
+    };
+
+    client.start();
+    try {
+      client.traverse(failsOnce, params(ROOT), null);
+    } finally {
+      client.stop();
+    }
+
+    assertTrue(failed.get());
+    assertEquals(3, messenger.getDocsSentForProcessing().size());
   }
 
   // Documents from a file handler count one by one, and a file that was cut off isn't moved as if it had been processed.

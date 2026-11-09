@@ -669,12 +669,21 @@ public abstract class BaseStorageClient implements StorageClient {
       return published.get() >= limit;
     }
 
+    // A slot is taken before publishing, so threads can't overshoot the limit, and given back if publishing fails: the
+    // failure only skips the file, and the traversal goes on. While a slot is held, another thread at the limit sees it as
+    // taken, so a failure there can end a parallel traversal one document short.
     @Override
     public void publish(Document document) throws PublisherException {
       if (published.incrementAndGet() > limit) {
         throw new DocumentLimitReachedException();
       }
-      delegate.publish(document);
+
+      try {
+        delegate.publish(document);
+      } catch (PublisherException | RuntimeException e) {
+        published.decrementAndGet();
+        throw e;
+      }
     }
 
     @Override
