@@ -7,6 +7,8 @@ import static org.junit.Assert.assertTrue;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -28,7 +30,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -99,7 +100,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     String pipeline = newPipeline(2);
     String runId = "run-" + pipeline;
     Config config = config(pipeline, 3, Map.of(
-        "kafka.events", true, "indexer.batchSize", 2, "indexer.batchTimeout", 20, "kafka.pollIntervalMs", 25));
+        "kafka.events", true, "indexer.batchSize", 2, "indexer.batchTimeoutMs", 20, "kafka.pollIntervalMs", 25));
     int perPartition = 15;
 
     Set<String> ids = new HashSet<>();
@@ -112,7 +113,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         new TopicPartition(topic, 1), (long) perPartition);
 
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline);
-    SlowIndexer indexer = new SlowIndexer(config, messenger);
+    SlowIndexer indexer = new SlowIndexer(config.getConfig("indexer"), messenger);
     Thread thread = new Thread(indexer);
     thread.start();
     try {
@@ -157,7 +158,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
   public void testRebalanceDuringBlockedDispatchDoesNotResendOrReorder() throws Exception {
     String pipeline = newPipeline(1);
     // One document per batch, never flushed by time.
-    Config config = config(pipeline, 2, Map.of("indexer.batchSize", 1, "indexer.batchTimeout", 600000,
+    Config config = config(pipeline, 2, Map.of("indexer.batchSize", 1, "indexer.batchTimeoutMs", 600000,
         "indexer.idOverrideField", "destId", "kafka.pollIntervalMs", 100));
     String topic = KafkaUtils.getDestTopicName(pipeline);
     TopicPartition partition = new TopicPartition(topic, 0);
@@ -178,7 +179,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     AtomicInteger pollsSinceRejoin = new AtomicInteger();
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline) {
       @Override
-      public Document pollDocToIndex() {
+      public Document pollDocToIndex() throws MessengerException {
         Document doc = super.pollDocToIndex();
         if (doc != null) {
           polled.incrementAndGet();
@@ -192,7 +193,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         return doc;
       }
     };
-    GatedIndexer indexer = new GatedIndexer(config, messenger, "doc0");
+    GatedIndexer indexer = new GatedIndexer(config.getConfig("indexer"), messenger, "doc0");
     Thread thread = new Thread(indexer);
     thread.start();
     try {
@@ -254,7 +255,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
   public void testRebalanceDoesNotResendBatchedDocuments() throws Exception {
     String pipeline = newPipeline(1);
     // A batch that neither fills nor expires, so every polled document is still in the open batch at the rebalance.
-    Config config = config(pipeline, 1, Map.of("indexer.batchSize", 1000, "indexer.batchTimeout", 600000,
+    Config config = config(pipeline, 1, Map.of("indexer.batchSize", 1000, "indexer.batchTimeoutMs", 600000,
         "kafka.pollIntervalMs", 100));
     int total = 5;
     List<String> ids = produce(config, pipeline, 0, total, "run");
@@ -264,7 +265,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     AtomicInteger pollsSinceRejoin = new AtomicInteger();
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline) {
       @Override
-      public Document pollDocToIndex() {
+      public Document pollDocToIndex() throws MessengerException {
         Document doc = super.pollDocToIndex();
         if (doc != null) {
           polled.incrementAndGet();
@@ -278,7 +279,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         return doc;
       }
     };
-    RecordingIndexer indexer = new RecordingIndexer(config, messenger);
+    RecordingIndexer indexer = new RecordingIndexer(config.getConfig("indexer"), messenger);
     Thread thread = new Thread(indexer);
     thread.start();
     try {
@@ -331,7 +332,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     String pipeline = newPipeline(1);
     String runId = "run-" + pipeline;
     Config config = config(pipeline, 4, Map.of("kafka.events", true, "indexer.batchSize", 4,
-        "indexer.batchTimeout", 20, "indexer.idOverrideField", "destId", "kafka.pollIntervalMs", 25));
+        "indexer.batchTimeoutMs", 20, "indexer.idOverrideField", "destId", "kafka.pollIntervalMs", 25));
     int total = 600;
     String[] destIds = new String[60];
     for (int i = 0; i < destIds.length; i++) {
@@ -359,7 +360,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     List<Document> received = Collections.synchronizedList(new ArrayList<>());
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline) {
       @Override
-      public Document pollDocToIndex() {
+      public Document pollDocToIndex() throws MessengerException {
         Document doc = super.pollDocToIndex();
         if (doc != null) {
           received.add(doc);
@@ -367,7 +368,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         return doc;
       }
     };
-    DestinationIndexer indexer = new DestinationIndexer(config, messenger);
+    DestinationIndexer indexer = new DestinationIndexer(config.getConfig("indexer"), messenger);
     Map<TopicPartition, Long> expectedCommits = Map.of(new TopicPartition(topic, 0), (long) total);
     Thread thread = new Thread(indexer);
     thread.start();
@@ -440,7 +441,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     Map<String, Object> settings = new HashMap<>(Map.of(
         "kafka.bootstrapServers", embeddedKafka.getBrokersAsString(),
         "kafka.consumerGroupId", "group-" + pipeline,
-        "kafka.maxPollIntervalSecs", 300,
+        "kafka.maxPollIntervalMs", 300000,
         "kafka.maxRequestSize", 1048576,
         "kafka.events", false,
         "indexer.maxConcurrentBatches", maxConcurrentBatches));
@@ -508,7 +509,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     final List<String> sent = Collections.synchronizedList(new ArrayList<>());
 
     RecordingIndexer(Config config, IndexerMessenger messenger) {
-      super(config, messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest");
+      super(config, new IndexerContext(messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest"));
     }
 
     @Override
@@ -517,7 +518,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    public boolean validateConnection() {
+    protected boolean checkConnection() {
       return true;
     }
 
@@ -526,9 +527,9 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) {
+    protected List<IndexerFailure> sendToIndex(List<Document> documents) {
       documents.forEach(doc -> sent.add(doc.getId()));
-      return Collections.emptySet();
+      return List.of();
     }
   }
 
@@ -556,7 +557,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) {
+    protected List<IndexerFailure> sendToIndex(List<Document> documents) {
       if (documents.stream().anyMatch(doc -> doc.getId().equals(gatedId))) {
         gatedSendStarted = true;
         try {
@@ -580,7 +581,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     private final AtomicInteger concurrent = new AtomicInteger();
 
     SlowIndexer(Config config, IndexerMessenger messenger) {
-      super(config, messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest");
+      super(config, new IndexerContext(messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest"));
     }
 
     @Override
@@ -594,7 +595,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    public boolean validateConnection() {
+    protected boolean checkConnection() {
       return true;
     }
 
@@ -603,11 +604,11 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
+    protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
       peakConcurrent.accumulateAndGet(concurrent.incrementAndGet(), Math::max);
       try {
         Thread.sleep(ThreadLocalRandom.current().nextInt(20, 120));
-        return Collections.emptySet();
+        return List.of();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new IndexerException("Interrupted while sending", e);
@@ -630,7 +631,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     private final Map<String, List<String>> applied = new HashMap<>();
 
     DestinationIndexer(Config config, IndexerMessenger messenger) {
-      super(config, messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest");
+      super(config, new IndexerContext(messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest"));
     }
 
     Map<String, String> content() {
@@ -658,7 +659,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    public boolean validateConnection() {
+    protected boolean checkConnection() {
       return true;
     }
 
@@ -667,7 +668,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
+    protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
       peakConcurrent.accumulateAndGet(concurrent.incrementAndGet(), Math::max);
       try {
         Thread.sleep(ThreadLocalRandom.current().nextInt(1, 4));
@@ -682,7 +683,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
             applied.computeIfAbsent(destId, k -> new ArrayList<>()).add(doc.getId());
           }
         }
-        return Collections.emptySet();
+        return List.of();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new IndexerException("Interrupted while sending", e);

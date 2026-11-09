@@ -43,7 +43,7 @@ public class WorkerIndexerPool {
     if (this.numWorkers == null) {
       this.numWorkers = ConfigUtils.getIntOrDefault(config, "worker.threads", DEFAULT_POOL_SIZE);
     }
-    this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
+    this.logSeconds = ConfigUtils.getOrDefault(config, "log.intervalSecs", LogUtils.DEFAULT_LOG_SECONDS);
     this.idSet = idSet;
   }
 

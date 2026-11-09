@@ -68,14 +68,12 @@ pipelines: [
 ]
 
 indexer {
-  class: "com.kmwllc.lucille.pinecone.indexer.PineconeIndexer"
-}
-
-pinecone {
-  apiKey: ${PINECONE_API_KEY}
-  index: "articles-index"
-  vectorField: "content_vector"
-  namespace: "articles"
+  pinecone {
+    apiKey: ${PINECONE_API_KEY}
+    index: "articles-index"
+    vectorField: "content_vector"
+    namespace: "articles"
+  }
 }
 ```
 
@@ -132,7 +130,7 @@ pipelines: [
         class: "com.kmwllc.lucille.jlama.stage.JlamaEmbed"
         source: "text"
         dest: "content_vector"
-        modelPath: "/models/all-MiniLM-L6-v2"
+        modelDownloadPath: "/models/all-MiniLM-L6-v2"
         embedDocument: false
         embedChildren: true
       }
@@ -141,13 +139,11 @@ pipelines: [
 ]
 
 indexer {
-  class: "com.kmwllc.lucille.pinecone.indexer.PineconeIndexer"
-}
-
-pinecone {
-  apiKey: ${PINECONE_API_KEY}
-  index: "pdf-index"
-  vectorField: "content_vector"
+  pinecone {
+    apiKey: ${PINECONE_API_KEY}
+    index: "pdf-index"
+    vectorField: "content_vector"
+  }
 }
 ```
 
@@ -178,13 +174,11 @@ pipelines: [
 ]
 
 indexer {
-  class: "com.kmwllc.lucille.pinecone.indexer.PineconeIndexer"
-}
-
-pinecone {
-  apiKey: ${PINECONE_API_KEY}
-  index: "my-vectors"
-  vectorField: "embedding"
+  pinecone {
+    apiKey: ${PINECONE_API_KEY}
+    index: "my-vectors"
+    vectorField: "embedding"
+  }
 }
 ```
 
@@ -259,7 +253,7 @@ pipelines: [
       # Generate a concise summary using a local Ollama model
       {
         class: "com.kmwllc.lucille.stage.PromptOllama"
-        hostURL: "http://localhost:11434"
+        hostUrl: "http://localhost:11434"
         modelName: "llama3"
         systemPrompt: "Summarize the following document in 2-3 sentences. Output only a JSON object with a single field: summary."
         fields: ["body"]
@@ -278,12 +272,12 @@ pipelines: [
   }
 ]
 
-indexer { type: "opensearch" }
-
-opensearch {
-  url: "https://localhost:9200"
-  index: "enriched-docs"
-  acceptInvalidCert: true
+indexer {
+  opensearch {
+    url: "https://localhost:9200"
+    index: "enriched-docs"
+    acceptInvalidCert: true
+  }
 }
 ```
 

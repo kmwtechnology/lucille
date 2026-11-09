@@ -13,6 +13,7 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.elasticsearch.util.ElasticsearchUtils;
+import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.StreamSupport;
 
 /**
  * looks up an existing document in Elasticsearch by its ID and copies specified source fields from the Elasticsearch document into
@@ -34,14 +36,15 @@ import java.util.List;
  *   <li>elasticsearch.connectTimeoutMs, elasticsearch.socketTimeoutMs, elasticsearch.connectionTimeToLiveMs (Long, optional) :
  *   connection timeouts and pooled-connection lifetime; see {@link com.kmwllc.lucille.util.HttpClientConfigUtils}.</li>
  *   <li>source (List&lt;String&gt;) : list of field names to fetch from Elasticsearch.</li>
- *   <li>dest (List&lt;String&gt;) : corresponding list of field names into which to write values.</li>
+ *   <li>dest (List&lt;String&gt;) : corresponding list of field names into which to write values. Must be the same length as source.
+ *   Values keep their JSON types; an array is written as a multi-valued field, and null values are not written.</li>
  *   <li>updateMode (String, optional) : how to merge fetched values into the document. Defaults to OVERWRITE if not specified.</li>
  * </ul>
  */
 public class ElasticsearchLookup extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredParent(ElasticsearchUtils.ELASTICSEARCH_PARENT_SPEC)
+      .requiredParent("elasticsearch", ElasticsearchUtils.ELASTICSEARCH_PARENT_SPEC)
       .requiredList("source", new TypeReference<List<String>>(){})
       .requiredList("dest", new TypeReference<List<String>>(){})
       .optionalString("updateMode").build();
@@ -73,6 +76,7 @@ public class ElasticsearchLookup extends Stage {
 
   @Override
   public void start() throws StageException {
+    StageUtils.validateFieldNumsEqual(sourceFields, destFields, "Elasticsearch Lookup");
     if (client == null) {
       throw new StageException("Client was not created.");
     }
@@ -110,10 +114,14 @@ public class ElasticsearchLookup extends Stage {
         ObjectNode json = response.source();
         for (int i = 0; i < sourceFields.size(); i++) {
           JsonNode node = json.get(sourceFields.get(i));
-          if (node == null) {
-             continue;
+          if (node == null || node.isNull()) {
+            continue;
           }
-          doc.update(destFields.get(i), updateMode, node.asText());
+          // write the JSON itself so types are kept; an array becomes a multi-valued field
+          JsonNode[] values = node.isArray()
+              ? StreamSupport.stream(node.spliterator(), false).filter(v -> !v.isNull()).toArray(JsonNode[]::new)
+              : new JsonNode[] {node};
+          doc.update(destFields.get(i), updateMode, values);
         }
       }
       return null;

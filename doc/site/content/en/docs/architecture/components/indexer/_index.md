@@ -13,7 +13,7 @@ An Indexer is the component responsible for delivering processed Documents to th
 
 Indexers do not send documents one at a time. They accumulate documents into batches and flush them as a single bulk API call. This is essential for search engine performance — bulk writes are significantly faster than individual indexing requests, often by an order of magnitude.
 
-A batch is flushed when any of three conditions is met: the batch reaches a configured document count (`batchSize`), it reaches a configured total size in bytes (`batchByteSize`), or a timeout (`batchTimeout`) expires since the last document was added or the batch was last flushed. The timeout ensures documents are not left waiting indefinitely in low-volume scenarios. Time the Indexer spends blocked sending is not counted toward the timeout, so a slow send does not cause the next batch to flush early with a single document.
+A batch is flushed when any of three conditions is met: the batch reaches a configured document count (`batchSize`), it reaches a configured total size in bytes (`batchByteSize`), or a timeout (`batchTimeoutMs`) expires since the last document was added or the batch was last flushed. The timeout ensures documents are not left waiting indefinitely in low-volume scenarios. Time the Indexer spends blocked sending is not counted toward the timeout, so a slow send does not cause the next batch to flush early with a single document.
 
 By default an Indexer keeps one bulk request in flight at a time. It can also send multiple batches concurrently — overlapping the time spent waiting on the destination — while preserving same-document ordering and completing batches in dispatch order. This is a significant aspect of how Lucille reaches high indexing throughput; the mechanism, its guarantees, and how to tune it are covered in [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}).
 
@@ -31,7 +31,7 @@ Indexers support two deletion mechanisms — delete-by-ID and delete-by-query �
 
 ## Field Filtering
 
-The Indexer applies field filtering at the boundary — applying whitelist/blacklist rules, and always omitting the `___children` field — so that only the intended fields reach the search backend. Reserved fields such as `run_id` and `___skipped` are treated like any other field and reach the backend unless the whitelist leaves them out or the blacklist names them. This filtering happens at indexing time, not during pipeline processing, so Stages always see the full document.
+The Indexer applies field filtering at the boundary — applying the `includeFields`/`excludeFields` rules, and always omitting the `___children` field — so that only the intended fields reach the search backend. Reserved fields such as `run_id` and `___skipped` are treated like any other field and reach the backend unless `includeFields` leaves them out or `excludeFields` names them. This filtering happens at indexing time, not during pipeline processing, so Stages always see the full document.
 
 ## Error Handling at the Batch Level
 

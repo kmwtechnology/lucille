@@ -28,8 +28,50 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.sun.net.httpserver.HttpServer;
+import java.io.ByteArrayOutputStream;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.zip.GZIPOutputStream;
 
 public class ElasticsearchUtilsTest {
+
+  // Elasticsearch gzips its responses when the client accepts gzip. The client must decode such a response once, not
+  // twice (once in Apache, once in Rest5Client), which fails with "Not in GZIP format".
+  @Test
+  public void testClientDecodesGzipResponse() throws Exception {
+    byte[] gzipped = gzip("{\"count\":3,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0}}");
+
+    HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+    server.createContext("/", exchange -> {
+      // the client rejects responses that don't come from Elasticsearch
+      exchange.getResponseHeaders().add("X-Elastic-Product", "Elasticsearch");
+      exchange.getResponseHeaders().add("Content-Type", "application/json");
+      exchange.getResponseHeaders().add("Content-Encoding", "gzip");
+      exchange.sendResponseHeaders(200, gzipped.length);
+      exchange.getResponseBody().write(gzipped);
+      exchange.close();
+    });
+    server.start();
+    try {
+      Config config = ConfigFactory.parseMap(Map.of(
+          "elasticsearch.url", "http://localhost:" + server.getAddress().getPort(),
+          "elasticsearch.index", "idx"));
+      ElasticsearchClient client = ElasticsearchUtils.getElasticsearchOfficialClient(config);
+
+      assertEquals(3, client.count(c -> c.index("idx")).count());
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  private static byte[] gzip(String text) throws Exception {
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    try (GZIPOutputStream gzip = new GZIPOutputStream(bytes)) {
+      gzip.write(text.getBytes(StandardCharsets.UTF_8));
+    }
+    return bytes.toByteArray();
+  }
 
   @Test
   public void testGetAllowInvalidCert() {

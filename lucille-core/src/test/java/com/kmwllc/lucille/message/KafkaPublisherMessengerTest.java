@@ -57,7 +57,7 @@ public class KafkaPublisherMessengerTest {
     ));
 
     Config runnerConfig = ConfigFactory.parseMap(Map.of(
-        "runner.connectorTimeout", 30000
+        "runner.connectorTimeoutMs", 30000
     ));
 
     // Mock the KafkaProducer: first 2 sends succeed (callback with null exception),
@@ -158,7 +158,7 @@ public class KafkaPublisherMessengerTest {
     ));
 
     Config runnerConfig = ConfigFactory.parseMap(Map.of(
-        "runner.connectorTimeout", 30000
+        "runner.connectorTimeoutMs", 30000
     ));
 
     // Mock the KafkaProducer: all sends succeed except the last one

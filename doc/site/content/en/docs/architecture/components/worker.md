@@ -67,7 +67,7 @@ worker {
   # retryCounter.class: "com.example.MyRetryCounter"
 
   # Write a heartbeat.log file periodically for liveness checks.
-  # Frequency is controlled by log.seconds.
+  # Frequency is controlled by log.intervalSecs.
   enableHeartbeat: true
 }
 
@@ -78,7 +78,7 @@ zookeeper {
 
 # Controls how often Workers, Publishers, and Indexers log status updates and heartbeats
 log {
-  seconds: 30
+  intervalSecs: 30
 }
 ```
 
@@ -107,7 +107,7 @@ Each Worker reports Codahale metrics to the shared registry:
 - **Document processing time**: Mean latency per document through the full pipeline.
 - **Error counts**: Number of documents that caused exceptions.
 
-The `WorkerPool` logs a periodic status update every `log.seconds` seconds:
+The `WorkerPool` logs a periodic status update every `log.intervalSecs` seconds:
 
 ```
 INFO WorkerPool: 27017 docs processed. One minute rate: 1787.10 docs/sec. Mean pipeline latency: 10.63 ms/doc.

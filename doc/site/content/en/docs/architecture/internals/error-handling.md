@@ -28,7 +28,7 @@ The guiding principle: *get as much data into the search engine as possible, but
 
 ### 1. Invalid Configuration
 
-Before any run starts, `Runner.run()` calls `runInValidationMode(config)` which validates all pipelines (every Stage's SPEC), all connectors, the indexer config, and other parent configs (publisher, worker, etc.). If any validation errors are found, the run is aborted immediately — no connectors are started, no documents are processed. A `RunResult` with `status=false` is returned. All errors are reported at once (not fail-fast on the first one).
+Before any run starts, `Runner.run()` calls `ConfigValidator.validate(config)`, which validates all pipelines (every Stage's SPEC), all connectors, the indexer config, and other parent configs (publisher, worker, etc.). If any validation errors are found, the run is aborted immediately — no connectors are started, no documents are processed. A `RunResult` with `status=false` is returned. All errors are reported at once (not fail-fast on the first one).
 
 **Severity:** Fatal to the run. Nothing executes.
 
@@ -122,7 +122,7 @@ There are two sub-cases:
 The Indexer catches the exception, logs it, and sends a FAIL event for every document in the batch. If retries are configured (`indexer.maxRetries > 0`) and the failure's status code is in `indexer.retryableStatusCodes` (default `[429, 503, -1]`), the batch is retried with exponential backoff before being declared failed. After all retries are exhausted (or if the status code is not retryable), all documents in the batch receive FAIL events. The Indexer continues processing subsequent batches. `batchComplete()` is still called once the batch has been handled, so Kafka offsets can be committed even though the batch failed; it is skipped only after an `Error` (such as an `OutOfMemoryError`), so offsets for documents that were never indexed are not committed.
 
 **10b. The bulk API succeeds but reports per-document failures:**
-`sendToIndex()` returns a set of failed document/reason pairs. The Indexer sends FAIL events for those specific documents and FINISH events for the rest. The Indexer continues normally.
+`sendToIndex()` returns a list of `IndexerFailure`s, each holding a document and its cause. The Indexer sends FAIL events for those specific documents and FINISH events for the rest. A failure that doesn't match a document awaiting a result (a copy, or an instance reported twice) fails the rest of the batch, because there is no telling which document was rejected. The Indexer continues normally.
 
 **Severity:** Per-batch or per-document failure. The run continues. Failed documents are counted in the Publisher's accounting.
 
@@ -162,7 +162,7 @@ The `WorkerPool` runs a watcher thread that checks each Worker's last poll times
 The Runner catches this and returns a failing `ConnectorResult`. Since `close()` is called in a `finally` block after all other work, the documents may have been successfully processed, but the run is reported as failed.
 
 **Publisher's waitForCompletion() times out:**
-If the configured `runner.connectorTimeout` (default 24 hours) is exceeded, `waitForCompletion()` returns a failing `PublisherResult`. The run is reported as failed. This catches scenarios where documents are stuck (lost events, hung Workers, etc.).
+If the configured `runner.connectorTimeoutMs` (default 24 hours) is exceeded, `waitForCompletion()` returns a failing `PublisherResult`. The run is reported as failed. This catches scenarios where documents are stuck (lost events, hung Workers, etc.).
 
 **Kafka offset commit fails:**
 The Worker calls `messenger.commitPendingDocOffsets()` after processing each document. If this throws, the Worker logs the error and continues. The consequence is that if the Worker later crashes, the document may be redelivered and reprocessed (at-least-once semantics). This is safe because pipeline processing is expected to be idempotent.

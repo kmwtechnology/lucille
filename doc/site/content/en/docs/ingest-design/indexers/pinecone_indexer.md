@@ -7,7 +7,7 @@ description: Configuration reference for the Pinecone Indexer, which indexes vec
 
 `com.kmwllc.lucille.pinecone.indexer.PineconeIndexer`
 
-Indexes vector embeddings into [Pinecone](https://www.pinecone.io/). Config block: `pinecone { ... }`
+Indexes vector embeddings into [Pinecone](https://www.pinecone.io/). Config block: `indexer.pinecone { ... }`
 
 **Maven dependency:**
 ```xml
@@ -22,23 +22,24 @@ Indexes vector embeddings into [Pinecone](https://www.pinecone.io/). Config bloc
 |---|---|---|---|
 | `apiKey` | String | Yes | Pinecone API key. Use `${PINECONE_API_KEY}` for environment variable substitution. |
 | `index` | String | Yes | Name of the Pinecone index to write to. |
-| `defaultEmbeddingField` | String | No | Document field containing the vector, used when `namespaces` is not set. Documents go to the `default` namespace. Required unless `namespaces` is set. |
+| `defaultEmbeddingField` | String | No | Document field containing the vector, used when `namespaces` is not set. Documents go to Pinecone's default namespace. Required unless `namespaces` is set. |
 | `namespaces` | Map\<String, String\> | No | Map of Pinecone namespace to the document field holding that namespace's vector. Must not be empty if set. |
-| `metadataFields` | List\<String\> | No | Document fields sent as Pinecone metadata with each upserted vector. `indexer.whitelist` and `indexer.blacklist` are applied first. |
+| `metadataFields` | List\<String\> | No | Document fields sent as Pinecone metadata with each upserted vector. `indexer.includeFields` and `indexer.excludeFields` are applied first. |
 | `mode` | String | No | `upsert` or `update` (case-insensitive). Any other value fails at startup. Default: `upsert`. |
 
 ```hocon
 indexer {
-  class: "com.kmwllc.lucille.pinecone.indexer.PineconeIndexer"
-  deletionMarkerField: "is_deleted"
-  deletionMarkerFieldValue: "true"
-}
+  deletionMarker {
+    field: "is_deleted"
+    value: "true"
+  }
 
-pinecone {
-  apiKey: ${PINECONE_API_KEY}
-  index: "my-index"
-  defaultEmbeddingField: "content_vector"
-  metadataFields: ["title", "category"]
+  pinecone {
+    apiKey: ${PINECONE_API_KEY}
+    index: "my-index"
+    defaultEmbeddingField: "content_vector"
+    metadataFields: ["title", "category"]
+  }
 }
 ```
 
@@ -53,17 +54,19 @@ At startup, connection validation describes the index and fails if it does not e
 When `namespaces` is configured, it is a map of namespace names to embedding field names. Each document is upserted into every configured namespace using the corresponding embedding field. This enables multi-vector indexing, for example, title embeddings in one namespace and body embeddings in another:
 
 ```hocon
-pinecone {
-  apiKey: ${PINECONE_API_KEY}
-  index: "my-index"
-  namespaces: {
-    "title-ns": "title_vector"
-    "body-ns": "body_vector"
+indexer {
+  pinecone {
+    apiKey: ${PINECONE_API_KEY}
+    index: "my-index"
+    namespaces: {
+      "title-ns": "title_vector"
+      "body-ns": "body_vector"
+    }
   }
 }
 ```
 
-When `namespaces` is not set, all documents go to the namespace named `default` using `defaultEmbeddingField`.
+When `namespaces` is not set, all documents go to Pinecone's default namespace using `defaultEmbeddingField`.
 
 ---
 
@@ -71,7 +74,7 @@ When `namespaces` is not set, all documents go to the namespace named `default` 
 
 Two modes are available:
 
-- **Single namespace**: Set `defaultEmbeddingField` to the name of the vector field. All documents are upserted into the `default` namespace.
+- **Single namespace**: Set `defaultEmbeddingField` to the name of the vector field. All documents are upserted into Pinecone's default namespace.
 - **Multi namespace**: Set `namespaces` as a map of namespace to embedding field. Documents are upserted into each namespace with the corresponding vector. When `namespaces` is set, `defaultEmbeddingField` is ignored.
 
 At least one of these must be set when uploading documents. If both are omitted, startup succeeds but the first batch containing a document to upload fails.
@@ -80,14 +83,16 @@ At least one of these must be set when uploading documents. If both are omitted,
 
 ## Metadata Fields
 
-Only fields listed in `metadataFields` are sent as Pinecone metadata alongside the vector. All other document fields are ignored. Each value is sent as a string (`toString()` of the field value, so a multi-valued field becomes a string like `[a, b]`). A listed field whose value is null fails the batch. `indexer.whitelist` and `indexer.blacklist` are applied first, so a listed field they exclude is not sent. Metadata is only sent in `upsert` mode.
+Only fields listed in `metadataFields` are sent as Pinecone metadata alongside the vector. All other document fields are ignored. Each value is sent as a string (`toString()` of the field value, so a multi-valued field becomes a string like `[a, b]`). A listed field whose value is null fails the batch. `indexer.includeFields` and `indexer.excludeFields` are applied first, so a listed field they exclude is not sent. Metadata is only sent in `upsert` mode.
 
 ```hocon
-pinecone {
-  apiKey: ${PINECONE_API_KEY}
-  index: "my-index"
-  defaultEmbeddingField: "content_vector"
-  metadataFields: ["title", "category", "source_url"]
+indexer {
+  pinecone {
+    apiKey: ${PINECONE_API_KEY}
+    index: "my-index"
+    defaultEmbeddingField: "content_vector"
+    metadataFields: ["title", "category", "source_url"]
+  }
 }
 ```
 
@@ -101,9 +106,11 @@ pinecone {
 | `"update"` | Updates the vector of existing records, one request per document. Metadata is not sent. Pinecone returns success if the ID does not exist, so missing records are not reported. |
 
 ```hocon
-pinecone {
-  mode: "update"
-  // ...
+indexer {
+  pinecone {
+    mode: "update"
+    // ...
+  }
 }
 ```
 
@@ -119,9 +126,9 @@ Higher-dimensional vectors may hit the 2MB limit at counts lower than 1000. If t
 
 ## Deletion
 
-Deletion is by ID only (uses `deletionMarkerField` / `deletionMarkerFieldValue`). `deleteByFieldField` / `deleteByFieldValue` are ignored.
+Deletion is by ID only (uses `deletionMarker`). Setting `deleteByQuery` fails at startup.
 
-When `namespaces` is configured, deletion is issued to all configured namespaces; otherwise to the `default` namespace. Within a batch, if the same document ID is both uploaded and deleted, the last occurrence wins. Deletes are sent before uploads.
+When `namespaces` is configured, deletion is issued to all configured namespaces; otherwise to Pinecone's default namespace. Within a batch, if the same document ID is both uploaded and deleted, the last occurrence wins. Deletes are sent before uploads.
 
 To delete every vector whose ID starts with a document's ID (for example, chunk vectors), use the [EmitDocsToDeleteByPrefix]({{< relref "docs/ingest-design/stages/emit_docs_to_delete_by_prefix" >}}) stage from the same plugin.
 

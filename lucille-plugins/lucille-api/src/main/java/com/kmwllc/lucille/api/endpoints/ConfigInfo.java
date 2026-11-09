@@ -198,7 +198,7 @@ public class ConfigInfo {
         ObjectNode specNode;
         try {
           Class<?> c = classInfo.loadClass();
-          specNode = (ObjectNode) ((Spec) c.getDeclaredField("SPEC").get(null)).toJson();
+          specNode = (ObjectNode) Spec.of(c).toJson();
         } catch (Exception | LinkageError e) {
           log.warn("Leaving {} out of the {} list: couldn't get its SPEC ({}).", classInfo.getName(), baseClassName, e.toString());
           continue;

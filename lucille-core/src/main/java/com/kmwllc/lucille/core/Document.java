@@ -1,25 +1,18 @@
 package com.kmwllc.lucille.core;
 
-import com.dashjoin.jsonata.Jsonata;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import java.lang.invoke.MethodHandles;
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A record from a source system to be passed through an enrichment pipeline and sent to a destination system.
@@ -34,6 +27,25 @@ import org.slf4j.LoggerFactory;
  * A list including a single field value, or all the values in a multi-valued field, be accessed via a getter
  * of the form getStringList(), etc.
  *
+ * <p><b>Dates and times.</b> A point in time is stored as an {@link Instant}, kept as an ISO-8601 string in UTC such
+ * as "2024-01-01T00:00:00Z", and read back with getInstant() or getInstantList(). For a java.util.Date or
+ * java.sql.Timestamp, such as a value read through JDBC:
+ * <ul>
+ *   <li>To store it, pass it to setField(String, Object) (or addToField, setOrAdd or update), which stores it as an
+ *   Instant with millisecond precision. To keep a Timestamp's precision below the millisecond, store
+ *   timestamp.toInstant() instead.</li>
+ *   <li>To read it back, convert the Instant: Date.from(doc.getInstant(name)) or
+ *   Timestamp.from(doc.getInstant(name)).</li>
+ *   <li>A java.sql.Date represents a calendar date rather than a point in time; stored as above, it becomes midnight
+ *   in the JVM's default time zone. To keep the calendar date itself, store date.toLocalDate().toString() (for
+ *   example "2024-01-01") as a String.</li>
+ * </ul>
+ * Document has no Date or Timestamp getters and setters of its own. The stored value is an Instant either way, so
+ * they would only wrap a conversion, and the returned types would suggest a precision and meaning the stored value
+ * does not keep: a Timestamp's nanoseconds, or a java.sql type's local-time interpretation. java.time's Instant is
+ * the one date-time type the interface uses, which also keeps the interface independent of the legacy, mutable
+ * java.util.Date and of the java.sql module.
+ *
  * The Document API supports a variety of setters: setField() methods place a single value in a given field, overwriting
  * any value(s) that were there previously. addToField() methods append a value a given field, converting the field
  * into a list or multi-valued field if it was not already multi-valued. setOrAdd() methods either create the field
@@ -42,11 +54,11 @@ import org.slf4j.LoggerFactory;
  * accept an UpdateMode which specifies the desired behavior and they accept varargs.
  *
  * Document is an interface so that the storage representation stays separate from the API that stages and
- * indexers program against. {@link JsonDocument}, which stores fields in a Jackson ObjectNode, is currently the
- * only implementation. Code outside this package should create Documents through the static factory methods
- * here ({@link #create(String)}, {@link #createFromJson(String)}, etc.) rather than naming an implementation, so
- * that an alternate implementation could be substituted. A new implementation should extend the shared contract
- * tests in DocumentTest (and NodeDocumentTest, if it is JSON-node-backed) in lucille-core's test sources.
+ * indexers program against. It is sealed: {@link JsonDocument}, which stores fields in a Jackson ObjectNode, is the
+ * only implementation, and {@link KafkaDocument} (a JsonDocument read from a Kafka topic) its only subclass. Several
+ * operations that combine two Documents, such as {@link #setOrAddAll(Document)} and {@link #addChild(Document)}, rely
+ * on this. Create Documents through the static factory methods here ({@link #create(String)},
+ * {@link #createFromJson(String)}, etc.) rather than naming an implementation.
  *
  * <p><b>Sharing and copying.</b> Methods that copy a Document, or move values between Documents, produce independent
  * results with one deliberate exception, byte[] values. Large file contents are commonly held in byte[] fields, and
@@ -75,6 +87,40 @@ import org.slf4j.LoggerFactory;
  *   <li>asMap() builds a new Map with new Lists and byte[] values; modifying it never modifies the Document.</li>
  * </ul>
  *
+ * <p><b>Reading a value with another type's getter.</b> A getter does not check that the stored value has its type;
+ * it converts what is there, as listed below. Only getInstant throws for a value it cannot convert. An absent field
+ * or a null value gives null, a multi-valued field gives its first value converted, and the list getters convert
+ * each element the same way. getJson returns the stored JsonNode itself, whatever its type, including an array.
+ * <pre>
+ *   getString            string: the string
+ *                        number: its JSON text, such as "12" or "1.5"
+ *                        boolean: "true" or "false"
+ *                        object or array: "" (an empty string)
+ *                        byte[]: its base64 text
+ *
+ *   getInt, getLong      string: the number it spells, truncated toward zero ("1.9" gives 1), or 0
+ *                        number: truncated toward zero; getInt keeps only the low 32 bits outside the int range
+ *                        boolean: 1 or 0
+ *                        object, array or byte[]: 0
+ *
+ *   getDouble, getFloat  string: the number it spells, or 0.0
+ *                        number: the value (getFloat rounds it to the nearest float)
+ *                        boolean: 1.0 or 0.0
+ *                        object, array or byte[]: 0.0
+ *
+ *   getBoolean           string: true only for "true" (case-sensitive, surrounding whitespace ignored)
+ *                        number: true for a non-zero integer; false for zero and every decimal, such as 1.5
+ *                        boolean: the value
+ *                        object, array or byte[]: false
+ *
+ *   getInstant           string: the instant, if it is ISO-8601, such as "2024-01-01T00:00:00Z"
+ *                        anything else, including an epoch number: IllegalArgumentException
+ *
+ *   getBytes             string: decoded as base64, or null if it is not valid base64
+ *                        byte[]: the array
+ *                        number, boolean, object or array: null
+ * </pre>
+ *
  * <p><b>Invalid ids.</b> Every Document has a valid String id, one that is not null, empty or only whitespace (see
  * {@link #isValidId(String)}). Which exception reports an invalid one depends on where the id came from, not on what is
  * wrong with it:
@@ -82,8 +128,8 @@ import org.slf4j.LoggerFactory;
  *   <li>An id read from <i>data</i>, meaning JSON text, an ObjectNode or a Kafka record, is checked: a missing, null,
  *   empty, blank or non-string id is a DocumentException, as is JSON that is not an object, or an id updater that
  *   returns an invalid id. A bad record is an expected possibility with external data, so callers can catch this to skip the
- *   record and continue. Malformed JSON text is a JsonProcessingException, and a Kafka deserializer wraps either in the
- *   SerializationException that Kafka requires, with the original as its cause.</li>
+ *   record and continue. Malformed JSON text is a DocumentException too, with the parser's exception as its cause. A
+ *   Kafka deserializer wraps either in the SerializationException that Kafka requires, with the original as its cause.</li>
  *   <li>An id passed as a Java <i>argument</i>, as in create(String), is reported with an unchecked
  *   IllegalArgumentException, as an invalid field name is. These factories assume a valid id. Code that obtains ids
  *   from external data is responsible for validating them first, with {@link #isValidId(String)}, and deciding
@@ -95,9 +141,7 @@ import org.slf4j.LoggerFactory;
  * In short, a DocumentException means that data being read contained a bad id, and an IllegalArgumentException means
  * that Java code supplied an unacceptable value.
  */
-public interface Document {
-
-  Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+public sealed interface Document permits JsonDocument {
 
   /* --- NAMES OF RESERVED FIELDS --- */
 
@@ -106,7 +150,13 @@ public interface Document {
   String CHILDREN_FIELD = "___children";
   String DROP_FIELD = "___dropped";
   String SKIP_FIELD = "___skipped";
-  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD, SKIP_FIELD));
+
+  /**
+   * The reserved field names, which stages and other callers cannot set, rename or remove. The set is immutable.
+   * Lucille may add reserved names in a minor release; any it adds will begin with "___", so avoid that prefix in
+   * field names of your own. Note that id and run_id are the only reserved names without the "___" prefix.
+   */
+  Set<String> RESERVED_FIELDS = Set.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD, SKIP_FIELD);
 
 
   /* --- SINGLE-VALUE GETTERS --- */
@@ -117,6 +167,8 @@ public interface Document {
    *
    * Returns null in two cases: if the field is absent, or if the field is present but contains a null.
    * To distinguish between these cases, use has() to see if the field exists.
+   *
+   * <p>This and the other getters convert a value of another type as the class description lists.
    */
   String getString(String name);
 
@@ -130,11 +182,19 @@ public interface Document {
 
   Long getLong(String name);
 
+  /**
+   * Returns the value of the designated field as an Instant, parsed from an ISO-8601 string such as
+   * "2024-01-01T00:00:00Z".
+   *
+   * @throws IllegalArgumentException if the value is not such a string; a number, such as epoch milliseconds, is not
+   * converted
+   */
   Instant getInstant(String name);
 
   /**
    * Returns the value of the designated field as a byte[]. The array returned is the one stored in the Document, not a
-   * copy; see the class description before modifying its contents.
+   * copy; see the class description before modifying its contents. A string is decoded as base64; a string that is
+   * not valid base64, and a value of any other type, gives null.
    */
   byte[] getBytes(String name);
 
@@ -143,10 +203,6 @@ public interface Document {
    * modifying it modifies the Document.
    */
   JsonNode getJson(String name);
-
-  Date getDate(String name);
-
-  Timestamp getTimestamp(String name);
 
   /* --- LIST GETTERS --- */
 
@@ -182,10 +238,6 @@ public interface Document {
    */
   List<JsonNode> getJsonList(String name);
 
-  List<Date> getDateList(String name);
-
-  List<Timestamp> getTimestampList(String name);
-
   /* --- SINGLE-VALUE SETTERS --- */
 
   /**
@@ -206,10 +258,6 @@ public interface Document {
   void setField(String name, Float value);
 
   void setField(String name, Long value);
-
-  void setField(String name, Date value);
-
-  void setField(String name, Timestamp value);
 
   /**
    * Converts the given Instant to a String according to DateTimeFormatter.ISO_INSTANT and
@@ -234,8 +282,12 @@ public interface Document {
    * Sets the designated field to the given value, overwriting any value
    * that existed previously, and making the field single-valued.
    * The provided Object value must be one of:
-   * String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, Timestamp, or Date, or null, which
-   * stores a JSON null (as every typed setter does for a null argument).
+   * String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, or java.util.Date (including
+   * java.sql.Timestamp), or null, which stores a JSON null (as every typed setter does for a null argument). A Date is
+   * stored as an Instant and reads back through getInstant.
+   *
+   * <p>This is the general-purpose setter for a value whose type is known only at runtime, such as a value read from
+   * a database or a script; the typed overloads are equivalent for the types they name.
    *
    * @param name the name of the field you want to set.
    * @param value the value you want to set the field to have.
@@ -263,10 +315,9 @@ public interface Document {
       setField(name, bytes);
     } else if (value instanceof JsonNode node) {
       setField(name, node);
-    } else if (value instanceof Timestamp timestamp) {
-      setField(name, timestamp);
     } else if (value instanceof Date date) {
-      setField(name, date);
+      // java.util.Date and its java.sql subclasses (Timestamp, Date, Time) are stored as Instants
+      setField(name, Instant.ofEpochMilli(date.getTime()));
     } else {
       throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
@@ -300,14 +351,10 @@ public interface Document {
 
   void addToField(String name, JsonNode value);
 
-  void addToField(String name, Date value);
-
-  void addToField(String name, Timestamp value);
-
   /**
    * Adds the given value to the designated field, converting the field to multivalued (i.e. a list)if it was not multivalued already.
-   * The provided Object value must be one of: String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, Timestamp,
-   * or Date.
+   * The provided Object value must be one of: String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, or
+   * java.util.Date (including java.sql.Timestamp), which is stored as an Instant.
    *
    * @param name the name of the field you want to add the value to.
    * @param value the value you want to add.
@@ -335,10 +382,9 @@ public interface Document {
       addToField(name, bytes);
     } else if (value instanceof JsonNode node) {
       addToField(name, node);
-    } else if (value instanceof Timestamp timestamp) {
-      addToField(name, timestamp);
     } else if (value instanceof Date date) {
-      addToField(name, date);
+      // java.util.Date and its java.sql subclasses (Timestamp, Date, Time) are stored as Instants
+      addToField(name, Instant.ofEpochMilli(date.getTime()));
     } else {
       throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
@@ -375,10 +421,6 @@ public interface Document {
 
   void setOrAdd(String name, JsonNode value);
 
-  void setOrAdd(String name, Date value);
-
-  void setOrAdd(String name, Timestamp value);
-
   /**
    * Sets the field to the given value if the field is not already present; otherwise, adds the value to the field.
    *
@@ -386,7 +428,8 @@ public interface Document {
    * created as single-valued; if the field already exists and/or this method is called more than
    * once, the field will be converted to multivalued (i.e. a list of values).
    *
-   * The provided value must be one of: String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, Timestamp, Date.
+   * The provided value must be one of: String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, or
+   * java.util.Date (including java.sql.Timestamp), which is stored as an Instant.
    *
    * @param name the name of the field you want to set or add a value to.
    * @param value the value you want to set or add to an existing field.
@@ -414,10 +457,9 @@ public interface Document {
       setOrAdd(name, bytes);
     } else if (value instanceof JsonNode node) {
       setOrAdd(name, node);
-    } else if (value instanceof Timestamp timestamp) {
-      setOrAdd(name, timestamp);
     } else if (value instanceof Date date) {
-      setOrAdd(name, date);
+      // java.util.Date and its java.sql subclasses (Timestamp, Date, Time) are stored as Instants
+      setOrAdd(name, Instant.ofEpochMilli(date.getTime()));
     } else {
       throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
@@ -487,18 +529,11 @@ public interface Document {
     update(name, mode, v -> setField(name, (JsonNode) v), v -> setOrAdd(name, (JsonNode) v), values);
   }
 
-  default void update(String name, UpdateMode mode, Date... values) {
-    update(name, mode, v -> setField(name, (Date) v), v -> setOrAdd(name, (Date) v), values);
-  }
-
-  default void update(String name, UpdateMode mode, Timestamp... values) {
-    update(name, mode, v -> setField(name, (Timestamp) v), v -> setOrAdd(name, (Timestamp) v), values);
-  }
-
   /**
    * Updates the designated field according to the provided UpdateMode.
    *
-   * <p> The provided values must be of one of: String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, Timestamp, Date.
+   * <p> The provided values must be of one of: String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, or
+   * java.util.Date (including java.sql.Timestamp), which is stored as an Instant.
    *
    * <p> Note that type uniformity is <b>not</b> enforced.
    *
@@ -625,20 +660,6 @@ public interface Document {
   Document deepCopy();
 
   /**
-   * Applies a JSONNata expression to this Document (as if it were a JSON object) and replaces this Document with the result.
-   *
-   * @throws DocumentException if any reserved fields are mutated or if the result is not an object (primitive or array)
-   * @see <a href="https://github.com/dashjoin/jsonata-java">JSONNata implementation</a>
-   */
-  void transform(Jsonata expr) throws DocumentException;
-
-  /**
-   * Applies a JSONNata expression to the value of the source field and places the resulting object in the destination field.
-   * @throws DocumentException if the evaluation fails
-   */
-  void transform(Jsonata expr, String sourceField, String destField) throws DocumentException;
-
-  /**
    * Returns an Iterator that contains only this document.
    */
   default Iterator<Document> iterator() {
@@ -713,7 +734,8 @@ public interface Document {
 
   /**
    * Returns whether the given value can be stored in a field: null, or one of the types {@link #setField(String, Object)}
-   * accepts (String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, Timestamp or Date).
+   * accepts (String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, or a java.util.Date, including
+   * java.sql.Timestamp, which is stored as an Instant).
    */
   static boolean isSupportedValue(Object value) {
     return value == null || value instanceof String || value instanceof Long || value instanceof Double
@@ -747,7 +769,8 @@ public interface Document {
   /**
    * Creates a Document with the given id and run id.
    *
-   * @throws IllegalArgumentException if the id is null, empty or blank (see "Invalid ids" above)
+   * @throws IllegalArgumentException if the id is null, empty or blank (see "Invalid ids" above), or if the run id is
+   * null; use {@link #create(String)} for a Document without a run id
    */
   static Document create(String id, String runId) {
     return new JsonDocument(id, runId);
@@ -756,21 +779,20 @@ public interface Document {
   /**
    * Creates a Document from JSON text.
    *
-   * @throws JsonProcessingException if the text is not well-formed JSON
-   * @throws DocumentException if the JSON is not an object or its id is invalid (see "Invalid ids" above)
+   * @throws DocumentException if the text is not well-formed JSON, the JSON is not an object, or its id is invalid
+   * (see "Invalid ids" above)
    */
-  static Document createFromJson(String json) throws DocumentException, JsonProcessingException {
+  static Document createFromJson(String json) throws DocumentException {
     return createFromJson(json, null);
   }
 
   /**
    * Creates a Document from JSON text, replacing its id with the result of the updater when one is given.
    *
-   * @throws JsonProcessingException if the text is not well-formed JSON
-   * @throws DocumentException if the JSON is not an object, its id is invalid, or the updater returns an invalid
-   * id (see "Invalid ids" above)
+   * @throws DocumentException if the text is not well-formed JSON, the JSON is not an object, its id is invalid, or
+   * the updater returns an invalid id (see "Invalid ids" above)
    */
-  static Document createFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
+  static Document createFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
 

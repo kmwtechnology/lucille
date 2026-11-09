@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.util.StageUtils;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -42,16 +43,17 @@ public class TrimWhitespace extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     for (String field : fields) {
-      if (!doc.has(field)) {
+      List<String> values = StageUtils.getNonNullStrings(doc, field);
+      if (values.isEmpty()) {
         continue;
       }
 
-      List<String> values = new ArrayList<>();
-      for (String value : doc.getStringList(field)) {
-        values.add(value.trim());
+      List<String> trimmed = new ArrayList<>();
+      for (String value : values) {
+        trimmed.add(value.trim());
       }
 
-      doc.update(field, UpdateMode.OVERWRITE, values.toArray(new String[0]));
+      doc.update(field, UpdateMode.OVERWRITE, trimmed.toArray(new String[0]));
     }
 
     return null;

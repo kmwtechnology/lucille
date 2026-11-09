@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.core.filehandler;
 
-import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.ARCHIVE_FILE_SEPARATOR;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.ConfigUtils;
@@ -50,7 +50,7 @@ import org.slf4j.LoggerFactory;
 public class CSVFileHandler extends BaseFileHandler {
 
   public static final Spec SPEC = SpecBuilder.fileHandler()
-      .optionalString("docIdPrefix", "lineNumberField", "separatorChar", "filenameField", "filePathField", "idField", "docIdFormat")
+      .optionalString("lineNumberField", "separator", "filenameField", "filePathField", "idField", "docIdFormat")
       .optionalNumber("maxRecordBytes")
       .optionalList("idFields", new TypeReference<List<String>>() {})
       .optionalList("ignoredTerms", new TypeReference<List<String>>() {})
@@ -88,7 +88,7 @@ public class CSVFileHandler extends BaseFileHandler {
     }
     this.docIdFormat = ConfigUtils.getStringOrDefault(config, "docIdFormat", null);
     // if both a separator char and useTabs is specified, useTabs takes precedence
-    char separator = config.hasPath("separatorChar") ? CharUtils.toChar(config.getString("separatorChar")) : ',';
+    char separator = config.hasPath("separator") ? CharUtils.toChar(config.getString("separator")) : ',';
     this.separatorChar = (config.hasPath("useTabs") && config.getBoolean("useTabs")) ? '\t' : separator;
     this.quoteChar = (config.hasPath("interpretQuotes") && !config.getBoolean("interpretQuotes")) ?
         CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_QUOTE_CHARACTER;

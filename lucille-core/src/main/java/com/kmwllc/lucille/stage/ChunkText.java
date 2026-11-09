@@ -46,12 +46,12 @@ import org.slf4j.LoggerFactory;
  *   <li>regex (String, only for custom chunking) : regEx that will be used to split chunks. It is compiled when the stage
  *   is created, so an invalid pattern fails at startup.</li>
  *   <li>lengthToSplit (Integer, only for fixed chunking) : length of characters of each initial chunk before processing.</li>
- *   <li>preMergeMinChunkLen (Integer, optional) : removes and append chunk to the neighboring chunk if below given number of characters,
+ *   <li>preMergeMinChunkLength (Integer, optional) : removes and append chunk to the neighboring chunk if below given number of characters,
  *   defaults appending to next chunk.</li>
- *   <li>preMergeMaxChunkLen (Integer, optional) : truncates the chunks if over given amount, applies before merging and overlapping.</li>
+ *   <li>preMergeMaxChunkLength (Integer, optional) : truncates the chunks if over given amount, applies before merging and overlapping.</li>
  *   <li>chunksToMerge (Integer, optional) : how many chunks to merge into the final new Chunk before overlapping is taken place.
  *   Defaults to 1, keeping the chunks as they were after splitting. e.g. chunksToMerge: 2 -> { chunk1/chunk2, chunk3/chunk4, chunk5/chunk6}.</li>
- *   <li>overlapPercentage (Integer, optional) : adds on neighboring chunk's content based on percentage of current chunk, defaults to 0.</li>
+ *   <li>percentOverlap (Integer, optional) : adds on neighboring chunk's content based on percentage of current chunk, defaults to 0.</li>
  *   <li>chunksToOverlap (Integer, optional) : indicate the number of overlap of smaller chunks to overlap while merging into final chunk.
  *   e.g. chunksToOverlap: 1 -> { chunk1/chunk2/chunk3, chunk3/chunk4/chunk5, chunk5/chunk6/chunk7}, chunksToOverlap: 2 ->
  *   { chunk1/chunk2/chunk3, chunk2/chunk3/chunk4, chunk3/chunk4/chunk5}</li>
@@ -73,7 +73,7 @@ import org.slf4j.LoggerFactory;
  *   class: "com.kmwllc.lucille.stage.ChunkText"
  *   source: "text"
  *   chunkingMethod: "paragraph"
- *   preMergeMinChunkLen: 50
+ *   preMergeMinChunkLength: 50
  *   cleanChunks: true
  *  },
  *  {
@@ -97,8 +97,8 @@ public class ChunkText extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("source")
       .optionalString("dest", "chunkingMethod", "regex")
-      .optionalNumber("chunksToMerge", "characterLimit", "overlapPercentage", "lengthToSplit",
-          "preMergeMinChunkLen", "preMergeMaxChunkLen", "chunksToOverlap")
+      .optionalNumber("chunksToMerge", "characterLimit", "percentOverlap", "lengthToSplit",
+          "preMergeMinChunkLength", "preMergeMaxChunkLength", "chunksToOverlap")
       .optionalBoolean("cleanChunks").build();
 
   private final String source;
@@ -132,13 +132,13 @@ public class ChunkText extends Stage {
     this.lengthToSplit = config.hasPath("lengthToSplit") && config.getInt("lengthToSplit") > 0
         ? config.getInt("lengthToSplit") : null;
     this.cleanChunks = ConfigUtils.getBooleanOrDefault(config, "cleanChunks", false);
-    this.preMergeMinChunkLen = config.hasPath("preMergeMinChunkLen") && config.getInt("preMergeMinChunkLen") > 0
-        ? config.getInt("preMergeMinChunkLen") : -1;
-    this.preMergeMaxChunkLen = config.hasPath("preMergeMaxChunkLen") && config.getInt("preMergeMaxChunkLen") > 0
-        ? config.getInt("preMergeMaxChunkLen") : -1;
+    this.preMergeMinChunkLen = config.hasPath("preMergeMinChunkLength") && config.getInt("preMergeMinChunkLength") > 0
+        ? config.getInt("preMergeMinChunkLength") : -1;
+    this.preMergeMaxChunkLen = config.hasPath("preMergeMaxChunkLength") && config.getInt("preMergeMaxChunkLength") > 0
+        ? config.getInt("preMergeMaxChunkLength") : -1;
     this.chunksToMerge = ConfigUtils.getIntOrDefault(config, "chunksToMerge", 1);
     this.chunksToOverlap = ConfigUtils.getIntOrDefault(config, "chunksToOverlap", null);
-    this.overlapPercentage = ConfigUtils.getIntOrDefault(config, "overlapPercentage", 0);
+    this.overlapPercentage = ConfigUtils.getIntOrDefault(config, "percentOverlap", 0);
     this.characterLimit = ConfigUtils.getIntOrDefault(config, "characterLimit", -1);
     if (chunksToMerge < 1) {
       throw new StageException("Chunks to merge configuration must be greater than 1 if merging chunks is desired or equal to 1 if undesired.");
@@ -158,7 +158,7 @@ public class ChunkText extends Stage {
       throw new StageException("Provide a positive length to split for fixed sized chunking.");
     }
     if (chunksToOverlap != null && overlapPercentage > 0) {
-      throw new StageException("Both chunksToOverlap and overlapPercentage cannot be used. Choose one overlap option.");
+      throw new StageException("Both chunksToOverlap and percentOverlap cannot be used. Choose one overlap option.");
     }
     if (chunksToOverlap != null && chunksToOverlap >= chunksToMerge) {
       throw new StageException("Chunks to overlap must be smaller than the chunks to merge.");
@@ -244,6 +244,12 @@ public class ChunkText extends Stage {
     }
 
     int chunkLength = chunks.length;
+    // Windows start at indexes below chunkLength - chunksToOverlap, which is <= 0 here, so there are no windows to build.
+    // The sizing below would then return a bad array size (or an array nothing fills), so return the whole text as one chunk.
+    if (chunkLength <= chunksToOverlap) {
+      return new String[] {String.join(" ", chunks).trim()};
+    }
+
     int stepSize = chunksToMerge - chunksToOverlap;;
     int endIndex = chunkLength - chunksToOverlap;
     int resultSize = (endIndex - 1) / stepSize + 1;

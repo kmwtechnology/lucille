@@ -308,7 +308,7 @@ The timeout ensures documents are flushed even when volume is low:
 
 ```hocon
 indexer {
-  batchTimeout: 5000  # milliseconds; default is 100
+  batchTimeoutMs: 5000  # milliseconds; default is 100
 }
 ```
 
@@ -322,7 +322,7 @@ See [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}) 
 
 ### Recommended Starting Points
 
-| Scenario | batchSize | batchTimeout |
+| Scenario | batchSize | batchTimeoutMs |
 |---|---|---|
 | High-volume batch ingest | 500–2000 | 5000–10000 ms |
 | Low-volume incremental | 50–100 | 100–500 ms |
@@ -456,11 +456,11 @@ To improve this: reduce chunk count (larger chunks), or add more Worker threads 
 
 ## Kafka Tuning for Distributed Mode
 
-### maxPollIntervalSecs
+### maxPollIntervalMs
 
 ```hocon
 kafka {
-  maxPollIntervalSecs: 600  # 10 minutes
+  maxPollIntervalMs: 600000  # 10 minutes
 }
 ```
 
@@ -547,10 +547,10 @@ During a run, track these from the periodic log messages:
 - [ ] Consider whether large data (file content, binary blobs) needs to live on the document or whether a path/URL reference is sufficient
 - [ ] Delete large intermediate fields (e.g., `file_content`) immediately after the stage that needs them
 - [ ] Set `worker.threads` appropriate for your pipeline's CPU/memory profile
-- [ ] Set `indexer.batchSize` and `batchTimeout` for your backend's optimal batch size
+- [ ] Set `indexer.batchSize` and `batchTimeoutMs` for your backend's optimal batch size
 - [ ] Set `-Xmx` heap size with headroom for GC
 - [ ] In distributed mode: ensure source topic partition count >= desired Worker count
-- [ ] Set `kafka.maxPollIntervalSecs` higher than your slowest document processing time and, for a standalone Indexer, at least three times its slowest bulk request including retries
+- [ ] Set `kafka.maxPollIntervalMs` higher than your slowest document processing time and, for a standalone Indexer, at least three times its slowest bulk request including retries
 - [ ] Set `publisher.maxPendingDocs` or `publisher.queueCapacity` to prevent memory exhaustion
 - [ ] Monitor for increasing latency over time (indicates resource pressure)
 

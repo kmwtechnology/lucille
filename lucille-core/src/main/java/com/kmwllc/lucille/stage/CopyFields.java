@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Copies values from a source field to a destination field based on the field mapping. You can turn on the ability to copy fields
- * as nested json by setting the isNested parameter to true or keep it false to treat the field names as literal field names.
+ * as nested json by setting the useNestedPaths parameter to true or keep it false to treat the field names as literal field names.
  *
  * <p>
  * Config Parameters -
@@ -31,8 +31,8 @@ import org.slf4j.LoggerFactory;
  *   <li>fieldMapping (Map&lt;String, Object&gt;) : A mapping of source field names to destination field names where the destination
  *      field names can be a string or list.</li>
  *   <li>updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
- *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'. Cannot be set with isNested.</li>
- *   <li>isNested (Boolean, Optional) : Sets whether or not to treat the given field name as nested json or a literal field name.
+ *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'. Cannot be set with useNestedPaths.</li>
+ *   <li>useNestedPaths (Boolean, Optional) : Sets whether or not to treat the given field name as nested json or a literal field name.
  *   It true, the field name will be split on '.' and each part will be treated as a level of nesting. Cannot be set with updateMode.
  *   Defaults to false. </li>
  * </ul>
@@ -43,11 +43,11 @@ public class CopyFields extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredParent("fieldMapping", new TypeReference<Map<String, Object>>() {})
       .optionalString("updateMode")
-      .optionalBoolean("isNested").build();
+      .optionalBoolean("useNestedPaths").build();
 
   private final Map<String, Object> fieldMapping;
   private final UpdateMode updateMode;
-  private final boolean isNested;
+  private final boolean useNestedPaths;
 
   private final List<Pair<List<Document.Segment>,List<Document.Segment>>> nestedFieldPairs = new ArrayList<>();
   private final List<Pair<String,String>> nonNestedFieldPairs = new ArrayList<>();
@@ -56,9 +56,9 @@ public class CopyFields extends Stage {
     super(config);
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     this.updateMode = UpdateMode.fromConfig(config);
-    this.isNested = ConfigUtils.getOrDefault(config, "isNested", false);
-    if (isNested && config.hasPath("updateMode")) {
-      log.info("Cannot set both isNested and updateMode in Copy Fields at the same time. Ignoring updateMode, fields will be overwritten.");
+    this.useNestedPaths = ConfigUtils.getOrDefault(config, "useNestedPaths", false);
+    if (useNestedPaths && config.hasPath("updateMode")) {
+      log.info("Cannot set both useNestedPaths and updateMode in Copy Fields at the same time. Ignoring updateMode, fields will be overwritten.");
     }
   }
 
@@ -69,7 +69,7 @@ public class CopyFields extends Stage {
     }
 
     // create field pairs, and deal with nested vs non-nested here so we don't have to check the type for every doc
-    if (isNested) {
+    if (useNestedPaths) {
       for (Entry<String, Object> entry : fieldMapping.entrySet()) {
         List<Document.Segment> source = Document.Segment.parse(entry.getKey());
         if (entry.getValue() instanceof String destSpec) {
@@ -101,14 +101,15 @@ public class CopyFields extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    if (isNested) {
+    if (useNestedPaths) {
       for (Pair<List<Document.Segment>,List<Document.Segment>> fieldPair : nestedFieldPairs) {
         JsonNode sourceVal = doc.getNestedJson(fieldPair.getKey());
         if (sourceVal == null) {
           continue;
         }
         try {
-          doc.setNestedJson(fieldPair.getValue(), sourceVal);
+          // copy, or a later in-place edit to either field would show up in the other
+          doc.setNestedJson(fieldPair.getValue(), sourceVal.deepCopy());
         } catch (IllegalArgumentException ex) {
           log.error("Failed to set field {} on doc {}.\n {}",
               Document.Segment.stringify(fieldPair.getValue()), doc.getId(), ex.getMessage());
@@ -119,7 +120,9 @@ public class CopyFields extends Stage {
         if (!doc.has(fieldPair.getKey())) {
           continue;
         }
-        doc.update(fieldPair.getValue(), updateMode, doc.getStringList(fieldPair.getKey()).toArray(new String[0]));
+        // copy as JSON so numbers, booleans and objects keep their types, and deep-copy so the fields stay independent
+        JsonNode[] values = doc.getJsonList(fieldPair.getKey()).stream().map(JsonNode::deepCopy).toArray(JsonNode[]::new);
+        doc.update(fieldPair.getValue(), updateMode, values);
       }
     }
     return null;

@@ -51,7 +51,7 @@ public class FetchUriTest {
   public void testFetchUriWithAllOptionalParameters() throws StageException {
     FetchUri s = (FetchUri) StageFactory.of(FetchUri.class).get("FetchUriTest/allOptionalParameters.conf");
 
-    // test that the statusCodeRetryList bad inputs are removed
+    // test that the retryableStatusCodes bad inputs are removed
     assertEquals(Arrays.asList("206", "30x", "429", "5xx"), s.getStatusCodeRetryList());
 
     s.setClient(mockClient);
@@ -169,5 +169,15 @@ public class FetchUriTest {
   @Test
   public void testInvalidStatusCodeRetryList() {
     assertThrows(StageException.class, () -> StageFactory.of(FetchUri.class).get("FetchUriTest/invalid-retry-input-config.conf"));
+  }
+
+  @Test
+  public void testNullValue() throws Exception {
+    FetchUri stage = (FetchUri) StageFactory.of(FetchUri.class).get("FetchUriTest/allOptionalParameters.conf");
+    stage.setClient(mockClient);
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"url\":null}");
+    stage.processDocument(doc);
+    assertFalse(doc.has("url_data"));
+    Mockito.verifyNoInteractions(mockClient);
   }
 }

@@ -7,7 +7,7 @@ description: Creates a teaser of at most a given number of characters from text 
 
 `com.kmwllc.lucille.stage.CreateStaticTeaser`
 
-Creates a teaser of at most `maxLength` characters from each source field. Text shorter than `maxLength` is copied whole (trimmed). Text of `maxLength` characters or more is cut back to the last space or `.`, `?`, `!`, `,` before the limit, so the teaser ends before a partial word. If there is no such break, the text is cut at exactly `maxLength`. Only the first value of a multi-valued field is used.
+Creates a teaser of at most `maxLength` characters from each source field. Text of at most `maxLength` characters is copied whole (trimmed). Longer text is cut back to the last space or `.`, `?`, `!`, `,` at or before the limit, so the teaser ends before a partial word, and a word that ends exactly at the limit is kept. If there is no such break, the text is cut at exactly `maxLength`. Only the first value of a multi-valued field is used.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|

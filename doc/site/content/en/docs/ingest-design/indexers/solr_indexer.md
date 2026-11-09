@@ -7,7 +7,7 @@ description: Configuration reference for the Solr Indexer, for single-node Solr 
 
 `com.kmwllc.lucille.solr.indexer.SolrIndexer`
 
-Config block: `solr { ... }`
+Config block: `indexer.solr { ... }`
 
 **Maven dependency:**
 ```xml
@@ -18,7 +18,7 @@ Config block: `solr { ... }`
 </dependency>
 ```
 
-Selecting the indexer with `indexer.type: "Solr"` works once `lucille-solr` is on the classpath.
+The block selects the indexer once `lucille-solr` is on the classpath.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
@@ -35,18 +35,22 @@ SolrIndexer supports `indexer.maxConcurrentBatches` greater than 1: concurrent b
 
 ```hocon
 # SolrCloud with URL
-solr {
-  useCloudClient: true
-  url: ["http://localhost:8983/solr"]
-  defaultCollection: "my-collection"
+indexer {
+  solr {
+    useCloudClient: true
+    url: ["http://localhost:8983/solr"]
+    defaultCollection: "my-collection"
+  }
 }
 
 # SolrCloud with ZooKeeper
-solr {
-  useCloudClient: true
-  zkHosts: ["zk1:2181", "zk2:2181"]
-  zkChroot: "/solr"
-  defaultCollection: "my-collection"
+indexer {
+  solr {
+    useCloudClient: true
+    zkHosts: ["zk1:2181", "zk2:2181"]
+    zkChroot: "/solr"
+    defaultCollection: "my-collection"
+  }
 }
 ```
 
@@ -54,11 +58,16 @@ solr {
 
 ## SSL
 
-When the client is created, SolrIndexer copies the config keys `javax.net.ssl.keyStore`, `javax.net.ssl.keyStorePassword`, `javax.net.ssl.trustStore`, and `javax.net.ssl.trustStorePassword` into JVM system properties of the same name. A system property that is already set (for example with `-D`) is not overridden. These keys can be set at the root of the config or inside the `solr` block; if a key is set in both, the root value is used.
+When the client is created, SolrIndexer copies the config keys `javax.net.ssl.keyStore`, `javax.net.ssl.keyStorePassword`, `javax.net.ssl.trustStore`, and `javax.net.ssl.trustStorePassword` into JVM system properties of the same name. A system property that is already set (for example with `-D`) is not overridden. Set these keys inside the `solr` block. Keys at the root of the config are not read.
 
 ```hocon
-javax.net.ssl.trustStore: "/path/to/truststore.jks"
-javax.net.ssl.trustStorePassword: ${?TRUSTSTORE_PASSWORD}
+indexer {
+  solr {
+    url: "https://solr-host:8983/solr"
+    javax.net.ssl.trustStore: "/path/to/truststore.jks"
+    javax.net.ssl.trustStorePassword: ${?TRUSTSTORE_PASSWORD}
+  }
+}
 ```
 
 ---
@@ -67,7 +76,7 @@ javax.net.ssl.trustStorePassword: ${?TRUSTSTORE_PASSWORD}
 
 When a document has children (via `doc.addChild()`), they are added to the Solr document as nested child documents. The `___children` field itself is never sent to Solr. Children of children are not sent.
 
-The blacklist and whitelist apply to parents and children alike, except for `id`: Solr needs it on every document, so it is always sent. For the parent it is the `indexer.idOverrideField` value when set; children use their own `id`.
+`includeFields` and `excludeFields` apply to parents and children alike, except for `id`: Solr needs it on every document, so it is always sent. For the parent it is the `indexer.idOverrideField` value when set; children use their own `id`.
 
 ---
 
@@ -89,7 +98,7 @@ Internally, the indexer flushes pending adds before queuing a delete for an ID t
 
 ## Delete-by-Query via Terms Queries
 
-When `deleteByFieldField` and `deleteByFieldValue` are configured, SolrIndexer constructs Solr terms queries rather than issuing individual delete-by-query calls. Values for the same field are combined into a single terms query, and the queries for different fields (plus any pending deletes by ID) are joined with `OR` into one request:
+When `deleteByQuery` is configured, SolrIndexer constructs Solr terms queries rather than issuing individual delete-by-query calls. Values for the same field are combined into a single terms query, and the queries for different fields (plus any pending deletes by ID) are joined with `OR` into one request:
 
 ```
 (+{!terms f="category" separator="," v="obsolete,deprecated"})

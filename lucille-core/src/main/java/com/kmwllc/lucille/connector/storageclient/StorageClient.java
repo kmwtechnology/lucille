@@ -1,11 +1,10 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.AZURE_ALLOWED_HOSTS;
-import static com.kmwllc.lucille.connector.FileConnector.DEFAULT_AZURE_ALLOWED_HOSTS;
-import static com.kmwllc.lucille.connector.FileConnector.STORAGE_CLIENTS;
-import static com.kmwllc.lucille.connector.FileConnector.STORAGE_CLIENT_CLASS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.AZURE_ALLOWED_HOSTS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.DEFAULT_AZURE_ALLOWED_HOSTS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.STORAGE_CLIENTS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.STORAGE_CLIENT_CLASS;
 
-import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigObject;
@@ -26,16 +25,18 @@ import java.util.Map;
 public interface StorageClient {
 
   /**
-   * Initialize the client and creates necessary connections and/or resources.
-   * @throws IOException If an error occurs during initialization.
+   * Starts the client, creating any necessary connections and/or resources. Must be called before traversing or getting
+   * a file's contents. Calling it again on a started client has no effect.
+   * @throws IOException If an error occurs while starting.
    */
-  void init() throws IOException;
+  void start() throws IOException;
 
   /**
-   * Shutdown the client, closes any open connections and/or resources.
-   * @throws IOException If an error occurs during shutdown.
+   * Stops the client, closing any open connections and/or resources. Calling it on a client that isn't started has
+   * no effect.
+   * @throws IOException If an error occurs while stopping.
    */
-  void shutdown() throws IOException;
+  void stop() throws IOException;
 
   /**
    * Traverses through the storage client and publish files to Lucille pipeline. Does not update or use state, and
@@ -47,13 +48,15 @@ public interface StorageClient {
   void traverse(Publisher publisher, TraversalParams params) throws Exception;
 
   /**
-   * Traverses through the storage client and publish files to Lucille pipeline. Updates the given stateManager as files are encountered
-   * and published. Uses the {@link FileConnectorStateManager#getLastPublished(String)} method to enforce lastPublishedCutoff, if specified.
+   * Traverses through the storage client and publish files to Lucille pipeline. Updates the given state as files are encountered
+   * and published. Uses the {@link FileStateTracker#getLastPublished(String)} method to enforce lastPublishedCutoff, if specified.
    * @param publisher The Publisher you want to publish documents to.
    * @param params Parameters / options regarding the traversal of the client's file system.
+   * @param stateMgr The state to read and update for each file, keyed by its full path. May be null, in which case state is
+   *                 not used.
    * @throws Exception If an error occurs during traversal.
    */
-  void traverse(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
+  void traverse(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception;
 
   /**
    * Returns whether a traversal of the given parent would also visit the files under the given child, based on this
@@ -63,6 +66,20 @@ public interface StorageClient {
    * @return Whether traversing parent would also visit the files under child.
    */
   boolean containsPath(URI parent, URI child);
+
+  /**
+   * Returns whether files that {@link #moveFile(URI, URI)} moves to the given folder during a traversal of the given path
+   * would land back inside that path, where the traversal could find them again or a file could overwrite itself. Used
+   * to validate move folders at startup. Does not require this client to be initialized, and does not contact the provider.
+   * <p> By default, whether the path contains the folder. Override this if your moveFile keeps part of the source path
+   * under the folder, so that a file can land inside the path even when the folder itself is outside it.
+   * @param path A URI to the path being traversed.
+   * @param folder A URI to the folder that files are moved to.
+   * @return Whether a moved file would land inside the path.
+   */
+  default boolean moveTargetInsidePath(URI path, URI folder) {
+    return containsPath(path, folder);
+  }
 
   /**
    * Opens and returns an InputStream for a file's contents, located at the given URI.
@@ -141,7 +158,7 @@ public interface StorageClient {
    *
    * To build the built-in clients for the cloud providers, these arguments must be provided in separate maps:
    * <br> gcp (keyed by "gs"):
-   * "pathToServiceKey" : "path/To/Service/Key.json"
+   * "serviceKeyPath" : "path/To/Service/Key.json"
    * "maxResultsPerPage" : number of results returned per listing request (page size). Optional, defaults to 100
    *
    * <br> s3 (keyed by "s3"):

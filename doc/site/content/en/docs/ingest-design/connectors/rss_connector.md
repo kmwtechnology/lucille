@@ -17,8 +17,8 @@ You can configure the `RSSConnector` to only publish recent RSS items, based on 
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `rssURL` | String | Yes | URL of the RSS feed. A malformed URL fails at startup. |
-| `useGuidForDocID` | Boolean | No | Use the item's `guid` as the Document ID. When `false`, or when an item has no `guid` or a blank one, a random UUID is used, so the same item gets a new ID each time it is published. Default: `true`. |
+| `rssUrl` | String | Yes | URL of the RSS feed. A malformed URL fails at startup. |
+| `useGuidForDocId` | Boolean | No | Use the item's `guid` as the Document ID. When `false`, or when an item has no `guid` or a blank one, a random UUID is used, so the same item gets a new ID each time it is published. Default: `true`. |
 | `pubDateCutoff` | String | No | Duration (e.g., `"1h"`, `"2d"`). Only items with a `pubDate` within this period before the current refresh are published. Items without a `pubDate` are always published, with a warning. An invalid duration fails at startup. By default, all items are published. |
 | `runDuration` | String | No | Duration. Total time to keep refreshing the feed. Must be set together with `refreshIncrement`, checked at startup. An invalid duration fails at startup. |
 | `refreshIncrement` | String | No | Duration. Time to wait after one refresh finishes before starting the next. Must be set together with `runDuration`. An invalid duration fails at startup. |
@@ -30,7 +30,7 @@ Without `runDuration`/`refreshIncrement`, the feed is read once. In incremental 
   name: "rss-connector"
   class: "com.kmwllc.lucille.connector.RSSConnector"
   pipeline: "my-pipeline"
-  rssURL: "https://example.com/feed.xml"
+  rssUrl: "https://example.com/feed.xml"
   pubDateCutoff: "7d"
   runDuration: "1h"
   refreshIncrement: "5m"

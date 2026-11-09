@@ -26,11 +26,12 @@ public class PropertyTest {
     assertFalse(propJson.get("required").asBoolean());
     assertTrue(propJson.has("type"));
 
-    propJson = new StringProperty("systemPrompt", true, "Instructions to the LLM.").json();
+    propJson = new StringProperty("systemPrompt", true).json();
     assertEquals("systemPrompt", propJson.get("name").asText());
     assertTrue(propJson.get("required").asBoolean());
-    assertEquals("Instructions to the LLM.", propJson.get("description").asText());
     assertTrue(propJson.has("type"));
+    // descriptions come from the component's Javadoc, not the Spec
+    assertFalse(propJson.has("description"));
   }
 
   @Test
