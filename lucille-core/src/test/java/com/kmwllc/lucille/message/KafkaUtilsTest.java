@@ -16,6 +16,7 @@ import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.junit.Test;
 
+import java.util.Map;
 import java.util.Properties;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -25,6 +26,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -69,12 +71,12 @@ public class KafkaUtilsTest {
 
     // buffer.memory must be at least 32MB (Kafka's default) regardless of maxRequestSize,
     // so the async producer has room to buffer multiple records
-    Config smallMaxRequest = ConfigFactory.parseString("kafka { bootstrapServers: \"localhost:9092\", maxRequestSize: 1048576, maxPollIntervalSecs: 300, consumerGroupId: \"test\" }");
+    Config smallMaxRequest = ConfigFactory.parseString("kafka { bootstrapServers: \"localhost:9092\", maxRequestSize: 1048576, maxPollIntervalMs: 300000, consumerGroupId: \"test\" }");
     Properties smallProps = KafkaUtils.createProducerProps(smallMaxRequest);
     assertTrue(Long.parseLong(smallProps.get("buffer.memory").toString()) >= 33_554_432L);
 
     // buffer.memory grows if maxRequestSize exceeds 32MB
-    Config largeMaxRequest = ConfigFactory.parseString("kafka { bootstrapServers: \"localhost:9092\", maxRequestSize: 67108864, maxPollIntervalSecs: 300, consumerGroupId: \"test\" }");
+    Config largeMaxRequest = ConfigFactory.parseString("kafka { bootstrapServers: \"localhost:9092\", maxRequestSize: 67108864, maxPollIntervalMs: 300000, consumerGroupId: \"test\" }");
     Properties largeProps = KafkaUtils.createProducerProps(largeMaxRequest);
     assertTrue(Long.parseLong(largeProps.get("buffer.memory").toString()) >= 67_108_864L);
   }
@@ -230,7 +232,7 @@ public class KafkaUtilsTest {
   }
 
   private static final String BASE_KAFKA =
-      "kafka { bootstrapServers: \"localhost:9092\", maxRequestSize: 1048576, maxPollIntervalSecs: 300, consumerGroupId: \"test\" }\n";
+      "kafka { bootstrapServers: \"localhost:9092\", maxRequestSize: 1048576, maxPollIntervalMs: 300000, consumerGroupId: \"test\" }\n";
 
   @Test
   public void testQuotedAndUnquotedDottedKeysProduceSameClientKey() {
@@ -311,7 +313,7 @@ public class KafkaUtilsTest {
     // (before indexing) and could skip documents on a crash. An override that re-enables it must fail fast rather than
     // silently undermine the design.
     Config autoCommitOn = ConfigFactory.parseString(
-        "kafka { bootstrapServers: \"localhost:9092\", maxPollIntervalSecs: 300, consumerGroupId: \"test\", "
+        "kafka { bootstrapServers: \"localhost:9092\", maxPollIntervalMs: 300000, consumerGroupId: \"test\", "
         + "consumer { enable.auto.commit: true } }");
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
         () -> KafkaUtils.createDocumentConsumer(autoCommitOn, "test-client"));
@@ -320,7 +322,7 @@ public class KafkaUtilsTest {
 
   @Test
   public void testDocumentConsumerRejectsUnsetAutoCommitFromPropertyFile() {
-    // kafka-clients defaults enable.auto.commit to true, so a consumerPropertyFile that OMITS it would auto-commit at
+    // kafka-clients defaults enable.auto.commit to true, so a consumerPropertiesPath that OMITS it would auto-commit at
     // poll just as surely as one that sets it true. An unset value must be rejected, not treated as safe.
     Config unsetInFile = ConfigFactory.load("KafkaUtilsTest/consumer-conf/external-no-auto-commit-setting.conf");
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
@@ -333,14 +335,14 @@ public class KafkaUtilsTest {
     // Explicitly setting it to the required value must be accepted (constructing the consumer connects lazily, so this
     // does not require a running broker).
     Config autoCommitOff = ConfigFactory.parseString(
-        "kafka { bootstrapServers: \"localhost:9092\", maxPollIntervalSecs: 300, consumerGroupId: \"test\", "
+        "kafka { bootstrapServers: \"localhost:9092\", maxPollIntervalMs: 300000, consumerGroupId: \"test\", "
         + "consumer { enable.auto.commit: false } }");
     KafkaUtils.createDocumentConsumer(autoCommitOff, "test-client").close();
   }
 
   @Test
   public void testDocumentConsumerAllowsAutoCommitDisabledInPropertyFile() {
-    // A consumerPropertyFile that explicitly sets enable.auto.commit=false is accepted.
+    // A consumerPropertiesPath that explicitly sets enable.auto.commit=false is accepted.
     Config disabledInFile = ConfigFactory.load("KafkaUtilsTest/consumer-conf/external.conf");
     KafkaUtils.createDocumentConsumer(disabledInFile, "test-client").close();
   }
@@ -366,5 +368,55 @@ public class KafkaUtilsTest {
     assertEquals(Duration.ofMillis(150), KafkaUtils.getPollInterval(ConfigFactory.parseString("kafka.pollIntervalMs: 150")));
     assertThrows(IllegalArgumentException.class,
         () -> KafkaUtils.getPollInterval(ConfigFactory.parseString("kafka.pollIntervalMs: 0")));
+  }
+
+  @Test
+  public void testAdminPropsUseSecurityProtocol() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA + "kafka.securityProtocol: \"SSL\"");
+    assertEquals("SSL", KafkaUtils.createAdminProps(config).get("security.protocol"));
+
+    Config noProtocol = ConfigFactory.parseString(BASE_KAFKA);
+    assertFalse(KafkaUtils.createAdminProps(noProtocol).containsKey("security.protocol"));
+
+    Config overridden = ConfigFactory.parseString(BASE_KAFKA + "kafka.securityProtocol: \"SSL\", kafka.admin { \"security.protocol\": \"SASL_SSL\" }");
+    assertEquals("SASL_SSL", KafkaUtils.createAdminProps(overridden).get("security.protocol"));
+  }
+
+  @Test
+  public void testEventTopicUsesBrokerDefaultReplication() {
+    NewTopic topic = KafkaUtils.newEventTopic(ConfigFactory.parseString(BASE_KAFKA), "events");
+    assertEquals("events", topic.name());
+    assertEquals(1, topic.numPartitions());
+    // -1 tells the broker to apply its default
+    assertEquals(-1, topic.replicationFactor());
+    assertNull(topic.configs());
+  }
+
+  @Test
+  public void testEventTopicReplicationSettings() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA + "kafka.eventTopicReplicationFactor: 3, kafka.eventTopicMinInsyncReplicas: 2");
+    NewTopic topic = KafkaUtils.newEventTopic(config, "events");
+    assertEquals(1, topic.numPartitions());
+    assertEquals(3, topic.replicationFactor());
+    assertEquals(Map.of("min.insync.replicas", "2"), topic.configs());
+  }
+
+  @Test
+  public void testIndexerHasItsOwnConsumerGroup() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA);
+    String workersGroup = KafkaUtils.createConsumerProps(config, "client").getProperty("group.id");
+    assertEquals(workersGroup + "-indexer", KafkaUtils.createIndexerConsumerProps(config, "client").getProperty("group.id"));
+
+    // however the Workers' group was set
+    Config overridden = ConfigFactory.parseString(BASE_KAFKA + "kafka.consumer { \"group.id\": \"other\" }");
+    assertEquals("other-indexer", KafkaUtils.createIndexerConsumerProps(overridden, "client").getProperty("group.id"));
+  }
+
+  @Test
+  public void testEventConsumerJoinsNoGroupAndCommitsNothing() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA + "kafka.consumer { \"group.id\": \"other\" }");
+    Properties props = KafkaUtils.createEventConsumerProps(config, "client");
+    assertFalse(props.containsKey("group.id"));
+    assertEquals("false", props.get("enable.auto.commit"));
   }
 }

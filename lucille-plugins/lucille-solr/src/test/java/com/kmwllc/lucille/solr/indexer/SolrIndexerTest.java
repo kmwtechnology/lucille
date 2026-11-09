@@ -383,9 +383,9 @@ public class SolrIndexerTest {
         ConfigFactory.empty()
             .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1))
             .withValue(
-                "indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
+                "indexer.deletionMarker.field", ConfigValueFactory.fromAnyRef(deletionMarkerField))
             .withValue(
-                "indexer.deletionMarkerFieldValue",
+                "indexer.deletionMarker.value",
                 ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
     TestMessenger messenger = new TestMessenger();
 
@@ -415,9 +415,9 @@ public class SolrIndexerTest {
         ConfigFactory.empty()
             .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2))
             .withValue(
-                "indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
+                "indexer.deletionMarker.field", ConfigValueFactory.fromAnyRef(deletionMarkerField))
             .withValue(
-                "indexer.deletionMarkerFieldValue",
+                "indexer.deletionMarker.value",
                 ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
     TestMessenger messenger = new TestMessenger();
 
@@ -450,9 +450,9 @@ public class SolrIndexerTest {
         ConfigFactory.empty()
             .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(3))
             .withValue(
-                "indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
+                "indexer.deletionMarker.field", ConfigValueFactory.fromAnyRef(deletionMarkerField))
             .withValue(
-                "indexer.deletionMarkerFieldValue",
+                "indexer.deletionMarker.value",
                 ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
     TestMessenger messenger = new TestMessenger();
 
@@ -498,9 +498,9 @@ public class SolrIndexerTest {
         ConfigFactory.empty()
             .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(4))
             .withValue(
-                "indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
+                "indexer.deletionMarker.field", ConfigValueFactory.fromAnyRef(deletionMarkerField))
             .withValue(
-                "indexer.deletionMarkerFieldValue",
+                "indexer.deletionMarker.value",
                 ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
     TestMessenger messenger = new TestMessenger();
 
@@ -575,9 +575,9 @@ public class SolrIndexerTest {
         ConfigFactory.empty()
             .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(3))
             .withValue(
-                "indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
+                "indexer.deletionMarker.field", ConfigValueFactory.fromAnyRef(deletionMarkerField))
             .withValue(
-                "indexer.deletionMarkerFieldValue",
+                "indexer.deletionMarker.value",
                 ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
     TestMessenger messenger = new TestMessenger();
 
@@ -650,9 +650,9 @@ public class SolrIndexerTest {
         ConfigFactory.empty()
             .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(3))
             .withValue(
-                "indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
+                "indexer.deletionMarker.field", ConfigValueFactory.fromAnyRef(deletionMarkerField))
             .withValue(
-                "indexer.deletionMarkerFieldValue",
+                "indexer.deletionMarker.value",
                 ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
     TestMessenger messenger = new TestMessenger();
 
@@ -693,9 +693,9 @@ public class SolrIndexerTest {
         ConfigFactory.empty()
             .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1))
             .withValue(
-                "indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
+                "indexer.deletionMarker.field", ConfigValueFactory.fromAnyRef(deletionMarkerField))
             .withValue(
-                "indexer.deletionMarkerFieldValue",
+                "indexer.deletionMarker.value",
                 ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue))
             .withValue("indexer.idOverrideField", ConfigValueFactory.fromAnyRef("other_id"));
     TestMessenger messenger = new TestMessenger();
@@ -731,9 +731,9 @@ public class SolrIndexerTest {
         ConfigFactory.empty()
             .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(3))
             .withValue(
-                "indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
+                "indexer.deletionMarker.field", ConfigValueFactory.fromAnyRef(deletionMarkerField))
             .withValue(
-                "indexer.deletionMarkerFieldValue",
+                "indexer.deletionMarker.value",
                 ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
     TestMessenger messenger = new TestMessenger();
 
@@ -1076,7 +1076,7 @@ public class SolrIndexerTest {
   @Test
   public void testFailedDocsReportedWithSolrErrorWhenWhitelistOmitsId() throws Exception {
     Config config = ConfigFactory.empty()
-        .withValue("indexer.whitelist", ConfigValueFactory.fromIterable(List.of("name")))
+        .withValue("indexer.includeFields", ConfigValueFactory.fromIterable(List.of("name")))
         .withValue("indexer.idOverrideField", ConfigValueFactory.fromAnyRef("other_id"));
 
     Document doc1 = Document.create("doc1", "test_run");
@@ -1132,10 +1132,10 @@ public class SolrIndexerTest {
   @Test
   public void testDeleteByFieldAndIdInOneQuery() throws Exception {
     Config config = ConfigFactory.empty()
-        .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef("is_delete"))
-        .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef("true"))
-        .withValue("indexer.deleteByFieldField", ConfigValueFactory.fromAnyRef("delete_field"))
-        .withValue("indexer.deleteByFieldValue", ConfigValueFactory.fromAnyRef("delete_value"));
+        .withValue("indexer.deletionMarker.field", ConfigValueFactory.fromAnyRef("is_delete"))
+        .withValue("indexer.deletionMarker.value", ConfigValueFactory.fromAnyRef("true"))
+        .withValue("indexer.deleteByQuery.fieldNameField", ConfigValueFactory.fromAnyRef("delete_field"))
+        .withValue("indexer.deleteByQuery.valueField", ConfigValueFactory.fromAnyRef("delete_value"));
 
     Document byField = Document.create("doc1", "test_run");
     byField.setField("is_delete", "true");
@@ -1288,8 +1288,8 @@ public class SolrIndexerTest {
     Config config =
         ConfigFactory.empty()
             .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1))
-            .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
-            .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
+            .withValue("indexer.deletionMarker.field", ConfigValueFactory.fromAnyRef(deletionMarkerField))
+            .withValue("indexer.deletionMarker.value", ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
     TestMessenger messenger = new TestMessenger();
 
     Document doc = Document.create("doc1", "test_run");

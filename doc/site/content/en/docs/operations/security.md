@@ -198,9 +198,9 @@ For complex Kafka security configurations (SASL mechanisms, Kerberos, custom SSL
 kafka {
   bootstrapServers: "kafka-host:9093"
   securityProtocol: "SASL_SSL"
-  consumerPropertyFile: "/path/to/consumer.properties"
-  producerPropertyFile: "/path/to/producer.properties"
-  adminPropertyFile: "/path/to/admin.properties"
+  consumerPropertiesPath: "/path/to/consumer.properties"
+  producerPropertiesPath: "/path/to/producer.properties"
+  adminPropertiesPath: "/path/to/admin.properties"
 }
 ```
 
@@ -252,7 +252,7 @@ kafka {
   bootstrapServers: "kafka-host:9093"
   securityProtocol: "SSL"
   consumerGroupId: "lucille_workers"
-  maxPollIntervalSecs: 600
+  maxPollIntervalMs: 600000
   maxRequestSize: 250000000
 }
 ```

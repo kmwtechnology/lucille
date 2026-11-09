@@ -80,12 +80,12 @@ azure {
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `pathToServiceKey` | String | Yes | Path to a Google Cloud service account key JSON file. The file is read when the run starts, not at construction. |
+| `serviceKeyPath` | String | Yes | Path to a Google Cloud service account key JSON file. The file is read when the run starts, not at construction. |
 | `maxResultsPerPage` | Integer | No | Number of results returned per listing request (page size). Default: `100`. |
 
 ```hocon
 gcp {
-  pathToServiceKey: "/path/to/service-account.json"
+  serviceKeyPath: "/path/to/service-account.json"
   maxResultsPerPage: 100
 }
 ```
@@ -210,7 +210,7 @@ File Handlers are configured under the `fileHandlers` block. Every block is vali
 ```hocon
 fileHandlers: {
   csv {
-    separatorChar: "|"
+    separator: "|"
     docIdPrefix: "csv-"
   }
   json {}
@@ -237,8 +237,8 @@ Extracts one Document per row from a CSV file, read as UTF-8 (a leading byte ord
 | `lineNumberField` | String | No | Field for the row number. The first row after the header is 1, and skipped rows are counted. Default: `csvLineNumber`. |
 | `filenameField` | String | No | Field for the source file name. Default: `filename`. |
 | `filePathField` | String | No | Field for the full file path. Default: `source`. |
-| `separatorChar` | String | No | Column delimiter character. Default: `,`. |
-| `useTabs` | Boolean | No | Use tab as the delimiter. Overrides `separatorChar`. Default: `false`. |
+| `separator` | String | No | Column delimiter character. Default: `,`. |
+| `useTabs` | Boolean | No | Use tab as the delimiter. Overrides `separator`. Default: `false`. |
 | `interpretQuotes` | Boolean | No | Treat `"` as a quoting character. Default: `true`. |
 | `ignoreEscapeChar` | Boolean | No | Disable backslash escape handling. Default: `false`. |
 | `lowercaseFields` | Boolean | No | Lowercase the header names used as field names. Default: `false`. |
@@ -252,7 +252,7 @@ If neither `idField` nor `idFields` is set, the Document ID is `{docIdPrefix}{fi
 fileHandlers: {
   csv {
     idField: "article_id"
-    separatorChar: "|"
+    separator: "|"
     filenameField: "source_file"
     lowercaseFields: true
     docIdPrefix: "article-"
@@ -271,18 +271,18 @@ Reads a file as JSON Lines: each non-blank line must be a single JSON object, wh
 | `idField` | String | No | JSON field whose value becomes the Document ID. Takes precedence over `idFields`. |
 | `idFields` | List\<String\> | No | JSON fields whose values form the Document ID, joined with `_` unless `docIdFormat` is set. |
 | `docIdFormat` | String | No | Java `String.format` pattern applied to the `idField`/`idFields` values to build the Document ID. |
-| `blacklist` | List\<String\> | No | JSON fields to drop from the Document. |
-| `whitelist` | List\<String\> | No | Only keep these JSON fields on the Document. If both lists are set, a field is kept only if it is in `whitelist` and not in `blacklist`. |
+| `excludeFields` | List\<String\> | No | JSON fields to drop from the Document. |
+| `includeFields` | List\<String\> | No | Only keep these JSON fields on the Document. If both lists are set, a field is kept only if it is in `includeFields` and not in `excludeFields`. |
 | `docIdPrefix` | String | No | Prefix prepended to every Document ID. |
 | `maxRecordBytes` | Integer | No | Maximum size, in bytes (UTF-8), of a single line. Must be positive. If a line is larger, processing of the file stops with an error instead of reading the line into memory; lines before it are still published. Default: no limit. |
 
-Lines are read as UTF-8. If neither `idField` nor `idFields` is set, each object's own `id` field is used as the Document ID (with `docIdPrefix` prepended); a line whose `id` is missing, empty, blank, or not a string (a numeric `id` is rejected) is skipped the same way. A missing or null `idField`/`idFields` value only logs a warning and contributes an empty string to the ID; a line whose whole ID is blank is skipped. When an ID is built from `idField`/`idFields`, it overwrites any `id` field in the object. These combinations are rejected: a `blacklist` containing an ID field, a `whitelist` missing an ID field, and, without `idField`/`idFields`, a `blacklist` containing `id` or a `whitelist` without `id`.
+Lines are read as UTF-8. If neither `idField` nor `idFields` is set, each object's own `id` field is used as the Document ID (with `docIdPrefix` prepended); a line whose `id` is missing, empty, blank, or not a string (a numeric `id` is rejected) is skipped the same way. A missing or null `idField`/`idFields` value only logs a warning and contributes an empty string to the ID; a line whose whole ID is blank is skipped. When an ID is built from `idField`/`idFields`, it overwrites any `id` field in the object. These combinations are rejected: a `excludeFields` containing an ID field, a `includeFields` missing an ID field, and, without `idField`/`idFields`, a `excludeFields` containing `id` or a `includeFields` without `id`.
 
 ```hocon
 fileHandlers: {
   json {
     idField: "doc_id"
-    blacklist: ["internal_metadata", "_rev"]
+    excludeFields: ["internal_metadata", "_rev"]
     docIdPrefix: "doc-"
   }
 }
@@ -292,28 +292,28 @@ fileHandlers: {
 
 `com.kmwllc.lucille.core.filehandler.XMLFileHandler`
 
-Streams an XML file and publishes one Document per element found at `xmlRootPath`. The element's raw XML text, including its own tags, is stored in `outputField`.
+Streams an XML file and publishes one Document per element found at `xmlRootPath`. The element's raw XML text, including its own tags, is stored in `xmlField`.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `xmlRootPath` | String | Yes | Slash-separated path from the document root to the elements to publish, e.g. `/Company/Staff`. Matched exactly against qualified element names (including any namespace prefix); this is not an XPath expression. |
 | `xmlIdPath` | String | No | Absolute slash-separated path to the element whose text becomes the Document ID, e.g. `/Company/Staff/id`. |
 | `xpathIdPath` | String | No | XPath expression, evaluated against each element, that produces the Document ID (e.g. an attribute such as `@id`). Slower than `xmlIdPath`, but more flexible. |
-| `outputField` | String | No | Field for the element's XML. Default: `xml`. |
+| `xmlField` | String | No | Field for the element's XML. Default: `xml`. |
 | `encoding` | String | No | Character encoding of the files. Default: `utf-8`. |
 | `skipEmptyId` | Boolean | No | Skip an element whose ID is empty or blank. When `false`, such an element gets a random UUID as its ID. Default: `false`. |
 | `docIdPrefix` | String | No | Prefix prepended to every Document ID. |
 | `maxRecordBytes` | Integer | No | Maximum number of bytes held in memory while reading a single record. Must be positive. If exceeded, processing of the file stops with an error; records before it are still published. The limit is approximate (bytes read ahead by the parser count too) and also applies to content before the first record. No limit by default. |
 | `allowDoctype` | Boolean | No | Accept files that contain a DOCTYPE. External DTDs and external entities are never loaded, even when allowed. A record that uses an entity declared in the DOCTYPE is published with a DOCTYPE declaring just those entities, so it still parses on its own; XPathExtractor then needs its own `allowDoctype`. Default: `false`, so a file with a DOCTYPE fails to parse. |
 
-Exactly one of `xmlIdPath` and `xpathIdPath` must be set. Each Document holds only its ID and `outputField`; no source file field is added. A parse error partway through a file fails that file, but Documents already published from it are not withdrawn.
+Exactly one of `xmlIdPath` and `xpathIdPath` must be set. Each Document holds only its ID and `xmlField`; no source file field is added. A parse error partway through a file fails that file, but Documents already published from it are not withdrawn.
 
 ```hocon
 fileHandlers: {
   xml {
     xmlRootPath: "/catalog/product"
     xmlIdPath: "/catalog/product/sku"
-    outputField: "product_xml"
+    xmlField: "product_xml"
   }
 }
 ```
@@ -328,8 +328,8 @@ Extracts frames from video files, publishing one Document per sampled frame with
 |---|---|---|---|
 | `frameStride` | Integer | No | Publish every Nth frame. Values below 1 are treated as 1. Default: `1`. |
 | `docIdFormat` | String | No | `String.format` pattern with a single `%s`, applied to the file name without its extension to build the ID base. |
-| `sourceField` | String | No | Field for the file path. Default: `source`. |
-| `fileNameField` | String | No | Field for the file name. Default: `file_name`. |
+| `filePathField` | String | No | Field for the file path. Default: `source`. |
+| `filenameField` | String | No | Field for the file name. Default: `file_name`. |
 | `frameIndexField` | String | No | Field for the zero-based frame index. Default: `frame_index`. |
 | `frameTimeMsField` | String | No | Field for the frame timestamp in milliseconds. Default: `frame_time_ms`. |
 | `frameTimecodeField` | String | No | Field for the timestamp as `HH:MM:SS.mmm`. Default: `frame_timecode`. |
@@ -500,8 +500,10 @@ When `filterOptions.sendTombstones: true` is set (requires incremental mode and 
 ```hocon
 indexer {
   type: "solr"
-  deletionMarkerField: "file_expired"
-  deletionMarkerFieldValue: "true"
+  deletionMarker {
+    field: "file_expired"
+    value: "true"
+  }
 }
 ```
 

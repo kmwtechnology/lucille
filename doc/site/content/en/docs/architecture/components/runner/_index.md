@@ -87,7 +87,7 @@ runner {
   metricsLoggingLevel: "INFO"
 
   # Connector timeout in milliseconds (default: 86400000 = 24 hours; set <= 0 to disable)
-  connectorTimeout: 86400000
+  connectorTimeoutMs: 86400000
 }
 ```
 

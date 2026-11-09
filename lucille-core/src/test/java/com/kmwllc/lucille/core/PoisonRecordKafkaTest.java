@@ -146,7 +146,7 @@ public class PoisonRecordKafkaTest {
         "kafka {\n"
             + "  bootstrapServers: \"%s\"\n"
             + "  consumerGroupId: \"%s\"\n"
-            + "  maxPollIntervalSecs: 30\n"
+            + "  maxPollIntervalMs: 30000\n"
             + "  maxRequestSize: 10000000\n"
             + "  %s\n"
             + "}\n"
@@ -390,13 +390,13 @@ public class PoisonRecordKafkaTest {
       assertEquals("doc1", doc1.getId());
       assertEquals("doc3", doc3.getId());
       // Skipping must not commit past doc1 and doc3 while they are still being indexed.
-      assertNull(committed(config, groupId, destTopic));
+      assertNull(committed(config, groupId + "-indexer", destTopic));
       messenger.batchComplete(List.of(doc1, doc3));
     } finally {
       messenger.close();
     }
 
-    assertEquals(3L, committedOffset(config, groupId, destTopic));
+    assertEquals(3L, committedOffset(config, groupId + "-indexer", destTopic));
     assertFailTopicEmpty(pipelineName);
     assertLocationLogged(destTopic, 1L, "poison2");
   }

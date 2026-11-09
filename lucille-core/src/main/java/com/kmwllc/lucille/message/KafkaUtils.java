@@ -15,6 +15,7 @@ import com.typesafe.config.ConfigValueType;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
@@ -27,8 +28,8 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.KafkaFuture;
-import org.apache.kafka.common.errors.RecordTooLargeException;
 import org.apache.kafka.common.config.TopicConfig;
+import org.apache.kafka.common.errors.RecordTooLargeException;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -45,11 +46,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Utilities for interacting with Kafka: creating Kafka clients, determining Kafka topic names, etc.
- *  TODO: add config option for cleaning up kafka topics at end of run
- *  prepend run id to each topic name
- *  add separate config option to leave failure topic around
- *  consider adding all failed documents to the failure topic
- *  add ability to override names of any kafka topic in the config
  *
  *  s3 (Map, Optional) : If your property files are held in S3. See FileConnector for the appropriate arguments to provide.
  *  azure (Map, Optional) : If your property files are held in Azure. See FileConnector for the appropriate arguments to provide.
@@ -57,12 +53,15 @@ import org.slf4j.LoggerFactory;
  */
 public class KafkaUtils {
 
+  // Appended to the Workers' consumer group to name the standalone Indexer's
+  static final String INDEXER_GROUP_SUFFIX = "-indexer";
+
   public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .requiredString("bootstrapServers", "consumerGroupId")
-      .requiredNumber("maxPollIntervalSecs", "maxRequestSize")
+      .requiredNumber("maxPollIntervalMs", "maxRequestSize")
       .optionalBoolean("events")
-      .optionalString("documentSerializer", "documentDeserializer", "consumerPropertyFile",
-          "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic",
+      .optionalString("documentSerializer", "documentDeserializer", "consumerPropertiesPath",
+          "producerPropertiesPath", "adminPropertiesPath", "securityProtocol", "sourceTopic", "eventTopic",
           "onDeserializationError")
       .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors",
           "eventTopicReplicationFactor", "eventTopicMinInsyncReplicas")
@@ -151,8 +150,8 @@ public class KafkaUtils {
   public static Properties createConsumerProps(Config config, String clientId) {
     Properties props;
 
-    if (config.hasPath("kafka.consumerPropertyFile")) {
-      props = loadExternalProps(config.getString("kafka.consumerPropertyFile"), config);
+    if (config.hasPath("kafka.consumerPropertiesPath")) {
+      props = loadExternalProps(config.getString("kafka.consumerPropertiesPath"), config);
       props.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
     } else {
       props = new Properties();
@@ -165,7 +164,7 @@ public class KafkaUtils {
 
       props.put(ConsumerConfig.GROUP_ID_CONFIG, config.getString("kafka.consumerGroupId"));
       props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-      props.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 1000 * config.getInt("kafka.maxPollIntervalSecs"));
+      props.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, config.getInt("kafka.maxPollIntervalMs"));
       props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1);
       props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
       props.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
@@ -183,10 +182,13 @@ public class KafkaUtils {
    * @param config - A config object containing Kafka properties. These will be used to configure the consumer. The provided config object can be used to configure the following kafka consumer settings:
    *               - kafka.bootstrapServers - The bootstrap servers to use for connecting to Kafka.
    *               - kafka.securityProtocol - The security protocol to use when connecting to Kafka.
-   *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the event topic.
-   *               - kafka.maxPollIntervalSecs - The maximum time in seconds allowed between polls before the consumer is evicted from its consumer group (also the rebalance timeout).
+   *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the topic.
+   *               - kafka.maxPollIntervalMs - The maximum time in milliseconds allowed between polls before the consumer is evicted from its consumer group (also the rebalance timeout).
    *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata about topics and partitions..
    *               - kafka.documentDeserializer - The deserializer class to use when deserializing documents. Defaults to KafkaDocumentDeserializer.
+   *                 It must return {@link KafkaDocument} instances, which is how Workers and Indexers read a record's topic,
+   *                 partition and offset, and must accept Lucille's native Document JSON, the format Workers publish to the
+   *                 destination topic. Extend {@link KafkaDocumentDeserializer} or wrap its result.
    * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
    * @return A Kafka consumer for documents. Auto-commit must be disabled: offsets are committed by the caller once a
    *         batch has completed (at-least-once), not automatically at poll time. This method validates that
@@ -194,7 +196,34 @@ public class KafkaUtils {
    *         enabled or left unset (kafka-clients defaults it to {@code true}). See {@link #requireAutoCommitDisabled}.
    */
   public static KafkaConsumer<String, KafkaDocument> createDocumentConsumer(Config config, String clientId) {
-    Properties consumerProps = createConsumerProps(config, clientId);
+    return createDocumentConsumer(createConsumerProps(config, clientId), config);
+  }
+
+  /**
+   * Creates a Kafka consumer for documents as {@link #createDocumentConsumer(Config, String)} does, in the standalone
+   * Indexer's own consumer group, so that Workers joining or leaving their group don't rebalance the Indexer, and vice
+   * versa.
+   *
+   * @param config - A config object containing Kafka properties.
+   * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
+   * @return A Kafka consumer for documents, in the Indexer's consumer group.
+   */
+  public static KafkaConsumer<String, KafkaDocument> createIndexerDocumentConsumer(Config config, String clientId) {
+    return createDocumentConsumer(createIndexerConsumerProps(config, clientId), config);
+  }
+
+  // access set to package so unit tests can validate created properties without initializing a Consumer
+  static Properties createIndexerConsumerProps(Config config, String clientId) {
+    Properties props = createConsumerProps(config, clientId);
+    // the Workers' group, wherever it was set: kafka.consumerGroupId, a property file or kafka.consumer
+    String workersGroup = props.getProperty(ConsumerConfig.GROUP_ID_CONFIG);
+    if (workersGroup != null) {
+      props.put(ConsumerConfig.GROUP_ID_CONFIG, workersGroup + INDEXER_GROUP_SUFFIX);
+    }
+    return props;
+  }
+
+  private static KafkaConsumer<String, KafkaDocument> createDocumentConsumer(Properties consumerProps, Config config) {
     requireAutoCommitDisabled(consumerProps);
     String deserializerClass = ConfigUtils.getStringOrDefault(config, "kafka.documentDeserializer", KafkaDocumentDeserializer.class.getName());
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deserializerClass);
@@ -208,7 +237,7 @@ public class KafkaUtils {
    *
    * <p> It is not enough to reject an explicit {@code true}: kafka-clients defaults {@code enable.auto.commit} to
    * {@code true} when it is unset, so an absent value is just as unsafe as an explicit {@code true}. The non-property-file
-   * path sets it to {@code false} here, but a {@code kafka.consumerPropertyFile} that omits it (or a
+   * path sets it to {@code false} here, but a {@code kafka.consumerPropertiesPath} that omits it (or a
    * {@code kafka.consumer.enable.auto.commit} override) would otherwise auto-commit at poll. So this requires the
    * resolved value to be present and {@code false}.
    */
@@ -220,40 +249,43 @@ public class KafkaUtils {
           + "indexer's document consumer: offsets are committed on batch completion, and auto-commit would commit them "
           + "at poll time (before indexing), which could skip documents on a crash. It is "
           + (autoCommit == null ? "unset (kafka-clients defaults it to true)" : "set to " + autoCommit)
-          + "; set " + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + "=false (e.g. in kafka.consumerPropertyFile or via "
+          + "; set " + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + "=false (e.g. in kafka.consumerPropertiesPath or via "
           + "kafka.consumer." + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + ").");
     }
   }
 
   /**
-   * Creates a Kafka consumer for events. The created consumer will be configured to commit offsets automatically. This is to avoid
-   * the impact on throughput from synchronously committing offsets for every event processed or the impact on kafka resources from commits stacking on top of each
-   * other from asynchronsly committing offsets for every event processed.
+   * Creates a Kafka consumer for events. The consumer belongs to no consumer group and commits no offsets: it reads a
+   * partition assigned to it directly, so that starting and ending a run doesn't rebalance the Workers and Indexers.
    *
-   *
-   * @param config - A config object containing Kafka properties. These will be used to configure the consumer. The provided config object can be used to configure the following kafka consumer settings:
+   * @param config - A config object containing Kafka properties. These will be used to configure the consumer. The provided config
+   *               should contain the following:
    *               - kafka.bootstrapServers - The bootstrap servers to use for connecting to Kafka.
    *               - kafka.securityProtocol - The security protocol to use when connecting to Kafka.
-   *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the event topic.
-   *               - kafka.maxPollIntervalSecs - The maximum time in seconds allowed between polls before the consumer is evicted from its consumer group (also the rebalance timeout).
-   *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata about topics and partitions..
+   *               - kafka.maxPollIntervalMs - The maximum time in milliseconds allowed between polls.
+   *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata for.
    * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
-   * @return A Kafka consumer for events. The provided Consumer will *always* be configured to commit offsets automatically.
+   * @return A Kafka consumer for events, which must be given its partition with {@code assign()}.
    */
   public static KafkaConsumer<String, String> createEventConsumer(Config config, String clientId) {
-    Properties consumerProps = createConsumerProps(config, clientId);
+    return new KafkaConsumer<>(createEventConsumerProps(config, clientId));
+  }
 
-    consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
+  // access set to package so unit tests can validate created properties without initializing a Consumer
+  static Properties createEventConsumerProps(Config config, String clientId) {
+    Properties consumerProps = createConsumerProps(config, clientId);
+    consumerProps.remove(ConsumerConfig.GROUP_ID_CONFIG);
+    consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-    return new KafkaConsumer<>(consumerProps);
+    return consumerProps;
   }
 
   //access set to package so unit tests can validate created properties without initializing a Producer
   static Properties createProducerProps(Config config) {
     Properties producerProps;
 
-    if (config.hasPath("kafka.producerPropertyFile")) {
-      producerProps = loadExternalProps(config.getString("kafka.producerPropertyFile"), config);
+    if (config.hasPath("kafka.producerPropertiesPath")) {
+      producerProps = loadExternalProps(config.getString("kafka.producerPropertiesPath"), config);
     } else {
       producerProps = new Properties();
 
@@ -349,6 +381,38 @@ public class KafkaUtils {
     }
   }
 
+  // access set to package so unit tests can validate created properties without initializing an Admin
+  static Properties createAdminProps(Config config) {
+    Properties adminProps;
+    if (config.hasPath("kafka.adminPropertiesPath")) {
+      adminProps = loadExternalProps(config.getString("kafka.adminPropertiesPath"), config);
+    } else {
+      adminProps = new Properties();
+      adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
+
+      if (config.hasPath("kafka.securityProtocol")) {
+        adminProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, config.getString("kafka.securityProtocol"));
+      }
+    }
+
+    mergeConfigProps(adminProps, config, "kafka.admin");
+    return adminProps;
+  }
+
+  // The event topic takes the broker's default replication factor unless configured, since a cluster may reject a
+  // replication factor lower than it requires, and a replication factor of 1 would not survive the loss of a broker.
+  // access set to package so unit tests can validate the topic without creating it
+  static NewTopic newEventTopic(Config config, String eventTopicName) {
+    Optional<Short> replicationFactor = config.hasPath("kafka.eventTopicReplicationFactor")
+        ? Optional.of((short) config.getInt("kafka.eventTopicReplicationFactor"))
+        : Optional.empty();
+    NewTopic eventTopic = new NewTopic(eventTopicName, Optional.of(1), replicationFactor);
+    if (config.hasPath("kafka.eventTopicMinInsyncReplicas")) {
+      eventTopic.configs(Map.of(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, config.getString("kafka.eventTopicMinInsyncReplicas")));
+    }
+    return eventTopic;
+  }
+
   /**
    * Creates an event topic for the designated pipeline and runId.
    *
@@ -365,27 +429,8 @@ public class KafkaUtils {
     // could mean that child creation events arrive after parent completion events, which could
     // interfere with the publisher's logic for determining when the run is complete
 
-    Properties adminProps;
-    if (config.hasPath("kafka.adminPropertyFile")) {
-      adminProps = loadExternalProps(config.getString("kafka.adminPropertyFile"), config);
-    } else {
-      adminProps = new Properties();
-      adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
-    }
-
-    mergeConfigProps(adminProps, config, "kafka.admin");
-
-    // defaults keep a single-broker cluster working. On a multi-broker cluster, set the replication factor and
-    // min.insync.replicas so the event topic survives a broker loss.
-    short replicationFactor = (short) (config.hasPath("kafka.eventTopicReplicationFactor")
-        ? config.getInt("kafka.eventTopicReplicationFactor") : 1);
-
-    try (Admin kafkaAdminClient = Admin.create(adminProps)) {
-      NewTopic eventTopic = new NewTopic(eventTopicName, 1, replicationFactor);
-      if (config.hasPath("kafka.eventTopicMinInsyncReplicas")) {
-        eventTopic.configs(Map.of(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG,
-            String.valueOf(config.getInt("kafka.eventTopicMinInsyncReplicas"))));
-      }
+    try (Admin kafkaAdminClient = Admin.create(createAdminProps(config))) {
+      NewTopic eventTopic = newEventTopic(config, eventTopicName);
       CreateTopicsResult result = kafkaAdminClient.createTopics(List.of(eventTopic), new CreateTopicsOptions());
       KafkaFuture<Void> future = result.all();
       future.get();

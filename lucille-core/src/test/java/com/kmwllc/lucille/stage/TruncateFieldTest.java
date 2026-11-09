@@ -66,7 +66,7 @@ public class TruncateFieldTest {
 
   @Test
   public void testNullValues() throws Exception {
-    Stage stage = factory.get(Map.of("source", "f", "destination", "o", "maxSize", 2));
+    Stage stage = factory.get(Map.of("source", "f", "dest", "o", "maxLength", 2));
 
     Document doc = Document.createFromJson("{\"id\":\"1\",\"f\":null}");
     stage.processDocument(doc);
@@ -79,7 +79,7 @@ public class TruncateFieldTest {
 
   @Test
   public void testAllValues() throws Exception {
-    Stage stage = factory.get(Map.of("source", "a", "maxSize", 3));
+    Stage stage = factory.get(Map.of("source", "a", "maxLength", 3));
     Document doc = Document.createFromJson("{\"id\":\"1\",\"a\":[\"abcdef\",\"xy\"]}");
     stage.processDocument(doc);
     assertEquals(List.of("abc", "xy"), doc.getStringList("a"));

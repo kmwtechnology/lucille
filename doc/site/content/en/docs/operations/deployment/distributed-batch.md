@@ -48,21 +48,21 @@ All distributed-mode Kafka settings belong in a top-level `kafka {}` block share
 kafka {
   bootstrapServers: "kafka1:9092,kafka2:9092"
 
-  # Consumer group ID for all Lucille Workers and Indexers
+  # Consumer group ID for Lucille Workers. Indexers use this name plus "-indexer".
   consumerGroupId: "lucille_workers"
 
   # Maximum time between polls before consumer is evicted from consumer group.
   # Must exceed the slowest document processing time and ~3x the slowest bulk request (incl. retries).
-  maxPollIntervalSecs: 600
+  maxPollIntervalMs: 600000
 
   # Maximum request size in bytes — increase for large documents
   maxRequestSize: 250000000
 
   # TLS/SASL — provide Java properties files for detailed Kafka client config
   securityProtocol: "SSL"
-  consumerPropertyFile: "/path/to/consumer.properties"
-  producerPropertyFile: "/path/to/producer.properties"
-  adminPropertyFile: "/path/to/admin.properties"
+  consumerPropertiesPath: "/path/to/consumer.properties"
+  producerPropertiesPath: "/path/to/producer.properties"
+  adminPropertiesPath: "/path/to/admin.properties"
 
   # Custom document serializer/deserializer (override only if needed)
   documentDeserializer: "com.kmwllc.lucille.message.KafkaDocumentDeserializer"
@@ -104,7 +104,7 @@ Create the following topics before starting Lucille:
 |---|---|---|---|---|
 | Source | `{pipeline}_source` | `kafka.sourceTopic` | ≥ total Worker threads across all processes | Admin |
 | Dest | `{pipeline}_dest` | — (not overridable) | ≥ number of Indexer processes (typically 1) | Admin |
-| Event | `{pipeline}_event_{runId}` | `kafka.eventTopic` | Exactly 1 (required for ordering) | Lucille creates this automatically via Admin API |
+| Event | `{pipeline}_event_{runId}` | `kafka.eventTopic` | Exactly 1 (required for ordering) | Lucille creates this automatically via Admin API, with the broker's default replication factor unless `kafka.eventTopicReplicationFactor` is set |
 | Fail | `{pipeline}_fail` | — (not overridable) | ≥ 1 | Admin (only needed if `worker.maxRetries` is configured) |
 
 **Example** — for a pipeline named `my-pipeline` with 8 Worker threads:
@@ -124,7 +124,7 @@ kafka-topics.sh --create --topic my-pipeline_fail \
   --bootstrap-server kafka:9092
 ```
 
-You do **not** need to create the event topic — Lucille creates it automatically at the start of each run via the Admin API. This requires that the Kafka user Lucille connects with has `CreateTopics` permission. If your Kafka cluster requires separate admin credentials, provide them via `kafka.adminPropertyFile`.
+You do **not** need to create the event topic — Lucille creates it automatically at the start of each run via the Admin API. This requires that the Kafka user Lucille connects with has `CreateTopics` permission. If your Kafka cluster requires separate admin credentials, provide them via `kafka.adminPropertiesPath`.
 
 ### Topic details
 

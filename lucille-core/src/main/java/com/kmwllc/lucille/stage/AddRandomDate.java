@@ -19,7 +19,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>fieldName (String, Optional) : Field name of field where data is placed. Defaults to "data".</li>
+ *   <li>dest (String, Optional) : Field name of field where data is placed. Defaults to "data".</li>
  *   <li>rangeStartDate (String, Optional) : Date string in ISO format (2024-12-18) representing the start of the range for
  *   generating random dates. Defaults to the start of Epoch time, 1970-1-1.</li>
  *   <li>rangeEndDate (String, Optional) : Date string in ISO format (2024-12-18) representing the end of the range for
@@ -29,7 +29,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class AddRandomDate extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("fieldName", "rangeStartDate", "rangeEndDate").build();
+      .optionalString("dest", "rangeStartDate", "rangeEndDate").build();
 
   private final String fieldName;
   private final String rangeStartDateString;
@@ -41,7 +41,7 @@ public class AddRandomDate extends Stage {
   public AddRandomDate(Config config) {
     super(config);
 
-    this.fieldName = ConfigUtils.getOrDefault(config, "fieldName", "data");
+    this.fieldName = ConfigUtils.getOrDefault(config, "dest", "data");
     this.rangeStartDateString = ConfigUtils.getOrDefault(config, "rangeStartDate", "");
     this.rangeEndDateString = ConfigUtils.getOrDefault(config, "rangeEndDate", "");
   }

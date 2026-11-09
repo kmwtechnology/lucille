@@ -38,7 +38,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   private final Duration pollInterval;
 
   public KafkaIndexerMessenger(Config config, String pipelineName) {
-    this(config, pipelineName, KafkaUtils.createDocumentConsumer(config, "com.kmwllc.lucille-indexer-" + pipelineName));
+    this(config, pipelineName, KafkaUtils.createIndexerDocumentConsumer(config, "com.kmwllc.lucille-indexer-" + pipelineName));
   }
 
   // For tests: allows a MockConsumer (or other test double) to be supplied in place of the real Kafka consumer.
@@ -172,9 +172,15 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
 
   @Override
   public void close() {
-    // Commit offsets of batches completed but not yet committed, so a clean shutdown does not force their re-delivery.
-    offsetCommitTracker.commitOnClose();
-    destConsumer.close();
+    try {
+      // Commit offsets of batches completed but not yet committed, so a clean shutdown does not force their re-delivery.
+      offsetCommitTracker.commitOnClose();
+      destConsumer.close();
+    } finally {
+      if (kafkaEventProducer != null) {
+        kafkaEventProducer.close();
+      }
+    }
   }
 
   /**

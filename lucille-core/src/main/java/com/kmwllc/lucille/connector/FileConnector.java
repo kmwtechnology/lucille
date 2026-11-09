@@ -87,7 +87,7 @@ import com.typesafe.config.Config;
  *   <li>state.runsBeforeExpiration (Int, Optional) : After a file is not encountered for this number of runs, it will be marked
  *   as expired. Must be at least 1. Defaults to 1.</li>
  *   <li>state.pathLength (Int, Optional) : Max length for stored file paths when Lucille creates the table. Defaults to 768. A longer path fails the run.</li>
- *   <li>gcp.pathToServiceKey (String, Required) : Path to the Google Cloud service key JSON.</li>
+ *   <li>gcp.serviceKeyPath (String, Required) : Path to the Google Cloud service key JSON.</li>
  *   <li>gcp.maxResultsPerPage (Int, Optional) : Maximum number of results returned per listing request (page size). Defaults to 100.</li>
  *   <li>s3.accessKeyId (String, Optional) : AWS access key ID (omit to use default credentials).</li>
  *   <li>s3.secretAccessKey (String, Optional) : AWS secret access key (omit to use default credentials).</li>
@@ -164,7 +164,7 @@ public class FileConnector extends AbstractConnector {
 
   // parent specs for cloud provider configs
   private static final Spec GCP_PARENT_SPEC = SpecBuilder.withoutDefaults()
-      .requiredString("pathToServiceKey")
+      .requiredString("serviceKeyPath")
       .optionalString(LISTING_MODE)
       .optionalNumber(MAX_RESULTS_PER_PAGE, TRAVERSAL_THREADS, MAX_DOCUMENTS).build();
   private static final Spec S3_PARENT_SPEC = SpecBuilder.withoutDefaults()

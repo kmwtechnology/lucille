@@ -283,7 +283,7 @@ public class IndexerFactory {
       checkBlockIsNested(type, indexerClass, config);
     }
     try {
-      int logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
+      int logSeconds = ConfigUtils.getOrDefault(config, "log.intervalSecs", LogUtils.DEFAULT_LOG_SECONDS);
       IndexerContext context = new IndexerContext(messenger, bypass, metricsPrefix, localRunId, logSeconds);
       Indexer indexer = indexerClass.getConstructor(Config.class, IndexerContext.class).newInstance(config.getConfig("indexer"), context);
       // An indexer with no @IndexerType, or a type that differs from its config key, can only be checked once it exists.

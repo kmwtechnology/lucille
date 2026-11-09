@@ -24,12 +24,12 @@ import java.util.List;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>shouldLog (Boolean, Optional) : Whether to log the document in JSON format at INFO level. Defaults to true.</li>
- *   <li>outputFile (String, Optional) : A file to append the documents to (will be created if it doesn't already exist).</li>
- *   <li>whitelist (List&lt;String&gt;, Optional) : A list of the only fields to include in the output.</li>
- *   <li>blacklist (List&lt;String&gt;, Optional) : A list of fields to exclude from the output.</li>
+ *   <li>logDocuments (Boolean, Optional) : Whether to log the document in JSON format at INFO level. Defaults to true.</li>
+ *   <li>outputPath (String, Optional) : A file to append the documents to (will be created if it doesn't already exist).</li>
+ *   <li>includeFields (List&lt;String&gt;, Optional) : A list of the only fields to include in the output.</li>
+ *   <li>excludeFields (List&lt;String&gt;, Optional) : A list of fields to exclude from the output.</li>
  *   <li>overwriteFile (Boolean, Optional) : Whether the output file's contents should be overwritten if they already exist. Defaults to true.</li>
- *   <li>appendThreadName (Boolean, Optional) : Whether the current thread's name should be appended to the outputFile's filename, keeping the results from individual threads separate. Has no effect if no outputFile is provided. Defaults to true.</li>
+ *   <li>appendThreadName (Boolean, Optional) : Whether the current thread's name should be appended to the outputPath's filename, keeping the results from individual threads separate. Has no effect if no outputPath is provided. Defaults to true.</li>
  * </ul>
  * <p> <b>Note:</b> If you have multiple worker threads, it is highly recommended that you keep <code>appendThreadName</code> enabled
  * to ensure thread-safe file writes and prevent data corruption - <i>especially</i> if <code>overwriteFile</code> is enabled.
@@ -37,10 +37,10 @@ import java.util.List;
 public class Print extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalBoolean("shouldLog", "overwriteFile", "appendThreadName")
-      .optionalString("outputFile")
-      .optionalList("whitelist", new TypeReference<List<String>>() {})
-      .optionalList("blacklist", new TypeReference<List<String>>() {})
+      .optionalBoolean("logDocuments", "overwriteFile", "appendThreadName")
+      .optionalString("outputPath")
+      .optionalList("includeFields", new TypeReference<List<String>>() {})
+      .optionalList("excludeFields", new TypeReference<List<String>>() {})
       .build();
 
   private static final Logger log = LoggerFactory.getLogger(Print.class);
@@ -57,8 +57,8 @@ public class Print extends Stage {
   public Print(Config config) throws StageException {
     super(config);
 
-    this.outputFilePath = ConfigUtils.getStringOrDefault(config, "outputFile", null);
-    this.shouldLog = ConfigUtils.getBooleanOrDefault(config, "shouldLog", true);
+    this.outputFilePath = ConfigUtils.getStringOrDefault(config, "outputPath", null);
+    this.shouldLog = ConfigUtils.getBooleanOrDefault(config, "logDocuments", true);
     this.overwriteFile = ConfigUtils.getBooleanOrDefault(config, "overwriteFile", true);
     this.appendThreadName = ConfigUtils.getOrDefault(config, "appendThreadName", true);
 
@@ -67,7 +67,7 @@ public class Print extends Stage {
 
     // if appendThreadName is *explicitly* set to true in the config, but no output file, warn it has no effect.
     if ((config.hasPath("appendThreadName") && config.getBoolean("appendThreadName")) && outputFilePath == null) {
-      log.warn("appendThreadName was set to true in Print Config, but no outputFile was specified. appendThreadName has no effect.");
+      log.warn("appendThreadName was set to true in Print Config, but no outputPath was specified. appendThreadName has no effect.");
     }
   }
 

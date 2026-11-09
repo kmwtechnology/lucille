@@ -1477,7 +1477,7 @@ public class FileConnectorTest {
     Map<String, Object> settings = Map.of("traversalThreads", 2, "maxDocuments", 10, "listingMode", "hierarchical");
     Map<String, Map<String, Object>> blocks = Map.of(
         "s3", Map.of("region", "us-east-1"),
-        "gcp", Map.of("pathToServiceKey", "key.json"),
+        "gcp", Map.of("serviceKeyPath", "key.json"),
         "azure", Map.of("connectionString", "connectionString"));
 
     for (Map.Entry<String, Map<String, Object>> block : blocks.entrySet()) {

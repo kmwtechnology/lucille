@@ -124,7 +124,7 @@ public class PublisherImpl implements Publisher {
     this.timer =
         SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).timer(metricsPrefix + ".timeBetweenPublishCalls");
     this.isCollapsing = isCollapsing;
-    this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
+    this.logSeconds = ConfigUtils.getOrDefault(config, "log.intervalSecs", LogUtils.DEFAULT_LOG_SECONDS);
 
     // zero or a negative value means there is no limit; a literal limit of zero would block the first publish forever
     Integer maxPendingDocs = ConfigUtils.getIntOrDefault(config, "publisher.maxPendingDocs", null);

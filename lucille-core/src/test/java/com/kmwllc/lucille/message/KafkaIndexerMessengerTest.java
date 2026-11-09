@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
@@ -61,12 +62,12 @@ public class KafkaIndexerMessengerTest {
     Config config = ConfigFactory.parseMap(Map.of(
         "kafka.bootstrapServers", "localhost:9092",
         "kafka.consumerGroupId", "test-group",
-        "kafka.maxPollIntervalSecs", 300,
+        "kafka.maxPollIntervalMs", 300000,
         "kafka.maxRequestSize", 1048576
     ));
 
     try (MockedStatic<KafkaUtils> kafkaUtils = mockStatic(KafkaUtils.class)) {
-      kafkaUtils.when(() -> KafkaUtils.createDocumentConsumer(any(), any())).thenReturn(mockDestConsumer);
+      kafkaUtils.when(() -> KafkaUtils.createIndexerDocumentConsumer(any(), any())).thenReturn(mockDestConsumer);
       kafkaUtils.when(() -> KafkaUtils.createEventProducer(any())).thenReturn(mockEventProducer);
       kafkaUtils.when(() -> KafkaUtils.getDestTopicName(any())).thenReturn("test_dest");
       kafkaUtils.when(() -> KafkaUtils.getEventTopicName(any(), any(), any())).thenReturn("test_events");
@@ -95,6 +96,41 @@ public class KafkaIndexerMessengerTest {
 
       // flush was called once at the end
       verify(mockEventProducer, times(1)).flush();
+    }
+  }
+
+  @Test
+  public void testCloseClosesTheEventProducer() throws Exception {
+    KafkaProducer<String, String> mockEventProducer = mock(KafkaProducer.class);
+    KafkaConsumer<String, KafkaDocument> mockDestConsumer = mock(KafkaConsumer.class);
+    newMessenger(mockDestConsumer, mockEventProducer).close();
+    verify(mockEventProducer).close();
+  }
+
+  @Test
+  public void testCloseClosesTheEventProducerWhenClosingTheConsumerFails() throws Exception {
+    KafkaProducer<String, String> mockEventProducer = mock(KafkaProducer.class);
+    KafkaConsumer<String, KafkaDocument> mockDestConsumer = mock(KafkaConsumer.class);
+    doThrow(new RuntimeException("Simulated close failure")).when(mockDestConsumer).close();
+    KafkaIndexerMessenger messenger = newMessenger(mockDestConsumer, mockEventProducer);
+
+    assertThrows(RuntimeException.class, messenger::close);
+    verify(mockEventProducer).close();
+  }
+
+  private static KafkaIndexerMessenger newMessenger(KafkaConsumer<String, KafkaDocument> destConsumer,
+      KafkaProducer<String, String> eventProducer) {
+    Config config = ConfigFactory.parseMap(Map.of(
+        "kafka.bootstrapServers", "localhost:9092",
+        "kafka.consumerGroupId", "test-group",
+        "kafka.maxPollIntervalMs", 300000,
+        "kafka.maxRequestSize", 1048576
+    ));
+    try (MockedStatic<KafkaUtils> kafkaUtils = mockStatic(KafkaUtils.class)) {
+      kafkaUtils.when(() -> KafkaUtils.createIndexerDocumentConsumer(any(), any())).thenReturn(destConsumer);
+      kafkaUtils.when(() -> KafkaUtils.createEventProducer(any())).thenReturn(eventProducer);
+      kafkaUtils.when(() -> KafkaUtils.getDestTopicName(any())).thenReturn("test_dest");
+      return new KafkaIndexerMessenger(config, "pipeline1");
     }
   }
 }

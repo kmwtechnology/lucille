@@ -19,7 +19,7 @@ import com.typesafe.config.Config;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>fieldName (String, Required) : Field whose value (first value if multi-valued) is hashed; use "id" to hash the document id.
+ *   <li>source (String, Required) : Field whose value (first value if multi-valued) is hashed; use "id" to hash the document id.
  *   Documents without the field, or with a null value, are left unchanged.</li>
  *   <li>dest (String, Required) : Field that will contain the hash bucket label.</li>
  *   <li>buckets (List of String, Required) : list of buckets for the hash function.</li>
@@ -28,25 +28,25 @@ import com.typesafe.config.Config;
 public class HashFieldValueToBucket extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("fieldName", "dest")
+      .requiredString("source", "dest")
       .requiredList("buckets", new TypeReference<List<String>>(){}).build();
 
-  private final String fieldName;
+  private final String source;
   private final List<String> buckets;
   private final String destField;
   private final int numBuckets;
 
   public HashFieldValueToBucket(Config config) throws StageException {
     super(config);
-    this.fieldName = config.getString("fieldName");
+    this.source = config.getString("source");
     this.buckets = config.getStringList("buckets");
     this.destField = config.getString("dest");
     this.numBuckets = buckets.size();
     if (buckets.isEmpty()) {
       throw new StageException("There must be at least one bucket defined in the buckets parameter.");
     }
-    if (StringUtils.isEmpty(fieldName)) {
-      throw new StageException("fieldName must not be null or empty");
+    if (StringUtils.isEmpty(source)) {
+      throw new StageException("source must not be null or empty");
     }
     if (StringUtils.isEmpty(destField)) {
       throw new StageException("dest field name must not be null or empty");
@@ -56,7 +56,7 @@ public class HashFieldValueToBucket extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     // "id" is the document id; any other field is read as a string (first value of a multi-valued field)
-    String value = Document.ID_FIELD.equals(fieldName) ? doc.getId() : doc.getString(fieldName);
+    String value = Document.ID_FIELD.equals(source) ? doc.getId() : doc.getString(source);
     if (value == null) {
       return null;
     }

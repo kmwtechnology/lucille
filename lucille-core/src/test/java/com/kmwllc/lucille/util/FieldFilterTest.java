@@ -20,7 +20,7 @@ public class FieldFilterTest {
 
   @Test
   public void testWhitelist() {
-    Config config = ConfigFactory.parseString("whitelist = [field1, field2]");
+    Config config = ConfigFactory.parseString("includeFields = [field1, field2]");
     FieldFilter filter = new FieldFilter(config);
     assertTrue(filter.shouldInclude("field1"));
     assertTrue(filter.shouldInclude("field2"));
@@ -29,7 +29,7 @@ public class FieldFilterTest {
 
   @Test
   public void testBlacklist() {
-    Config config = ConfigFactory.parseString("blacklist = [field1, field2]");
+    Config config = ConfigFactory.parseString("excludeFields = [field1, field2]");
     FieldFilter filter = new FieldFilter(config);
     assertFalse(filter.shouldInclude("field1"));
     assertFalse(filter.shouldInclude("field2"));
@@ -39,26 +39,26 @@ public class FieldFilterTest {
   @Test
   public void testGetters() {
     Config config = ConfigFactory.parseString(
-        "whitelist = [field1, field2, field3]\n" +
-            "blacklist = [field3]"
+        "includeFields = [field1, field2, field3]\n" +
+            "excludeFields = [field3]"
     );
 
     FieldFilter filter = new FieldFilter(config);
-    assertEquals(List.of("field1", "field2", "field3"), filter.getWhitelist());
-    assertEquals(List.of("field3"), filter.getBlacklist());
+    assertEquals(List.of("field1", "field2", "field3"), filter.getIncludeFields());
+    assertEquals(List.of("field3"), filter.getExcludeFields());
 
-    assertThrows(Exception.class, () -> filter.getWhitelist().add("field100"));
-    assertEquals(List.of("field1", "field2", "field3"), filter.getWhitelist());
+    assertThrows(Exception.class, () -> filter.getIncludeFields().add("field100"));
+    assertEquals(List.of("field1", "field2", "field3"), filter.getIncludeFields());
 
-    assertThrows(Exception.class, () -> filter.getBlacklist().add("field200"));
-    assertEquals(List.of("field1", "field2", "field3"), filter.getWhitelist());
+    assertThrows(Exception.class, () -> filter.getExcludeFields().add("field200"));
+    assertEquals(List.of("field1", "field2", "field3"), filter.getIncludeFields());
   }
 
   @Test
   public void testBothWhitelistAndBlacklist() {
     Config config = ConfigFactory.parseString(
-        "whitelist = [field1, field2, field3]\n" +
-            "blacklist = [field3]"
+        "includeFields = [field1, field2, field3]\n" +
+            "excludeFields = [field3]"
     );
 
     FieldFilter filter = new FieldFilter(config);
@@ -72,14 +72,14 @@ public class FieldFilterTest {
 
   @Test
   public void testBlacklistIsActive() {
-    Config config = ConfigFactory.parseString("blacklist = [field3]");
+    Config config = ConfigFactory.parseString("excludeFields = [field3]");
     FieldFilter filter = new FieldFilter(config);
     assertTrue(filter.isActive());
   }
 
   @Test
   public void testWhitelistIsActive() {
-    Config config = ConfigFactory.parseString("whitelist = [field3]");
+    Config config = ConfigFactory.parseString("includeFields = [field3]");
     FieldFilter filter = new FieldFilter(config);
     assertTrue(filter.isActive());
   }
@@ -95,7 +95,7 @@ public class FieldFilterTest {
 
   @Test
   public void testGetFilteredDocumentBlacklist() throws Exception {
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of("field2"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("excludeFields", List.of("field2"))));
     Document doc = Document.create("id1");
     doc.setField("field1", "val1");
     doc.setField("field2", "val2");
@@ -109,7 +109,7 @@ public class FieldFilterTest {
 
   @Test
   public void testGetFilteredDocumentWhitelist() throws Exception {
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("whitelist", List.of("field1"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("includeFields", List.of("field1"))));
     Document doc = Document.create("id1");
     doc.setField("field1", "val1");
     doc.setField("field2", "val2");
@@ -123,7 +123,7 @@ public class FieldFilterTest {
 
   @Test
   public void testGetFilteredDocumentRunIdBlacklisted() throws Exception {
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of("run_id"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("excludeFields", List.of("run_id"))));
     Document doc = Document.create("id1", "run1");
 
     Document filtered = filter.getFilteredDocument(doc);
@@ -134,7 +134,7 @@ public class FieldFilterTest {
 
   @Test
   public void testGetFilteredDocumentRunIdWhitelisted() throws Exception {
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("whitelist", List.of("run_id"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("includeFields", List.of("run_id"))));
     Document doc = Document.create("id1", "run1");
     doc.setField("field1", "val1");
 
@@ -147,7 +147,7 @@ public class FieldFilterTest {
 
   @Test
   public void testGetFilteredDocumentDroppedClearedWhenNotInWhitelist() throws Exception {
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("whitelist", List.of("field1"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("includeFields", List.of("field1"))));
     Document doc = Document.create("id1");
     doc.setField("field1", "val1");
     doc.setDropped(true);
@@ -160,7 +160,7 @@ public class FieldFilterTest {
 
   @Test
   public void testGetFilteredDocumentChildrenRemovedWhenBlacklisted() throws Exception {
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of("___children"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("excludeFields", List.of("___children"))));
     Document doc = Document.create("id1");
     doc.addChild(Document.create("child1"));
 
@@ -172,7 +172,7 @@ public class FieldFilterTest {
 
   @Test
   public void testGetFilteredDocumentOriginalUnchanged() throws Exception {
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of("field2"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("excludeFields", List.of("field2"))));
     Document doc = Document.create("id1");
     doc.setField("field1", "val1");
     doc.setField("field2", "val2");
@@ -189,7 +189,7 @@ public class FieldFilterTest {
   public void testGetFilteredDocumentKeepsKafkaMetadata() throws Exception {
     // the filtered copy of a KafkaDocument is still a KafkaDocument, so an indexer reading the Kafka offset or key
     // from the copy sees the same values as on the original
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of("field2"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("excludeFields", List.of("field2"))));
     KafkaDocument doc = kafkaDoc("topic1", 2, 3, "key1",
         "{\"id\":\"id1\", \"field1\":\"val1\", \"field2\":\"val2\"}");
 

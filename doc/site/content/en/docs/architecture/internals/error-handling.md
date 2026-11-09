@@ -162,7 +162,7 @@ The `WorkerPool` runs a watcher thread that checks each Worker's last poll times
 The Runner catches this and returns a failing `ConnectorResult`. Since `close()` is called in a `finally` block after all other work, the documents may have been successfully processed, but the run is reported as failed.
 
 **Publisher's waitForCompletion() times out:**
-If the configured `runner.connectorTimeout` (default 24 hours) is exceeded, `waitForCompletion()` returns a failing `PublisherResult`. The run is reported as failed. This catches scenarios where documents are stuck (lost events, hung Workers, etc.).
+If the configured `runner.connectorTimeoutMs` (default 24 hours) is exceeded, `waitForCompletion()` returns a failing `PublisherResult`. The run is reported as failed. This catches scenarios where documents are stuck (lost events, hung Workers, etc.).
 
 **Kafka offset commit fails:**
 The Worker calls `messenger.commitPendingDocOffsets()` after processing each document. If this throws, the Worker logs the error and continues. The consequence is that if the Worker later crashes, the document may be redelivered and reprocessed (at-least-once semantics). This is safe because pipeline processing is expected to be idempotent.

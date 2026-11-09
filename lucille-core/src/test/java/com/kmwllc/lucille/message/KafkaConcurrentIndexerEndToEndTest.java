@@ -2,6 +2,7 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.util.EmbeddedKafkaUtils;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Document;
@@ -25,6 +26,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +37,7 @@ import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
+import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -42,6 +45,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.GroupState;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -100,7 +104,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     String pipeline = newPipeline(2);
     String runId = "run-" + pipeline;
     Config config = config(pipeline, 3, Map.of(
-        "kafka.events", true, "indexer.batchSize", 2, "indexer.batchTimeout", 20, "kafka.pollIntervalMs", 25));
+        "kafka.events", true, "indexer.batchSize", 2, "indexer.batchTimeoutMs", 20, "kafka.pollIntervalMs", 25));
     int perPartition = 15;
 
     Set<String> ids = new HashSet<>();
@@ -158,7 +162,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
   public void testRebalanceDuringBlockedDispatchDoesNotResendOrReorder() throws Exception {
     String pipeline = newPipeline(1);
     // One document per batch, never flushed by time.
-    Config config = config(pipeline, 2, Map.of("indexer.batchSize", 1, "indexer.batchTimeout", 600000,
+    Config config = config(pipeline, 2, Map.of("indexer.batchSize", 1, "indexer.batchTimeoutMs", 600000,
         "indexer.idOverrideField", "destId", "kafka.pollIntervalMs", 100));
     String topic = KafkaUtils.getDestTopicName(pipeline);
     TopicPartition partition = new TopicPartition(topic, 0);
@@ -255,7 +259,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
   public void testRebalanceDoesNotResendBatchedDocuments() throws Exception {
     String pipeline = newPipeline(1);
     // A batch that neither fills nor expires, so every polled document is still in the open batch at the rebalance.
-    Config config = config(pipeline, 1, Map.of("indexer.batchSize", 1000, "indexer.batchTimeout", 600000,
+    Config config = config(pipeline, 1, Map.of("indexer.batchSize", 1000, "indexer.batchTimeoutMs", 600000,
         "kafka.pollIntervalMs", 100));
     int total = 5;
     List<String> ids = produce(config, pipeline, 0, total, "run");
@@ -332,7 +336,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     String pipeline = newPipeline(1);
     String runId = "run-" + pipeline;
     Config config = config(pipeline, 4, Map.of("kafka.events", true, "indexer.batchSize", 4,
-        "indexer.batchTimeout", 20, "indexer.idOverrideField", "destId", "kafka.pollIntervalMs", 25));
+        "indexer.batchTimeoutMs", 20, "indexer.idOverrideField", "destId", "kafka.pollIntervalMs", 25));
     int total = 600;
     String[] destIds = new String[60];
     for (int i = 0; i < destIds.length; i++) {
@@ -414,12 +418,109 @@ public class KafkaConcurrentIndexerEndToEndTest {
     assertEquals(ids, finished);
   }
 
+  @Test
+  public void testWorkerJoiningDoesNotJoinTheIndexersGroup() throws Exception {
+    String pipeline = newPipeline(1);
+    embeddedKafka.addTopics(new NewTopic(KafkaUtils.getSourceTopicName(pipeline, ConfigFactory.empty()), 1, (short) 1));
+    Config config = config(pipeline, 1, Map.of("indexer.batchTimeoutMs", 100));
+    String id = produce(config, pipeline, 0, 1, "run").get(0);
+
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline);
+    RecordingIndexer indexer = new RecordingIndexer(config.getConfig("indexer"), messenger);
+    Thread thread = new Thread(indexer);
+    thread.start();
+    String workersGroup = config.getString("kafka.consumerGroupId");
+    try (KafkaConsumer<String, String> worker = groupMember(config, workersGroup)) {
+      waitFor(() -> indexer.sent.contains(id));
+
+      worker.subscribe(List.of(KafkaUtils.getSourceTopicName(pipeline, ConfigFactory.empty())));
+      waitFor(() -> {
+        worker.poll(Duration.ofMillis(100));
+        return !worker.assignment().isEmpty();
+      });
+
+      Map<String, ConsumerGroupDescription> groups =
+          admin.describeConsumerGroups(List.of(workersGroup, indexerGroup(config))).all().get();
+      assertEquals(1, groups.get(workersGroup).members().size());
+      assertEquals(1, groups.get(indexerGroup(config)).members().size());
+      assertEquals(GroupState.STABLE, groups.get(indexerGroup(config)).groupState());
+    } finally {
+      indexer.terminate();
+      thread.join(TIMEOUT_MS);
+    }
+  }
+
+  @Test
+  public void testPublisherReadsEventsWithoutJoiningAGroup() throws Exception {
+    String pipeline = newPipeline(1);
+    Config config = config(pipeline, 1, Map.of("kafka.events", true));
+
+    KafkaPublisherMessenger publisher = new KafkaPublisherMessenger(config);
+    try (KafkaProducer<String, String> eventProducer = KafkaUtils.createEventProducer(config)) {
+      publisher.initialize("run1", pipeline);
+      String eventTopic = KafkaUtils.getEventTopicName(config, pipeline, "run1");
+      sendEvent(eventProducer, eventTopic, "doc1");
+
+      assertEquals("doc1", pollEvent(publisher).getDocumentId());
+
+      String workersGroup = config.getString("kafka.consumerGroupId");
+      ExecutionException noGroup =
+          assertThrows(ExecutionException.class, () -> admin.describeConsumerGroups(List.of(workersGroup)).all().get());
+      assertTrue(noGroup.getCause() instanceof GroupIdNotFoundException);
+    } finally {
+      publisher.close();
+    }
+  }
+
+  @Test
+  public void testPublisherSkipsEarlierRunsOnAFixedEventTopic() throws Exception {
+    String pipeline = newPipeline(1);
+    String eventTopic = pipeline + "_fixed_events";
+    embeddedKafka.addTopics(new NewTopic(eventTopic, 1, (short) 1));
+    Config config = config(pipeline, 1, Map.of("kafka.events", true, "kafka.eventTopic", eventTopic));
+
+    KafkaPublisherMessenger publisher = new KafkaPublisherMessenger(config);
+    try (KafkaProducer<String, String> eventProducer = KafkaUtils.createEventProducer(config)) {
+      sendEvent(eventProducer, eventTopic, "fromEarlierRun");
+      publisher.initialize("run1", pipeline);
+      sendEvent(eventProducer, eventTopic, "fromThisRun");
+
+      assertEquals("fromThisRun", pollEvent(publisher).getDocumentId());
+    } finally {
+      publisher.close();
+    }
+  }
+
+  private static void sendEvent(KafkaProducer<String, String> producer, String topic, String id) throws Exception {
+    Event event = new Event(Document.create(id, "run1"), "message", Event.Type.FINISH);
+    producer.send(new ProducerRecord<>(topic, id, event.toString())).get();
+  }
+
+  private static Event pollEvent(KafkaPublisherMessenger publisher) throws Exception {
+    long deadline = System.currentTimeMillis() + TIMEOUT_MS;
+    while (System.currentTimeMillis() < deadline) {
+      Event event = publisher.pollEvent();
+      if (event != null) {
+        return event;
+      }
+    }
+    throw new AssertionError("no event was received");
+  }
+
   // --- helpers ---
 
+  private static String indexerGroup(Config config) {
+    return config.getString("kafka.consumerGroupId") + "-indexer";
+  }
+
   private static KafkaConsumer<String, String> groupMember(Config config) {
+    return groupMember(config, indexerGroup(config));
+  }
+
+  private static KafkaConsumer<String, String> groupMember(Config config, String group) {
     Properties props = new Properties();
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
-    props.put(ConsumerConfig.GROUP_ID_CONFIG, config.getString("kafka.consumerGroupId"));
+    props.put(ConsumerConfig.GROUP_ID_CONFIG, group);
     props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
     props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
     props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
@@ -427,7 +528,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
   }
 
   private static GroupState groupState(Config config) throws Exception {
-    String group = config.getString("kafka.consumerGroupId");
+    String group = indexerGroup(config);
     return admin.describeConsumerGroups(List.of(group)).all().get().get(group).groupState();
   }
 
@@ -441,7 +542,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     Map<String, Object> settings = new HashMap<>(Map.of(
         "kafka.bootstrapServers", embeddedKafka.getBrokersAsString(),
         "kafka.consumerGroupId", "group-" + pipeline,
-        "kafka.maxPollIntervalSecs", 300,
+        "kafka.maxPollIntervalMs", 300000,
         "kafka.maxRequestSize", 1048576,
         "kafka.events", false,
         "indexer.maxConcurrentBatches", maxConcurrentBatches));
@@ -467,7 +568,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
   private static Map<TopicPartition, Long> committed(Config config) {
     try {
       Map<TopicPartition, OffsetAndMetadata> offsets = admin
-          .listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
+          .listConsumerGroupOffsets(indexerGroup(config))
           .partitionsToOffsetAndMetadata().get();
       Map<TopicPartition, Long> result = new HashMap<>();
       offsets.forEach((partition, offset) -> {

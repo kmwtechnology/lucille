@@ -175,7 +175,7 @@ public class OpenSearchIndexer extends Indexer {
     // populate which collection each document belongs to
     // upload if document is not marked for deletion
     // else if document is marked for deletion ONLY, then only add to idsToDelete
-    // else document is marked for deletion AND contains deleteByFieldField and deleteByFieldValue, only add to termsToDeleteByQuery
+    // else document is marked for deletion AND carries both indexer.deleteByQuery fields, only add to termsToDeleteByQuery
     // A delete-by-query must not delete documents that come after it in the batch, so the batch is sent in segments, in
     // input order: pending uploads and deletes by id are sent before a run of delete-by-query documents, and the
     // queries are sent before the next upload or delete by id.
@@ -195,7 +195,7 @@ public class OpenSearchIndexer extends Indexer {
         documentsToUpload.put(indexAndId, doc);
       } else {
         documentsToUpload.remove(indexAndId);
-        if (!hasDeleteByFieldValues(doc)) {
+        if (!isDeleteByQuery(doc)) {
           // same as above: buffered delete-by-queries go before this delete by id
           sendDeleteByQuerySegment(termsToDeleteByQuery);
           idsToDelete.put(indexAndId, doc);
@@ -203,13 +203,11 @@ public class OpenSearchIndexer extends Indexer {
           // this doc is a delete-by-query, so flush the writes buffered before it first: send the pending uploads and
           // deletes by id, clear both maps, and collect their per-doc failures
           failedDocs.addAll(sendWriteSegment(documentsToUpload, idsToDelete));
-          //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
-          // deletion, so we need to do doc.getString(deleteByFieldField).
-          Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, doc.getString(getDeleteByFieldField()));
+          Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, getDeleteByQueryFieldName(doc));
           if (!termsToDeleteByQuery.containsKey(indexAndDeleteByField)) {
             termsToDeleteByQuery.put(indexAndDeleteByField, new ArrayList<>());
           }
-          termsToDeleteByQuery.get(indexAndDeleteByField).add(doc.getString(getDeleteByFieldValue()));
+          termsToDeleteByQuery.get(indexAndDeleteByField).add(getDeleteByQueryValue(doc));
         }
       }
     }
@@ -404,10 +402,10 @@ public class OpenSearchIndexer extends Indexer {
       String docId = entry.getKey().getRight();
       Document doc = entry.getValue();
 
-      // removing fields in the blacklist or not in the whitelist in configurations
+      // removing fields in indexer.excludeFields or not in indexer.includeFields
       Map<String, Object> indexerDoc = getRawIndexerDoc(doc);
 
-      // only add id if our fieldFilter allows it (based on our blacklist and whitelist)
+      // only add id if our fieldFilter allows it (based on indexer.includeFields and indexer.excludeFields)
       // - Case 1: id and idOverride filtered out -> idOverride used by Indexer, both removed from Document (tested in testBlacklistWithOverride)
       // - Case 2: id is filtered, idOverride exists -> idOverride used by Indexer, only id field removed from Document (tested in testBlacklistWithOverride2)
       // - Case 3: id is filtered, idOverride null -> id used by Indexer, id also removed from Document (tested in testRouting)
@@ -505,7 +503,7 @@ public class OpenSearchIndexer extends Indexer {
     List<Document> children = doc.getChildren();
 
     for (Document child : children) {
-      // calling getRawIndexerDoc applies black/whitelist and drops nested children, which we don't support
+      // calling getRawIndexerDoc applies includeFields/excludeFields and drops nested children, which we don't support
       childDocMaps.add(getRawIndexerDoc(child));
     }
     indexerDoc.put(childDocumentsField, childDocMaps);

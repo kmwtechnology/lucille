@@ -8,20 +8,34 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Standardizes whitelist and blacklist implementations for document fields. Applicable to any class which processes documents.
+ * Standardizes include and exclude lists for document fields. Applicable to any class which processes documents. When both
+ * lists are set, a field passes only if it is included and not excluded.
  */
 public class FieldFilter {
 
-  private final Set<String> whitelistSet;
-  private final Set<String> blacklistSet;
+  private final Set<String> includeSet;
+  private final Set<String> excludeSet;
 
   /**
-   * If a whitelist or blacklist is not passed in, default to an empty list.
-   * @param config the config for Lucille
+   * Reads the <code>includeFields</code> and <code>excludeFields</code> lists from the given config; either may be
+   * absent, which leaves it empty.
+   * @param config the config holding the lists
    */
   public FieldFilter(Config config) {
-    this.whitelistSet = readSet(config, "whitelist");
-    this.blacklistSet = readSet(config, "blacklist");
+    this(config, "includeFields", "excludeFields");
+  }
+
+  /**
+   * Reads the include and exclude lists from the given config paths, for a component whose lists filter something
+   * other than document fields (such as TextExtractor's includeMetadata and excludeMetadata). Either may be absent,
+   * which leaves it empty.
+   * @param config the config holding the lists
+   * @param includePath the path of the include list
+   * @param excludePath the path of the exclude list
+   */
+  public FieldFilter(Config config, String includePath, String excludePath) {
+    this.includeSet = readSet(config, includePath);
+    this.excludeSet = readSet(config, excludePath);
   }
 
   // Insertion-ordered so the list getters keep the configured order; duplicate entries are dropped.
@@ -32,26 +46,26 @@ public class FieldFilter {
   }
 
   /**
-   * @return the configured whitelist, in configured order, without duplicates
+   * @return the configured include list, in configured order, without duplicates
    */
-  public List<String> getWhitelist() {
-    return List.copyOf(whitelistSet);
+  public List<String> getIncludeFields() {
+    return List.copyOf(includeSet);
   }
 
   /**
-   * @return the configured blacklist, in configured order, without duplicates
+   * @return the configured exclude list, in configured order, without duplicates
    */
-  public List<String> getBlacklist() {
-    return List.copyOf(blacklistSet);
+  public List<String> getExcludeFields() {
+    return List.copyOf(excludeSet);
   }
 
   public boolean isActive() {
-    return !whitelistSet.isEmpty() || !blacklistSet.isEmpty();
+    return !includeSet.isEmpty() || !excludeSet.isEmpty();
   }
 
   /**
    * Returns a filtered deep copy of the given document. Fields are included or excluded according to this FieldFilter's
-   * whitelist and blacklist. Reserved fields are handled via their dedicated methods; {@link Document#ID_FIELD} is always
+   * include and exclude lists. Reserved fields are handled via their dedicated methods; {@link Document#ID_FIELD} is always
    * preserved as it is required for a valid Document.
    *
    * <p>The result is always a new document, even when the filter is not {@link #isActive() active}, so callers may
@@ -93,11 +107,11 @@ public class FieldFilter {
   }
 
   public boolean shouldInclude(String field) {
-    if (!whitelistSet.isEmpty() && !blacklistSet.isEmpty()) {
-      return whitelistSet.contains(field) && !blacklistSet.contains(field);
-    } else if (!whitelistSet.isEmpty()) {
-      return whitelistSet.contains(field);
+    if (!includeSet.isEmpty() && !excludeSet.isEmpty()) {
+      return includeSet.contains(field) && !excludeSet.contains(field);
+    } else if (!includeSet.isEmpty()) {
+      return includeSet.contains(field);
     }
-    return !blacklistSet.contains(field);
+    return !excludeSet.contains(field);
   }
 }
