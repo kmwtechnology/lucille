@@ -1,6 +1,6 @@
 ---
 title: Running Lucille
-weight: 4
+weight: 5
 date: 2025-06-09
 description: >
   How to run Lucille in local and distributed mode, with examples and guidance on verifying a run.

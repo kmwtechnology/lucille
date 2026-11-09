@@ -6,7 +6,7 @@ description: >
   How Lucille structures search ingestion as three concurrent components communicating through queues, and how it tracks document lifecycle across an asynchronous system.
 ---
 
-Lucille addresses all of the pain points described in [The Problem of Search ETL]({{< relref "docs/architecture/overview/problem" >}}) — error handling, observability, pipeline composition, fan-out, configuration management, and scalability. This page focuses on the last and most fundamental of those problems: the sequential loop can't go faster.
+Lucille addresses all of the pain points described in [Outgrowing the Ingest Loop]({{< relref "docs/architecture/overview/problem" >}}) — error handling, observability, pipeline composition, fan-out, configuration management, and scalability. This page focuses on the last and most fundamental of those problems: the sequential loop can't go faster.
 
 Lucille's answer is a parallel architecture whose components derive directly from the structure of the problem. Each of the three functions of search ETL — acquiring data, enriching it, and indexing it — becomes its own independent concurrent component, operating at its own pace, limited only by its own resources rather than by the speed of the others.
 
