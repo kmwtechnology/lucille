@@ -110,7 +110,7 @@ indexer {
 
 ## Index Override
 
-OpenSearch supports `indexer.indexOverrideField` for routing documents to different indices within the same batch. The value of the override field on each document determines the target index; documents without the field go to `index`. The override field is not removed from the document. Add it to `indexer.blacklist` if it should not be indexed. Deletes (by ID and by query) are sent to the same per-document index. Each distinct value gets its own batch (see [Batching Behavior]({{< relref "docs/ingest-design/indexers#batching-behavior" >}})). If two documents in one send have the same ID but different target indices and the bulk response rejects one of them, the failure is attributed to whichever of the two was added last.
+OpenSearch supports `indexer.indexOverrideField` for routing documents to different indices within the same batch. The value of the override field on each document determines the target index; documents without the field go to `index`. The override field is not removed from the document. Add it to `indexer.excludeFields` if it should not be indexed. Deletes (by ID and by query) are sent to the same per-document index. Each distinct value gets its own batch (see [Batching Behavior]({{< relref "docs/ingest-design/indexers#batching-behavior" >}})). If two documents in one send have the same ID but different target indices and the bulk response rejects one of them, the failure is attributed to whichever of the two was added last.
 
 ---
 
@@ -128,7 +128,7 @@ Retries follow the generic `indexer.maxRetries` settings (see [Retries]({{< relr
 
 ## Child Documents
 
-When `childDocumentsField` is set, attached children are written into that field of the parent as a list of objects. They are not indexed as separate OpenSearch documents. The whitelist and blacklist apply to each child, and children of children are dropped. Map the field as `nested` if you need to query children individually.
+When `childDocumentsField` is set, attached children are written into that field of the parent as a list of objects. They are not indexed as separate OpenSearch documents. `includeFields` and `excludeFields` apply to each child, and children of children are dropped. Map the field as `nested` if you need to query children individually.
 
 If a document has children and `childDocumentsField` is not set, the children are not indexed and a warning is logged.
 
@@ -136,7 +136,7 @@ If a document has children and `childDocumentsField` is not set, the children ar
 
 ## Deletion
 
-Supports delete by ID and delete by query using the generic `deletionMarkerField`, `deletionMarkerFieldValue`, `deleteByFieldField`, and `deleteByFieldValue` settings (see [Deletion Mechanics]({{< relref "docs/ingest-design/indexers#deletion-mechanics" >}})). Delete-by-query documents in a batch are combined into one `terms` bool/should query per target index, so a document matching any of them is deleted. The value to match is the first value of the `deleteByFieldValue` field, if it is multi-valued.
+Supports delete by ID and delete by query using the generic `deletionMarker` and `deleteByQuery` settings (see [Deletion Mechanics]({{< relref "docs/ingest-design/indexers#deletion-mechanics" >}})). Delete-by-query documents in a batch are combined into one `terms` bool/should query per target index, so a document matching any of them is deleted. The value to match is the first value of the field `deleteByQuery.valueField` names, if it is multi-valued.
 
 Delete-by-query documents are sent in batch order: the uploads and deletes by ID before a delete-by-query document are sent before its query, and the ones after it are sent after. Consecutive delete-by-query documents are combined into one delete-by-query per index. Between two delete-by-query documents, only the last document for a given index and ID is acted on: if the same ID appears in both an upload and a delete by ID, the last occurrence wins, and earlier documents with that ID are not sent but are still reported as succeeded. A document marked for delete-by-query also cancels an earlier upload with the same ID since the previous delete-by-query document. Each run of uploads and deletes by ID is sent as one bulk request for uploads and one for deletes by ID. Before each delete-by-query, the indexer refreshes the target index, because delete-by-query only matches refreshed documents. So a delete-by-query deletes matching documents uploaded before it, in the same batch or an earlier one, but not documents after it in the batch, such as new children sent after a delete of their parent's old children. Each delete-by-query adds a refresh and more bulk requests to the send, so frequent delete-by-query documents on a large index are slow.
 

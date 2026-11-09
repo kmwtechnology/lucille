@@ -49,23 +49,23 @@ public class IndexerDocTest {
   @Test
   public void testConvertedDocAlwaysOmitsChildren() throws Exception {
     assertFalse(indexer("").getConvertedIndexerDoc(parentWithChild()).containsKey(Document.CHILDREN_FIELD));
-    assertFalse(indexer("whitelist: [\"id\", \"" + Document.CHILDREN_FIELD + "\"]")
+    assertFalse(indexer("includeFields: [\"id\", \"" + Document.CHILDREN_FIELD + "\"]")
         .getConvertedIndexerDoc(parentWithChild()).containsKey(Document.CHILDREN_FIELD));
   }
 
   @Test
   public void testConvertedDocAppliesFieldFilter() throws Exception {
     assertEquals(Map.of("id", "doc1", "str", "s"),
-        indexer("whitelist: [\"id\", \"str\"]").getConvertedIndexerDoc(Document.createFromJson(
+        indexer("includeFields: [\"id\", \"str\"]").getConvertedIndexerDoc(Document.createFromJson(
             "{\"id\": \"doc1\", \"str\": \"s\", \"int\": 1}")));
 
     assertEquals(Map.of("id", "doc1", "int", 1),
-        indexer("blacklist: [\"str\"]").getConvertedIndexerDoc(Document.createFromJson(
+        indexer("excludeFields: [\"str\"]").getConvertedIndexerDoc(Document.createFromJson(
             "{\"id\": \"doc1\", \"str\": \"s\", \"int\": 1}")));
 
     // with both, a field must be whitelisted and not blacklisted
     assertEquals(Map.of("id", "doc1"),
-        indexer("whitelist: [\"id\", \"str\"], blacklist: [\"str\"]").getConvertedIndexerDoc(Document.createFromJson(
+        indexer("includeFields: [\"id\", \"str\"], excludeFields: [\"str\"]").getConvertedIndexerDoc(Document.createFromJson(
             "{\"id\": \"doc1\", \"str\": \"s\", \"int\": 1}")));
   }
 
@@ -83,13 +83,13 @@ public class IndexerDocTest {
   @Test
   public void testRawDocAlwaysOmitsChildren() throws Exception {
     assertFalse(indexer("").getRawIndexerDoc(parentWithChild()).containsKey(Document.CHILDREN_FIELD));
-    assertFalse(indexer("whitelist: [\"id\", \"" + Document.CHILDREN_FIELD + "\"]")
+    assertFalse(indexer("includeFields: [\"id\", \"" + Document.CHILDREN_FIELD + "\"]")
         .getRawIndexerDoc(parentWithChild()).containsKey(Document.CHILDREN_FIELD));
   }
 
   @Test
   public void testRawDocAppliesFieldFilter() throws Exception {
-    Map<String, Object> map = indexer("whitelist: [\"id\", \"str\"], blacklist: [\"str\"]").getRawIndexerDoc(parentWithChild());
+    Map<String, Object> map = indexer("includeFields: [\"id\", \"str\"], excludeFields: [\"str\"]").getRawIndexerDoc(parentWithChild());
     assertEquals(List.of("id"), List.copyOf(map.keySet()));
   }
 

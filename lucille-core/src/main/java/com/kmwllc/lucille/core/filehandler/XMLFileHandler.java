@@ -38,7 +38,7 @@ import org.xml.sax.XMLReader;
  *   <li><code>xpathIdPath</code> (String): An xpath expression, <i>relative</i> to <code>xmlRootPath</code>, specifying the XML element
  *   or attribute that will be used to create Document IDs. This path can be a qualifier - be sure to enable <code>skipEmptyId</code>, if so!</li>
  *   <li><code>encoding</code> (String, Optional): The encoding the xml files use. Defaults to utf-8.</li>
- *   <li><code>outputField</code> (String, Optional): The field you want to put the extracted XML text into. Defaults to "xml".</li>
+ *   <li><code>xmlField</code> (String, Optional): The field that holds each element's raw XML, including its own tags. Defaults to "xml".</li>
  *   <li><code>skipEmptyId</code> (Boolean, Optional): Whether you want to skip a document when your <code>xmlIdPath</code> or <code>xpathIdPath</code>
  *   evaluates to an empty or null String. You should enable if using an <code>xpathIdPath</code> that is a qualifier. Defaults to false.</li>
  *   <li><code>maxRecordBytes</code> (Integer, Optional): The maximum number of bytes the handler may hold in memory while
@@ -58,7 +58,7 @@ public class XMLFileHandler extends BaseFileHandler {
 
   public static final Spec SPEC = SpecBuilder.fileHandler()
       .requiredString("xmlRootPath")
-      .optionalString("xmlIdPath", "xpathIdPath", "outputField", "encoding")
+      .optionalString("xmlIdPath", "xpathIdPath", "xmlField", "encoding")
       .optionalNumber("maxRecordBytes")
       .optionalBoolean("skipEmptyId", "allowDoctype").build();
 
@@ -85,7 +85,7 @@ public class XMLFileHandler extends BaseFileHandler {
     this.xmlIdPath = ConfigUtils.getStringOrDefault(config, "xmlIdPath", null);
     this.xpathIdPath = ConfigUtils.getStringOrDefault(config, "xpathIdPath", null);
     this.encoding = ConfigUtils.getStringOrDefault(config, "encoding", "utf-8");
-    this.outputField = ConfigUtils.getStringOrDefault(config, "outputField", "xml");
+    this.outputField = ConfigUtils.getStringOrDefault(config, "xmlField", "xml");
     this.skipEmptyId = ConfigUtils.getOrDefault(config, "skipEmptyId", false);
     this.allowDoctype = ConfigUtils.getOrDefault(config, "allowDoctype", false);
 

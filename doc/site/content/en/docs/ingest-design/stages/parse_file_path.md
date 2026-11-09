@@ -20,6 +20,6 @@ Values are added to any existing values in these fields rather than replacing th
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `filePathField` | String | No | Field containing the file path. Default: `file_path`. |
-| `fileSep` | String | No | Separator used in the output paths. Must be `/` or `\` (escape it as `"\\"` in HOCON). Default: the operating system's separator. |
+| `fileSeparator` | String | No | Separator used in the output paths. Must be `/` or `\` (escape it as `"\\"` in HOCON). Default: the operating system's separator. |
 | `uppercaseExtension` | Boolean | No | Write `file_extension` in uppercase. Default: `true`. |
 | `includeHierarchy` | Boolean | No | Populate `file_paths`. Default: `true`. |

@@ -56,7 +56,7 @@ An execution model where a finite set of data is retrieved from a source system,
 An execution model where an unbounded supply of documents arrives continuously. There is no run boundary, no completion accounting, and no Connector or Publisher. Workers consume directly from a Kafka topic populated by an external system.
 
 **Connector Timeout**
-The maximum time (default: 24 hours) the Runner will wait for a Connector's work to complete before declaring the run failed. Configured via `runner.connectorTimeout`.
+The maximum time (default: 24 hours) the Runner will wait for a Connector's work to complete before declaring the run failed. Configured via `runner.connectorTimeoutMs`.
 
 ---
 
@@ -182,19 +182,19 @@ HOCON's `${?ENV_VAR}` syntax for optionally overriding a config value from an en
 ## Indexing Concepts
 
 **Batch**
-A group of documents accumulated by the Indexer before sending to the search backend in a single bulk API call. Flushes when `indexer.batchSize` is reached or `indexer.batchTimeout` milliseconds have elapsed.
+A group of documents accumulated by the Indexer before sending to the search backend in a single bulk API call. Flushes when `indexer.batchSize` is reached or `indexer.batchTimeoutMs` milliseconds have elapsed.
 
 **MultiBatch**
 A variant of Batch that maintains separate batches per destination index. Used when `indexer.indexOverrideField` is configured and documents in the same run go to different indices.
 
 **Deletion Marker**
-A document field/value combination (`indexer.deletionMarkerField` + `indexer.deletionMarkerFieldValue`) that signals the Indexer to issue a delete operation instead of an index operation.
+A document field/value combination (`indexer.deletionMarker`) that signals the Indexer to issue a delete operation instead of an index operation.
 
 **Delete-by-Query**
-A deletion mode where the Indexer deletes all documents in the index matching a field/value pair, rather than deleting a single document by ID. Configured via `indexer.deleteByFieldField` and `indexer.deleteByFieldValue`.
+A deletion mode where the Indexer deletes all documents in the index matching a field/value pair, rather than deleting a single document by ID. Configured via `indexer.deleteByQuery`.
 
-**Field Filtering (Whitelist/Blacklist)**
-Configuration that controls which document fields are sent to the search backend. `indexer.whitelist` includes only listed fields; `indexer.blacklist` excludes listed fields. Reserved fields are always stripped.
+**Field Filtering (includeFields/excludeFields)**
+Configuration that controls which document fields are sent to the search backend. `indexer.includeFields` includes only listed fields; `indexer.excludeFields` excludes listed fields. Reserved fields are always stripped.
 
 **Bypass Mode**
 When `bypass = true` (test mode), the Indexer skips all actual backend communication. Documents are still batched and events are still sent, but `sendToIndex()` is not called.

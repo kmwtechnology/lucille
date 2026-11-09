@@ -12,5 +12,5 @@ Emits the child Documents attached to a Document (for example by a connector or 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `dropParent` | Boolean | No | Drop the parent Document once its children are emitted. Default: `false`. |
-| `fieldsToCopy` | Map\<String, String\> | No | Maps parent field names to child field names. Each listed parent field is copied onto every child. Fields missing on the parent are skipped. |
+| `fieldMapping` | Map\<String, String\> | No | Maps parent field names to child field names. Each listed parent field is copied onto every child. Fields missing on the parent are skipped. |
 | `updateMode` | String | No | How copied fields are written when the child already has the field: `overwrite`, `append`, or `skip`. Default: `overwrite`. |

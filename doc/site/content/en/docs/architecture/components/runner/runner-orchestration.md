@@ -191,9 +191,9 @@ When the connector finishes, the state is cleared. The `RunnerState.close()` met
 Each connector has a configurable timeout (default: 24 hours):
 
 ```java
-final int connectorTimeout = config.hasPath("runner.connectorTimeout") ?
-    config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
-pubResult = publisher.waitForCompletion(connectorThread, connectorTimeout);
+final int connectorTimeoutMs = config.hasPath("runner.connectorTimeoutMs") ?
+    config.getInt("runner.connectorTimeoutMs") : DEFAULT_CONNECTOR_TIMEOUT;
+pubResult = publisher.waitForCompletion(connectorThread, connectorTimeoutMs);
 ```
 
 Inside `waitForCompletion`, the timeout is checked on each poll iteration:

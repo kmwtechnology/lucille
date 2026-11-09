@@ -914,8 +914,8 @@ public class OpenSearchIndexerTest {
   public void testDeletionMarkerFieldAndValue() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf")
-        .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef("file_expired"))
-        .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef("true"));
+        .withValue("indexer.deletionMarker.field", ConfigValueFactory.fromAnyRef("file_expired"))
+        .withValue("indexer.deletionMarker.value", ConfigValueFactory.fromAnyRef("true"));
     OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
 
     Document expiredDoc = Document.create("doc-expired", "test_run");
@@ -1210,8 +1210,8 @@ public class OpenSearchIndexerTest {
   private static Config versionedDeleteConfig() {
     return ConfigFactory.load("OpenSearchIndexerTest/versioning.conf")
         .withValue("indexer.opensearch.versionField", ConfigValueFactory.fromAnyRef("my_version_field"))
-        .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef("deleted"))
-        .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef("true"));
+        .withValue("indexer.deletionMarker.field", ConfigValueFactory.fromAnyRef("deleted"))
+        .withValue("indexer.deletionMarker.value", ConfigValueFactory.fromAnyRef("true"));
   }
 
   // A delete by id carries the document's opensearch.versionField value, with opensearch.versionType.
@@ -1353,8 +1353,8 @@ public class OpenSearchIndexerTest {
     Config config = versionedDeleteConfig()
         .withValue("indexer.opensearch.versionType", ConfigValueFactory.fromAnyRef("External"))
         .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2))
-        .withValue("indexer.deleteByFieldField", ConfigValueFactory.fromAnyRef("field"))
-        .withValue("indexer.deleteByFieldValue", ConfigValueFactory.fromAnyRef("value"))
+        .withValue("indexer.deleteByQuery.fieldNameField", ConfigValueFactory.fromAnyRef("field"))
+        .withValue("indexer.deleteByQuery.valueField", ConfigValueFactory.fromAnyRef("value"))
         .withValue("indexer.maxRetries", ConfigValueFactory.fromAnyRef(1))
         .withValue("indexer.retryWaitDurationMs", ConfigValueFactory.fromAnyRef(1));
     OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), replayClient);

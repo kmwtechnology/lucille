@@ -20,14 +20,14 @@ import com.typesafe.config.Config;
  * Config Parameters -
  * <ul>
  *   <li>source (String) : Name of source field.</li>
- *   <li>destination (String, Optional) : Name of field where transformed string is put. If not provided the string is mutated in place.</li>
+ *   <li>dest (String, Optional) : Name of field where transformed string is put. If not provided the string is mutated in place.</li>
  * </ul>
  */
 public class RemoveDiacritics extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("source")
-      .optionalString("destination").build();
+      .optionalString("dest").build();
 
   private static final Pattern MARKS = Pattern.compile("\\p{M}");
 
@@ -37,7 +37,7 @@ public class RemoveDiacritics extends Stage {
   public RemoveDiacritics(Config config) throws StageException {
     super(config);
     this.source = config.getString("source");
-    this.destination = ConfigUtils.getStringOrDefault(config, "destination", null);
+    this.destination = ConfigUtils.getStringOrDefault(config, "dest", null);
   }
 
   @Override

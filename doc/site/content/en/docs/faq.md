@@ -175,7 +175,7 @@ Check the periodic log messages. If "Waiting on N docs" is not decreasing, docum
 - The Indexer can't reach the search backend (check for connection errors in the Indexer thread's logs).
 - A Worker is stuck on a single document (check for "Worker has not polled in N seconds" warnings from the WorkerWatcherExecutorService).
 - An event was lost (extremely rare — look for "RUN WILL HANG" in the logs).
-- The connector timeout hasn't been reached yet (default: 24 hours). Set `runner.connectorTimeout` to a shorter value if appropriate.
+- The connector timeout hasn't been reached yet (default: 24 hours). Set `runner.connectorTimeoutMs` to a shorter value if appropriate.
 
 See [Log Inspection and Analysis]({{< relref "docs/operations/log-analysis" >}}) for how to diagnose from log output.
 

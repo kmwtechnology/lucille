@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
  *   <li>source (List&lt;String&gt;) : list of source field names.</li>
  *   <li>dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination
  *   fields for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
- *   <li>dictPath (String) : The path the dictionary to use for matching. If the dictPath begins with "classpath:" the classpath will
+ *   <li>dictionaryPath (String) : The path the dictionary to use for matching. If the dictionaryPath begins with "classpath:" the classpath will
  *   be searched for the file. Otherwise, the local file system will be searched.</li>
  *   <li>usePayloads (Boolean, Optional) : denotes whether payloads from the dictionary should be used or not. Defaults to true.</li>
  *   <li>updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can
@@ -59,14 +59,14 @@ public class DictionaryLookup extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredList("source", new TypeReference<List<String>>(){})
       .requiredList("dest", new TypeReference<List<String>>(){})
-      .requiredString("dictPath")
+      .requiredString("dictionaryPath")
       .optionalBoolean("usePayloads", "ignoreCase", "setOnly", "useAnyMatch", "ignoreMissingSource")
       .optionalString("updateMode")
       .include(FileConnector.STORAGE_SPEC).build();
 
   private final List<String> sourceFields;
   private final List<String> destFields;
-  private final String dictPath;
+  private final String dictionaryPath;
   private final boolean usePayloads;
   private final UpdateMode updateMode;
   private final boolean ignoreCase;
@@ -89,7 +89,7 @@ public class DictionaryLookup extends Stage {
     this.setOnly = ConfigUtils.getOrDefault(config, "setOnly", false);
     this.useAnyMatch = ConfigUtils.getOrDefault(config, "useAnyMatch", false);
     this.ignoreMissingSource = ConfigUtils.getOrDefault(config, "ignoreMissingSource", false);
-    this.dictPath = config.getString("dictPath");
+    this.dictionaryPath = config.getString("dictionaryPath");
   }
 
   @Override
@@ -110,7 +110,7 @@ public class DictionaryLookup extends Stage {
       throw new StageException("when setOnly is true, updateMode must be set to overwrite");
     }
 
-    this.dict = DictionaryManager.getDictionary(dictPath, ignoreCase, setOnly, config);
+    this.dict = DictionaryManager.getDictionary(dictionaryPath, ignoreCase, setOnly, config);
   }
 
   @Override

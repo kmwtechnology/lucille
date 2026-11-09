@@ -14,8 +14,8 @@ Every value of `source` is processed, and the results replace any existing value
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `source` | String | Yes | Field to process. |
-| `destination` | String | No | Field for the result. Default: `source` (modified in place). |
+| `dest` | String | No | Field for the result. Default: `source` (modified in place). |
 
 ```hocon
-{ class: "com.kmwllc.lucille.stage.RemoveDiacritics", source: "name", destination: "name_ascii" }
+{ class: "com.kmwllc.lucille.stage.RemoveDiacritics", source: "name", dest: "name_ascii" }
 ```

@@ -119,18 +119,19 @@ public class CSVIndexerTest {
 
   @Test
   public void testUnsupportedSettingsAreRejected() {
-    for (String setting : List.of("idOverrideField: \"other_id\"", "whitelist: [\"id\"]", "blacklist: [\"id\"]", "indexOverrideField: \"index\"",
-        "deletionMarkerField: \"deleted\", deletionMarkerFieldValue: \"true\"", "deleteByFieldField: \"field\", deleteByFieldValue: \"value\"")) {
+    for (String setting : List.of("idOverrideField: \"other_id\"", "includeFields: [\"id\"]", "excludeFields: [\"id\"]",
+        "indexOverrideField: \"index\"", "deletionMarker { field: \"deleted\", value: \"true\" }",
+        "deleteByQuery { fieldNameField: \"field\", valueField: \"value\" }, deletionMarker { field: \"deleted\", value: \"true\" }")) {
       Config config = ConfigFactory.parseString(setting + ", csv { columns: [\"id\"], path: \"target/unused.csv\" }");
       Exception exception = assertThrows(IllegalArgumentException.class,
           () -> new CSVIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null)));
-      assertTrue(exception.getMessage(), exception.getMessage().contains(setting.substring(0, setting.indexOf(':'))));
+      assertTrue(exception.getMessage(), exception.getMessage().contains(setting.split("\\W")[0]));
     }
   }
 
   @Test
   public void testEmptyFilterListsAreAllowed() {
-    Config config = ConfigFactory.parseString("whitelist: [], blacklist: [], csv { columns: [\"id\"], path: \"target/unused.csv\" }");
+    Config config = ConfigFactory.parseString("includeFields: [], excludeFields: [], csv { columns: [\"id\"], path: \"target/unused.csv\" }");
     new CSVIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null));
   }
 
