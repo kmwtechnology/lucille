@@ -30,7 +30,6 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.RecordTooLargeException;
-import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -47,11 +46,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Utilities for interacting with Kafka: creating Kafka clients, determining Kafka topic names, etc.
- *  TODO: add config option for cleaning up kafka topics at end of run
- *  prepend run id to each topic name
- *  add separate config option to leave failure topic around
- *  consider adding all failed documents to the failure topic
- *  add ability to override names of any kafka topic in the config
  *
  *  s3 (Map, Optional) : If your property files are held in S3. See FileConnector for the appropriate arguments to provide.
  *  azure (Map, Optional) : If your property files are held in Azure. See FileConnector for the appropriate arguments to provide.
