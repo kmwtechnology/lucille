@@ -256,8 +256,8 @@ public class WeaviateIndexerTest {
 
   @Test
   public void testDeletionSettingsAreRejected() {
-    assertThrows(IllegalArgumentException.class, () -> indexerWithConfig("deletionMarkerField: \"deleted\", deletionMarkerFieldValue: \"true\""));
-    assertThrows(IllegalArgumentException.class, () -> indexerWithConfig("deleteByFieldField: \"field\", deleteByFieldValue: \"value\""));
+    assertThrows(IllegalArgumentException.class, () -> indexerWithConfig("deletionMarker { field: \"deleted\", value: \"true\" }"));
+    assertThrows(IllegalArgumentException.class, () -> indexerWithConfig("deleteByQuery { fieldNameField: \"field\", valueField: \"value\" }, deletionMarker { field: \"deleted\", value: \"true\" }"));
   }
 
   private WeaviateIndexer indexerWithConfig(String extraConfig) {
