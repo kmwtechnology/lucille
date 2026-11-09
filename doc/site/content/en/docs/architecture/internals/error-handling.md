@@ -182,7 +182,7 @@ The exception propagates up to the Connector's `execute()` method, which becomes
 
 ## The Fail Topic (Dead-Letter Queue)
 
-When Lucille runs against Kafka (distributed or Hybrid mode), each pipeline has a corresponding **fail topic** — a dead-letter queue named `<pipeline>_fail` (for example, `pipeline1_fail`). Failed documents can be copied there so they can be inspected, reprocessed, or alerted on without blocking the main ingest. The fail topic holds only deserializable Documents; a record that could not be deserialized is never copied there (see [Undeserializable Record Handling]({{< relref "undeserializable-record-handling" >}})).
+When Lucille runs against Kafka (distributed or Hybrid mode), each pipeline has a corresponding **fail topic** — a dead-letter queue named `<pipeline>_fail` (for example, `pipeline1_fail`). Failed documents can be copied there so they can be inspected, reprocessed, or alerted on without blocking the main ingest. The fail topic holds only deserializable Documents; a record that could not be deserialized is never copied there.
 
 ### When documents are routed to the fail topic
 
