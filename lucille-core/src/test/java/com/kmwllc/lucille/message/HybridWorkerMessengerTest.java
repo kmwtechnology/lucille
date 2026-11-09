@@ -109,6 +109,22 @@ public class HybridWorkerMessengerTest {
   }
 
   @Test
+  public void testDroppedDocumentDoesNotStallCommits() throws Exception {
+    // offset 0 is dropped by the pipeline: polled, but never sent for indexing
+    String id = "doc-0-0";
+    KafkaDocument value = new KafkaDocument((ObjectNode) new ObjectMapper().readTree(Document.create(id, "run1").toString()));
+    consumer.addRecord(new ConsumerRecord<>(P0.topic(), P0.partition(), 0L, id, value));
+    messenger.pollDocToProcess();
+
+    KafkaDocument offset1 = poll(P0, 1);
+    KafkaDocument offset2 = poll(P0, 2);
+    messenger.batchCompleted(List.of(offset1, offset2));
+    messenger.commitPendingDocOffsets();
+
+    assertEquals(Long.valueOf(3L), committed(P0));
+  }
+
+  @Test
   public void testBatchesCompletedTogetherAreCommittedOnce() throws Exception {
     KafkaDocument offset0 = poll(P0, 0);
     KafkaDocument offset1 = poll(P0, 1);

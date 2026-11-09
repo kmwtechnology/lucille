@@ -149,6 +149,47 @@ public class HybridKafkaTest {
 
   }
 
+  /**
+   * A document the pipeline drops never reaches the Indexer, so no completed batch reports its offset. It must still not
+   * hold back the commit: once the documents after it are indexed, the committed offset should move past all three.
+   */
+  @Test
+  public void testDroppedDocumentDoesNotHoldBackTheCommit() throws Exception {
+    Config config = loadTestConfig("HybridKafkaTest/dropConfig.conf");
+    String topicName = config.getString("kafka.sourceTopic");
+    embeddedKafka.addTopics(new NewTopic(topicName, 1, (short) 1));
+
+    Document dropped = Document.create("doc1");
+    dropped.setField("drop", "true");
+    producer.send(new ProducerRecord<>(topicName, dropped.getId(), dropped.toString()));
+    sendDoc("doc2", topicName);
+    sendDoc("doc3", topicName);
+
+    WorkerIndexer workerIndexer = new WorkerIndexer();
+    Set<String> idSet = CounterUtils.getThreadSafeSet();
+    workerIndexer.start(config, "pipeline1", new LinkedBlockingQueue<>(), true, idSet);
+    TopicPartition topicPartition = new TopicPartition(topicName, 0);
+    Properties props = new Properties();
+    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
+    try (Admin kafkaAdminClient = Admin.create(props)) {
+      // doc2 and doc3 are indexed; doc1 is dropped
+      CounterUtils.waitUnique(idSet, 2);
+
+      // the worker commits after each poll, so a commit past offset 2 follows shortly
+      long committed = -1;
+      long deadline = System.currentTimeMillis() + 10000;
+      while (committed != 3 && System.currentTimeMillis() < deadline) {
+        OffsetAndMetadata offset = kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
+            .partitionsToOffsetAndMetadata().get().get(topicPartition);
+        committed = offset == null ? -1 : offset.offset();
+        Thread.sleep(100);
+      }
+      assertEquals("the dropped doc1 at offset 0 must not hold back the commit (-1: nothing committed)", 3, committed);
+    } finally {
+      workerIndexer.stop();
+    }
+  }
+
   @Test
   public void testRunInKafkaHybridModeWithEvents() throws Exception {
     // this config has "kafka.events: true"
