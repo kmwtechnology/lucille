@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.weaviate.indexer;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -279,6 +280,12 @@ public class WeaviateIndexerTest {
     Result<ObjectGetResponse[]> mockResponse = Mockito.mock(Result.class);
     when(mockObjectsBatcher.run()).thenReturn(mockResponse);
     when(mockResponse.getResult()).thenReturn(responses);
+  }
+
+  @Test
+  public void testDeletionSettingsAreRejected() {
+    assertThrows(IllegalArgumentException.class, () -> indexerWithConfig("deletionMarkerField: \"deleted\", deletionMarkerFieldValue: \"true\""));
+    assertThrows(IllegalArgumentException.class, () -> indexerWithConfig("deleteByFieldField: \"field\", deleteByFieldValue: \"value\""));
   }
 
   private WeaviateIndexer indexerWithConfig(String extraConfig) {

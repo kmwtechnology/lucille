@@ -11,7 +11,9 @@ import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.KafkaFuture;
+import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.junit.Test;
 
@@ -139,6 +141,30 @@ public class KafkaUtilsTest {
 
       Config directConfig = ConfigFactory.load("KafkaUtilsTest/producer-conf/direct.conf");
       assertTrue(KafkaUtils.createEventTopic(directConfig, "pipeline1", "run1"));
+    }
+  }
+
+  // a multi-broker cluster needs the event topic replicated, with min.insync.replicas, so it survives a broker loss
+  @Test
+  public void testCreateEventTopicReplicationAndMinInsyncReplicas() throws Exception {
+    try (MockedStatic<Admin> admin = Mockito.mockStatic(Admin.class)) {
+      KafkaFuture future = Mockito.mock(KafkaFuture.class);
+      CreateTopicsResult result = Mockito.mock(CreateTopicsResult.class);
+      Mockito.doReturn(future).when(result).all();
+
+      AdminClient adminClient = Mockito.mock(AdminClient.class);
+      ArgumentCaptor<List<NewTopic>> captor = ArgumentCaptor.forClass(List.class);
+      Mockito.doReturn(result).when(adminClient).createTopics(captor.capture(), Mockito.any());
+
+      admin.when(() -> Admin.create((Properties) Mockito.any())).thenReturn(adminClient);
+
+      Config config = ConfigFactory.parseString(BASE_KAFKA
+          + "kafka.eventTopicReplicationFactor: 3\nkafka.eventTopicMinInsyncReplicas: 2\n");
+      KafkaUtils.createEventTopic(config, "pipeline1", "run1");
+
+      NewTopic topic = captor.getValue().get(0);
+      assertEquals((short) 3, topic.replicationFactor());
+      assertEquals("2", topic.configs().get(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG));
     }
   }
 

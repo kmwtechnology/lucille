@@ -70,9 +70,7 @@ public class PineconeIndexer extends Indexer {
   public PineconeIndexer(Config config, IndexerContext context) throws IndexerException {
     super(config, context);
 
-    this.client = isBypass() ? null : new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
     this.indexName = config.getString("pinecone.index");
-    this.index = isBypass() ? null : client.getIndexConnection(indexName);
     this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;
     this.metadataFields = config.hasPath("pinecone.metadataFields")
         ? new HashSet<>(config.getStringList("pinecone.metadataFields")) : new HashSet<>();
@@ -84,9 +82,6 @@ public class PineconeIndexer extends Indexer {
     if (namespaces != null && namespaces.isEmpty()) {
       throw new IndexerException("Namespaces mapping must be non-empty if provided.");
     }
-    if (getIndexOverrideField() != null) {
-      throw new IndexerException("indexer.indexOverrideField is not supported by PineconeIndexer; use pinecone.namespaces instead.");
-    }
     // max upload batch is 2MB or 1000 records, whichever is reached first, so stopping run if batch size is set to more than 1000
     // larger dimensions will mean smaller batch size limit, letting API throw the error if encountered.
     if (this.getBatchCapacity() > MAX_PINECONE_BATCH_SIZE) {
@@ -94,10 +89,20 @@ public class PineconeIndexer extends Indexer {
           "Maximum batch size for Pinecone is 1000, and lower if vectors have higher dimensions. Set indexer batchSize config to"
               + "1000 or lower.");
     }
+
+    // opened last, so that an invalid config doesn't leave a connection open
+    this.client = isBypass() ? null : new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
+    this.index = isBypass() ? null : client.getIndexConnection(indexName);
   }
 
   @Override
   protected String getIndexerConfigKey() { return "pinecone"; }
+
+  // deletes by id only, and pinecone.namespaces takes the place of an index override
+  @Override
+  protected Set<String> getUnsupportedSettings() {
+    return Set.of("indexOverrideField", "deleteByFieldField");
+  }
 
   @Override
   protected boolean checkConnection() {
@@ -115,7 +120,7 @@ public class PineconeIndexer extends Indexer {
     Map<String, Document> deleteMap = new LinkedHashMap<>();
     Map<String, Document> uploadMap = new LinkedHashMap<>();
     for (Document doc : documents) {
-      String id = destinationId(doc);
+      String id = getDestinationId(doc);
       if (isDeletion(doc)) {
         // always add to deleteMap;
         // in the case where doc is in uploadMap and is now marked for deletion, then remove that document in uploadMap
@@ -169,7 +174,7 @@ public class PineconeIndexer extends Indexer {
           // buildUpsertVector would throw an error if embeddings is null,
           // should add dropDocument stage with stage conditions in pipeline before indexing
           .map(doc -> buildUpsertVectorWithUnsignedIndices(
-              destinationId(doc),
+              getDestinationId(doc),
               doc.getFloatList(embeddingField),
               null,
               null,
@@ -188,7 +193,7 @@ public class PineconeIndexer extends Indexer {
 
   private void deleteDocuments(List<Document> documents, String namespace) throws IndexerException {
     List<String> idsToDelete = documents.stream()
-          .map(this::destinationId)
+          .map(this::getDestinationId)
           .collect(Collectors.toList());
 
     try {
@@ -214,19 +219,13 @@ public class PineconeIndexer extends Indexer {
   private void updateDocuments(List<Document> documents, String embeddingField, String namespace) throws IndexerException {
     try {
       documents.forEach(doc -> {
-        log.debug("Updating docId: {} namespace: {} embedding: {}", destinationId(doc), namespace, doc.getFloatList(embeddingField));
+        log.debug("Updating docId: {} namespace: {} embedding: {}", getDestinationId(doc), namespace, doc.getFloatList(embeddingField));
         // does not validate the existence of IDs within the index, if no records are affected, a 200 OK status is returned
-        index.update(destinationId(doc), doc.getFloatList(embeddingField), namespace);
+        index.update(getDestinationId(doc), doc.getFloatList(embeddingField), namespace);
       });
     } catch (Exception e) {
       throw new IndexerException("Error while updating vectors.", e);
     }
-  }
-
-  // the id written to Pinecone: indexer.idOverrideField's value when configured and present, else the document id
-  private String destinationId(Document doc) {
-    String override = getDocIdOverride(doc);
-    return override != null ? override : doc.getId();
   }
 
   private boolean isDeletion(Document doc) {

@@ -1,0 +1,74 @@
+name: lucille-kafka-multibroker-smoketest
+
+# Three-broker KRaft cluster. Every broker is both a broker and a controller. The topics are replicated 3 ways with
+# min.insync.replicas=2, so the cluster keeps accepting acks=all writes after one broker is stopped.
+#
+# Two listeners per broker:
+#   INTERNAL (kafka-N:9092) for broker-to-broker traffic, and for commands run inside the containers.
+#   EXTERNAL (localhost:1909N) for Lucille, which runs on the host.
+x-broker-common: &broker-common
+  image: apache/kafka:4.2.0
+  environment: &broker-env
+    CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    KAFKA_PROCESS_ROLES: broker,controller
+    KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+    KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+    KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+    KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+    KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+    KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+    KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+    KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+    KAFKA_MIN_INSYNC_REPLICAS: 2
+
+services:
+  kafka-1:
+    <<: *broker-common
+    hostname: kafka-1
+    container_name: kafka-1
+    ports:
+      - 19092:29092
+    environment:
+      <<: *broker-env
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENERS: INTERNAL://:9092,EXTERNAL://:29092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-1:9092,EXTERNAL://localhost:19092
+    healthcheck:
+      test: ["CMD", "/opt/kafka/bin/kafka-broker-api-versions.sh", "--bootstrap-server", "kafka-1:9092"]
+      interval: 3s
+      timeout: 10s
+      retries: 60
+
+  kafka-2:
+    <<: *broker-common
+    hostname: kafka-2
+    container_name: kafka-2
+    ports:
+      - 19093:29092
+    environment:
+      <<: *broker-env
+      KAFKA_NODE_ID: 2
+      KAFKA_LISTENERS: INTERNAL://:9092,EXTERNAL://:29092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-2:9092,EXTERNAL://localhost:19093
+    healthcheck:
+      test: ["CMD", "/opt/kafka/bin/kafka-broker-api-versions.sh", "--bootstrap-server", "kafka-2:9092"]
+      interval: 3s
+      timeout: 10s
+      retries: 60
+
+  kafka-3:
+    <<: *broker-common
+    hostname: kafka-3
+    container_name: kafka-3
+    ports:
+      - 19094:29092
+    environment:
+      <<: *broker-env
+      KAFKA_NODE_ID: 3
+      KAFKA_LISTENERS: INTERNAL://:9092,EXTERNAL://:29092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-3:9092,EXTERNAL://localhost:19094
+    healthcheck:
+      test: ["CMD", "/opt/kafka/bin/kafka-broker-api-versions.sh", "--bootstrap-server", "kafka-3:9092"]
+      interval: 3s
+      timeout: 10s
+      retries: 60

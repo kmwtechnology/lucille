@@ -9,6 +9,7 @@ import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.Document;
@@ -30,9 +31,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
-import org.openapitools.control.client.model.IndexModel;
-import org.openapitools.control.client.model.IndexModelStatus;
-import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
+import org.openapitools.db_control.client.model.IndexModel;
+import org.openapitools.db_control.client.model.IndexModelStatus;
 
 public class EmitDocsToDeleteByPrefixTest {
 
@@ -46,7 +46,7 @@ public class EmitDocsToDeleteByPrefixTest {
     when(goodClient.getIndexConnection(anyString())).thenReturn(mock(Index.class));
     IndexModel goodModel = mock(IndexModel.class);
     IndexModelStatus goodStatus = mock(IndexModelStatus.class);
-    StateEnum goodState = StateEnum.READY;
+    String goodState = "Ready";
     when(goodModel.getStatus()).thenReturn(goodStatus);
     when(goodClient.describeIndex(anyString())).thenReturn(goodModel);
     when(goodStatus.getState()).thenReturn(goodState);
@@ -63,7 +63,7 @@ public class EmitDocsToDeleteByPrefixTest {
     when(mockClient.getIndexConnection(anyString())).thenReturn(mock(Index.class));
     IndexModel goodModel = mock(IndexModel.class);
     IndexModelStatus goodStatus = mock(IndexModelStatus.class);
-    StateEnum goodState = StateEnum.TERMINATING;
+    String goodState = "Terminating";
     when(goodModel.getStatus()).thenReturn(goodStatus);
     when(mockClient.describeIndex(anyString())).thenReturn(goodModel);
     when(goodStatus.getState()).thenReturn(goodState);
@@ -156,6 +156,8 @@ public class EmitDocsToDeleteByPrefixTest {
 
       // doc1 has been marked for delete but listing of prefix should return an empty list and will return null
       assertNull(stage.processDocument(doc1));
+      // with no namespaces configured, the stage lists from the default namespace
+      verify(mockIndex).list(eq(""), anyString());
     }
   }
 

@@ -11,11 +11,11 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.HybridWorkerMessenger;
 import com.kmwllc.lucille.message.KafkaWorkerMessenger;
 import com.kmwllc.lucille.message.MessengerException;
+import com.kmwllc.lucille.message.UndeserializableRecordException;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.util.LogUtils;
 import com.kmwllc.lucille.util.ThrowableUtils;
 import com.typesafe.config.Config;
-import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -182,10 +182,10 @@ class Worker implements Runnable {
           if (localRunId == null && doc != null) {
             MDC.put(RUNID_FIELD, doc.getRunId());
           }
-        } catch (RecordDeserializationException e) {
-          // already logged with the record's location by the messenger; the offsets of the records before it are
+        } catch (UndeserializableRecordException e) {
+          // already logged in full by the messenger; the offsets of the records before it are
           // committed below, so a restarted worker resumes at the bad record (or past it, if configured to skip)
-          log.error("Worker stopping: could not deserialize record {}@{}", e.topicPartition(), e.offset());
+          log.error("Worker stopping: {}", e.getMessage());
           failure = e;
           break;
         } catch (Exception e) {
