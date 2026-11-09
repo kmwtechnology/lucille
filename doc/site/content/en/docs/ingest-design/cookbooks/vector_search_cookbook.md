@@ -206,7 +206,7 @@ The `ChunkText` Stage splits a long text field into chunks and **attaches** each
 ```
 
 After chunking, each child document has:
-- `id`: `{parent_id}-{chunk_number}` (e.g., `doc-42-1`, `doc-42-2`, ...)
+- `id`: `{parent_id}-chunk-{chunk_number}` (e.g., `doc-42-chunk-1`, `doc-42-chunk-2`, ...)
 - `parent_id`: ID of the parent document
 - `chunk_number`: one-based index
 - `total_chunks`: total number of chunks from this parent
@@ -294,7 +294,7 @@ indexer {
 
 `EmitNestedChildren` leaves a deletion Document alone, because it has no children, so the Indexer receives it. The delete-by-query replaces the delete by ID: if you index the parent too (`dropParent: false`), copy its `id` into its own `parent_id` field so the same query deletes it.
 
-**Pinecone: delete by prefix.** Pinecone has no delete-by-query. Use [EmitDocsToDeleteByPrefix]({{< relref "docs/ingest-design/stages/emit_docs_to_delete_by_prefix" >}}) with `addPrefix: "-"` to delete every vector whose ID starts with `{parent_id}-`. The match is a plain prefix, so with parent IDs `doc-4` and `doc-4-12`, deleting `doc-4` also deletes the chunks of `doc-4-12`. Use parent IDs that cannot be extended this way.
+**Pinecone: delete by prefix.** Pinecone has no delete-by-query. Use [EmitDocsToDeleteByPrefix]({{< relref "docs/ingest-design/stages/emit_docs_to_delete_by_prefix" >}}) with `addPrefix: "-chunk-"` to delete every vector whose ID starts with `{parent_id}-chunk-`. The match is a plain prefix, but it can only reach another parent's chunks if parent IDs themselves contain `-chunk-`.
 
 **Weaviate** does not support deletion.
 
