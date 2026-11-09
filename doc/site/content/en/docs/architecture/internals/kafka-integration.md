@@ -123,13 +123,18 @@ This provides **ordering guarantees**: all messages with the same key go to the 
 
 ## Consumer Group Management
 
-Workers and Indexers join consumer groups to enable parallel consumption:
+Each kind of component has its own consumer group, so that one joining or leaving doesn't rebalance the others:
 
-```java
-consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, config.getString("kafka.consumerGroupId"));
-```
+| Component | Topic | Consumer group |
+|---|---|---|
+| Worker | Source | `kafka.consumerGroupId` |
+| Indexer (distributed mode) | Destination | `<kafka.consumerGroupId>-indexer` |
+| WorkerIndexer (hybrid mode) | Source | `kafka.consumerGroupId` |
+| Publisher | Event | None: it is assigned the event topic's single partition directly |
 
-All Workers for a pipeline share the same consumer group. Kafka distributes partitions among group members, so adding more Workers increases parallelism (up to the number of partitions).
+If the group ID comes from `kafka.consumerPropertiesPath` or `kafka.consumer`, the Indexer's group is that ID plus `-indexer`. On a cluster with ACLs, allow both groups.
+
+Members of a group share partitions, so adding more Workers increases parallelism (up to the number of partitions), and likewise for Indexers on the destination topic.
 
 Each consumer gets a unique client ID to avoid Kafka warnings:
 ```java
@@ -156,20 +161,15 @@ The standalone Indexer does not poll while it waits on a bulk request, so the sa
 
 ## Topic Creation
 
-The event topic is created explicitly with exactly **one partition**. Its replication factor and `min.insync.replicas` come from `kafka.eventTopicReplicationFactor` and `kafka.eventTopicMinInsyncReplicas`. The replication factor defaults to 1, and no `min.insync.replicas` is set unless configured. On a multi-broker cluster, set both so the event topic survives a broker loss:
+The event topic is created explicitly with exactly **one partition**. Its replication factor and `min.insync.replicas` come from `kafka.eventTopicReplicationFactor` and `kafka.eventTopicMinInsyncReplicas`. Both default to the broker's defaults (`default.replication.factor` and `min.insync.replicas`). On a multi-broker cluster whose defaults are too low for the event topic to survive a broker loss, set both:
 
 ```java
 public static boolean createEventTopic(Config config, String pipelineName, String runId) {
     String eventTopicName = KafkaUtils.getEventTopicName(config, pipelineName, runId);
 
-    // Single partition is critical for ordering. Replication comes from kafka.eventTopicReplicationFactor (default 1).
-    short replicationFactor = (short) (config.hasPath("kafka.eventTopicReplicationFactor")
-        ? config.getInt("kafka.eventTopicReplicationFactor") : 1);
-    NewTopic eventTopic = new NewTopic(eventTopicName, 1, replicationFactor);
-    if (config.hasPath("kafka.eventTopicMinInsyncReplicas")) {
-        eventTopic.configs(Map.of(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG,
-            String.valueOf(config.getInt("kafka.eventTopicMinInsyncReplicas"))));
-    }
+    // Single partition is critical for ordering
+    // The broker's default replication factor, unless kafka.eventTopicReplicationFactor is set
+    NewTopic eventTopic = newEventTopic(config, eventTopicName);
 
     try (Admin kafkaAdminClient = Admin.create(props)) {
         CreateTopicsResult result = kafkaAdminClient.createTopics(List.of(eventTopic));
@@ -313,22 +313,22 @@ All Kafka settings live under the `kafka` config prefix:
 | Config Key | Purpose | Required |
 |-----------|---------|----------|
 | `kafka.bootstrapServers` | Kafka broker addresses | Yes (unless using property files) |
-| `kafka.securityProtocol` | Security protocol (PLAINTEXT, SSL, SASL_SSL, etc.) | No |
-| `kafka.consumerGroupId` | Consumer group for Workers/Indexers | Yes |
+| `kafka.securityProtocol` | Security protocol (PLAINTEXT, SSL, SASL_SSL, etc.) for consumers, producers and the admin client, unless a property file is used for that client | No |
+| `kafka.consumerGroupId` | Consumer group for Workers. Indexers use this name plus `-indexer` | Yes |
 | `kafka.maxPollIntervalMs` | Max time between polls before rebalance | Yes |
 | `kafka.pollIntervalMs` | How long each consumer poll blocks waiting for records | No (default: 2000) |
 | `kafka.maxRequestSize` | Max message size in bytes | Yes |
 | `kafka.metadataMaxAgeMs` | Metadata cache TTL | No (default: 30000) |
 | `kafka.sourceTopic` | Override source topic name | No |
 | `kafka.eventTopic` | Override event topic name | No |
-| `kafka.eventTopicReplicationFactor` | Replication factor of the event topic Lucille creates | No (default: 1) |
-| `kafka.eventTopicMinInsyncReplicas` | `min.insync.replicas` of the event topic Lucille creates | No (default: not set) |
+| `kafka.eventTopicReplicationFactor` | Replication factor of the event topic Lucille creates | No (default: the broker's default) |
+| `kafka.eventTopicMinInsyncReplicas` | `min.insync.replicas` of the event topic Lucille creates | No (default: the broker's default) |
 | `kafka.events` | Enable/disable event production | No (default: true) |
 | `kafka.event.includeFields` | Source-document fields to copy onto events as `documentFields` (see [Enriching Events with Document Fields](#enriching-events-with-document-fields)) | No (default: none) |
 | `kafka.event.maxValuesPerField` | Max number of values copied from a multi-valued field (at least 1) | No (default: no cap) |
 | `kafka.event.maxValueLength` | Max length in characters of any copied string value (at least 1); fields with longer values are skipped | No (default: 1024) |
 | `kafka.documentSerializer` | Custom serializer class | No |
-| `kafka.documentDeserializer` | Custom deserializer class | No |
+| `kafka.documentDeserializer` | Custom deserializer class. It must return `KafkaDocument` instances and accept Lucille's native Document JSON, the format Workers publish to the destination topic. Extend `KafkaDocumentDeserializer` or wrap its result | No |
 | `kafka.consumerPropertiesPath` | Path to external consumer properties | No |
 | `kafka.producerPropertiesPath` | Path to external producer properties | No |
 | `kafka.adminPropertiesPath` | Path to external admin properties | No |

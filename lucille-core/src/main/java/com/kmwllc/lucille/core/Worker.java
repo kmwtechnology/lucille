@@ -387,11 +387,17 @@ class Worker implements Runnable {
   private void commitOffsetsAndRemoveCounter(Document doc) {
     try {
       messenger.commitPendingDocOffsets();
-      if (trackRetries && doc != null) {
-        counter.remove(doc);
-      }
     } catch (Exception commitException) {
       log.error("Error committing updated offsets for pending documents", commitException);
+    }
+    // The document was processed whether or not the commit succeeded. A count left behind could send a later, healthy
+    // redelivery of it to the dead letter queue.
+    if (trackRetries && doc != null) {
+      try {
+        counter.remove(doc);
+      } catch (Exception e) {
+        log.error("Error removing the retry count of document {}", doc.getId(), e);
+      }
     }
   }
 
