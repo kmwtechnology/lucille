@@ -1,6 +1,6 @@
 ---
 title: REST API
-weight: 7
+weight: 9
 date: 2025-06-09
 description: >
   HTTP REST API for managing Lucille configs and triggering runs without the CLI.
@@ -28,10 +28,49 @@ The API uses a Dropwizard YAML configuration file. An example config is provided
 ```bash
 java \
   -cp 'lucille-plugins/lucille-api/target/lucille-api-{version}.jar:lucille-plugins/lucille-api/target/lib/*' \
-  com.kmwllc.lucille.APIApplication server lucille-plugins/lucille-api/conf/api.yml
+  com.kmwllc.lucille.api.APIApplication server lucille-plugins/lucille-api/conf/api.yml
 ```
 
 The server listens on port `8080` by default. Swagger UI is available at `http://localhost:8080/swagger`.
+
+### Using a Plugin
+
+The `lucille-api` JAR bundles only `lucille-core`. 
+Lucille discovers indexer types from the classpath, so making a plugin indexer available to the API is just a matter of putting the plugin JAR on the classpath. 
+You can append the plugin's shaded JAR. Here is an example for OpenSearch:
+
+Build the plugin's shaded JAR first with the `shaded-plugin-jars` profile, e.g.:
+
+```bash
+mvn -pl lucille-plugins/lucille-opensearch,lucille-plugins/lucille-api -am -Pshaded-plugin-jars package -DskipTests
+```
+
+```bash
+java \
+  -cp 'lucille-plugins/lucille-api/target/lucille-api-{version}.jar:lucille-plugins/lucille-opensearch/target/lucille-opensearch-plugin.jar' \
+  com.kmwllc.lucille.APIApplication server lucille-plugins/lucille-api/conf/api.yml
+```
+---
+
+## Admin UI (optional)
+
+The `lucille-api` plugin has an optional React admin UI for browsing configs, starting runs, and
+watching run and system status in a browser. It ships as a separate jar, `lucille-admin-ui.jar`, and
+is served at `/admin` whenever that jar is on the API's classpath. The API jar itself never contains
+the UI, and a standard build does not need a Node toolchain.
+
+- **Without the UI**: run the API as shown above. `/admin` is not served.
+- **With the UI**: build with `-Padmin-ui` to also build the UI jar, and put it on the classpath next to the API jar.
+
+```bash
+mvn clean install -Pshaded-plugin-jars -Padmin-ui
+java -cp 'lucille-plugins/lucille-api/target/lucille-api-plugin.jar:lucille-plugins/lucille-api/lucille-admin-ui/target/lucille-admin-ui.jar' \
+  com.kmwllc.lucille.api.APIApplication server lucille-plugins/lucille-api/conf/api.yml
+```
+
+The released `lucille-api` Docker image includes both jars, so the UI is available out of the box.
+Maven users can add the `com.kmwllc:lucille-admin-ui` dependency (version managed by `lucille-bom`) alongside `lucille-api`.
+To work on the UI, run the API on its own and start the UI with `npm run dev`.
 
 ---
 

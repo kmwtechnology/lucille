@@ -1,5 +1,8 @@
 package com.kmwllc.lucille.stage;
 
+import java.util.List;
+import java.util.Map;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import org.junit.Test;
@@ -59,5 +62,26 @@ public class TruncateFieldTest {
     assertEquals("some string", doc.getString("source"));
     assertEquals("some ", doc.getString("destination"));
     assertEquals("doc1", doc.getString("id"));
+  }
+
+  @Test
+  public void testNullValues() throws Exception {
+    Stage stage = factory.get(Map.of("source", "f", "dest", "o", "maxLength", 2));
+
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"f\":null}");
+    stage.processDocument(doc);
+    assertFalse(doc.has("o"));
+
+    Document mixed = Document.createFromJson("{\"id\":\"1\",\"f\":[null,\"Hi There\"]}");
+    stage.processDocument(mixed);
+    assertEquals("Hi", mixed.getString("o"));
+  }
+
+  @Test
+  public void testAllValues() throws Exception {
+    Stage stage = factory.get(Map.of("source", "a", "maxLength", 3));
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"a\":[\"abcdef\",\"xy\"]}");
+    stage.processDocument(doc);
+    assertEquals(List.of("abc", "xy"), doc.getStringList("a"));
   }
 }

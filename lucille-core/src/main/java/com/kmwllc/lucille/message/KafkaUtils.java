@@ -3,23 +3,35 @@ package com.kmwllc.lucille.message;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.EventFieldConfig;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigUtil;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import org.apache.kafka.clients.CommonClientConfigs;
-import org.apache.kafka.clients.admin.*;
+import org.apache.kafka.clients.admin.Admin;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.CreateTopicsOptions;
+import org.apache.kafka.clients.admin.CreateTopicsResult;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.KafkaFuture;
+import org.apache.kafka.common.config.TopicConfig;
+import org.apache.kafka.common.errors.RecordTooLargeException;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -36,11 +48,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Utilities for interacting with Kafka: creating Kafka clients, determining Kafka topic names, etc.
- *  TODO: add config option for cleaning up kafka topics at end of run
- *  prepend run id to each topic name
- *  add separate config option to leave failure topic around
- *  consider adding all failed documents to the failure topic
- *  add ability to override names of any kafka topic in the config
  *
  *  s3 (Map, Optional) : If your property files are held in S3. See FileConnector for the appropriate arguments to provide.
  *  azure (Map, Optional) : If your property files are held in Azure. See FileConnector for the appropriate arguments to provide.
@@ -48,16 +55,23 @@ import org.slf4j.LoggerFactory;
  */
 public class KafkaUtils {
 
-  public static Spec SPEC = SpecBuilder.withoutDefaults()
+  // Appended to the Workers' consumer group to name the standalone Indexer's
+  static final String INDEXER_GROUP_SUFFIX = "-indexer";
+
+  public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .requiredString("bootstrapServers", "consumerGroupId")
-      .requiredNumber("maxPollIntervalSecs", "maxRequestSize")
-      .optionalString("documentSerializer", "documentDeserializer", "events", "consumerPropertyFile",
-          "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic",
+      .requiredNumber("maxPollIntervalMs", "maxRequestSize")
+      .optionalBoolean("events")
+      .optionalString("documentSerializer", "documentDeserializer", "consumerPropertiesPath",
+          "producerPropertiesPath", "adminPropertiesPath", "securityProtocol", "sourceTopic", "eventTopic",
           "onDeserializationError")
-      .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors")
+      .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors",
+          "eventTopicReplicationFactor", "eventTopicMinInsyncReplicas")
       .optionalParent("consumer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("producer", new TypeReference<Map<String, Object>>(){})
-      .optionalParent("admin", new TypeReference<Map<String, Object>>(){}).build();
+      .optionalParent("admin", new TypeReference<Map<String, Object>>(){})
+      // controls optional enrichment of lifecycle events with source-document fields; see EventFieldConfig
+      .optionalParent("event", EventFieldConfig.SPEC).build();
 
   /** Default for <code>kafka.pollIntervalMs</code>: how long a consumer poll blocks waiting for records. */
   public static final int DEFAULT_POLL_INTERVAL_MS = 2000;
@@ -73,9 +87,7 @@ public class KafkaUtils {
    * @throws IllegalArgumentException if <code>kafka.pollIntervalMs</code> is not positive.
    */
   public static Duration getPollInterval(Config config) {
-    int pollIntervalMs = config.hasPath("kafka.pollIntervalMs")
-        ? config.getInt("kafka.pollIntervalMs")
-        : DEFAULT_POLL_INTERVAL_MS;
+    int pollIntervalMs = ConfigUtils.getIntOrDefault(config, "kafka.pollIntervalMs", DEFAULT_POLL_INTERVAL_MS);
     if (pollIntervalMs <= 0) {
       throw new IllegalArgumentException("kafka.pollIntervalMs must be positive, got " + pollIntervalMs);
     }
@@ -96,34 +108,56 @@ public class KafkaUtils {
    * Merges, into the provided <code>Properties</code>, the key-value pairs that are found in the given <code>config</code>
    * under the provided <code>keyPath</code>. If <code>config</code> has the <code>keyPath</code>, it should map to an object
    * with the arbitrary property mappings.
+   *
+   * <p>Kafka property names contain dots, and HOCON reads an unquoted dotted key (<code>linger.ms: 0</code>) as a nested
+   * object (<code>linger { ms: 0 }</code>), while a quoted key (<code>"linger.ms": 0</code>) stays a single key whose
+   * path expression keeps the quotes. Both forms, and any mix of them, are mapped to the plain dotted property name
+   * the Kafka client expects. Keys are passed through as given; the Kafka client itself logs any it does not use.
+   *
    * @param props Kafka properties.
    * @param config Kafka config.
    * @param keyPath A path in the kafka config ("kafka.consumer", for example) that contains additional, arbitrary properties.
-   * @throws IllegalArgumentException In the event the config at <code>keyPath</code> contains a value list
+   * @throws IllegalArgumentException if a value is a list, or if two spellings of one key (quoted and unquoted)
+   * have different values.
    */
   private static void mergeConfigProps(Properties props, Config config, String keyPath) {
     if (!config.hasPath(keyPath)) {
       return;
     }
 
-    Config propsConfig = config.getConfig(keyPath);
-
-    for (Entry<String, ConfigValue> entry : propsConfig.entrySet()) {
-      String propKey = entry.getKey();
+    Map<String, Object> merged = new HashMap<>();
+    // entrySet() flattens nested objects into leaf paths and omits nulls, so each value is a scalar or a list.
+    for (Entry<String, ConfigValue> entry : config.getConfig(keyPath).entrySet()) {
+      String propKey = String.join(".", ConfigUtil.splitPath(entry.getKey()));
       ConfigValue value = entry.getValue();
 
-      // NOTE: we don't prevent ConfigValueType.OBJECT here, for two reasons:
-      // 1. many Kafka properties include ".", like "security.protocol". With HOCON, writing 'security.protocol: "ssl"'
-      //    is equivalent to writing security: { protocol: "ssl" }
-      // 2. the library does not distinguish between using dot notation / an object - even if we were to use "getParent"
-      //    like we do in Spec.validate(), we would struggle to achieve our desired outcome here.
-      // We also do not include ConfigValueType.NULL here, as entrySet excludes them.
       if (value.valueType() == ConfigValueType.LIST) {
         throw new IllegalArgumentException(String.format("Cannot use list for Kafka property (key %s)", propKey));
       }
 
-      props.put(propKey, value.unwrapped());
+      // compare as strings: a substitution or env var yields a String, a literal an Integer, and Kafka parses both
+      Object previous = merged.putIfAbsent(propKey, value.unwrapped());
+      if (previous != null && !String.valueOf(previous).equals(String.valueOf(value.unwrapped()))) {
+        throw new IllegalArgumentException(String.format(
+            "Kafka property %s is set twice under %s with different values (%s and %s); quoted and unquoted "
+                + "spellings of a dotted key name the same property.", propKey, keyPath, previous, value.unwrapped()));
+      }
     }
+
+    props.putAll(merged);
+  }
+
+  /**
+   * Returns the max.poll.interval.ms the document consumer built from this config resolves to: from
+   * <code>kafka.maxPollIntervalMs</code>, a <code>kafka.consumerPropertiesPath</code>, or a
+   * <code>kafka.consumer.max.poll.interval.ms</code> override, else the kafka-clients default.
+   */
+  static Duration getMaxPollInterval(Config config) {
+    Object value = createConsumerProps(config, "max-poll-interval").get(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG);
+    if (value == null) {
+      value = ConsumerConfig.configDef().defaultValues().get(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG);
+    }
+    return Duration.ofMillis(Long.parseLong(value.toString().trim()));
   }
 
   //access set to public so KafkaConnector can create consumer props from config.
@@ -131,8 +165,8 @@ public class KafkaUtils {
   public static Properties createConsumerProps(Config config, String clientId) {
     Properties props;
 
-    if (config.hasPath("kafka.consumerPropertyFile")) {
-      props = loadExternalProps(config.getString("kafka.consumerPropertyFile"), config);
+    if (config.hasPath("kafka.consumerPropertiesPath")) {
+      props = loadExternalProps(config.getString("kafka.consumerPropertiesPath"), config);
       props.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
     } else {
       props = new Properties();
@@ -145,7 +179,7 @@ public class KafkaUtils {
 
       props.put(ConsumerConfig.GROUP_ID_CONFIG, config.getString("kafka.consumerGroupId"));
       props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-      props.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 1000 * config.getInt("kafka.maxPollIntervalSecs"));
+      props.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, config.getInt("kafka.maxPollIntervalMs"));
       props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1);
       props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
       props.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
@@ -163,51 +197,110 @@ public class KafkaUtils {
    * @param config - A config object containing Kafka properties. These will be used to configure the consumer. The provided config object can be used to configure the following kafka consumer settings:
    *               - kafka.bootstrapServers - The bootstrap servers to use for connecting to Kafka.
    *               - kafka.securityProtocol - The security protocol to use when connecting to Kafka.
-   *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the event topic.
-   *               - kafka.maxPollIntervalSecs - The maximum amount of time in seconds that the consumer will wait when polling for new messages from Kafka.
+   *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the topic.
+   *               - kafka.maxPollIntervalMs - The maximum time in milliseconds allowed between polls before the consumer is evicted from its consumer group (also the rebalance timeout).
    *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata about topics and partitions..
    *               - kafka.documentDeserializer - The deserializer class to use when deserializing documents. Defaults to KafkaDocumentDeserializer.
+   *                 It must return {@link KafkaDocument} instances, which is how Workers and Indexers read a record's topic,
+   *                 partition and offset, and must accept Lucille's native Document JSON, the format Workers publish to the
+   *                 destination topic. Extend {@link KafkaDocumentDeserializer} or wrap its result.
    * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
-   * @return A Kafka consumer for events. The provided Consumer will *not* be configured to commit offsets automatically. The caller is responsible for committing offsets after processing documents.
+   * @return A Kafka consumer for documents. Auto-commit must be disabled: offsets are committed by the caller once a
+   *         batch has completed (at-least-once), not automatically at poll time. This method validates that
+   *         {@code enable.auto.commit} resolves to {@code false} and throws {@link IllegalArgumentException} if it is
+   *         enabled or left unset (kafka-clients defaults it to {@code true}). See {@link #requireAutoCommitDisabled}.
    */
   public static KafkaConsumer<String, KafkaDocument> createDocumentConsumer(Config config, String clientId) {
-    Properties consumerProps = createConsumerProps(config, clientId);
-    String deserializerClass = config.hasPath("kafka.documentDeserializer")
-        ? config.getString("kafka.documentDeserializer")
-        : KafkaDocumentDeserializer.class.getName();
+    return createDocumentConsumer(createConsumerProps(config, clientId), config);
+  }
+
+  /**
+   * Creates a Kafka consumer for documents as {@link #createDocumentConsumer(Config, String)} does, in the standalone
+   * Indexer's own consumer group, so that Workers joining or leaving their group don't rebalance the Indexer, and vice
+   * versa.
+   *
+   * @param config - A config object containing Kafka properties.
+   * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
+   * @return A Kafka consumer for documents, in the Indexer's consumer group.
+   */
+  public static KafkaConsumer<String, KafkaDocument> createIndexerDocumentConsumer(Config config, String clientId) {
+    return createDocumentConsumer(createIndexerConsumerProps(config, clientId), config);
+  }
+
+  // access set to package so unit tests can validate created properties without initializing a Consumer
+  static Properties createIndexerConsumerProps(Config config, String clientId) {
+    Properties props = createConsumerProps(config, clientId);
+    // the Workers' group, wherever it was set: kafka.consumerGroupId, a property file or kafka.consumer
+    String workersGroup = props.getProperty(ConsumerConfig.GROUP_ID_CONFIG);
+    if (workersGroup != null) {
+      props.put(ConsumerConfig.GROUP_ID_CONFIG, workersGroup + INDEXER_GROUP_SUFFIX);
+    }
+    return props;
+  }
+
+  private static KafkaConsumer<String, KafkaDocument> createDocumentConsumer(Properties consumerProps, Config config) {
+    requireAutoCommitDisabled(consumerProps);
+    String deserializerClass = ConfigUtils.getStringOrDefault(config, "kafka.documentDeserializer", KafkaDocumentDeserializer.class.getName());
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deserializerClass);
     return new KafkaConsumer<>(consumerProps);
   }
 
   /**
-   * Creates a Kafka consumer for events. The created consumer will be configured to commit offsets automatically. This is to avoid
-   * the impact on throughput from synchronously committing offsets for every event processed or the impact on kafka resources from commits stacking on top of each
-   * other from asynchronsly committing offsets for every event processed.
+   * Fails fast unless the document consumer has auto-commit explicitly disabled. The indexer commits destination-topic
+   * offsets only once a batch has completed (at-least-once); auto-commit would instead commit at poll time, before the
+   * documents are indexed, so a crash would skip them (at-most-once).
    *
+   * <p> It is not enough to reject an explicit {@code true}: kafka-clients defaults {@code enable.auto.commit} to
+   * {@code true} when it is unset, so an absent value is just as unsafe as an explicit {@code true}. The non-property-file
+   * path sets it to {@code false} here, but a {@code kafka.consumerPropertiesPath} that omits it (or a
+   * {@code kafka.consumer.enable.auto.commit} override) would otherwise auto-commit at poll. So this requires the
+   * resolved value to be present and {@code false}.
+   */
+  private static void requireAutoCommitDisabled(Properties consumerProps) {
+    Object autoCommit = consumerProps.get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG);
+    // Absent is unsafe: kafka-clients defaults enable.auto.commit to true. Require it to be present and explicitly false.
+    if (autoCommit == null || Boolean.parseBoolean(autoCommit.toString().trim())) {
+      throw new IllegalArgumentException(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + " must be set to false for the "
+          + "indexer's document consumer: offsets are committed on batch completion, and auto-commit would commit them "
+          + "at poll time (before indexing), which could skip documents on a crash. It is "
+          + (autoCommit == null ? "unset (kafka-clients defaults it to true)" : "set to " + autoCommit)
+          + "; set " + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + "=false (e.g. in kafka.consumerPropertiesPath or via "
+          + "kafka.consumer." + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + ").");
+    }
+  }
+
+  /**
+   * Creates a Kafka consumer for events. The consumer belongs to no consumer group and commits no offsets: it reads a
+   * partition assigned to it directly, so that starting and ending a run doesn't rebalance the Workers and Indexers.
    *
-   * @param config - A config object containing Kafka properties. These will be used to configure the consumer. The provided config object can be used to configure the following kafka consumer settings:
+   * @param config - A config object containing Kafka properties. These will be used to configure the consumer. The provided config
+   *               should contain the following:
    *               - kafka.bootstrapServers - The bootstrap servers to use for connecting to Kafka.
    *               - kafka.securityProtocol - The security protocol to use when connecting to Kafka.
-   *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the event topic.
-   *               - kafka.maxPollIntervalSecs - The maximum amount of time in seconds that the consumer will wait when polling for new messages from Kafka.
-   *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata about topics and partitions..
+   *               - kafka.maxPollIntervalMs - The maximum time in milliseconds allowed between polls.
+   *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata for.
    * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
-   * @return A Kafka consumer for events. The provided Consumer will *always* be configured to commit offsets automatically.
+   * @return A Kafka consumer for events, which must be given its partition with {@code assign()}.
    */
   public static KafkaConsumer<String, String> createEventConsumer(Config config, String clientId) {
-    Properties consumerProps = createConsumerProps(config, clientId);
+    return new KafkaConsumer<>(createEventConsumerProps(config, clientId));
+  }
 
-    consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
+  // access set to package so unit tests can validate created properties without initializing a Consumer
+  static Properties createEventConsumerProps(Config config, String clientId) {
+    Properties consumerProps = createConsumerProps(config, clientId);
+    consumerProps.remove(ConsumerConfig.GROUP_ID_CONFIG);
+    consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-    return new KafkaConsumer<>(consumerProps);
+    return consumerProps;
   }
 
   //access set to package so unit tests can validate created properties without initializing a Producer
   static Properties createProducerProps(Config config) {
     Properties producerProps;
 
-    if (config.hasPath("kafka.producerPropertyFile")) {
-      producerProps = loadExternalProps(config.getString("kafka.producerPropertyFile"), config);
+    if (config.hasPath("kafka.producerPropertiesPath")) {
+      producerProps = loadExternalProps(config.getString("kafka.producerPropertiesPath"), config);
     } else {
       producerProps = new Properties();
 
@@ -242,9 +335,7 @@ public class KafkaUtils {
 
   public static KafkaProducer<String, Document> createDocumentProducer(Config config) {
     Properties producerProps = createProducerProps(config);
-    String serializerClass = config.hasPath("kafka.documentSerializer")
-        ? config.getString("kafka.documentSerializer")
-        : KafkaDocumentSerializer.class.getName();
+    String serializerClass = ConfigUtils.getStringOrDefault(config, "kafka.documentSerializer", KafkaDocumentSerializer.class.getName());
     producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, serializerClass);
     return new KafkaProducer<>(producerProps);
   }
@@ -299,10 +390,79 @@ public class KafkaUtils {
     return pipelineName + "_fail";
   }
 
-  public static void validateAtMostOneRecord(ConsumerRecords<?, ?> consumerRecords) throws Exception {
-    if (consumerRecords.count() > 1) {
-      throw new Exception("Kafka poll returned more than 1 message but this shouldn't happen");
+  /**
+   * Whether a Worker running with the given config can send documents to the fail topic: when
+   * worker.sendFailedDocsToTopic is set, or when worker.maxRetries is, since a document that exhausts its retries always
+   * goes there. A messenger only needs a document producer for the fail topic in those cases.
+   */
+  public static boolean workerFailTopicEnabled(Config config) {
+    return ConfigUtils.getBooleanOrDefault(config, "worker.sendFailedDocsToTopic", false) || config.hasPath("worker.maxRetries");
+  }
+
+  /**
+   * Whether an Indexer running with the given config can send documents to the fail topic.
+   */
+  public static boolean indexerFailTopicEnabled(Config config) {
+    return ConfigUtils.getBooleanOrDefault(config, "indexer.sendFailedDocsToTopic", false);
+  }
+
+  /**
+   * Sends the document to the pipeline's fail topic, blocking until the broker acknowledges it so that the write is
+   * durable before the caller goes on to commit the document's offset.
+   */
+  static void sendToFailTopic(Producer<String, Document> producer, String pipelineName, Document document)
+      throws MessengerException {
+    if (producer == null) {
+      throw new IllegalStateException("Sending document " + document.getId() + " to the fail topic, which is not enabled");
     }
+    ProducerRecord<String, Document> producerRecord =
+        new ProducerRecord<>(getFailTopicName(pipelineName), document.getId(), document);
+    try {
+      producer.send(producerRecord).get();
+    } catch (ExecutionException e) {
+      throw toMessengerException("Sending document " + document.getId() + " to the fail topic", e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Sending document " + document.getId() + " to the fail topic was interrupted", e);
+    }
+  }
+
+  public static void validateAtMostOneRecord(ConsumerRecords<?, ?> consumerRecords) {
+    if (consumerRecords.count() > 1) {
+      throw new IllegalStateException("Kafka poll returned more than 1 message but this shouldn't happen");
+    }
+  }
+
+  // access set to package so unit tests can validate created properties without initializing an Admin
+  static Properties createAdminProps(Config config) {
+    Properties adminProps;
+    if (config.hasPath("kafka.adminPropertiesPath")) {
+      adminProps = loadExternalProps(config.getString("kafka.adminPropertiesPath"), config);
+    } else {
+      adminProps = new Properties();
+      adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
+
+      if (config.hasPath("kafka.securityProtocol")) {
+        adminProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, config.getString("kafka.securityProtocol"));
+      }
+    }
+
+    mergeConfigProps(adminProps, config, "kafka.admin");
+    return adminProps;
+  }
+
+  // The event topic takes the broker's default replication factor unless configured, since a cluster may reject a
+  // replication factor lower than it requires, and a replication factor of 1 would not survive the loss of a broker.
+  // access set to package so unit tests can validate the topic without creating it
+  static NewTopic newEventTopic(Config config, String eventTopicName) {
+    Optional<Short> replicationFactor = config.hasPath("kafka.eventTopicReplicationFactor")
+        ? Optional.of((short) config.getInt("kafka.eventTopicReplicationFactor"))
+        : Optional.empty();
+    NewTopic eventTopic = new NewTopic(eventTopicName, Optional.of(1), replicationFactor);
+    if (config.hasPath("kafka.eventTopicMinInsyncReplicas")) {
+      eventTopic.configs(Map.of(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, config.getString("kafka.eventTopicMinInsyncReplicas")));
+    }
+    return eventTopic;
   }
 
   /**
@@ -321,18 +481,8 @@ public class KafkaUtils {
     // could mean that child creation events arrive after parent completion events, which could
     // interfere with the publisher's logic for determining when the run is complete
 
-    Properties adminProps;
-    if (config.hasPath("kafka.adminPropertyFile")) {
-      adminProps = loadExternalProps(config.getString("kafka.adminPropertyFile"), config);
-    } else {
-      adminProps = new Properties();
-      adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
-    }
-
-    mergeConfigProps(adminProps, config, "kafka.admin");
-
-    try (Admin kafkaAdminClient = Admin.create(adminProps)) {
-      NewTopic eventTopic = new NewTopic(eventTopicName, 1, (short) 1);
+    try (Admin kafkaAdminClient = Admin.create(createAdminProps(config))) {
+      NewTopic eventTopic = newEventTopic(config, eventTopicName);
       CreateTopicsResult result = kafkaAdminClient.createTopics(List.of(eventTopic), new CreateTopicsOptions());
       KafkaFuture<Void> future = result.all();
       future.get();
@@ -345,5 +495,18 @@ public class KafkaUtils {
     }
 
     return true;
+  }
+  /**
+   * Wraps the failure of a producer send as a {@link MessengerException}, with the Kafka error behind the
+   * ExecutionException as the cause. A RecordTooLargeException is marked as specific to the record: the broker
+   * rejected this one record and the producer is fine for the next; every other error (timeout, authorization, broker
+   * unavailable) is not.
+   *
+   * @param action What was being sent, for the message (e.g. "Sending document x for indexing").
+   * @param e The exception thrown by waiting on the send's future.
+   */
+  public static MessengerException toMessengerException(String action, ExecutionException e) {
+    Throwable cause = e.getCause() != null ? e.getCause() : e;
+    return new MessengerException(action + " failed: " + cause, cause, cause instanceof RecordTooLargeException);
   }
 }

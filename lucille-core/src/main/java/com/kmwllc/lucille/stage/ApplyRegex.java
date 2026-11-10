@@ -1,7 +1,11 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.kmwllc.lucille.core.*;
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.StageUtils;
@@ -118,12 +122,13 @@ public class ApplyRegex extends Stage {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField)) {
+      List<String> values = StageUtils.getNonNullStrings(doc, sourceField);
+      if (values.isEmpty()) {
         continue;
       }
 
       List<String> outputValues = new ArrayList<>();
-      for (String value : doc.getStringList(sourceField)) {
+      for (String value : values) {
         Matcher matcher = pattern.matcher(value);
         int group = matcher.groupCount() > 0 ? 1 : 0;
 

@@ -23,8 +23,8 @@ import com.google.cloud.storage.contrib.nio.testing.LocalStorageHelper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
-import com.kmwllc.lucille.core.fileHandler.FileHandler;
-import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
+import com.kmwllc.lucille.core.filehandler.FileHandler;
+import com.kmwllc.lucille.core.filehandler.JsonFileHandler;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -36,6 +36,7 @@ import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -49,7 +50,7 @@ public class GoogleStorageClientTest {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "invalidPath"));
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
 
-    assertThrows(IOException.class, googleStorageClient::init);
+    assertThrows(IOException.class, googleStorageClient::start);
   }
 
   @Test
@@ -110,7 +111,7 @@ public class GoogleStorageClientTest {
     assertEquals("3", documents.get(2).getString("file_size_bytes"));
 
     // closes storage too
-    googleStorageClient.shutdown();
+    googleStorageClient.stop();
   }
 
   @Test
@@ -138,7 +139,7 @@ public class GoogleStorageClientTest {
     assertFalse(documents.get(0).has(CONTENT));
 
     // closes storage too
-    googleStorageClient.shutdown();
+    googleStorageClient.stop();
   }
 
   @Test
@@ -179,7 +180,7 @@ public class GoogleStorageClientTest {
     assertEquals("gs://bucket/my-object", documents.get(1).getString(FILE_PATH));
 
     // closes storage too
-    googleStorageClient.shutdown();
+    googleStorageClient.stop();
   }
 
   @Test
@@ -225,7 +226,7 @@ public class GoogleStorageClientTest {
     }
 
     // closes storage too
-    gStorageClient.shutdown();
+    gStorageClient.stop();
   }
 
   @Test
@@ -283,15 +284,15 @@ public class GoogleStorageClientTest {
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar
     Document doc1 = docs.get(0);
-    assertEquals("default.csv-1", doc1.getId());
+    assertEquals(DigestUtils.md5Hex(doc1.getString("source")) + "-1", doc1.getId());
     assertEquals("default.csv", doc1.getString("filename"));
     assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc1.getString("source"));
     Document doc2 = docs.get(1);
-    assertEquals("default.csv-2", doc2.getId());
+    assertEquals(DigestUtils.md5Hex(doc2.getString("source")) + "-2", doc2.getId());
     assertEquals("default.csv", doc2.getString("filename"));
     assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc2.getString("source"));
     Document doc3 = docs.get(2);
-    assertEquals("default.csv-3", doc3.getId());
+    assertEquals(DigestUtils.md5Hex(doc3.getString("source")) + "-3", doc3.getId());
     assertEquals("default.csv", doc3.getString("filename"));
     assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc3.getString("source"));
     Document doc4 = docs.get(3);
@@ -311,15 +312,15 @@ public class GoogleStorageClientTest {
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar.gz
     Document doc9 = docs.get(8);
-    assertEquals("default.csv-1", doc9.getId());
+    assertEquals(DigestUtils.md5Hex(doc9.getString("source")) + "-1", doc9.getId());
     assertEquals("default.csv", doc9.getString("filename"));
     assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc9.getString("source"));
     Document doc10 = docs.get(9);
-    assertEquals("default.csv-2", doc10.getId());
+    assertEquals(DigestUtils.md5Hex(doc10.getString("source")) + "-2", doc10.getId());
     assertEquals("default.csv", doc10.getString("filename"));
     assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc10.getString("source"));
     Document doc11 = docs.get(10);
-    assertEquals("default.csv-3", doc11.getId());
+    assertEquals(DigestUtils.md5Hex(doc11.getString("source")) + "-3", doc11.getId());
     assertEquals("default.csv", doc11.getString("filename"));
     assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc11.getString("source"));
     Document doc12 = docs.get(11);
@@ -332,15 +333,15 @@ public class GoogleStorageClientTest {
     assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "FolderWithFooTxt/foo.txt", doc14.getString(FILE_PATH));
     // check documents published from zipped.csv.zip
     Document doc15 = docs.get(14);
-    assertEquals("zipped.csv-1", doc15.getId());
+    assertEquals(DigestUtils.md5Hex(doc15.getString("source")) + "-1", doc15.getId());
     assertEquals("zipped.csv", doc15.getString("filename"));
     assertEquals("gs://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc15.getString("source"));
     Document doc16 = docs.get(15);
-    assertEquals("zipped.csv-2", doc16.getId());
+    assertEquals(DigestUtils.md5Hex(doc16.getString("source")) + "-2", doc16.getId());
     assertEquals("zipped.csv", doc16.getString("filename"));
     assertEquals("gs://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc16.getString("source"));
     Document doc17 = docs.get(16);
-    assertEquals("zipped.csv-3", doc17.getId());
+    assertEquals(DigestUtils.md5Hex(doc17.getString("source")) + "-3", doc17.getId());
     assertEquals("zipped.csv", doc17.getString("filename"));
     assertEquals("gs://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc17.getString("source"));
     // check documents published from zippedFolder.zip
@@ -352,7 +353,7 @@ public class GoogleStorageClientTest {
 
 
     // closes storage too
-    googleStorageClient.shutdown();
+    googleStorageClient.stop();
   }
 
   @Test
@@ -409,7 +410,7 @@ public class GoogleStorageClientTest {
     assertEquals("World!", new String(storage.get(movedBlobId3).getContent()));
     assertEquals("foo", new String(storage.get(movedBlobId4).getContent()));
 
-    googleStorageClient.shutdown();
+    googleStorageClient.stop();
 
     assertEquals(4, messenger.getDocsSentForProcessing().size());
   }
@@ -464,7 +465,7 @@ public class GoogleStorageClientTest {
     assertEquals("World!", new String(storage.get(movedBlobId3).getContent()));
     assertEquals("foo", new String(storage.get(movedBlobId4).getContent()));
 
-    googleStorageClient.shutdown();
+    googleStorageClient.stop();
 
     assertEquals(4, messenger.getDocsSentForProcessing().size());
   }
@@ -486,7 +487,7 @@ public class GoogleStorageClientTest {
 
     assertEquals("Hello there.", new String(results.readAllBytes()));
 
-    storageClient.shutdown();
+    storageClient.stop();
   }
 
 
@@ -521,7 +522,7 @@ public class GoogleStorageClientTest {
     assertEquals(1, docs.size());
     assertEquals("gs://bucket/root-file.txt", docs.get(0).getString(FILE_PATH));
 
-    googleStorageClient.shutdown();
+    googleStorageClient.stop();
   }
 
   @Test
@@ -555,7 +556,7 @@ public class GoogleStorageClientTest {
     assertEquals(1, docs.size());
     assertEquals("gs://bucket/root-file.txt", docs.get(0).getString(FILE_PATH));
 
-    googleStorageClient.shutdown();
+    googleStorageClient.stop();
   }
 
   // ** NOTE: There is not a test for the lastModifiedCutoff here. Unfortunately, there doesn't appear to be an easy way
@@ -582,5 +583,120 @@ public class GoogleStorageClientTest {
     }
 
     return fileBytesMap;
+  }
+
+  // Object names that aren't valid in a URI (space, '%', '[', '#') used to abort the traversal. They are now published,
+  // and the published path round-trips to the object for content fetches.
+  @Test
+  public void testSpecialCharacterNamesRoundTrip() throws Exception {
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
+    TraversalParams params = new TraversalParams(ConfigFactory.empty(), URI.create("gs://special/"), "");
+
+    Map<String, String> objects = Map.of(
+        "folder with space/a b.txt", "spaced",
+        "100%[x]#.txt", "special",
+        "plain.txt", "plain");
+    objects.forEach((name, content) -> storage.create(BlobInfo.newBuilder(BlobId.of("special", name)).build(), content.getBytes()));
+
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+    googleStorageClient.traverse(publisher, params);
+
+    List<Document> documents = messenger.getDocsSentForProcessing();
+    assertEquals(3, documents.size());
+
+    for (Document doc : documents) {
+      URI published = new URI(doc.getString(FILE_PATH));
+      String name = published.getPath().substring(1);
+      assertTrue(objects.containsKey(name));
+      assertEquals(objects.get(name), new String(googleStorageClient.getFileContentStream(published).readAllBytes()));
+    }
+  }
+
+  @Test
+  public void testMoveFileFolderWithoutTrailingSlash() throws Exception {
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+    storage.create(BlobInfo.newBuilder(BlobId.of("moves", "data/a.csv")).build(), "a".getBytes());
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+
+    googleStorageClient.moveFile(URI.create("gs://moves/data/a.csv"), URI.create("gs://moves/processed"));
+
+    assertNull(storage.get(BlobId.of("moves", "data/a.csv")));
+    assertNull(storage.get(BlobId.of("moves", "processeddata/a.csv")));
+    assertEquals("a", new String(storage.get(BlobId.of("moves", "processed/data/a.csv")).getContent()));
+  }
+
+  @Test
+  public void testMoveFileFolderWithTrailingSlash() throws Exception {
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+    storage.create(BlobInfo.newBuilder(BlobId.of("moves-slash", "data/a.csv")).build(), "a".getBytes());
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+
+    googleStorageClient.moveFile(URI.create("gs://moves-slash/data/a.csv"), URI.create("gs://moves-slash/processed/"));
+
+    assertNull(storage.get(BlobId.of("moves-slash", "data/a.csv")));
+    assertEquals("a", new String(storage.get(BlobId.of("moves-slash", "processed/data/a.csv")).getContent()));
+  }
+
+  // A bucket on its own is the root of that bucket, with or without a trailing '/'.
+  @Test
+  public void testMoveFileToRootOfAnotherBucket() throws Exception {
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+
+    for (String folder : List.of("gs://root-dest", "gs://root-dest/")) {
+      storage.create(BlobInfo.newBuilder(BlobId.of("root-source", "data/a.csv")).build(), "a".getBytes());
+      googleStorageClient.moveFile(URI.create("gs://root-source/data/a.csv"), URI.create(folder));
+
+      assertNull(storage.get(BlobId.of("root-source", "data/a.csv")));
+      assertEquals("a", new String(storage.get(BlobId.of("root-dest", "data/a.csv")).getContent()));
+      storage.delete(BlobId.of("root-dest", "data/a.csv"));
+    }
+  }
+
+  // The root of the path's own bucket would land each file on its own key, and the move's delete would then destroy it.
+  @Test
+  public void testMoveTargetInsidePath() {
+    GoogleStorageClient client = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+
+    assertTrue(client.moveTargetInsidePath(URI.create("gs://b/data/"), URI.create("gs://b")));
+    assertTrue(client.moveTargetInsidePath(URI.create("gs://b/data/"), URI.create("gs://b/")));
+    assertTrue(client.moveTargetInsidePath(URI.create("gs://b/data/"), URI.create("gs://b/data")));
+    assertTrue(!client.moveTargetInsidePath(URI.create("gs://b/data/"), URI.create("gs://b/done")));
+    assertTrue(!client.moveTargetInsidePath(URI.create("gs://b/data/"), URI.create("gs://other")));
+  }
+
+  @Test
+  public void testMissingObjectThrowsIOException() throws Exception {
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+
+    assertThrows(IOException.class, () -> googleStorageClient.getFileContentStream(URI.create("gs://nowhere/missing.txt")));
+  }
+
+  // GCS bucket names may contain '_', which a hostname can't, so URIs are built from the authority.
+  @Test
+  public void testBucketNameWithUnderscore() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+    storage.create(BlobInfo.newBuilder(BlobId.of("my_bucket", "folder/a b.txt")).build(), "a".getBytes());
+
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+    googleStorageClient.traverse(publisher, new TraversalParams(ConfigFactory.empty(), URI.create("gs://my_bucket/"), ""));
+
+    List<Document> documents = messenger.getDocsSentForProcessing();
+    assertEquals(1, documents.size());
+    URI published = new URI(documents.get(0).getString(FILE_PATH));
+    assertEquals("my_bucket", published.getAuthority());
+    assertEquals("a", new String(googleStorageClient.getFileContentStream(published).readAllBytes()));
   }
 }

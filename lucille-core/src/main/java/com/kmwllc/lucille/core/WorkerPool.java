@@ -15,6 +15,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +27,15 @@ import java.util.List;
 import java.util.TimerTask;
 import org.slf4j.MDC;
 
+/**
+ * Starts and watches a set of {@link Worker} threads for one pipeline.
+ *
+ * <p>The pool's watcher notices a worker thread that ended without being asked to stop, or (when
+ * <code>worker.exitOnTimeout</code> is set) one that has not polled for <code>worker.maxProcessingSecs</code>, and
+ * records the pool as failed; see {@link #getThrowable()} and {@link #setFailureListener}. The hosting component decides
+ * what a failed pool means: a Runner fails the run, a standalone worker process exits non-zero. The pool itself never
+ * exits the JVM.
+ */
 public class WorkerPool {
 
   public static final int DEFAULT_POOL_SIZE = 1;
@@ -33,19 +45,27 @@ public class WorkerPool {
 
   private final List<WorkerThread> threads = new ArrayList<>();
   private ScheduledExecutorService watcherService;
+
+  // set by stop(): a worker thread that ends afterwards is doing what it was told
+  private volatile boolean stopRequested = false;
+  // the first failure of any worker, or null while every worker is healthy
+  private final AtomicReference<Throwable> failure = new AtomicReference<>();
+  private volatile Consumer<Throwable> failureListener;
+  // worker threads whose failure has already been recorded and logged
+  private final List<WorkerThread> reportedThreads = new ArrayList<>();
   public static final String HEARTBEAT_LOG_NAME = "com.kmwllc.lucille.core.Heartbeat";
   private static final Logger heartbeatLog = LoggerFactory.getLogger(HEARTBEAT_LOG_NAME);
 
-  private boolean enableHeartbeat;
-  private int maxProcessingSecs;
-  private boolean exitOnTimeout;
+  private final boolean enableHeartbeat;
+  private final int maxProcessingSecs;
+  private final boolean exitOnTimeout;
 
   private final Config config;
   private final String pipelineName;
   // The current runId, if in a local mode.
   private final String localRunId;
   private Integer numWorkers = null;
-  private WorkerMessengerFactory workerMessengerFactory;
+  private final WorkerMessengerFactory workerMessengerFactory;
   private boolean started = false;
   private final int logSeconds;
   private final String metricsPrefix;
@@ -62,14 +82,13 @@ public class WorkerPool {
       log.error("Error reading pipeline config", e);
     }
     if (this.numWorkers == null) {
-      this.numWorkers = config.hasPath("worker.threads") ? config.getInt("worker.threads") : DEFAULT_POOL_SIZE;
+      this.numWorkers = ConfigUtils.getIntOrDefault(config, "worker.threads", DEFAULT_POOL_SIZE);
     }
-    this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
-    this.enableHeartbeat = config.hasPath("worker.enableHeartbeat") ? config.getBoolean("worker.enableHeartbeat") : false;
+    this.logSeconds = ConfigUtils.getOrDefault(config, "log.intervalSecs", LogUtils.DEFAULT_LOG_SECONDS);
+    this.enableHeartbeat = ConfigUtils.getBooleanOrDefault(config, "worker.enableHeartbeat", false);
     // maxProcessingSecs default should be at least 10 minutes
-    this.maxProcessingSecs =
-        config.hasPath("worker.maxProcessingSecs") ? config.getInt("worker.maxProcessingSecs") : 10 * 60;
-    this.exitOnTimeout = config.hasPath("worker.exitOnTimeout") ? config.getBoolean("worker.exitOnTimeout") : false;
+    this.maxProcessingSecs = ConfigUtils.getIntOrDefault(config, "worker.maxProcessingSecs", 10 * 60);
+    this.exitOnTimeout = ConfigUtils.getBooleanOrDefault(config, "worker.exitOnTimeout", false);
   }
 
   public void start() throws Exception {
@@ -77,7 +96,7 @@ public class WorkerPool {
       throw new IllegalStateException("WorkerPool can be started at most once");
     }
     started = true;
-    log.info("Starting " + numWorkers + " worker threads for pipeline " + pipelineName);
+    log.info("Starting {} worker threads for pipeline {}", numWorkers, pipelineName);
     List<Worker> workers = new ArrayList<>();
 
     try {
@@ -92,7 +111,7 @@ public class WorkerPool {
         threads.add(Worker.startThread(worker, name));
       }
 
-      watcherService = startWatcher(workers, maxProcessingSecs);
+      watcherService = startWatcher(maxProcessingSecs);
     } catch (Exception e) {
       log.error("Exception caught when starting Worker threads; aborting");
       try {
@@ -105,7 +124,8 @@ public class WorkerPool {
   }
 
   public void stop() {
-    log.debug("Stopping " + threads.size() + " worker threads");
+    log.debug("Stopping {} worker threads", threads.size());
+    stopRequested = true;
     for (WorkerThread workerThread : threads) {
       workerThread.terminate();
     }
@@ -117,7 +137,7 @@ public class WorkerPool {
     // the output should be the same for any thread;
     // all threads get their metrics via a shared registry using the same naming scheme,
     // so the metrics are collected across all the threads
-    if (threads.size() > 0) {
+    if (!threads.isEmpty()) {
       threads.get(0).logMetrics();
     }
   }
@@ -138,7 +158,88 @@ public class WorkerPool {
     return numWorkers;
   }
 
-  private ScheduledExecutorService startWatcher(List<Worker> workers, int maxProcessingSecs) {
+  /**
+   * @return Whether any worker thread is still running.
+   */
+  public boolean isAlive() {
+    for (WorkerThread workerThread : threads) {
+      if (workerThread.isAlive()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Registers the callback to invoke, from the watcher thread, the first time a worker fails. If the pool has already
+   * failed, the callback is invoked immediately.
+   */
+  public void setFailureListener(Consumer<Throwable> listener) {
+    this.failureListener = listener;
+    Throwable existing = failure.get();
+    if (existing != null && listener != null) {
+      listener.accept(existing);
+    }
+  }
+
+  /**
+   * @return The Throwable that stopped the first worker to fail, or null if no worker has failed. A worker that stops
+   * because {@link #stop()} was called has not failed.
+   */
+  public Throwable getThrowable() {
+    return failure.get();
+  }
+
+  /**
+   * Whether any worker has failed. Not a plain state read: this first checks for a worker thread that died without
+   * reporting, rather than waiting for the watcher's next tick, so that a caller asking right after a run sees a worker
+   * that died moments ago.
+   */
+  public boolean isFailed() {
+    detectDeadWorkers();
+    return failure.get() != null;
+  }
+
+  /** Records a failure for every worker thread that ended without stop() having been called. */
+  private void detectDeadWorkers() {
+    if (stopRequested) {
+      return;
+    }
+    for (WorkerThread thread : threads) {
+      // without this check the run would wait for the connector timeout
+      if (!thread.isAlive()) {
+        Throwable cause = thread.getThrowable();
+        if (cause == null) {
+          cause = new IllegalStateException("Worker thread " + thread.getName() + " ended unexpectedly.");
+        }
+        workerFailed(thread, cause);
+      }
+    }
+  }
+
+  private void workerFailed(WorkerThread thread, Throwable cause) {
+    synchronized (reportedThreads) {
+      if (reportedThreads.contains(thread)) {
+        return;
+      }
+      reportedThreads.add(thread);
+    }
+    if (failure.compareAndSet(null, cause)) {
+      log.error("Worker {} failed; the pool is marked as failed.", thread.getName(), cause);
+      Consumer<Throwable> listener = failureListener;
+      if (listener != null) {
+        try {
+          listener.accept(cause);
+        } catch (Exception e) {
+          log.error("Error notifying failure listener", e);
+        }
+      }
+    } else {
+      log.error("Worker {} failed.", thread.getName(), cause);
+    }
+  }
+
+  private ScheduledExecutorService startWatcher(int maxProcessingSecs) {
     TimerTask watcher = new TimerTask() {
 
       private final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
@@ -165,13 +266,22 @@ public class WorkerPool {
           }
         }
 
-        // look for workers that might be "stuck"
-        for (Worker worker : workers) {
-          if (Duration.between(worker.getPreviousPollInstant().get(), Instant.now()).getSeconds() > maxProcessingSecs) {
-            log.error("Worker has not polled in " + maxProcessingSecs + " seconds.");
+        detectDeadWorkers();
+
+        for (WorkerThread thread : threads) {
+          Worker worker = thread.getWorker();
+
+          // look for workers that might be "stuck"
+          if (thread.isAlive()
+              && Duration.between(worker.getPreviousPollInstant().get(), Instant.now()).getSeconds() > maxProcessingSecs) {
+            log.error("Worker {} has not polled in {} seconds.", thread.getName(), maxProcessingSecs);
             if (exitOnTimeout) {
-              log.error("Shutting down because maximum allowed time between previous poll is exceeded.");
-              System.exit(1);
+              // fail the worker rather than the JVM: the Runner or launcher hosting this pool decides what happens next
+              log.error("Interrupting worker {} because the maximum allowed time between polls is exceeded.", thread.getName());
+              workerFailed(thread, new TimeoutException(
+                  "Worker " + thread.getName() + " has not polled in " + maxProcessingSecs + " seconds."));
+              thread.terminate();
+              thread.interrupt();
             }
           }
         }

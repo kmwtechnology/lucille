@@ -1,7 +1,11 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.kmwllc.lucille.core.*;
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.StageUtils;
@@ -32,7 +36,8 @@ import java.util.regex.Pattern;
  *   <li>ignoreCase (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.</li>
  *   <li>multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.</li>
  *   <li>dotall (Boolean, Optional) : Turns on the DOTALL functionality for the regex matcher. Defaults to false.</li>
- *   <li>literal (Boolean, Optional) : Toggles treating the regex expression as a literal String. Defaults to false.</li>
+ *   <li>literal (Boolean, Optional) : Toggles treating the regex expression and the replacement as literal Strings, so '$' and '\\'
+ *   in the replacement are not special. Defaults to false.</li>
  * </ul>
  */
 public class ReplacePatterns extends Stage {
@@ -56,7 +61,7 @@ public class ReplacePatterns extends Stage {
   private final boolean dotall;
   private final boolean literal;
 
-  private List<Pattern> patterns;
+  private final List<Pattern> patterns;
 
   public ReplacePatterns(Config config) throws StageException {
     super(config);
@@ -66,8 +71,8 @@ public class ReplacePatterns extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.regexExprs = config.getStringList("regex");
-    this.replacement = ConfigUtils.getOrDefault(config, "replacement", null);
-    this.replacementField = ConfigUtils.getOrDefault(config, "replacementField", null);
+    this.replacement = ConfigUtils.getStringOrDefault(config, "replacement", null);
+    this.replacementField = ConfigUtils.getStringOrDefault(config, "replacementField", null);
 
     if (replacement == null && replacementField == null) {
       throw new StageException("Did not provide a replacement String or a replacementField.");
@@ -143,17 +148,22 @@ public class ReplacePatterns extends Stage {
     if (replacementForDoc == null) {
       return null;
     }
+    if (literal) {
+      // otherwise '$' and '\' in the replacement are read as group references and escapes
+      replacementForDoc = Matcher.quoteReplacement(replacementForDoc);
+    }
 
     for (int i = 0; i < sourceFields.size(); i++) {
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(sourceField)) {
+      List<String> values = StageUtils.getNonNullStrings(doc, sourceField);
+      if (values.isEmpty()) {
         continue;
       }
 
       List<String> outputValues = new ArrayList<>();
-      for (String value : doc.getStringList(sourceField)) {
+      for (String value : values) {
         for (Pattern pattern : patterns) {
           Matcher matcher = pattern.matcher(value);
           value = matcher.replaceAll(replacementForDoc);

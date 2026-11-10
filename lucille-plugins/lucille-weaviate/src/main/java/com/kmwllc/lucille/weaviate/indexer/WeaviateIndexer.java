@@ -1,17 +1,16 @@
 package com.kmwllc.lucille.weaviate.indexer;
 
+import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
+import com.kmwllc.lucille.indexer.IndexerType;
 import com.kmwllc.lucille.core.IndexerException;
-import com.kmwllc.lucille.core.RunResult;
-import com.kmwllc.lucille.core.Runner;
-import com.kmwllc.lucille.core.Runner.RunType;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import io.weaviate.client.WeaviateAuthClient;
 import io.weaviate.client.WeaviateClient;
 import io.weaviate.client.base.Result;
@@ -23,18 +22,20 @@ import io.weaviate.client.v1.data.model.WeaviateObject;
 import io.weaviate.client.v1.data.model.WeaviateObject.WeaviateObjectBuilder;
 import io.weaviate.client.v1.data.replication.model.ConsistencyLevel;
 import io.weaviate.client.v1.misc.model.Meta;
-import java.io.File;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.Map;
 import java.util.UUID;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+@AutoService(Indexer.class)
+@IndexerType("Weaviate")
 public class WeaviateIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
@@ -55,37 +56,28 @@ public class WeaviateIndexer extends Indexer {
 
   private final String vectorField;
 
-  public WeaviateIndexer(Config config, IndexerMessenger messenger, WeaviateClient client,
-      String metricsPrefix, String localRunId) {
-    super(config, messenger, false, metricsPrefix, localRunId);
+  public WeaviateIndexer(Config config, IndexerContext context, WeaviateClient client) {
+    super(config, context);
 
-    if (this.deletionMarkerField != null || this.deleteByFieldField != null) {
-      log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be indexed as regular docs");
-    }
+    this.weaviateClassName = ConfigUtils.getStringOrDefault(config, "weaviate.className", "Document");
+    this.idDestinationName = ConfigUtils.getStringOrDefault(config, "weaviate.idDestinationName", "id_original");
 
-    this.weaviateClassName = config.hasPath("weaviate.className") ? config.getString("weaviate.className") : "Document";
-    this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :
-        "id_original";
-
-    this.vectorField = ConfigUtils.getOrDefault(config, "weaviate.vectorField", null);
+    this.vectorField = ConfigUtils.getStringOrDefault(config, "weaviate.vectorField", null);
     this.client = client;
   }
 
-  public WeaviateIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    this(config, messenger, getClient(config, bypass), metricsPrefix, localRunId);
-  }
-
-  // Convenience Constructors
-  public WeaviateIndexer(Config config, IndexerMessenger messenger, WeaviateClient client, String metricsPrefix) {
-    this(config, messenger, client, metricsPrefix, null);
-  }
-
-  public WeaviateIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
-    this(config, messenger, getClient(config, bypass), metricsPrefix, null);
+  public WeaviateIndexer(Config config, IndexerContext context) {
+    this(config, context, getClient(config, context.bypass()));
   }
 
   @Override
   protected String getIndexerConfigKey() { return "weaviate"; }
+
+  // a document marked for deletion would otherwise be indexed
+  @Override
+  protected Set<String> getUnsupportedSettings() {
+    return Set.of("indexOverrideField", "deletionMarker", "deleteByQuery");
+  }
 
   private static WeaviateClient getClient(Config config, boolean bypass) {
     if (bypass) {
@@ -104,10 +96,7 @@ public class WeaviateIndexer extends Indexer {
   }
 
   @Override
-  public boolean validateConnection() {
-    if (bypass) {
-      return true;
-    }
+  protected boolean checkConnection() {
     Result<Meta> meta = client.misc().metaGetter().run();
 
     if (meta.getError() != null) {
@@ -123,20 +112,23 @@ public class WeaviateIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
-    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
+  protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
+    List<IndexerFailure> failedDocs = new ArrayList<>();
 
     try (ObjectsBatcher batcher = client.batch().objectsBatcher()) {
-      Map<String, Document> docGeneratedUUIDMap = new HashMap<>();
+      // several documents can share a UUID, as it comes from the id or id override, and each gets its own response
+      Map<String, Deque<Document>> docsByGeneratedUUID = new HashMap<>();
 
       for (Document doc : documents) {
-        // initialize the docMap with all the fields from the document and set the id destination field instead of id field
-        Map<String, Object> docMap = doc.asMap();
+        // the document's fields with indexer.includeFields / indexer.excludeFields applied; the id moves to idDestinationName
+        // (indexer.idOverrideField, when configured and present, supplies the id written to Weaviate)
+        Map<String, Object> docMap = getConvertedIndexerDoc(doc);
         docMap.remove(Document.ID_FIELD);
-        docMap.put(idDestinationName, doc.getId());
+        String destinationId = getDestinationId(doc);
+        docMap.put(idDestinationName, destinationId);
 
         // set id and class name
-        String uuidForDoc = generateDocumentUUID(doc);
+        String uuidForDoc = generateDocumentUUID(destinationId);
         WeaviateObjectBuilder objectBuilder = WeaviateObject.builder()
             .className(weaviateClassName)
             .id(uuidForDoc);
@@ -153,7 +145,7 @@ public class WeaviateIndexer extends Indexer {
             .build();
         batcher.withObject(obj);
 
-        docGeneratedUUIDMap.put(uuidForDoc, doc);
+        docsByGeneratedUUID.computeIfAbsent(uuidForDoc, uuid -> new ArrayDeque<>()).add(doc);
       }
 
       Result<ObjectGetResponse[]> result = batcher.withConsistencyLevel(ConsistencyLevel.ALL).run();
@@ -168,10 +160,11 @@ public class WeaviateIndexer extends Indexer {
       ObjectGetResponse[] responses = result.getResult();
       for (ObjectGetResponse response : responses) {
         ErrorResponse errorResponse = response.getResult().getErrors();
+        Deque<Document> docsWithResponseUUID = docsByGeneratedUUID.get(response.getId());
+        Document docWithResponseUUID = docsWithResponseUUID == null ? null : docsWithResponseUUID.poll();
 
         if (errorResponse != null) {
-          Document docWithResponseUUID = docGeneratedUUIDMap.get(response.getId());
-          failedDocs.add(Pair.of(docWithResponseUUID, new IndexerException(errorResponse.toString())));
+          failedDocs.add(new IndexerFailure(docWithResponseUUID, new IndexerException(errorResponse.toString())));
         }
       }
     } catch (Exception e) {
@@ -182,7 +175,11 @@ public class WeaviateIndexer extends Indexer {
   }
 
   public static String generateDocumentUUID(Document document) {
-    return UUID.nameUUIDFromBytes(document.getId().getBytes()).toString();
+    return generateDocumentUUID(document.getId());
+  }
+
+  public static String generateDocumentUUID(String id) {
+    return UUID.nameUUIDFromBytes(id.getBytes()).toString();
   }
 
   private static Float[] floatsToArray(List<Float> list) {
@@ -200,16 +197,5 @@ public class WeaviateIndexer extends Indexer {
   @Override
   public void closeConnection() {
     // WeaviateClient as of 4.3.0 does not appear to be closeable
-  }
-
-  // a quick way to test the WeaviateIndexer with an example configuration
-  // if running in Intellij, set up the Intellij Run/Debug Configuration so:
-  // 1) "-cp" is set to lucille-weaviate
-  // 2) under "Modify Options" you have selected "add dependencies with 'provided' scope to classpath"
-  public static void main(String[] args) throws Exception {
-    File file = new File("lucille-plugins/lucille-weaviate/conf-example/application.conf");
-    Config config = ConfigFactory.parseFile(file);
-    RunResult result = Runner.run(config, RunType.LOCAL);
-    System.out.println(result);
   }
 }

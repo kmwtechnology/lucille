@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -11,15 +12,17 @@ import com.typesafe.config.Config;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Removes all occurrences of a given value from the source fields. Field values are not removed if
- * they contain a blacklisted value, only if it is an exact match between the two Strings.
+ * they contain one of the listed values, only if it is an exact match between the two Strings. A field is only rewritten when a value
+ * is removed, and the values that remain keep their types. A field whose values are all removed is removed.
  * <p>
  * Config Parameters -
  * <ul>
  *   <li>source (List&lt;String&gt;) : List of source field names.</li>
- *   <li>values (List&lt;String&gt;) : The values to be blacklisted and removed from the source fields.</li>
+ *   <li>values (List&lt;String&gt;) : The values to be removed from the source fields.</li>
  * </ul>
  */
 public class DropValues extends Stage {
@@ -49,12 +52,18 @@ public class DropValues extends Stage {
         continue;
       }
 
-      List<String> fieldVals = doc.getStringList(source);
+      List<JsonNode> fieldVals = doc.getJsonList(source);
+      List<JsonNode> kept = fieldVals.stream()
+          .filter(node -> node.isNull() || !values.contains(node.asText()))
+          .collect(Collectors.toList());
+      // nothing matched: leave the field as it is rather than rewriting it as a list
+      if (kept.size() == fieldVals.size()) {
+        continue;
+      }
+
       doc.removeField(source);
-      for (String value : fieldVals) {
-        if (!values.contains(value)) {
-          doc.addToField(source, value);
-        }
+      for (JsonNode node : kept) {
+        doc.addToField(source, node);
       }
     }
 

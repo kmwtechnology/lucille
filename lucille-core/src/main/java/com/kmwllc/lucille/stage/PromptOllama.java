@@ -27,10 +27,10 @@ import org.slf4j.LoggerFactory;
  * A stage for sending a Document to an LLM for general enrichment via the use of a system prompt, with particular support for
  * JSON-based responses.
  * <p>
- * To use the stage, you'll specify some Ollama Server config (hostURL, modelName) and a systemPrompt, detailing to the LLM of your
+ * To use the stage, you'll specify some Ollama Server config (hostUrl, modelName) and a systemPrompt, detailing to the LLM of your
  * choice what you would like it to do with the document you provide. (For example, ask it to extract all the person names in the Document,
  * or to provide a brief summary, etc.) If your system prompt has the LLM output JSON, the fields in that JSON will be integrated into
- * the Lucille Document. If not, and requireJSON is set to false, the LLM's response will be placed into the "ollamaResponse" field.
+ * the Lucille Document. If not, and requireJson is set to false, the LLM's response will be placed into the "ollamaResponse" field.
  * Fields will be updated in accordance with the given updateMode, defaulting to overwriting any existing fields if they are present
  * on both the Document and the LLM's response.
  * <p>
@@ -40,10 +40,10 @@ import org.slf4j.LoggerFactory;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>hostURL (String) : A URL to your ollama server.</li>
+ *   <li>hostUrl (String) : A URL to your ollama server.</li>
  *   <li>modelName (String) : The name of the model you want to communicate with. See https://ollama.ai/library for available models/
  *   the appropriate names to use.</li>
- *   <li>timeout (Long, Optional) : How long you want to wait for a request to be processed before failing. Passed directly to Ollama.
+ *   <li>timeoutSecs (Long, Optional) : How long you want to wait for a request to be processed before failing. Passed directly to Ollama.
  *   Uses Ollama's default of 10 seconds when not specified. You may want to increase the timeout if your Lucille Configuration
  *   uses multiple Worker threads (and you are working with Ollama locally).</li>
  *   <li>systemPrompt (String, Optional) : The system prompt you want to provide to your LLM. Defaults to using no system prompt,
@@ -51,7 +51,7 @@ import org.slf4j.LoggerFactory;
  *   that you instruct your LLM to format its output as a JSON object, even if you are only asking for a single piece of information (like a summary).</li>
  *   <li>fields (list of Strings, Optional) : The fields in the document you want to be sent to the LLM. If the list is empty or not specified,
  *   defaults to sending the entire Document to the LLM for enriching.</li>
- *   <li>requireJSON (Boolean, Optional) : Whether you are requiring and expecting the LLM to output a JSON-only response. When true,
+ *   <li>requireJson (Boolean, Optional) : Whether you are requiring and expecting the LLM to output a JSON-only response. When true,
  *   Lucille will throw an Exception upon receiving a non-JSON response from the LLM. When false, Lucille will place the response's
  *   raw contents into the "ollamaResponse" field. Additionally, when set to true, your Ollama chat request will have <code>format: "json"</code>
  *   to prevent errors with Markdown formatting. Defaults to false.</li>
@@ -63,9 +63,9 @@ import org.slf4j.LoggerFactory;
 public class PromptOllama extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("hostURL", "modelName")
-      .optionalNumber("timeout")
-      .optionalBoolean("requireJSON")
+      .requiredString("hostUrl", "modelName")
+      .optionalNumber("timeoutSecs")
+      .optionalBoolean("requireJson")
       .optionalString("systemPrompt", "updateMode")
       .optionalList("fields", new TypeReference<List<String>>() {}).build();
 
@@ -81,20 +81,19 @@ public class PromptOllama extends Stage {
   private final boolean requireJSON;
 
   private OllamaAPI ollamaAPI;
-  private OllamaChatRequestBuilder chatBuilder;
 
   private final UpdateMode updateMode;
 
   public PromptOllama(Config config) {
     super(config);
 
-    this.hostURL = config.getString("hostURL");
+    this.hostURL = config.getString("hostUrl");
     this.modelName = config.getString("modelName");
-    this.timeout = config.hasPath("timeout") ? config.getLong("timeout") : null;
+    this.timeout = ConfigUtils.getLongOrDefault(config, "timeoutSecs", null);
 
-    this.systemPrompt = ConfigUtils.getOrDefault(config, "systemPrompt", null);
+    this.systemPrompt = ConfigUtils.getStringOrDefault(config, "systemPrompt", null);
     this.fields = ConfigUtils.getOrDefault(config, "fields", List.of());
-    this.requireJSON = ConfigUtils.getOrDefault(config, "requireJSON", false);
+    this.requireJSON = ConfigUtils.getOrDefault(config, "requireJson", false);
 
     this.updateMode = UpdateMode.fromConfig(config);
   }
@@ -102,11 +101,6 @@ public class PromptOllama extends Stage {
   @Override
   public void start() throws StageException {
     this.ollamaAPI = new OllamaAPI(hostURL);
-    this.chatBuilder = OllamaChatRequestBuilder.getInstance(modelName);
-
-    if (systemPrompt != null) {
-      chatBuilder = chatBuilder.withMessage(OllamaChatMessageRole.SYSTEM, systemPrompt);
-    }
 
     if (timeout != null) {
       ollamaAPI.setRequestTimeoutSeconds(timeout);
@@ -115,6 +109,7 @@ public class PromptOllama extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
+    // Build a fresh request for each document to avoid state issues
     OllamaChatRequest request = createRequestWithSpecifiedFields(doc);
     request.setReturnFormatJson(requireJSON);
 
@@ -125,14 +120,24 @@ public class PromptOllama extends Stage {
       throw new StageException("Error communicating with Ollama server.", e);
     }
 
-    // Always try to get JSON from the response, even if requireJSON is false.
+    // Always try to get JSON from the response, even if requireJson is false.
     try {
       JsonNode node = mapper.readTree(chatResult.getResponseModel().getMessage().getContent());
-      // put all the fields from the JSON onto the Lucille Document.
-      node.fields().forEachRemaining(entry -> doc.update(entry.getKey(), updateMode, entry.getValue()));
-    } catch (JsonProcessingException e) {
+
+      // Require that the response is a JSON object, not an array or scalar
+      if (!node.isObject()) {
+        throw new StageException("Response was not valid JSON.");
+      }
+
+      // Put all the fields from the JSON onto the Lucille Document, filtering reserved fields
+      node.fieldNames().forEachRemaining(fieldName -> {
+        if (!Document.RESERVED_FIELDS.contains(fieldName)) {
+          doc.update(fieldName, updateMode, node.get(fieldName));
+        }
+      });
+    } catch (JsonProcessingException | StageException e) {
       if (requireJSON) {
-        throw new StageException("Error getting JSON from response (requireJSON was set to true):", e);
+        throw new StageException("Error getting JSON from response (requireJson was set to true):", e);
       } else {
         log.info("Didn't get JSON from Ollama response. The response was placed into ollamaResponse instead.");
         doc.setField("ollamaResponse", chatResult.getResponseModel().getMessage().getContent());
@@ -142,11 +147,19 @@ public class PromptOllama extends Stage {
     return null;
   }
 
-  // Creates an OllamaChatRequest using all the fields, if fields is null, or only the specified fields from the document, as Strings.
+  // Creates a fresh OllamaChatRequest for each document, using all fields or only the specified fields.
   private OllamaChatRequest createRequestWithSpecifiedFields(Document doc) {
+    // Build a fresh request for each document
+    OllamaChatRequestBuilder builder = OllamaChatRequestBuilder.getInstance(modelName);
+
+    // Add system message if configured
+    if (systemPrompt != null) {
+      builder = builder.withMessage(OllamaChatMessageRole.SYSTEM, systemPrompt);
+    }
+
     if (fields.isEmpty()) {
       // If no fields specified, default to just using the entire Document.
-      return chatBuilder.withMessage(OllamaChatMessageRole.USER, doc.toString()).build();
+      return builder.withMessage(OllamaChatMessageRole.USER, doc.toString()).build();
     } else {
       ObjectNode requestNode = mapper.createObjectNode();
 
@@ -154,7 +167,7 @@ public class PromptOllama extends Stage {
         requestNode.set(field, doc.getJson(field));
       }
 
-      return chatBuilder.withMessage(OllamaChatMessageRole.USER, requestNode.toString()).build();
+      return builder.withMessage(OllamaChatMessageRole.USER, requestNode.toString()).build();
     }
   }
 }

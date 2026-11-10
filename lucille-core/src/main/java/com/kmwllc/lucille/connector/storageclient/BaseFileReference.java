@@ -1,12 +1,14 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
-import static com.kmwllc.lucille.connector.FileConnector.CREATED;
-import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
-import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
-import static com.kmwllc.lucille.connector.FileConnector.SIZE;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.CONTENT;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.CREATED;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.FILE_PATH;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.MODIFIED;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.SIZE;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.FileUtils.ContentTooLargeException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -36,6 +38,16 @@ public abstract class BaseFileReference implements FileReference {
     return this.lastModified;
   }
 
+  /**
+   * Returns the last '/'-delimited segment of the given object key or blob name, e.g. <code>a.json</code> for
+   * <code>folder/a.json</code>.
+   * @param key An object key or blob name.
+   * @return The last segment of the key.
+   */
+  protected static String lastSegment(String key) {
+    return key.substring(key.lastIndexOf('/') + 1);
+  }
+
   @Override
   public String getFileExtension() {
     String fileName = getName();
@@ -45,8 +57,9 @@ public abstract class BaseFileReference implements FileReference {
   /**
    * Returns a byte[] representing the file's contents.
    * @return a byte[] for the file's contents.
+   * @throws IOException If an error occurs reading the file's contents.
    */
-  protected abstract byte[] getFileContent(TraversalParams params);
+  protected abstract byte[] getFileContent(TraversalParams params) throws IOException;
 
   /**
    * Builds a Document populated with the standard file metadata fields (file path, modification date, size, creation date).
@@ -81,14 +94,33 @@ public abstract class BaseFileReference implements FileReference {
   }
 
   @Override
-  public Document asDoc(TraversalParams params) {
+  public Document asDoc(TraversalParams params) throws IOException {
     Document doc = buildBaseDoc(getFullPath().toString(), lastModified, size, created, params);
 
     if (params.shouldGetFileContent()) {
-      doc.setField(CONTENT, getFileContent(params));
+      doc.setField(CONTENT, getBoundedFileContent(params));
     }
 
     return doc;
+  }
+
+  // checks the listed size first so an oversized cloud file is never downloaded; the bounded read covers a missing or
+  // stale size
+  private byte[] getBoundedFileContent(TraversalParams params) throws IOException {
+    Long maxSizeBytes = params.getMaxSizeBytes();
+
+    if (maxSizeBytes == null) {
+      return getFileContent(params);
+    }
+
+    if (size != null && size > maxSizeBytes) {
+      throw new ContentTooLargeException(
+          String.format("File of %d bytes exceeds maxSizeBytes of %d. (%s)", size, maxSizeBytes, pathToFile));
+    }
+
+    try (InputStream in = getContentStream(params)) {
+      return FileUtils.readAllBytes(in, maxSizeBytes);
+    }
   }
 
   @Override
@@ -96,7 +128,8 @@ public abstract class BaseFileReference implements FileReference {
     Document doc = buildBaseDoc(decompressedFullPathStr, lastModified, size, created, params);
 
     if (params.shouldGetFileContent()) {
-      doc.setField(CONTENT, in.readAllBytes());
+      // the size of this reference is the compressed size, so it can't be used to check the limit up front
+      doc.setField(CONTENT, FileUtils.readAllBytes(in, params.getMaxSizeBytes()));
     }
 
     return doc;

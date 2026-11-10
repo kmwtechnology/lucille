@@ -20,7 +20,7 @@ jobs:
 
       - name: Publish package
         # -T1 overrides -T1C from .mvn/maven.config: publishing to the shared staging repo stays serial
-        run: mvn --batch-mode -T1 deploy
+        run: mvn --batch-mode -T1 deploy -Padmin-ui
         env:
           MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}

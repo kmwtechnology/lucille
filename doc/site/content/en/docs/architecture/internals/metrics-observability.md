@@ -111,19 +111,22 @@ this.meter = metrics.meter(metricsPrefix + ".indexer.docsIndexed");
 this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
 ```
 
-After each batch is sent to the search engine:
+Each batch's send is timed, and the sample is recorded when the batch is completed:
 
 ```java
-stopWatch.reset();
-stopWatch.start();
-Set<Pair<Document, String>> failedDocPairs = sendToIndex(batchedDocs);
-stopWatch.stop();
+// sendWithRetry: may run on a send-pool thread when maxConcurrentBatches > 1
+long start = System.nanoTime();
+List<IndexerFailure> failures = /* sendToIndex(batchedDocs), with any retries */;
+long elapsedNanos = System.nanoTime() - start;
 
-histogram.update(stopWatch.getNanoTime() / batchedDocs.size());  // Per-doc latency
-meter.mark(batchedDocs.size());                                   // Throughput
+// completeBatch: always on the indexer thread, for a send that did not throw
+histogram.update(elapsedNanos / batchedDocs.size());  // Per-doc latency
+meter.mark(succeededDocs.size());                     // Throughput: documents that did not fail
 ```
 
-The histogram records **time per document** (total batch time / batch size), giving a normalized view of backend performance regardless of batch size.
+The histogram records **time per document** (the send's time / batch size), giving a normalized view of backend performance regardless of batch size. The time includes retries and their backoff waits.
+
+It is a per-send figure. With `indexer.maxConcurrentBatches` above 1, sends overlap but each is timed on its own, so ms/doc stays near the single-send latency while docs/sec rises, and the rate is no longer about 1000 / ms/doc. Time the Indexer spends waiting for a free slot or for an older batch is not counted, and batches whose send threw are not sampled. See the Backend latency note in [Performance Tuning]({{< relref "docs/operations/performance-tuning" >}}).
 
 Periodic logging:
 ```java
@@ -173,7 +176,7 @@ The watcher serves three purposes:
 
 ### 1. Periodic Statistics Logging
 
-Every `logSeconds` (default: 30, configurable via `log.seconds`), it logs pipeline throughput and latency. This gives operators real-time visibility into processing speed.
+Every `logSeconds` (default: 30, configurable via `log.intervalSecs`), it logs pipeline throughput and latency. This gives operators real-time visibility into processing speed.
 
 ### 2. Stuck Worker Detection
 
@@ -224,19 +227,20 @@ Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_RE
 
 The logging level is configurable via `runner.metricsLoggingLevel` (default: `DEBUG`). This dumps every timer, meter, histogram, and counter in the registry.
 
-## The `log.seconds` Configuration
+## The `log.intervalSecs` Configuration
 
 Controls how frequently periodic stats are logged:
 
 ```java
-this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
+this.logSeconds = ConfigUtils.getOrDefault(config, "log.intervalSecs", LogUtils.DEFAULT_LOG_SECONDS);
 // DEFAULT_LOG_SECONDS = 30
 ```
 
 Used by:
 - Publisher (in `waitForCompletion`)
 - WorkerPool watcher
-- Indexer (in `sendToIndexWithAccounting`)
+- WorkerIndexerPool (its status log timer)
+- Indexer (in `sendToIndexWithAccounting`). An Indexer's config is only the `indexer` block, so `IndexerFactory` reads `log.intervalSecs` and passes it on the `IndexerContext`.
 
 Setting this lower gives more frequent visibility; setting it higher reduces log noise.
 
@@ -287,7 +291,7 @@ if (d.getRunId() != null) {
 
 | Config Key | Default | Effect |
 |-----------|---------|--------|
-| `log.seconds` | 30 | Frequency of periodic stats logging |
+| `log.intervalSecs` | 30 | Frequency of periodic stats logging |
 | `worker.enableHeartbeat` | false | Enable heartbeat logging for liveness probes |
 | `worker.maxProcessingSecs` | 600 | Seconds before a worker is considered stuck |
 | `worker.exitOnTimeout` | false | Exit JVM when a stuck worker is detected |

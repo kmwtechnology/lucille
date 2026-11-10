@@ -8,7 +8,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
@@ -128,6 +127,24 @@ public class TraversalParamsTest {
     assertTrue(incrementalParams().includeFile("doc.json", BASE_TIME.plusMillis(1), BASE_TIME));
   }
 
+  // a FileReference may return a null lastModified
+
+  @Test
+  public void nullModifiedIncludesInIncrementalMode() {
+    // an unchanged file can't be detected without a modification time, so it is published again
+    assertTrue(incrementalParams().includeFile("doc.json", null, LATER_TIME));
+    assertTrue(incrementalParams().includeFile("doc.json", null, null));
+  }
+
+  @Test
+  public void nullModifiedPassesLastModifiedCutoff() {
+    TraversalParams params = paramsWithFilterOptions(Map.of("lastModifiedCutoff", "1h"));
+    assertTrue(params.includeFile("doc.json", null, null));
+    // the other filters still apply
+    TraversalParams withExcludes = paramsWithFilterOptions(Map.of("lastModifiedCutoff", "1h", "excludes", List.of(".*\\.json")));
+    assertFalse(withExcludes.includeFile("doc.json", null, null));
+  }
+
   // incremental scenarios
 
   @Test
@@ -193,7 +210,8 @@ public class TraversalParamsTest {
 
   @Test
   public void fullModeIgnoresLastPublishedCutoff() {
-    // full mode should ignore lastPublishedCutoff and always include
+    // at the params level, full mode does not consult lastPublishedCutoff; FileConnector rejects this combination at
+    // construction so a configured cutoff is never silently ignored
     Instant now = Instant.now();
     TraversalParams params = paramsWithFilterOptions(Map.of("publishMode", "full", "lastPublishedCutoff", "24h"));
     assertTrue(params.includeFile("doc.json", now, now.minus(Duration.ofHours(1))));
@@ -288,28 +306,5 @@ public class TraversalParamsTest {
     URI expected = Paths.get("src/test/resources").toAbsolutePath().normalize().toUri();
     assertEquals(List.of(expected), params.getPathsToSkip());
     assertTrue(params.getPathsToSkip().get(0).isAbsolute());
-  }
-
-  @Test
-  public void testParsePathOrURIKeepsValidURIs() throws Exception {
-    assertEquals(URI.create("s3://bucket/key"), TraversalParams.parsePathOrURI("s3://bucket/key"));
-    assertEquals(URI.create("temp/defaults.csv"), TraversalParams.parsePathOrURI("temp/defaults.csv"));
-  }
-
-  @Test
-  public void testParsePathOrURITreatsDriveLetterAsLocalPath() throws Exception {
-    // a single-letter "scheme" is a Windows drive letter, not a URI scheme
-    assertEquals("file", TraversalParams.parsePathOrURI("C:/data").getScheme());
-    assertEquals("file", TraversalParams.parsePathOrURI("C:\\data").getScheme());
-  }
-
-  @Test
-  public void testParsePathOrURIConvertsInvalidURIToLocalPath() throws Exception {
-    assertEquals(Paths.get("folder with spaces/file.txt").toUri(), TraversalParams.parsePathOrURI("folder with spaces/file.txt"));
-  }
-
-  @Test
-  public void testParsePathOrURIRejectsInvalidURIWithScheme() {
-    assertThrows(URISyntaxException.class, () -> TraversalParams.parsePathOrURI("s3://bucket/with space"));
   }
 }

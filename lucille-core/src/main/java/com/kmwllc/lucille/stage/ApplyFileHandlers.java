@@ -8,14 +8,15 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.core.fileHandler.FileHandler;
-import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
+import com.kmwllc.lucille.core.filehandler.FileHandler;
+import com.kmwllc.lucille.core.filehandler.FileHandlerException;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
 import org.apache.commons.io.FilenameUtils;
 
@@ -46,13 +47,15 @@ import org.apache.commons.io.FilenameUtils;
  *   See FileConnector for necessary arguments.</li>
  *   <li>azure (Map, Optional) : options for handling Azure files. Include if you are going to process documents with the filePathField set to an Azure URI.
  *   See FileConnector for necessary arguments.</li>
+ *   <li>storageClients (Map, Optional) : custom StorageClients, keyed by URI scheme. Include if you are going to process documents with
+ *   the filePathField set to a URI with one of those schemes. See FileConnector for necessary arguments.</li>
  * </ul>
  */
 public class ApplyFileHandlers extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){})
-      .optionalParent(FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC, FileConnector.S3_PARENT_SPEC)
+      .include(FileConnector.STORAGE_SPEC)
       .optionalString("filePathField", "fileContentField").build();
 
   private final Config fileHandlersConfig;
@@ -91,7 +94,7 @@ public class ApplyFileHandlers extends Stage {
     }
 
     try {
-      fileFetcher.startup();
+      fileFetcher.start();
     } catch (IOException e) {
       throw new StageException("Error starting FileContentFetcher.", e);
     }
@@ -99,8 +102,7 @@ public class ApplyFileHandlers extends Stage {
 
   @Override
   public void stop() {
-    fileFetcher.shutdown();
-    fileHandlers.clear();
+    fileFetcher.stop();
   }
 
   @Override
@@ -110,7 +112,8 @@ public class ApplyFileHandlers extends Stage {
     }
 
     String filePath = doc.getString(filePathField);
-    String fileExtension = FilenameUtils.getExtension(filePath);
+    // handler keys are lower case (see FileHandler.createFromConfig)
+    String fileExtension = FilenameUtils.getExtension(filePath).toLowerCase(Locale.ROOT);
 
     if (!fileHandlers.containsKey(fileExtension)) {
       return null;

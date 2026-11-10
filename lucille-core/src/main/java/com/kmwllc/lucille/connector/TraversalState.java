@@ -5,7 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
-import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 
 import java.util.List;
 import org.slf4j.Logger;
@@ -45,13 +45,13 @@ class TraversalState {
     this.tableName = tableName;
     this.traversalInstant = traversalInstant;
 
-    String querySQL = "SELECT last_published FROM \"" + tableName + "\" WHERE name=?";
+    String querySQL = "SELECT last_published FROM " + tableName + " WHERE name=?";
     this.queryStatement = jdbcConnection.prepareStatement(querySQL);
 
-    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true, runs_not_encountered = 0 WHERE name=?";
+    String updateSQL = "UPDATE " + tableName + " SET encountered=true, runs_not_encountered = 0 WHERE name=?";
     this.updateStatement = jdbcConnection.prepareStatement(updateSQL);
 
-    String insertNewFileSQL = "INSERT INTO \"" + tableName + "\" VALUES (?, NULL, TRUE, 0)";
+    String insertNewFileSQL = "INSERT INTO " + tableName + " VALUES (?, NULL, TRUE, 0)";
     this.insertNewFileStatement = jdbcConnection.prepareStatement(insertNewFileSQL);
   }
 
@@ -93,15 +93,33 @@ class TraversalState {
     // file:///tmp/archive.zip!entry1.txt or file:///tmp/archive.zip!subdir/entry2.txt.
     // the LIKE operator allows us to target entries which don't match our parameter, but contain it.
     // So the parameter/prefix could be "file:///tmp/archive.zip!" and those aforementioned paths would get updated.
-    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name LIKE ?";
+    String updateSQL = "UPDATE " + tableName + " SET encountered=true WHERE name LIKE ? ESCAPE '" + LIKE_ESCAPE + "'";
     try (PreparedStatement ps = jdbcConnection.prepareStatement(updateSQL)) {
       // the "%" says anything can come after the prefix in a given DB entry and it will still match
-      ps.setString(1, prefix + "%");
+      ps.setString(1, escapeLike(prefix) + "%");
       int rowsChanged = ps.executeUpdate();
       log.debug("Marked {} archive entries as encountered for prefix '{}'", rowsChanged, prefix);
     } catch (SQLException e) {
       log.warn("Error marking archive entries as encountered for prefix '{}'.", prefix, e);
     }
+  }
+
+  // Not a backslash: MySQL treats a backslash in a string literal as an escape, so a backslash escape isn't portable.
+  private static final char LIKE_ESCAPE = '!';
+
+  /**
+   * Escapes the LIKE wildcards in the given string so it matches only itself: '%' and '_', and '[' which SQL Server
+   * treats as the start of a character class, plus the escape character itself.
+   */
+  static String escapeLike(String s) {
+    StringBuilder escaped = new StringBuilder(s.length());
+    for (char c : s.toCharArray()) {
+      if (c == LIKE_ESCAPE || c == '%' || c == '_' || c == '[') {
+        escaped.append(LIKE_ESCAPE);
+      }
+      escaped.append(c);
+    }
+    return escaped.toString();
   }
 
   /**
@@ -117,11 +135,9 @@ class TraversalState {
       queryStatement.setString(1, fullPathStr);
       try (ResultSet rs = queryStatement.executeQuery()) {
         if (rs.next()) {
-          // Get timestamp as OffsetDateTime, which is stored in UTC
-          // Note: H2 may convert to local timezone on retrieval, but toInstant() returns the correct absolute point in time.
-          OffsetDateTime odt = rs.getObject("last_published", OffsetDateTime.class);
-          if (odt != null) {
-            return odt.toInstant();
+          long epochMicros = rs.getLong("last_published");
+          if (!rs.wasNull()) {
+            return Instant.EPOCH.plus(epochMicros, ChronoUnit.MICROS);
           }
         }
       }
@@ -137,10 +153,10 @@ class TraversalState {
    * @param fullPathStr The full path to the file that was successfully published.
    */
   void successfullyPublishedFile(String fullPathStr) {
-    String updateSQL = "UPDATE \"" + tableName + "\" SET last_published = ? WHERE name = ?";
+    String updateSQL = "UPDATE " + tableName + " SET last_published = ? WHERE name = ?";
 
     try (PreparedStatement statement = jdbcConnection.prepareStatement(updateSQL)) {
-      statement.setObject(1, traversalInstant);
+      statement.setLong(1, ChronoUnit.MICROS.between(Instant.EPOCH, traversalInstant));
       statement.setString(2, fullPathStr);
 
       int rowsChanged = statement.executeUpdate();

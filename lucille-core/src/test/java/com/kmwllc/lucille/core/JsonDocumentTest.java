@@ -1,13 +1,14 @@
 package com.kmwllc.lucille.core;
 
-import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.DecimalNode;
 import com.kmwllc.lucille.util.FieldFilter;
 import com.typesafe.config.ConfigFactory;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -29,6 +30,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
+import static org.mockito.Mockito.mock;
 
 public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
 
@@ -110,7 +112,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   public void testCreateFromJsonStringWithBlacklist() throws Exception {
     UnaryOperator<String> updater = s -> s;
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of("field2"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("excludeFields", List.of("field2"))));
 
     Document document = JsonDocument.fromJsonString(json, updater, filter);
     assertEquals("123", document.getId());
@@ -122,7 +124,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   public void testCreateFromJsonStringWithWhitelist() throws Exception {
     UnaryOperator<String> updater = s -> s;
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("whitelist", List.of("field2", "id"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("includeFields", List.of("field2", "id"))));
 
     Document document = JsonDocument.fromJsonString(json, updater, filter);
     assertEquals("123", document.getId());
@@ -143,7 +145,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   @Test
   public void testCreateFromJsonStringWithEmptyBlacklist() throws Exception {
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of())));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("excludeFields", List.of())));
 
     Document document = JsonDocument.fromJsonString(json, null, filter);
     assertEquals("123", document.getId());
@@ -154,7 +156,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   @Test
   public void testCreateFromJsonStringWithEmptyWhitelist() throws Exception {
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("whitelist", List.of())));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("includeFields", List.of())));
 
     Document document = JsonDocument.fromJsonString(json, null, filter);
     assertEquals("123", document.getId());
@@ -165,7 +167,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   @Test
   public void testCreateFromJsonStringWhitelistAndBlacklist() throws Exception {
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("whitelist", List.of("id", "field1"), "blacklist", List.of("field1"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("includeFields", List.of("id", "field1"), "excludeFields", List.of("field1"))));
 
     Document document = JsonDocument.fromJsonString(json, null, filter);
     assertEquals("123", document.getId());
@@ -176,7 +178,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   @Test(expected = DocumentException.class)
   public void testCreateFromJsonStringWithIdInBlacklist() throws Exception {
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of("id"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("excludeFields", List.of("id"))));
 
     JsonDocument.fromJsonString(json, null, filter);
   }
@@ -184,7 +186,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   @Test(expected = DocumentException.class)
   public void testCreateFromJsonStringWithNoIdInWhitelist() throws Exception {
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("whitelist", List.of("field1"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("includeFields", List.of("field1"))));
 
     JsonDocument.fromJsonString(json, null, filter);
   }
@@ -283,16 +285,11 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     assertEquals(Integer.valueOf(1), doc.getIntList("myIntField").get(0));
     assertEquals(Integer.valueOf(2), doc.getIntList("myStringField").get(0));
 
-    doc.setField("myInstantField", Instant.ofEpochMilli(1L));
-    assertEquals(new Date(1L), doc.getDate("myInstantField"));
-    assertEquals(new Timestamp(1L), doc.getTimestamp("myInstantField"));
-
+    // a java.util.Date or java.sql.Timestamp is stored as an Instant
     doc.setField("myDateField", new Date(1L));
     assertEquals(Instant.ofEpochMilli(1L), doc.getInstant("myDateField"));
-    assertEquals(new Timestamp(1L), doc.getTimestamp("myDateField"));
 
     doc.setField("myTimestampField", new Timestamp(1L));
-    assertEquals(new Date(1L), doc.getDate("myTimestampField"));
     assertEquals(Instant.ofEpochMilli(1L), doc.getInstant("myTimestampField"));
   }
 
@@ -358,82 +355,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     assertEquals(mapper.readTree("[{\"a\":1}, {\"a\":2}, {\"a\":3}, {\"a\":4}]"), d.getJson("myJson"));
   }
 
-  @Test
-  public void testTransform() throws Exception {
-    Document doc = createDocumentFromJson("{\"id\":\"id\",\"foo\": \"bar\"}");
-    doc.setField("bytes", new byte[]{1, 2, 3});
 
-    // test mutating a reserved field
-    Jsonata mutateReservedExpr = Jsonata.jsonata("{\"id\":\"diff\",\"foo\": \"bar\"}");
-    assertThrows(DocumentException.class, () -> doc.transform(mutateReservedExpr));
-    assertEquals(3, doc.getFieldNames().size());
-    assertEquals("id", doc.getId());
-    assertEquals("bar", doc.getString("foo"));
-    assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
-
-    // test mutation does not create object
-    Jsonata mutateIntoArray = Jsonata.jsonata("[1, 2, 3]");
-    Jsonata mutateIntoNum = Jsonata.jsonata("3");
-    assertThrows(DocumentException.class, () -> doc.transform(mutateIntoArray));
-    assertThrows(DocumentException.class, () -> doc.transform(mutateIntoNum));
-    assertEquals(3, doc.getFieldNames().size());
-    assertEquals("id", doc.getId());
-    assertEquals("bar", doc.getString("foo"));
-    assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
-
-    // test valid mutation
-    Jsonata mutateFoo = Jsonata.jsonata("$merge([$, {\"foo\": $substring(foo, 2)}])");
-    doc.transform(mutateFoo);
-    assertEquals(3, doc.getFieldNames().size());
-    assertEquals("id", doc.getId());
-    assertEquals("r", doc.getString("foo"));
-    assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
-  }
-
-  @Test
-  public void testTransformNestedJson() throws Exception {
-    Document doc = createDocumentFromJson("{\"id\":\"id\",\"foo\": \"bar\"}");
-    doc.setField("nested", MAPPER.createObjectNode()
-        .put("bytes", new byte[]{1, 2, 3})
-        .put("int", 1)
-        .put("string", "text, with; delimiters"));
-    doc.setNestedJson("nested.bool", BooleanNode.getTrue());
-
-    // test valid mutation with new destination
-    Jsonata mutateString = Jsonata.jsonata("$trim($split(string, /[,;、，،؛；]/)[1])");
-    doc.transform(mutateString, "nested", "nested.newString");
-    assertEquals(3, doc.getFieldNames().size());
-    assertEquals("id", doc.getId());
-    assertEquals("text, with; delimiters", doc.getNestedJson("nested.string").asText());
-    assertEquals("with", doc.getNestedJson("nested.newString").asText());
-    assertArrayEquals(new byte[]{1, 2, 3}, doc.getNestedJson("nested.bytes").binaryValue());
-    assertEquals(1, doc.getNestedJson("nested.int").asInt());
-
-    // test null source node
-    assertThrows(DocumentException.class, () ->  doc.transform(mutateString, "nested.nonexistent", "nested.null"));
-    doc.setNestedJson("nested.null", MAPPER.nullNode());
-    assertThrows(DocumentException.class, () ->  doc.transform(mutateString, "nested.null", "nested.null"));
-
-    // test valid mutation with same destination
-    Jsonata mutateInt = Jsonata.jsonata("int + 10");
-    doc.transform(mutateInt, "nested", "nested.int");
-    assertEquals(3, doc.getFieldNames().size());
-    assertEquals("id", doc.getId());
-    assertEquals("text, with; delimiters", doc.getNestedJson("nested.string").asText());
-    assertEquals("with", doc.getNestedJson("nested.newString").asText());
-    assertArrayEquals(new byte[]{1, 2, 3}, doc.getNestedJson("nested.bytes").binaryValue());
-    assertEquals(11, doc.getNestedJson("nested.int").asInt());
-
-    // test null destination node
-    doc.transform(mutateString, "nested", null);
-    assertEquals("with", doc.getString("nested"));
-    assertEquals(3, doc.getFieldNames().size());
-    assertEquals("id", doc.getId());
-    assertNull(doc.getNestedJson("nested.string"));
-    assertNull(doc.getNestedJson("nested.newString"));
-    assertNull(doc.getNestedJson("nested.bytes"));
-    assertNull(doc.getNestedJson("nested.int"));
-  }
 
   @Test
   public void testGetFieldNamesInsertionOrder() {
@@ -471,4 +393,103 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     assertEquals(40, fieldNamesParsed);
   }
 
+  @Test
+  public void testByteArrayValuesAreHeldByReference() {
+    // Documents the behavior described in the Document class description: byte[] values are not copied by the
+    // setters, the getters, deepCopy or getChildren, so changing an array's contents in place is seen by every holder.
+    // If a change makes this test fail, update that description along with it.
+    byte[] original = {1, 2, 3};
+    Document doc = Document.create("id1");
+    doc.setField("bytes", original);
+
+    original[0] = 10;
+    assertEquals(10, doc.getBytes("bytes")[0]);
+
+    doc.getBytes("bytes")[1] = 20;
+    assertEquals(20, original[1]);
+
+    doc.addToField("list", new byte[] {1});
+    doc.getBytesList("list").get(0)[0] = 30;
+    assertEquals(30, doc.getBytesList("list").get(0)[0]);
+
+    Document copy = doc.deepCopy();
+    doc.getBytes("bytes")[2] = 40;
+    assertEquals(40, copy.getBytes("bytes")[2]);
+
+    Document parent = Document.create("parent");
+    Document child = Document.create("child");
+    child.setField("bytes", new byte[] {1});
+    parent.addChild(child);
+    parent.getChildren().get(0).getBytes("bytes")[0] = 50;
+    assertEquals(50, parent.getChildren().get(0).getBytes("bytes")[0]);
+
+    Document other = Document.create("id2");
+    other.setField("bytes", new byte[] {1});
+    Document merged = Document.create("id3");
+    merged.setOrAdd("bytes", other);
+    Document mergedAll = Document.create("id4");
+    mergedAll.setOrAddAll(other);
+    other.getBytes("bytes")[0] = 70;
+    assertEquals(70, merged.getBytes("bytes")[0]);
+    assertEquals(70, mergedAll.getBytes("bytes")[0]);
+
+    // asMap() is the exception: it converts to new values
+    ((byte[]) doc.asMap().get("bytes"))[0] = 60;
+    assertEquals(10, doc.getBytes("bytes")[0]);
+
+    // but everything other than the arrays' contents is independent of the copy
+    copy.setField("bytes", new byte[] {7});
+    copy.setField("other", "val");
+    assertEquals(10, doc.getBytes("bytes")[0]);
+    assertFalse(doc.has("other"));
+  }
+
+  @Test
+  public void testGetFloatOnNumbersRoundsOnce() {
+    // A number is converted to the nearest float in one step. Converting through a double first rounds twice, and for
+    // these values the two roundings give a result one float step away.
+    long nearMidpoint = (1L << 60) + (1L << 36) + 1;
+    assertNotEquals((float) nearMidpoint, (float) (double) nearMidpoint, 0f);   // the case this guards against
+    Document doc = Document.create("id1");
+    doc.setField("long", nearMidpoint);
+    assertEquals((float) nearMidpoint, doc.getFloat("long"), 0f);
+    doc.addToField("longs", nearMidpoint);
+    assertEquals((float) nearMidpoint, doc.getFloatList("longs").get(0), 0f);
+
+    // a decimal just above the midpoint between 1.0f and the next float rounds up, as Float.parseFloat does
+    String justAboveMidpoint = "1.00000005960464477539062500000000000000001";
+    doc.setField("decimal", new DecimalNode(new BigDecimal(justAboveMidpoint)));
+    assertEquals(Float.parseFloat(justAboveMidpoint), doc.getFloat("decimal"), 0f);
+  }
+
+  @Test
+  public void testCreateWithNullRunIdIsRejected() {
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> Document.create("id1", null));
+    assertEquals("Run ID cannot be null", e.getMessage());
+
+    // a Document created without a run id can still be given one
+    Document doc = Document.create("id1");
+    doc.initializeRunId("run1");
+    assertEquals("run1", doc.getRunId());
+  }
+
+  @Test
+  public void testReservedFieldsAreImmutable() {
+    assertThrows(UnsupportedOperationException.class, () -> Document.RESERVED_FIELDS.add("other"));
+    assertThrows(UnsupportedOperationException.class, () -> Document.RESERVED_FIELDS.remove(Document.ID_FIELD));
+  }
+
+  @Test
+  public void testReservedInternalFieldsSurviveRoundTrip() throws Exception {
+    // A document routed to the fail topic is serialized in full, so the stamped reserved fields must round-trip
+    // through JSON. This is the JsonDocument/KafkaDocument path, which is the only path that actually reaches the
+    // fail topic.
+    Document document = createDocument("123");
+    ((JsonDocument) document).setFailureMetadata("boom", "worker", Instant.ofEpochSecond(10000));
+
+    Document roundTripped = createDocumentFromJson(document.toString());
+    assertEquals("boom", roundTripped.getString(Document.FAILURE_REASON_FIELD));
+    assertEquals("worker", roundTripped.getString(Document.FAILURE_COMPONENT_FIELD));
+    assertEquals(Instant.ofEpochSecond(10000), roundTripped.getInstant(Document.FAILURE_TIME_FIELD));
+  }
 }

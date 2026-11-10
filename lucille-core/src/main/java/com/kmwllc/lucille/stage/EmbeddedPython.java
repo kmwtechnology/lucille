@@ -1,7 +1,16 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.*;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.DoubleNode;
+import com.fasterxml.jackson.databind.node.IntNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.LongNode;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -10,14 +19,21 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
-import org.graalvm.polyglot.*;
+import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.Engine;
+import org.graalvm.polyglot.PolyglotException;
+import org.graalvm.polyglot.Source;
+import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyArray;
 import org.graalvm.polyglot.proxy.ProxyObject;
 import org.graalvm.polyglot.proxy.ProxyHashMap;
 import org.graalvm.polyglot.proxy.ProxyIterator;
 
 import java.io.Reader;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Executes user-provided Python code against each Document using an embedded GraalPy interpreter. Python scripts interact
@@ -26,6 +42,9 @@ import java.util.*;
  * dictionary-style access (`doc["field"]`) for dynamic or non-identifier field names. Both forms operate on the same
  * underlying data.
  * <p>
+ * Each document is processed with a fresh global namespace, so variables set while processing one document are not
+ * visible when processing the next.
+ * <p>
  * Config Parameters:
  * <ul>
  *   <li>scriptPath (String, Optional) : Path to the Python script to run.</li>
@@ -33,28 +52,38 @@ import java.util.*;
  *   <li>s3 (Map, Optional) : If your Python file is held in S3. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : If your javascript file is held in Azure. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>gcp (Map, Optional) : If your javascript file is held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>storageClients (Map, Optional) : If your javascript file is held in storage with a custom StorageClient. See FileConnector for the appropriate arguments to provide.</li>
  * </ul>
  */
 public class EmbeddedPython extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("scriptPath", "script")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
+      .include(FileConnector.STORAGE_SPEC)
       .build();
 
   private final String scriptPath;
   private final String inlineScript;
 //  private final String pythonRoot;
 
+  // Runs the compiled script in a fresh global namespace for each document so that names assigned while processing one
+  // document are not visible while processing the next.
+  private static final String RUN_HELPER = """
+    def _lucille_run(code, doc, rawDoc):
+        exec(code, {"__name__": "__main__", "doc": doc, "rawDoc": rawDoc})
+    """;
+
   private Source source;
+  private Value compiledScript;
+  private Value runScript;
   private Context context;
   private Engine engine;
 
   public EmbeddedPython(Config config) {
     super(config);
-    this.scriptPath = config.hasPath("scriptPath") ? config.getString("scriptPath") : null;
-    this.inlineScript = config.hasPath("script") ? config.getString("script") : null;
-//    this.pythonRoot = config.hasPath("pythonRoot") ? config.getString("pythonRoot") : null;
+    this.scriptPath = ConfigUtils.getStringOrDefault(config, "scriptPath", null);
+    this.inlineScript = ConfigUtils.getStringOrDefault(config, "script", null);
+//    this.pythonRoot = ConfigUtils.getStringOrDefault(config, "pythonRoot", null);
   }
 
   @Override
@@ -87,6 +116,9 @@ public class EmbeddedPython extends Stage {
           .engine(engine)
           .allowAllAccess(true)
           .build();
+
+      this.context.eval("python", RUN_HELPER);
+      this.runScript = context.getBindings("python").getMember("_lucille_run");
 
       // Code for Python dependencies, but requires JDK 21
 
@@ -124,9 +156,11 @@ public class EmbeddedPython extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     try {
-      context.getBindings("python").putMember("doc", PyDocProxy.root(doc));
-      context.getBindings("python").putMember("rawDoc", doc);
-      context.eval(source);
+      // Compiled on first use so that syntax errors are reported per document, as before.
+      if (compiledScript == null) {
+        compiledScript = context.eval("python", "compile").execute(source.getCharacters().toString(), source.getName(), "exec");
+      }
+      runScript.execute(compiledScript, PyDocProxy.root(doc), doc);
       return null;
     } catch (Exception e) {
       throw new StageException("Python failed for doc '" + doc.getId() + "' using '" + scriptPath + "'.", e);
@@ -147,7 +181,7 @@ public class EmbeddedPython extends Stage {
     }
 
     static PyDocProxy root(Document d) {
-      return new PyDocProxy(d, new ArrayList());
+      return new PyDocProxy(d, new ArrayList<>());
     }
 
     private boolean isRoot() {
@@ -158,7 +192,7 @@ public class EmbeddedPython extends Stage {
       if (isRoot()) {
         return List.of(new Document.Segment(key));
       }
-      List<Document.Segment> result = new ArrayList(segments);
+      List<Document.Segment> result = new ArrayList<>(segments);
       // assume an all-digit key is an array index
       if (key.chars().allMatch(c -> c >= '0' && c <= '9')) {
         result.add(new Document.Segment(Integer.parseInt(key)));

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.util.EmbeddedKafkaUtils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -42,7 +43,6 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
-import org.springframework.kafka.test.EmbeddedKafkaKraftBroker;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 
 public class HybridKafkaTest {
@@ -56,8 +56,8 @@ public class HybridKafkaTest {
 
   @BeforeClass
   public static void startKafka() throws Exception {
-    embeddedKafka = new EmbeddedKafkaKraftBroker(1, 1);
-    embeddedKafka.afterPropertiesSet();
+    // a warmed-up broker, so the one-time creation of __consumer_offsets does not land inside a test's time budget
+    embeddedKafka = EmbeddedKafkaUtils.startBroker();
   }
 
 
@@ -115,11 +115,8 @@ public class HybridKafkaTest {
     RecordingLinkedBlockingQueue<Document> pipelineDest =
         new RecordingLinkedBlockingQueue<>();
 
-    RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
-        new RecordingLinkedBlockingQueue<>();
-
     Set<String> idSet = CounterUtils.getThreadSafeSet();
-    workerIndexer.start(config, "pipeline1", pipelineDest, offsets, true, idSet);
+    workerIndexer.start(config, "pipeline1", pipelineDest, true, idSet);
 
     // send docs 2 and 3
     sendDoc("doc2", topicName);
@@ -143,18 +140,89 @@ public class HybridKafkaTest {
     assertNotNull(retrievedOffsets.get(topicPartition));
     assertEquals(3, retrievedOffsets.get(topicPartition).offset());
 
-    // pipelineDest and offset queues should have been drained
+    // the pipelineDest queue should have been drained
     assertEquals(0, pipelineDest.size());
-    assertEquals(0, offsets.size());
 
     // three docs should have been added to pipelineDest queue
     // each of the three docs we added should have generated two children
     assertEquals(9, pipelineDest.getHistory().size());
 
-    // one offset map should have been added to offset queue, containing offset 3 for partition 0
-    assertEquals(1, offsets.getHistory().size());
-    assertEquals(1, offsets.getHistory().get(0).entrySet().size());
-    assertEquals(3, offsets.getHistory().get(0).get(topicPartition).offset());
+  }
+
+  /**
+   * A document the pipeline drops never reaches the Indexer, so no completed batch reports its offset. It must still not
+   * hold back the commit: once the documents after it are indexed, the committed offset should move past all three.
+   */
+  @Test
+  public void testDroppedDocumentDoesNotHoldBackTheCommit() throws Exception {
+    Config config = loadTestConfig("HybridKafkaTest/dropConfig.conf");
+    String topicName = config.getString("kafka.sourceTopic");
+    embeddedKafka.addTopics(new NewTopic(topicName, 1, (short) 1));
+
+    Document dropped = Document.create("doc1");
+    dropped.setField("drop", "true");
+    producer.send(new ProducerRecord<>(topicName, dropped.getId(), dropped.toString()));
+    sendDoc("doc2", topicName);
+    sendDoc("doc3", topicName);
+
+    WorkerIndexer workerIndexer = new WorkerIndexer();
+    Set<String> idSet = CounterUtils.getThreadSafeSet();
+    workerIndexer.start(config, "pipeline1", new LinkedBlockingQueue<>(), true, idSet);
+    try {
+      // doc2 and doc3 are indexed; doc1 is dropped
+      CounterUtils.waitUnique(idSet, 2);
+      assertEquals("the dropped doc1 at offset 0 must not hold back the commit (-1: nothing committed)", 3,
+          awaitCommittedOffset(config, topicName, 3));
+    } finally {
+      workerIndexer.stop();
+    }
+  }
+
+  /**
+   * A parent the pipeline drops after creating children never reaches the Indexer itself, but its children do. Its offset
+   * must be committed once they are indexed.
+   */
+  @Test
+  public void testDroppedParentIsCommittedOnceItsChildrenAreIndexed() throws Exception {
+    Config config = loadTestConfig("HybridKafkaTest/dropParentConfig.conf");
+    String topicName = config.getString("kafka.sourceTopic");
+    embeddedKafka.addTopics(new NewTopic(topicName, 1, (short) 1));
+    sendDoc("doc1", topicName);
+    sendDoc("doc2", topicName);
+
+    WorkerIndexer workerIndexer = new WorkerIndexer();
+    Set<String> idSet = CounterUtils.getThreadSafeSet();
+    workerIndexer.start(config, "pipeline1", new LinkedBlockingQueue<>(), true, idSet);
+    try {
+      // two children of each parent are indexed; the parents are dropped
+      CounterUtils.waitUnique(idSet, 4);
+      assertEquals("the dropped parents must not hold back the commit (-1: nothing committed)", 2,
+          awaitCommittedOffset(config, topicName, 2));
+    } finally {
+      workerIndexer.stop();
+    }
+  }
+
+  // The worker commits after each poll, so a commit follows shortly after the documents are indexed. Waits up to 10
+  // seconds for the group's committed offset on partition 0 to reach the expected one, and returns the last seen (-1 if
+  // nothing was committed).
+  private static long awaitCommittedOffset(Config config, String topicName, long expected) throws Exception {
+    TopicPartition topicPartition = new TopicPartition(topicName, 0);
+    Properties props = new Properties();
+    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
+    try (Admin kafkaAdminClient = Admin.create(props)) {
+      long committed = -1;
+      long deadline = System.currentTimeMillis() + 10000;
+      while (committed != expected && System.currentTimeMillis() < deadline) {
+        OffsetAndMetadata offset = kafkaAdminClient.listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
+            .partitionsToOffsetAndMetadata().get().get(topicPartition);
+        committed = offset == null ? -1 : offset.offset();
+        if (committed != expected) {
+          Thread.sleep(100);
+        }
+      }
+      return committed;
+    }
   }
 
   @Test
@@ -170,10 +238,9 @@ public class HybridKafkaTest {
 
     WorkerIndexer workerIndexer = new WorkerIndexer();
     LinkedBlockingQueue<Document> pipelineDest = new LinkedBlockingQueue<>();
-    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets = new LinkedBlockingQueue<>();
     Set<String> idSet = CounterUtils.getThreadSafeSet();
 
-    workerIndexer.start(config, "pipeline1", pipelineDest, offsets, true, idSet);
+    workerIndexer.start(config, "pipeline1", pipelineDest, true, idSet);
 
     sendDoc("doc2", RUN_ID, topicName);
     sendDoc("doc3", RUN_ID, topicName);
@@ -218,10 +285,8 @@ public class HybridKafkaTest {
 
     RecordingLinkedBlockingQueue<Document> pipelineDest1 =
         new RecordingLinkedBlockingQueue<>();
-    RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets1 =
-        new RecordingLinkedBlockingQueue<>();
     WorkerIndexer workerIndexer1 = new WorkerIndexer();
-    workerIndexer1.start(config, "pipeline1", pipelineDest1, offsets1, true, idSet);
+    workerIndexer1.start(config, "pipeline1", pipelineDest1, true, idSet);
 
     CounterUtils.waitUnique(idSet, 100);
 
@@ -232,10 +297,8 @@ public class HybridKafkaTest {
     // it to make sure it doesn't cause anything else to go obviously wrong
     RecordingLinkedBlockingQueue<Document> pipelineDest2 =
         new RecordingLinkedBlockingQueue<>();
-    RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets2 =
-        new RecordingLinkedBlockingQueue<>();
     WorkerIndexer workerIndexer2 = new WorkerIndexer();
-    workerIndexer2.start(config, "pipeline1", pipelineDest2, offsets2, true, idSet);
+    workerIndexer2.start(config, "pipeline1", pipelineDest2, true, idSet);
 
     for (int i = 500; i < 1000; i++) {
       sendDoc("doc" + i, topicName);
@@ -249,79 +312,16 @@ public class HybridKafkaTest {
     KafkaConsumer<String, KafkaDocument> consumer = KafkaUtils.createDocumentConsumer(config, "test-client");
     TopicPartition p0 = new TopicPartition(topicName, 0);
     TopicPartition p1 = new TopicPartition(topicName, 1);
-    ArrayList partitions = new ArrayList<>();
+    List<TopicPartition> partitions = new ArrayList<>();
     partitions.add(p0);
     partitions.add(p1);
     consumer.assign(partitions);
 
-    // the sum of offsets across the two partitions should be the same as the number of documents
-    // consumed. All 1000 documents we added to the source topic should have been consumed.
-    // however, it is possible that a partition, say partition 1,
-    // was reassigned from worker 1 to worker 2 near
-    // the end of the run. In this case, worker 2 might have finished reading from that partition 1 and
-    // committed the end offset, while worker 1 might have been delayed in committing
-    // the offset for its own last read. This will cause the lower offset committed late by worker 1
-    // to overwrite the higher offset committed earlier in time by worker 2. Therefore,
-    // we can only check >= and not == below
-    assertTrue(1000 >= consumer.position(p0) + consumer.position(p1));
+    // the committed offsets across the two partitions should add up to the 1000 documents consumed: a worker never
+    // commits for a partition it no longer owns, so a late commit by worker 1 cannot rewind worker 2's
+    assertEquals(1000, consumer.position(p0) + consumer.position(p1));
 
     consumer.close();
-
-    // now we compute the maximum offsets added to the offset queue for each worker for each partition;
-    // again, these max offsets might be higher than the latest committed offsets
-    long worker1MaxP0Offset = 0;
-    long worker1MaxP1Offset = 0;
-    long worker2MaxP0Offset = 0;
-    long worker2MaxP1Offset = 0;
-
-    ArrayList<Map<TopicPartition, OffsetAndMetadata>> offsets1History = offsets1.getHistory();
-    ArrayList<Map<TopicPartition, OffsetAndMetadata>> offsets2History = offsets2.getHistory();
-
-    for (Map<TopicPartition, OffsetAndMetadata> map : offsets1History) {
-      for (TopicPartition tp : map.keySet()) {
-        long offset = map.get(tp).offset();
-        if (tp.partition() == 0) {
-          if (worker1MaxP0Offset > offset) {
-            fail("worker 1 offsets for partition 0 not monotonically increasing");
-          } else {
-            worker1MaxP0Offset = offset;
-          }
-        } else if (tp.partition() == 1) {
-          if (worker1MaxP1Offset > offset) {
-            fail("worker 1 offsets for partition 1 not monotonically increasing");
-          } else {
-            worker1MaxP1Offset = offset;
-          }
-        }
-      }
-    }
-
-    for (Map<TopicPartition, OffsetAndMetadata> map : offsets2History) {
-      for (TopicPartition tp : map.keySet()) {
-        long offset = map.get(tp).offset();
-        if (tp.partition() == 0) {
-          if (worker2MaxP0Offset > offset) {
-            fail("worker 2 offsets for partition 0 not monotonically increasing");
-          } else {
-            worker2MaxP0Offset = offset;
-          }
-        } else if (tp.partition() == 1) {
-          if (worker2MaxP1Offset > offset) {
-            fail("worker 2 offsets for partition 1 not monotonically increasing");
-          } else {
-            worker2MaxP1Offset = offset;
-          }
-        }
-      }
-    }
-
-    long maxP0Offset = Math.max(worker1MaxP0Offset, worker2MaxP0Offset);
-    long maxP1Offset = Math.max(worker1MaxP1Offset, worker2MaxP1Offset);
-
-    // though we weren't able to assert that the sum of the current committed offsets
-    // was strictly equal to 1000, we CAN assert that the sum of the
-    // max offsets added to the offset queues should equal 1000
-    assertEquals(1000, maxP0Offset + maxP1Offset);
 
     // we currently have no way to guarantee that each WorkerIndexer
     // received and processed some work
@@ -337,7 +337,7 @@ public class HybridKafkaTest {
 
     // make sure each doc we generated is present in at least one of the destination queues,
     // and there are no others
-    HashSet<String> idsProcessed = new HashSet<>();
+    Set<String> idsProcessed = new HashSet<>();
     for (Document d : pipelineDest1.getHistory()) {
       idsProcessed.add(d.getId());
     }
@@ -372,11 +372,9 @@ public class HybridKafkaTest {
 
     RecordingLinkedBlockingQueue<Document> pipelineDest =
         new RecordingLinkedBlockingQueue<>();
-    RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
-        new RecordingLinkedBlockingQueue<>();
 
     Set<String> idSet = CounterUtils.getThreadSafeSet();
-    workerIndexer.start(config, "pipeline1", pipelineDest, offsets, true, idSet);
+    workerIndexer.start(config, "pipeline1", pipelineDest, true, idSet);
 
     CounterUtils.waitUnique(idSet, 1);
 
@@ -453,11 +451,8 @@ public class HybridKafkaTest {
     RecordingLinkedBlockingQueue<Document> pipelineDest =
         new RecordingLinkedBlockingQueue<>();
 
-    RecordingLinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
-        new RecordingLinkedBlockingQueue<>();
-
     Set<String> idSet = CounterUtils.getThreadSafeSet();
-    workerIndexer.start(config, "pipeline1", pipelineDest, offsets, true, idSet);
+    workerIndexer.start(config, "pipeline1", pipelineDest, true, idSet);
 
     CounterUtils.waitUnique(idSet, 2, 20000, CounterUtils.DEFAULT_END_LAG_MS);
 
@@ -493,23 +488,11 @@ public class HybridKafkaTest {
     assertNotNull(retrievedOffsets.get(topicPartition4));
     assertEquals(1, retrievedOffsets.get(topicPartition4).offset());
 
-    // pipelineDest and offset queues should have been drained
+    // the pipelineDest queue should have been drained
     assertEquals(0, pipelineDest.size());
-    assertEquals(0, offsets.size());
 
     // five docs should have been added to pipelineDest queue
     assertEquals(5, pipelineDest.getHistory().size());
-
-    // we should have committed one offset map for the first two topics
-    // and a second offset map for the reamining two topics which were created later
-    assertEquals(2, offsets.getHistory().size());
-    assertEquals(2, offsets.getHistory().get(0).entrySet().size());
-    assertEquals(2, offsets.getHistory().get(1).entrySet().size());
-
-    assertEquals(1, offsets.getHistory().get(0).get(topicPartition1).offset());
-    assertEquals(1, offsets.getHistory().get(0).get(topicPartition2).offset());
-    assertEquals(2, offsets.getHistory().get(1).get(topicPartition3).offset());
-    assertEquals(1, offsets.getHistory().get(1).get(topicPartition4).offset());
 
   }
 

@@ -1,11 +1,13 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.util.XMLUtils;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +16,11 @@ import org.w3c.dom.NodeList;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.xpath.*;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpression;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.HashMap;
@@ -28,21 +34,25 @@ import java.util.Map;
  * Config Parameters -
  * <ul>
  *   <li>fieldMapping (Map&lt;String, List&lt;String&gt;&gt;) : A mapping of the XPath expression to the list of fields to place the evaluated expression in.</li>
- *   <li>xmlField (String, Optional) : The name of the document field which contains the XML field: defaults to "xml".</li>
+ *   <li>source (String, Optional) : The name of the document field which contains the XML field: defaults to "xml".</li>
+ *   <li>allowDoctype (Boolean, Optional) : Whether the XML may contain a DOCTYPE. Even when allowed, external DTDs and external
+ *   entities are never loaded. Defaults to false, so XML with a DOCTYPE is not extracted from.</li>
  * </ul>
  */
 public class XPathExtractor extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("xmlField")
+      .optionalString("source")
+      .optionalBoolean("allowDoctype")
       .requiredParent("fieldMapping", new TypeReference<Map<String, List<String>>>(){}).build();
 
   protected Map<String, Object> xpaths;
   private DocumentBuilder builder;
-  private DocumentBuilderFactory factory;
-  private XPath xpath;
+  private final DocumentBuilderFactory factory;
+  private final XPath xpath;
   private final String xmlField;
-  private Map<XPathExpression, List<String>> expressionMapping;
+  private final boolean allowDoctype;
+  private final Map<XPathExpression, List<String>> expressionMapping;
   private static final Logger log = LoggerFactory.getLogger(XPathExtractor.class);
 
   /**
@@ -57,7 +67,8 @@ public class XPathExtractor extends Stage {
     factory = DocumentBuilderFactory.newInstance();
     XPathFactory xpathFactory = XPathFactory.newInstance();
     xpath = xpathFactory.newXPath();
-    xmlField = config.hasPath("xmlField") ? config.getString("xmlField") : "xml";
+    xmlField = ConfigUtils.getStringOrDefault(config, "source", "xml");
+    allowDoctype = ConfigUtils.getOrDefault(config, "allowDoctype", false);
     expressionMapping = new HashMap<>();
   }
 
@@ -68,6 +79,7 @@ public class XPathExtractor extends Stage {
   public void start() throws StageException {
     try {
 
+      XMLUtils.secure(factory, allowDoctype);
       builder = factory.newDocumentBuilder();
 
       for (String expressionString : xpaths.keySet()) {

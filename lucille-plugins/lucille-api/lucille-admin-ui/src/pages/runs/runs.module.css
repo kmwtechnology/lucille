@@ -1,0 +1,68 @@
+@reference "../../index.css";
+
+/* Runs list page styles */
+.page {
+  @apply p-4 sm:p-6 lg:p-8;
+}
+
+.pageHeader {
+  @apply mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4;
+}
+
+.pageTitle {
+  @apply text-3xl font-bold mb-2 text-primary-800;
+}
+
+.pageSubtitle {
+  @apply text-muted-foreground;
+}
+
+.startButton {
+  @apply justify-start bg-primary-600 hover:bg-primary-700 text-xs sm:text-sm py-2 h-auto;
+}
+
+/* Table */
+.tableWrap {
+  @apply overflow-x-auto rounded-md border border-primary-100 bg-white;
+}
+
+.table {
+  @apply w-full border-collapse text-sm;
+}
+
+.th {
+  @apply text-left font-semibold text-primary-800 px-4 py-2.5 border-b border-primary-100
+    bg-primary-50/50 whitespace-nowrap;
+}
+
+.row {
+  @apply border-b border-primary-100 last:border-0 cursor-pointer hover:bg-primary-50 transition-colors;
+}
+
+.row td {
+  @apply px-4 py-3;
+}
+
+.idCell {
+  @apply max-w-[16rem];
+}
+
+.idWrap {
+  @apply inline-flex items-center gap-1.5 text-primary-700 min-w-0;
+}
+
+.idIcon {
+  @apply h-3.5 w-3.5 flex-shrink-0;
+}
+
+.rowId {
+  @apply font-mono text-xs text-primary-700 truncate underline underline-offset-2;
+}
+
+.configId {
+  @apply font-mono text-xs text-primary-700 truncate block;
+}
+
+.nowrap {
+  @apply whitespace-nowrap text-primary-800;
+}

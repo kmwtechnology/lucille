@@ -2,6 +2,7 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.EventFieldConfig;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -12,6 +13,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.errors.RecordDeserializationException;
+import java.util.concurrent.ExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,12 +29,14 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   private final Config config;
   private final Duration pollInterval;
   private final String pipelineName;
+  private final EventFieldConfig eventFieldConfig;
   private final DeserializationErrorHandler deserializationErrorHandler;
 
   public KafkaWorkerMessenger(Config config, String pipelineName) {
     this.config = config;
     this.pollInterval = KafkaUtils.getPollInterval(config);
     this.pipelineName = pipelineName;
+    this.eventFieldConfig = EventFieldConfig.fromConfig(config);
     this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     // append random string to kafka client ID to prevent kafka from issuing a warning when multiple consumers
@@ -49,13 +53,13 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
    *
    */
   @Override
-  public Document pollDocToProcess() throws Exception {
+  public Document pollDocToProcess() throws MessengerException {
     ConsumerRecords<String, KafkaDocument> consumerRecords;
     try {
       consumerRecords = sourceConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
-      // rethrows unless configured to skip; the Worker commits the advanced position when we return null
-      deserializationErrorHandler.handleOrRethrow(e);
+      // throws unless configured to skip; the Worker commits the advanced position when we return null
+      deserializationErrorHandler.handleOrThrow(e);
       return null;
     }
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
@@ -63,17 +67,17 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
-      doc.setKafkaMetadata(record);
+      doc.setKafkaMetadata(record.topic(), record.partition(), record.offset(), record.key());
       return doc;
     }
     return null;
   }
 
   @Override
-  public void commitPendingDocOffsets() throws Exception {
-    // offsets are committed synchronously to ensure that offsets are successfully committed before the documents are sent to
-    // the destination (typically an indexer). This reduces the number of documents that might
-    // be re-processed through the pipeline in the event of worker crash and/or consumer group rebalance.
+  public void commitPendingDocOffsets() {
+    // Called after the documents made from the polled record have been sent to the destination topic, each send waiting for
+    // the broker's acknowledgment, so the record is safe to commit. The commit is synchronous, so that a worker crash or a
+    // consumer group rebalance re-processes as few records as possible.
     sourceConsumer.commitSync();
   }
 
@@ -82,23 +86,28 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
    *
    */
   @Override
-  public void sendForIndexing(Document document) throws Exception {
-    RecordMetadata result = kafkaDocumentProducer.send(
-        new ProducerRecord<>(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document)).get();
+  public void sendForIndexing(Document document) throws MessengerException {
+    try {
+      kafkaDocumentProducer.send(
+          new ProducerRecord<>(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document)).get();
+    } catch (ExecutionException e) {
+      throw KafkaUtils.toMessengerException("Sending document " + document.getId() + " for indexing", e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Sending document " + document.getId() + " for indexing was interrupted", e);
+    }
   }
 
-  public void sendFailed(Document document) throws Exception {
-    ProducerRecord<String, Document> producerRecord =
-        new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
-    RecordMetadata metadata = kafkaDocumentProducer.send(producerRecord).get();
+  public void sendFailed(Document document) throws MessengerException {
+    KafkaUtils.sendToFailTopic(kafkaDocumentProducer, pipelineName, document);
   }
 
   @Override
-  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+  public void sendEvent(Document document, String message, Event.Type type) throws MessengerException {
     if (kafkaEventProducer == null) {
       return;
     }
-    Event event = new Event(document, message, type);
+    Event event = new Event(document, message, type, eventFieldConfig);
     sendEvent(event);
   }
 
@@ -107,17 +116,24 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
    *
    */
   @Override
-  public void sendEvent(Event event) throws Exception {
+  public void sendEvent(Event event) throws MessengerException {
     if (kafkaEventProducer == null) {
       return;
     }
     String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-    RecordMetadata result = kafkaEventProducer.send(
-        new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    try {
+      kafkaEventProducer.send(
+          new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    } catch (ExecutionException e) {
+      throw KafkaUtils.toMessengerException("Sending " + event.getType() + " event for document " + event.getDocumentId(), e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Sending " + event.getType() + " event for document " + event.getDocumentId() + " was interrupted", e);
+    }
   }
 
   @Override
-  public void close() throws Exception {
+  public void close() {
     if (sourceConsumer != null) {
       sourceConsumer.close();
     }

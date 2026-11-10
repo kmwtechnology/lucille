@@ -2,15 +2,17 @@
 title: HashFieldValueToBucket
 weight: 370
 date: 2025-06-09
-description: Hashes a field's value and assigns the document to a numbered bucket.
+description: Assigns each Document to one of a list of bucket labels by hashing, and writes the label to a field.
 ---
 
 `com.kmwllc.lucille.stage.HashFieldValueToBucket`
 
-Hashes a field's value and assigns the document to a numbered bucket (useful for deterministic partitioning).
+Assigns each Document to one of the labels in `buckets` and writes that label to `dest`. The bucket is chosen from the hash code modulo the number of buckets, so the same input always lands in the same bucket.
+
+The hash is computed from the value of `source` (or from the Document ID when `source` is `id`). Documents without the field are left unchanged.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `source` | String | Yes | Field whose value is hashed. |
-| `dest` | String | Yes | Field to write the bucket number to. |
-| `numBuckets` | Integer | Yes | Total number of buckets. |
+| `source` | String | Yes | Field whose value is hashed. Use `id` to bucket by Document ID. |
+| `dest` | String | Yes | Field to write the bucket label to. |
+| `buckets` | List\<String\> | Yes | Bucket labels. Must not be empty. |

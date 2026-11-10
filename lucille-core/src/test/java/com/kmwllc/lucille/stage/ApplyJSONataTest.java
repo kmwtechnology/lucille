@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -10,6 +11,9 @@ import java.util.List;
 import org.junit.Test;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.dashjoin.jsonata.Jsonata;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -250,5 +254,98 @@ public class ApplyJSONataTest {
 
     assertEquals(true, child0.getBoolean("enabled"));
     assertEquals(true, doc.getBoolean("isEnabled"));
+  }
+
+  @Test
+  public void testTransform() throws Exception {
+    Document doc = Document.createFromJson("{\"id\":\"id\",\"foo\": \"bar\"}");
+    doc.setField("bytes", new byte[]{1, 2, 3});
+
+    // test mutating a reserved field
+    Jsonata mutateReservedExpr = Jsonata.jsonata("{\"id\":\"diff\",\"foo\": \"bar\"}");
+    assertThrows(DocumentException.class, () -> ApplyJSONata.transform(doc, mutateReservedExpr));
+    assertEquals(3, doc.getFieldNames().size());
+    assertEquals("id", doc.getId());
+    assertEquals("bar", doc.getString("foo"));
+    assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
+
+    // test mutation does not create object
+    Jsonata mutateIntoArray = Jsonata.jsonata("[1, 2, 3]");
+    Jsonata mutateIntoNum = Jsonata.jsonata("3");
+    assertThrows(DocumentException.class, () -> ApplyJSONata.transform(doc, mutateIntoArray));
+    assertThrows(DocumentException.class, () -> ApplyJSONata.transform(doc, mutateIntoNum));
+    assertEquals(3, doc.getFieldNames().size());
+    assertEquals("id", doc.getId());
+    assertEquals("bar", doc.getString("foo"));
+    assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
+
+    // test valid mutation
+    Jsonata mutateFoo = Jsonata.jsonata("$merge([$, {\"foo\": $substring(foo, 2)}])");
+    ApplyJSONata.transform(doc, mutateFoo);
+    assertEquals(3, doc.getFieldNames().size());
+    assertEquals("id", doc.getId());
+    assertEquals("r", doc.getString("foo"));
+    assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
+  }
+
+  @Test
+  public void testTransformNestedJson() throws Exception {
+    Document doc = Document.createFromJson("{\"id\":\"id\",\"foo\": \"bar\"}");
+    doc.setField("nested", mapper.createObjectNode()
+        .put("bytes", new byte[]{1, 2, 3})
+        .put("int", 1)
+        .put("string", "text, with; delimiters"));
+    doc.setNestedJson("nested.bool", BooleanNode.getTrue());
+
+    // test valid mutation with new destination
+    Jsonata mutateString = Jsonata.jsonata("$trim($split(string, /[,;、，،؛；]/)[1])");
+    ApplyJSONata.transform(doc, mutateString, "nested", "nested.newString");
+    assertEquals(3, doc.getFieldNames().size());
+    assertEquals("id", doc.getId());
+    assertEquals("text, with; delimiters", doc.getNestedJson("nested.string").asText());
+    assertEquals("with", doc.getNestedJson("nested.newString").asText());
+    assertArrayEquals(new byte[]{1, 2, 3}, doc.getNestedJson("nested.bytes").binaryValue());
+    assertEquals(1, doc.getNestedJson("nested.int").asInt());
+
+    // test null source node
+    assertThrows(DocumentException.class, () ->  ApplyJSONata.transform(doc, mutateString, "nested.nonexistent", "nested.null"));
+    doc.setNestedJson("nested.null", mapper.nullNode());
+    assertThrows(DocumentException.class, () ->  ApplyJSONata.transform(doc, mutateString, "nested.null", "nested.null"));
+
+    // test valid mutation with same destination
+    Jsonata mutateInt = Jsonata.jsonata("int + 10");
+    ApplyJSONata.transform(doc, mutateInt, "nested", "nested.int");
+    assertEquals(3, doc.getFieldNames().size());
+    assertEquals("id", doc.getId());
+    assertEquals("text, with; delimiters", doc.getNestedJson("nested.string").asText());
+    assertEquals("with", doc.getNestedJson("nested.newString").asText());
+    assertArrayEquals(new byte[]{1, 2, 3}, doc.getNestedJson("nested.bytes").binaryValue());
+    assertEquals(11, doc.getNestedJson("nested.int").asInt());
+
+    // test null destination node
+    ApplyJSONata.transform(doc, mutateString, "nested", null);
+    assertEquals("with", doc.getString("nested"));
+    assertEquals(3, doc.getFieldNames().size());
+    assertEquals("id", doc.getId());
+    assertNull(doc.getNestedJson("nested.string"));
+    assertNull(doc.getNestedJson("nested.newString"));
+    assertNull(doc.getNestedJson("nested.bytes"));
+    assertNull(doc.getNestedJson("nested.int"));
+  }
+
+  @Test
+  public void testTransformCannotAddReservedOrEmptyField() throws Exception {
+    Document doc = Document.create("id");
+    doc.setField("foo", "bar");
+
+    Jsonata addDropped = Jsonata.jsonata("$merge([$, {\"___dropped\": true}])");
+    assertThrows(DocumentException.class, () -> ApplyJSONata.transform(doc, addDropped));
+    Jsonata addEmptyName = Jsonata.jsonata("$merge([$, {\"\": 1}])");
+    assertThrows(DocumentException.class, () -> ApplyJSONata.transform(doc, addEmptyName));
+
+    // the document is unchanged
+    assertFalse(doc.isDropped());
+    assertEquals(List.of("id", "foo"), List.copyOf(doc.getFieldNames()));
+    assertEquals("bar", doc.getString("foo"));
   }
 }

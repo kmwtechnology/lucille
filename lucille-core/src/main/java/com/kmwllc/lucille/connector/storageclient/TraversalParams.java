@@ -1,21 +1,25 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
-import static com.kmwllc.lucille.connector.FileConnector.HANDLE_ARCHIVED_FILES;
-import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.GET_FILE_CONTENT;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.HANDLE_ARCHIVED_FILES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.HANDLE_COMPRESSED_FILES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_SIZE_BYTES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_AFTER_PROCESSING;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_ERROR_FOLDER;
 
-import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.fileHandler.FileHandler;
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.kmwllc.lucille.core.filehandler.FileHandler;
+import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.InvalidPathException;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -29,6 +33,9 @@ public class TraversalParams {
 
   private static final Logger log = LoggerFactory.getLogger(TraversalParams.class);
 
+  // a larger limit couldn't be read into a byte[]
+  private static final long MAX_ALLOWED_SIZE_BYTES = Integer.MAX_VALUE - 9L;
+
   // provided argument
   private final String docIdPrefix;
 
@@ -39,6 +46,8 @@ public class TraversalParams {
   private final boolean getFileContent;
   private final boolean handleArchivedFiles;
   private final boolean handleCompressedFiles;
+  // null means no limit
+  private final Long maxSizeBytes;
 
   private final URI moveToAfterProcessing;
   private final URI moveToErrorFolder;
@@ -63,10 +72,17 @@ public class TraversalParams {
     this.getFileContent = !fileOptions.hasPath(GET_FILE_CONTENT) || fileOptions.getBoolean(GET_FILE_CONTENT);
     this.handleArchivedFiles = fileOptions.hasPath(HANDLE_ARCHIVED_FILES) && fileOptions.getBoolean(HANDLE_ARCHIVED_FILES);
     this.handleCompressedFiles = fileOptions.hasPath(HANDLE_COMPRESSED_FILES) && fileOptions.getBoolean(HANDLE_COMPRESSED_FILES);
+    this.maxSizeBytes = ConfigUtils.getLongOrDefault(fileOptions, MAX_SIZE_BYTES, null);
+    if (maxSizeBytes != null && maxSizeBytes <= 0) {
+      throw new IllegalArgumentException("fileOptions.maxSizeBytes must be positive, but was " + maxSizeBytes);
+    }
+    if (maxSizeBytes != null && maxSizeBytes > MAX_ALLOWED_SIZE_BYTES) {
+      throw new IllegalArgumentException("fileOptions.maxSizeBytes must be at most " + MAX_ALLOWED_SIZE_BYTES + ", but was " + maxSizeBytes);
+    }
 
     try {
-      if (fileOptions.hasPath(FileConnector.MOVE_TO_AFTER_PROCESSING)) {
-        this.moveToAfterProcessing = parsePathOrURI(fileOptions.getString(FileConnector.MOVE_TO_AFTER_PROCESSING));
+      if (fileOptions.hasPath(MOVE_TO_AFTER_PROCESSING)) {
+        this.moveToAfterProcessing = FileUtils.parsePathOrURI(fileOptions.getString(MOVE_TO_AFTER_PROCESSING));
       } else {
         this.moveToAfterProcessing = null;
       }
@@ -75,8 +91,8 @@ public class TraversalParams {
     }
 
     try {
-      if (fileOptions.hasPath(FileConnector.MOVE_TO_ERROR_FOLDER)) {
-        this.moveToErrorFolder = parsePathOrURI(fileOptions.getString(FileConnector.MOVE_TO_ERROR_FOLDER));
+      if (fileOptions.hasPath(MOVE_TO_ERROR_FOLDER)) {
+        this.moveToErrorFolder = FileUtils.parsePathOrURI(fileOptions.getString(MOVE_TO_ERROR_FOLDER));
       } else {
         this.moveToErrorFolder = null;
       }
@@ -114,6 +130,12 @@ public class TraversalParams {
   /**
    * Returns whether the filterOptions allow for the publishing / processing of the file, described by its name
    * and the last time it was modified.
+   *
+   * @param fileName The name the includes / excludes patterns are matched against (see {@link FileReference#getFilterName()}).
+   * @param fileLastModified When the file was last modified. May be null, in which case the file passes lastModifiedCutoff
+   *                         and, in incremental mode, is treated as modified since it was last published.
+   * @param fileLastPublished When the file was last published, or null if it hasn't been (or state is not in use).
+   * @return Whether the file should be processed and published.
    */
   public boolean includeFile(String fileName, Instant fileLastModified, Instant fileLastPublished) {
     // file must pass include/exclude path patterns, if specified, to even be a publishing candidate
@@ -140,12 +162,20 @@ public class TraversalParams {
     return applyLastPublishedFilter(fileLastPublished);
   }
 
+  /**
+   * @param fileExtension A file extension, matched without regard to case.
+   * @return Whether a FileHandler is configured for the extension.
+   */
   public boolean supportsFileExtension(String fileExtension) {
-    return fileHandlers.containsKey(fileExtension);
+    return fileExtension != null && fileHandlers.containsKey(fileExtension.toLowerCase(Locale.ROOT));
   }
 
+  /**
+   * @param fileExtension A file extension, matched without regard to case.
+   * @return The FileHandler configured for the extension, or null if there is none.
+   */
   public FileHandler handlerForExtension(String fileExtension) {
-    return fileHandlers.get(fileExtension);
+    return fileExtension == null ? null : fileHandlers.get(fileExtension.toLowerCase(Locale.ROOT));
   }
 
   /**
@@ -157,8 +187,8 @@ public class TraversalParams {
   }
 
   private boolean applyLastModifiedFilter(Instant fileLastModified) {
-    // If lastModifiedCutoff is specified, return false if it is violated
-    if (lastModifiedCutoff != null) {
+    // If lastModifiedCutoff is specified, return false if it is violated. A file with no last-modified time passes.
+    if (lastModifiedCutoff != null && fileLastModified != null) {
       Instant cutoffPoint = Instant.now().minus(lastModifiedCutoff);
 
       // Only want to include files modified within the given duration (for example, within the last hour)
@@ -183,8 +213,9 @@ public class TraversalParams {
     return true;
   }
 
+  // a file with no last-modified time can't be shown to be unchanged, so it is treated as modified
   private boolean modifiedSinceLastPublish(Instant fileLastModified, Instant fileLastPublished) {
-    return fileLastPublished == null || fileLastModified.isAfter(fileLastPublished);
+    return fileLastPublished == null || fileLastModified == null || fileLastModified.isAfter(fileLastPublished);
   }
 
   public URI getURI() {
@@ -197,6 +228,13 @@ public class TraversalParams {
 
   public boolean shouldGetFileContent() {
     return getFileContent;
+  }
+
+  /**
+   * @return The maximum size, in bytes, of file content to read into a Document, or null if there is no limit.
+   */
+  public Long getMaxSizeBytes() {
+    return maxSizeBytes;
   }
 
   public boolean getHandleArchivedFiles() {
@@ -248,34 +286,6 @@ public class TraversalParams {
     }
   }
 
-  /**
-   * Parses a configured path or URI into a URI.
-   * <p>
-   * Strings that are valid URIs are used as-is. Local file system paths that are not valid URIs, such as Windows paths
-   * ("C:\data", "C:/data", "\\server\share"), are converted to an absolute {@code file://} URI.
-   * <p>
-   * Throws a URISyntaxException if the string is neither a valid URI nor a local file system path.
-   */
-  public static URI parsePathOrURI(String s) throws URISyntaxException {
-    try {
-      URI uri = new URI(s);
-
-      if (uri.getScheme() == null || uri.getScheme().length() > 1) {
-        return uri;
-      }
-    } catch (URISyntaxException e) {
-      if (s.contains("://")) {
-        throw e;
-      }
-    }
-
-    try {
-      return Paths.get(s).toUri();
-    } catch (InvalidPathException e) {
-      throw new URISyntaxException(s, e.getReason());
-    }
-  }
-
   public enum PublishMode {
     INCREMENTAL, FULL;
 
@@ -285,8 +295,13 @@ public class TraversalParams {
     }
 
     public static PublishMode fromString(String name) {
-        return PublishMode.valueOf(name.toUpperCase());
-    }    
+      for (PublishMode mode : values()) {
+        if (name != null && mode.name().equalsIgnoreCase(name.trim())) {
+          return mode;
+        }
+      }
+      throw new IllegalArgumentException("Unknown filterOptions.publishMode \"" + name + "\"; expected one of incremental, full");
+    }
   }
 
 }

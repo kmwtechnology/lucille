@@ -8,6 +8,7 @@ import static org.junit.Assert.assertTrue;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.relevan.indexer.FakeRelevan.Request;
 import com.typesafe.config.Config;
@@ -37,15 +38,16 @@ public class RelevanIndexerTest {
     relevan.close();
   }
 
+  /** The indexer block of the config, which is what an Indexer is constructed with. */
   private Config config(String extraRelevan, String extraIndexer) {
     return ConfigFactory.parseString(
-        "indexer { class: \"com.kmwllc.lucille.relevan.indexer.RelevanIndexer\"\n batchSize: 2000\n " + extraIndexer + " }\n"
-            + "relevan { apiKey: \"test-key\"\n index: \"songs\"\n orgId: \"test-org\"\n url: \"" + relevan.url() + "\"\n "
-            + extraRelevan + " }");
+        "indexer { class: \"com.kmwllc.lucille.relevan.indexer.RelevanIndexer\"\n batchSize: 2000\n " + extraIndexer + "\n"
+            + " relevan { apiKey: \"test-key\"\n index: \"songs\"\n orgId: \"test-org\"\n url: \"" + relevan.url() + "\"\n "
+            + extraRelevan + " } }").getConfig("indexer");
   }
 
   private RelevanIndexer indexer(String extraRelevan, String extraIndexer) {
-    return new RelevanIndexer(config(extraRelevan, extraIndexer), messenger, false, "testing", null);
+    return new RelevanIndexer(config(extraRelevan, extraIndexer), new IndexerContext(messenger, false, "testing", null));
   }
 
   private void index(RelevanIndexer indexer, Document... docs) throws Exception {
@@ -170,7 +172,7 @@ public class RelevanIndexerTest {
     alreadyGone.setField("is_deleted", "true");
     relevan.reply("DELETE", "/documents/never-existed", 404, "{\"message\":\"Document 'never-existed' not found.\"}");
 
-    index(indexer("", "deletionMarkerField: \"is_deleted\"\n deletionMarkerFieldValue: \"true\""),
+    index(indexer("", "deletionMarker { field: \"is_deleted\", value: \"true\" }"),
         doc("kept", "K"), deleted, alreadyGone);
 
     assertEquals(List.of("kept"), ids(relevan.requests("POST", BULK).get(0)));
@@ -184,7 +186,7 @@ public class RelevanIndexerTest {
     Document deleted = Document.create("a", "run1");
     deleted.setField("is_deleted", "true");
 
-    index(indexer("", "deletionMarkerField: \"is_deleted\"\n deletionMarkerFieldValue: \"true\""),
+    index(indexer("", "deletionMarker { field: \"is_deleted\", value: \"true\" }"),
         doc("a", "old"), deleted, doc("a", "new"));
 
     List<String> calls = relevan.requests().stream().map(r -> r.method() + " " + r.path()).collect(Collectors.toList());
@@ -197,7 +199,7 @@ public class RelevanIndexerTest {
     deleted.setField("is_deleted", "true");
     relevan.reply("DELETE", "/documents/a", 401, "{\"message\":\"Unauthorized\"}");
 
-    index(indexer("", "deletionMarkerField: \"is_deleted\"\n deletionMarkerFieldValue: \"true\""), deleted);
+    index(indexer("", "deletionMarker { field: \"is_deleted\", value: \"true\" }"), deleted);
 
     assertEquals(Event.Type.FAIL, event("a").getType());
     assertTrue(event("a").getMessage().contains("HTTP 401: Unauthorized"));
@@ -275,7 +277,7 @@ public class RelevanIndexerTest {
   public void testResolvesOrgIdFromApiKey() throws Exception {
     Config config = config("", "").withoutPath("relevan.orgId");
 
-    index(new RelevanIndexer(config, messenger, false, "testing", null), doc("a", "A"), doc("b", "B"));
+    index(new RelevanIndexer(config, new IndexerContext(messenger, false, "testing", null)), doc("a", "A"), doc("b", "B"));
 
     assertEquals(1, relevan.requests("GET", "/v1/organizations").size());
     assertEquals(1, relevan.requests("POST", BULK).size());
@@ -339,7 +341,7 @@ public class RelevanIndexerTest {
 
   @Test
   public void testBypassMakesNoRequests() {
-    RelevanIndexer indexer = new RelevanIndexer(config("", ""), messenger, true, "testing", null);
+    RelevanIndexer indexer = new RelevanIndexer(config("", ""), new IndexerContext(messenger, true, "testing", null));
     assertTrue(indexer.validateConnection());
     assertTrue(relevan.requests().isEmpty());
   }
@@ -347,13 +349,14 @@ public class RelevanIndexerTest {
   @Test
   public void testDeleteByQueryIsRejected() {
     assertThrows(IllegalArgumentException.class,
-        () -> indexer("", "deleteByFieldField: \"f\"\n deleteByFieldValue: \"v\""));
+        () -> indexer("", "deletionMarker { field: \"is_deleted\", value: \"true\" }\n"
+            + " deleteByQuery { fieldNameField: \"f\", valueField: \"v\" }"));
   }
 
   @Test
   public void testInvalidConfigIsRejected() {
     assertThrows(Exception.class, () -> indexer("unknownSetting: true", ""));
     Config missingKey = config("", "").withoutPath("relevan.apiKey");
-    assertThrows(Exception.class, () -> new RelevanIndexer(missingKey, messenger, false, "testing", null));
+    assertThrows(Exception.class, () -> new RelevanIndexer(missingKey, new IndexerContext(messenger, false, "testing", null)));
   }
 }

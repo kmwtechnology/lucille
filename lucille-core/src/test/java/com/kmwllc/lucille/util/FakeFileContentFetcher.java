@@ -15,12 +15,12 @@ public class FakeFileContentFetcher implements FileContentFetcher {
   }
 
   @Override
-  public void startup() throws IOException {
+  public void start() throws IOException {
 
   }
 
   @Override
-  public void shutdown() {
+  public void stop() {
 
   }
 

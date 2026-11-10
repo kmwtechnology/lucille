@@ -1,6 +1,6 @@
 ---
 title: Support Matrix
-weight: 8
+weight: 10
 date: 2025-06-09
 description: Supported Java versions, search backends, Kafka versions, and operating systems.
 ---
@@ -24,8 +24,8 @@ The following backends are supported via the Indexer component.
 | Backend | Tested Version | Notes |
 |---|---|---|
 | Apache Solr | 9.x | Client: `solr-solrj` 9.8.0 |
-| OpenSearch | 2.x | Client: `opensearch-java` 2.11.1 |
-| Elasticsearch | 8.x | Client: `elasticsearch-java` 8.18.4 |
+| OpenSearch | 2.x; smoke tested: 3.7.0 | Client: `opensearch-java` 3.9.0 |
+| Elasticsearch | 8.x; smoke tested: 9.0.0 | Client: `elasticsearch-java` 9.0.0 |
 | CSV | — | Writes indexed documents to a local CSV file; no server required |
 | Nop | — | Discards output; used for testing and dry runs |
 
@@ -33,10 +33,10 @@ The following backends are supported via the Indexer component.
 
 | Component | Version |
 |---|---|
-| kafka-clients | 4.0.0 |
-| Kafka broker | 3.x, 4.x |
+| kafka-clients | 4.2.0 |
+| Kafka broker | 3.x, 4.x; smoke tested: 4.2.0 (three-broker cluster, replication factor 3, `min.insync.replicas=2`) |
 
-Kafka is only required when running in distributed mode (`-distributed`). Local mode uses in-memory queues and has no Kafka dependency.
+Kafka is required in external mode (`-external`) and distributed mode (`-distributed`). Local mode uses in-memory queues and has no Kafka dependency.
 
 ## Operating Systems
 

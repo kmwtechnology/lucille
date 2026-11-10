@@ -24,9 +24,15 @@ import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class KafkaPublisherMessengerTest {
 
@@ -51,7 +57,7 @@ public class KafkaPublisherMessengerTest {
     ));
 
     Config runnerConfig = ConfigFactory.parseMap(Map.of(
-        "runner.connectorTimeout", 30000
+        "runner.connectorTimeoutMs", 30000
     ));
 
     // Mock the KafkaProducer: first 2 sends succeed (callback with null exception),
@@ -152,7 +158,7 @@ public class KafkaPublisherMessengerTest {
     ));
 
     Config runnerConfig = ConfigFactory.parseMap(Map.of(
-        "runner.connectorTimeout", 30000
+        "runner.connectorTimeoutMs", 30000
     ));
 
     // Mock the KafkaProducer: all sends succeed except the last one

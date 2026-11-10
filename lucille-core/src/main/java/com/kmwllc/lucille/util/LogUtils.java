@@ -6,10 +6,13 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 public class LogUtils {
 
   public static final Spec SPEC = SpecBuilder.withoutDefaults()
-      .optionalNumber("seconds").build();
+      .optionalNumber("intervalSecs").build();
 
   public static final int DEFAULT_LOG_SECONDS = 30;
 
   // name of default metrics registry
   public static final String METRICS_REG = "default";
+
+  private LogUtils() {
+  }
 }

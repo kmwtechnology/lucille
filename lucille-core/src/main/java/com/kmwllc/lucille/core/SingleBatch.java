@@ -59,7 +59,7 @@ public class SingleBatch implements Batch {
 
   @Override
   public List<Document> flushIfExpired() {
-    return isExpired() ? flush() : new ArrayList();
+    return isExpired() ? flush() : new ArrayList<>();
   }
 
 
@@ -75,6 +75,12 @@ public class SingleBatch implements Batch {
   @Override
   public int getCapacity() {
     return capacity;
+  }
+
+  @Override
+  public void delayExpirationBy(long millis) {
+    // Move the reference instant forward, so the delayed span does not count toward expiry.
+    lastAddOrFlushInstant = lastAddOrFlushInstant.plusMillis(millis);
   }
 
   /**

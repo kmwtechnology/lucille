@@ -9,6 +9,7 @@ fi
 
 exec java \
   ${JAVA_OPTS} \
-  -jar target/lucille-api-plugin.jar \
+  -cp "lib/*" \
+  com.kmwllc.lucille.api.APIApplication \
   server \
   ${DROPWIZARD_CONF}

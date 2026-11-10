@@ -1,6 +1,6 @@
 ---
 title: "Security Configuration"
-weight: 6
+weight: 8
 date: 2025-06-09
 description: >
   Configuring TLS, authentication, and credentials for search backends and Kafka in Lucille deployments.
@@ -13,9 +13,11 @@ Lucille connects to external systems — search backends (Solr, OpenSearch, Elas
 **Never hard-code credentials in config files.** Use HOCON's environment variable substitution to inject secrets at runtime:
 
 ```hocon
-opensearch {
-  url: "https://localhost:9200"
-  url: ${?OPENSEARCH_URL}  # override from env var
+indexer {
+  opensearch {
+    url: "https://localhost:9200"
+    url: ${?OPENSEARCH_URL}  # override from env var
+  }
 }
 ```
 
@@ -32,10 +34,12 @@ In Kubernetes, inject credentials via Secrets mounted as environment variables. 
 The simplest approach: embed credentials in the URL:
 
 ```hocon
-opensearch {
-  url: "https://admin:password@opensearch-host:9200"
-  url: ${?OPENSEARCH_URL}
-  index: "my-index"
+indexer {
+  opensearch {
+    url: "https://admin:password@opensearch-host:9200"
+    url: ${?OPENSEARCH_URL}
+    index: "my-index"
+  }
 }
 ```
 
@@ -48,10 +52,12 @@ OpenSearch connections use TLS when the URL scheme is `https://`. Lucille builds
 **For valid certificates (production):**
 
 ```hocon
-opensearch {
-  url: "https://opensearch-host:9200"
-  index: "my-index"
-  acceptInvalidCert: false  # default — validates certificates normally
+indexer {
+  opensearch {
+    url: "https://opensearch-host:9200"
+    index: "my-index"
+    acceptInvalidCert: false  # default — validates certificates normally
+  }
 }
 ```
 
@@ -60,10 +66,12 @@ No additional configuration needed if the server's certificate is signed by a CA
 **For self-signed certificates (development only):**
 
 ```hocon
-opensearch {
-  url: "https://localhost:9200"
-  index: "my-index"
-  acceptInvalidCert: true  # disables certificate validation and hostname verification
+indexer {
+  opensearch {
+    url: "https://localhost:9200"
+    index: "my-index"
+    acceptInvalidCert: true  # disables certificate validation and hostname verification
+  }
 }
 ```
 
@@ -85,14 +93,7 @@ java \
   -cp 'target/lib/*' com.kmwllc.lucille.core.Runner
 ```
 
-Or configure via HOCON (Lucille sets these as system properties if not already set):
-
-```hocon
-javax.net.ssl.trustStore: "/path/to/truststore.jks"
-javax.net.ssl.trustStore: ${?TRUSTSTORE_PATH}
-javax.net.ssl.trustStorePassword: "changeit"
-javax.net.ssl.trustStorePassword: ${?TRUSTSTORE_PASSWORD}
-```
+Lucille does not read these settings from the config for OpenSearch.
 
 ---
 
@@ -101,12 +102,14 @@ javax.net.ssl.trustStorePassword: ${?TRUSTSTORE_PASSWORD}
 ### HTTP Basic Authentication
 
 ```hocon
-solr {
-  url: "https://solr-host:8983/solr/my-collection"
-  userName: "solr-user"
-  userName: ${?SOLR_USER}
-  password: "solr-password"
-  password: ${?SOLR_PASSWORD}
+indexer {
+  solr {
+    url: "https://solr-host:8983/solr/my-collection"
+    userName: "solr-user"
+    userName: ${?SOLR_USER}
+    password: "solr-password"
+    password: ${?SOLR_PASSWORD}
+  }
 }
 ```
 
@@ -115,47 +118,53 @@ solr {
 For Solr clusters with mutual TLS (mTLS) or custom CA certificates:
 
 ```hocon
-solr {
-  url: "https://solr-host:8983/solr/my-collection"
-  userName: ${?SOLR_USER}
-  password: ${?SOLR_PASSWORD}
-  acceptInvalidCert: false
-}
+indexer {
+  solr {
+    url: "https://solr-host:8983/solr/my-collection"
+    userName: ${?SOLR_USER}
+    password: ${?SOLR_PASSWORD}
+    acceptInvalidCert: false
 
-# SSL system properties — Lucille sets these if not already set via -D flags
-javax.net.ssl.keyStore: "/path/to/keystore.jks"
-javax.net.ssl.keyStore: ${?KEYSTORE_PATH}
-javax.net.ssl.keyStorePassword: "changeit"
-javax.net.ssl.keyStorePassword: ${?KEYSTORE_PASSWORD}
-javax.net.ssl.trustStore: "/path/to/truststore.jks"
-javax.net.ssl.trustStore: ${?TRUSTSTORE_PATH}
-javax.net.ssl.trustStorePassword: "changeit"
-javax.net.ssl.trustStorePassword: ${?TRUSTSTORE_PASSWORD}
+    # SSL system properties — Lucille sets these if not already set via -D flags
+    javax.net.ssl.keyStore: "/path/to/keystore.jks"
+    javax.net.ssl.keyStore: ${?KEYSTORE_PATH}
+    javax.net.ssl.keyStorePassword: "changeit"
+    javax.net.ssl.keyStorePassword: ${?KEYSTORE_PASSWORD}
+    javax.net.ssl.trustStore: "/path/to/truststore.jks"
+    javax.net.ssl.trustStore: ${?TRUSTSTORE_PATH}
+    javax.net.ssl.trustStorePassword: "changeit"
+    javax.net.ssl.trustStorePassword: ${?TRUSTSTORE_PASSWORD}
+  }
+}
 ```
 
-Lucille's `SSLUtils.setSSLSystemProperties(config)` reads these from the config and sets them as JVM system properties (without overriding properties already set via `-D` flags). This means you can provide them either in the config file or on the command line.
+Lucille reads these from the `solr` block and sets them as JVM system properties (without overriding properties already set via `-D` flags). This means you can provide them either in the config file or on the command line. Keys at the root of the config are not read.
 
 ### SolrCloud with ZooKeeper
 
 For SolrCloud deployments, the Solr client connects to ZooKeeper for cluster state. If ZooKeeper requires authentication, configure it separately (ZooKeeper auth is not managed by Lucille's config — use ZooKeeper's own client configuration mechanisms).
 
 ```hocon
-solr {
-  useCloudClient: true
-  zkHosts: ["zk1:2181", "zk2:2181", "zk3:2181"]
-  zkChroot: "/solr"
-  defaultCollection: "my-collection"
-  userName: ${?SOLR_USER}
-  password: ${?SOLR_PASSWORD}
+indexer {
+  solr {
+    useCloudClient: true
+    zkHosts: ["zk1:2181", "zk2:2181", "zk3:2181"]
+    zkChroot: "/solr"
+    defaultCollection: "my-collection"
+    userName: ${?SOLR_USER}
+    password: ${?SOLR_PASSWORD}
+  }
 }
 ```
 
 ### Development: Accepting Invalid Certificates
 
 ```hocon
-solr {
-  url: "https://localhost:8983/solr/my-collection"
-  acceptInvalidCert: true  # development only
+indexer {
+  solr {
+    url: "https://localhost:8983/solr/my-collection"
+    acceptInvalidCert: true  # development only
+  }
 }
 ```
 
@@ -189,9 +198,9 @@ For complex Kafka security configurations (SASL mechanisms, Kerberos, custom SSL
 kafka {
   bootstrapServers: "kafka-host:9093"
   securityProtocol: "SASL_SSL"
-  consumerPropertyFile: "/path/to/consumer.properties"
-  producerPropertyFile: "/path/to/producer.properties"
-  adminPropertyFile: "/path/to/admin.properties"
+  consumerPropertiesPath: "/path/to/consumer.properties"
+  producerPropertiesPath: "/path/to/producer.properties"
+  adminPropertiesPath: "/path/to/admin.properties"
 }
 ```
 
@@ -243,7 +252,7 @@ kafka {
   bootstrapServers: "kafka-host:9093"
   securityProtocol: "SSL"
   consumerGroupId: "lucille_workers"
-  maxPollIntervalSecs: 600
+  maxPollIntervalMs: 600000
   maxRequestSize: 250000000
 }
 ```
@@ -265,10 +274,12 @@ java \
 Pinecone uses API key authentication:
 
 ```hocon
-pinecone {
-  apiKey: ${PINECONE_API_KEY}
-  environment: "us-east-1-aws"
-  index: "my-index"
+indexer {
+  pinecone {
+    apiKey: ${PINECONE_API_KEY}
+    environment: "us-east-1-aws"
+    index: "my-index"
+  }
 }
 ```
 
@@ -281,11 +292,13 @@ All Pinecone communication uses HTTPS by default. No additional TLS configuratio
 Weaviate supports API key and OIDC authentication:
 
 ```hocon
-weaviate {
-  scheme: "https"
-  host: "weaviate-host:8080"
-  apiKey: ${WEAVIATE_API_KEY}
-  className: "MyClass"
+indexer {
+  weaviate {
+    scheme: "https"
+    host: "weaviate-host:8080"
+    apiKey: ${WEAVIATE_API_KEY}
+    className: "MyClass"
+  }
 }
 ```
 
@@ -299,9 +312,9 @@ The standard pattern for all credentials in Lucille configs:
 
 ```hocon
 # Default for development (or omit entirely)
-opensearch.url: "http://localhost:9200"
+indexer.opensearch.url: "http://localhost:9200"
 # Override from environment in production
-opensearch.url: ${?OPENSEARCH_URL}
+indexer.opensearch.url: ${?OPENSEARCH_URL}
 ```
 
 ### Kubernetes Secrets
@@ -348,7 +361,7 @@ docker run \
 | Backend | Authentication | TLS | Config Location |
 |---|---|---|---|
 | OpenSearch | URL userinfo (Basic) | `https://` scheme + `acceptInvalidCert` | `opensearch {}` block |
-| Elasticsearch | URL userinfo (Basic) | `https://` scheme + `acceptInvalidCert` | `elastic {}` block |
+| Elasticsearch | URL userinfo (Basic) | `https://` scheme + `acceptInvalidCert` | `elasticsearch {}` block |
 | Solr | `userName` + `password` | `https://` + keystore/truststore | `solr {}` block |
 | Kafka | `securityProtocol` + property files | SSL/SASL_SSL | `kafka {}` block |
 | Pinecone | `apiKey` | Always HTTPS | `pinecone {}` block |

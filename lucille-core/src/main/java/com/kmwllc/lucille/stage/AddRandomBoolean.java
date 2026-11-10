@@ -15,14 +15,14 @@ import java.util.concurrent.ThreadLocalRandom;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>fieldName(String, Optional) : Field name of field where data is placed. Defaults to "data".</li>
+ *   <li>dest(String, Optional) : Field name of field where data is placed. Defaults to "data".</li>
  *   <li>percentTrue (Integer, Optional) : Determines the rate at which "true" is selected and placed on a document. Defaults to 50.</li>
  * </ul>
  */
 public class AddRandomBoolean extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("fieldName")
+      .optionalString("dest")
       .optionalNumber("percentTrue").build();
 
   private final String fieldName;
@@ -31,7 +31,7 @@ public class AddRandomBoolean extends Stage {
   public AddRandomBoolean(Config config) throws StageException {
     super(config);
 
-    this.fieldName = ConfigUtils.getOrDefault(config, "fieldName", "data");
+    this.fieldName = ConfigUtils.getOrDefault(config, "dest", "data");
     this.percentTrue = ConfigUtils.getOrDefault(config, "percentTrue", 50);
 
     if (percentTrue > 100 || percentTrue < 0) {

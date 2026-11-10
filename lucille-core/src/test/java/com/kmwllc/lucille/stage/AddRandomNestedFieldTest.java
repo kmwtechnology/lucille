@@ -1,6 +1,11 @@
 package com.kmwllc.lucille.stage;
 
-import static org.junit.Assert.*;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.Map;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.NullNode;
@@ -171,5 +176,16 @@ public class AddRandomNestedFieldTest {
     JsonNode out = d.getJson("out");
     assertEquals(1, out.size());
     assertEquals(0, out.get(0).at("/user/id").asInt());
+  }
+
+  @Test
+  public void testCopiedSourceIsIndependent() throws Exception {
+    Stage stage = factory.get(Map.of("dest", "out", "entries", Map.of("meta", "src"), "numObjects", 2));
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"src\":{\"k\":1}}");
+    stage.processDocument(doc);
+
+    ((ObjectNode) doc.getJson("out").get(0).get("meta")).put("k", 99);
+    assertEquals(1, doc.getJson("out").get(1).get("meta").get("k").asInt());
+    assertEquals(1, doc.getJson("src").get("k").asInt());
   }
 }

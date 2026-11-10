@@ -13,6 +13,9 @@ import java.util.List;
  *
  * An Indexer also needs to communicate with a destination system like Solr or Elasticsearch but
  * that communication is not included in this interface.
+ *
+ * <p> Internal to Lucille: not a supported extension point, and it may change in any release. The Runner chooses the
+ * messengers for a run; there is no setting for supplying another implementation.
  */
 public interface IndexerMessenger {
 
@@ -21,35 +24,110 @@ public interface IndexerMessenger {
    * indexed; block if no such Document is available, but apply a timeout of several milliseconds
    * to several seconds so that this method can be called from within a polling loop that
    * periodically checks other conditions even when no Documents are available.
+   *
+   * @throws MessengerException if the messaging infrastructure failed, or the thread was interrupted while waiting
+   *     (its interrupt flag is restored)
    */
-  Document pollDocToIndex() throws Exception;
+  Document pollDocToIndex() throws MessengerException;
+
+  /**
+   * Copy the designated Document to the fail topic, a dead letter queue for Documents that could not be indexed. Only
+   * called when indexer.sendFailedDocsToTopic is set. A messenger with no fail topic does nothing.
+   *
+   * @throws MessengerException if the Document could not be sent; see {@link MessengerException#isDocumentSpecific()}
+   */
+  void sendFailed(Document document) throws MessengerException;
 
   /**
    * Make the designated Event available to the Publisher or any other component that is listening for
    * Document-related Events.
+   *
+   * @throws MessengerException if the messaging infrastructure failed, or the thread was interrupted while waiting
+   *     (its interrupt flag is restored)
    */
-  void sendEvent(Event event) throws Exception;
+  void sendEvent(Event event) throws MessengerException;
 
   /**
    * Create an Event from the given parameters and make it available to the Publisher or
    * any other component that is listening for Document-related Events.
+   *
+   * @throws MessengerException if the messaging infrastructure failed, or the thread was interrupted while waiting
+   *     (its interrupt flag is restored)
    */
-  void sendEvent(Document document, String message, Event.Type type) throws Exception;
+  void sendEvent(Document document, String message, Event.Type type) throws MessengerException;
 
   /**
    * Sends Events of the given type and message for a batch of Documents. Implementations may
    * send the events asynchronously and flush at the end, providing better throughput than
    * calling sendEvent() individually for each document.
+   *
+   * @throws MessengerException if the messaging infrastructure failed, or the thread was interrupted while waiting
+   *     (its interrupt flag is restored)
    */
-  void sendEvents(List<Document> documents, String message, Event.Type type) throws Exception;
+  void sendEvents(List<Document> documents, String message, Event.Type type) throws MessengerException;
 
   /**
    * Close any connections opened by this IndexerMessenger.
+   *
+   * <p> Declares no checked exception: it runs during shutdown, where a caller can only log a failure. An
+   * implementation logs a failure to release a resource itself, or lets an unchecked exception propagate.
    */
-  void close() throws Exception;
+  void close();
 
   /**
    * Provides a way to communicate to other components that a batch of documents has been completed.
+   *
+   * @throws MessengerException if the messaging infrastructure failed, or the thread was interrupted while waiting
+   *     (its interrupt flag is restored)
    */
-  void batchComplete(List<Document> batch) throws Exception;
+  void batchComplete(List<Document> batch) throws MessengerException;
+
+  /**
+   * Registers a hook the messenger runs, on the indexer thread, when it learns a partition is about to be revoked in a
+   * consumer-group rebalance — before the partition is handed off. The Indexer registers an action here that flushes
+   * its open batch and drains in-flight batches, so their offsets are committed before the handoff and a <i>clean</i>
+   * rebalance does not re-deliver them (re-delivery is then limited to crashes, where the hook never runs). The hook
+   * owns the batch and dispatcher, which are confined to the indexer thread; a messenger must therefore only invoke it
+   * from that thread, and only from within {@link #pollDocToIndex()} or {@link #close()} — never while the Indexer is
+   * dispatching or draining a batch. (A Kafka messenger's rebalance callback runs inside the consumer's poll(), which
+   * it calls only from those two methods.) The default does nothing — only a messenger backed by a rebalancing consumer
+   * needs it.
+   */
+  default void setPreRevocationHook(Runnable hook) {
+  }
+
+  /**
+   * Whether this messenger commits (or acknowledges) its input on {@link #batchComplete(List)} rather than at poll —
+   * the property that makes it safe to run an Indexer with indexer.maxConcurrentBatches greater than 1. With
+   * concurrency, documents are polled while earlier batches are still being sent, so a messenger that commits its input
+   * at poll time could lose in-flight documents on a crash and must return false. This is a distinct check from
+   * {@code Indexer.supportsConcurrentSends()}, which instead asserts the destination <i>client</i> is thread-safe; both
+   * must hold for concurrency to be enabled. The default is false, so an unknown messenger disables concurrency rather
+   * than risking data loss; messengers that commit on completion (or do not commit input at all) override this to true.
+   */
+  default boolean commitsOnBatchCompletion() {
+    return false;
+  }
+
+  /**
+   * Whether this indexer may still write the given polled document: false once the messenger knows, or must assume,
+   * that another consumer may own the document's input — for a Kafka messenger, once the consumer has gone longer than
+   * max.poll.interval.ms without polling (it has left its group), or once the document's partition was lost or revoked
+   * since it was polled. The Indexer checks every document of a batch before each send attempt and does not send a batch
+   * that fails the check, so an evicted indexer does not write documents a new owner may already have written (and
+   * perhaps deleted since). Called from send threads, so implementations must be thread-safe. The default is true: a
+   * messenger whose input cannot move to another consumer always owns it.
+   */
+  default boolean ownsInput(Document doc) {
+    return true;
+  }
+
+  /**
+   * Reports, on the indexer thread, a batch the Indexer did not send (or stopped retrying) because {@link #ownsInput}
+   * returned false for one of its documents. The batch emits no events and is not marked complete, so its input stays
+   * uncommitted and is re-delivered: to another consumer, or, if this one turns out to own it still, to this one. The
+   * default does nothing.
+   */
+  default void batchNotSent(List<Document> batch) {
+  }
 }

@@ -1,8 +1,9 @@
 package com.kmwllc.lucille.video;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandler.BaseFileHandler;
-import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
+import com.kmwllc.lucille.core.filehandler.BaseFileHandler;
+import com.kmwllc.lucille.core.filehandler.FileHandlerException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
@@ -13,6 +14,7 @@ import java.io.InputStream;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import javax.imageio.ImageIO;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.bytedeco.javacv.FFmpegFrameGrabber.Exception;
 import org.slf4j.Logger;
@@ -31,10 +33,10 @@ import org.bytedeco.javacv.Java2DFrameConverter;
  * <ul>
  *   <li>docIdPrefix (String, Optional) : Prefix prepended to all generated document ids.</li>
  *   <li>docIdFormat (String, Optional) : The pattern applied to the filename stem when composing the
- *   parent id (a single %s placeholder).</li>
+ *   parent id (a single %s placeholder). Without it, the parent id is the md5 hash of the full file path.</li>
  *   <li>frameStride (Int, Optional) : Emit every Nth video frame; defaults to 1.</li>
- *   <li>sourceField (String, Optional) : Field used to store the original file path; defaults to "source".</li>
- *   <li>fileNameField (String, Optional) : Field used to store the leaf filename; defaults to "file_name".</li>
+ *   <li>filePathField (String, Optional) : Field used to store the original file path; defaults to "source".</li>
+ *   <li>filenameField (String, Optional) : Field used to store the leaf filename; defaults to "file_name".</li>
  *   <li>frameIndexField (String, Optional) : Field used to store the zero-based frame index; defaults to "frame_index".</li>
  *   <li>frameTimeMsField (String, Optional) : Field used to store the frame timestamp in milliseconds; defaults to "frame_time_ms".</li>
  *   <li>frameTimecodeField (String, Optional) : Field used to store the human-readable frame timecode; defaults to "frame_timecode".</li>
@@ -45,7 +47,7 @@ import org.bytedeco.javacv.Java2DFrameConverter;
  */
 public class VideoFileHandler extends BaseFileHandler {
   public static final Spec SPEC = SpecBuilder.fileHandler()
-      .optionalString("docIdPrefix", "docIdFormat", "sourceField", "fileNameField", "frameIndexField", "frameTimeMsField", "frameTimecodeField", "imageWidthField", "imageHeightField", "frameImageField")
+      .optionalString("docIdFormat", "filePathField", "filenameField", "frameIndexField", "frameTimeMsField", "frameTimecodeField", "imageWidthField", "imageHeightField", "frameImageField")
       .optionalNumber("frameStride")
       .build();
 
@@ -53,8 +55,8 @@ public class VideoFileHandler extends BaseFileHandler {
 
   private final String docIdFormat;
   private final int frameStride;
-  private final String sourceField;
-  private final String fileNameField;
+  private final String filePathField;
+  private final String filenameField;
   private final String frameIndexField;
   private final String frameTimeMsField;
   private final String frameTimecodeField;
@@ -65,16 +67,16 @@ public class VideoFileHandler extends BaseFileHandler {
   public VideoFileHandler(Config config) {
     super(config);
 
-    this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
-    this.frameStride = Math.max(1, config.hasPath("frameStride") ? config.getInt("frameStride") : 1);
-    this.sourceField = config.hasPath("sourceField") ? config.getString("sourceField") : "source";
-    this.fileNameField = config.hasPath("fileNameField") ? config.getString("fileNameField") : "file_name";
-    this.frameIndexField = config.hasPath("frameIndexField") ? config.getString("frameIndexField") : "frame_index";
-    this.frameTimeMsField = config.hasPath("frameTimeMsField") ? config.getString("frameTimeMsField") : "frame_time_ms";
-    this.frameTimecodeField = config.hasPath("frameTimecodeField") ? config.getString("frameTimecodeField") : "frame_timecode";
-    this.imageWidthField = config.hasPath("imageWidthField") ? config.getString("imageWidthField") : "image_width";
-    this.imageHeightField = config.hasPath("imageHeightField") ? config.getString("imageHeightField") : "image_height";
-    this.frameImageField = config.hasPath("frameImageField") ? config.getString("frameImageField") : "frame_image";
+    this.docIdFormat = ConfigUtils.getStringOrDefault(config, "docIdFormat", null);
+    this.frameStride = Math.max(1, ConfigUtils.getIntOrDefault(config, "frameStride", 1));
+    this.filePathField = ConfigUtils.getStringOrDefault(config, "filePathField", "source");
+    this.filenameField = ConfigUtils.getStringOrDefault(config, "filenameField", "file_name");
+    this.frameIndexField = ConfigUtils.getStringOrDefault(config, "frameIndexField", "frame_index");
+    this.frameTimeMsField = ConfigUtils.getStringOrDefault(config, "frameTimeMsField", "frame_time_ms");
+    this.frameTimecodeField = ConfigUtils.getStringOrDefault(config, "frameTimecodeField", "frame_timecode");
+    this.imageWidthField = ConfigUtils.getStringOrDefault(config, "imageWidthField", "image_width");
+    this.imageHeightField = ConfigUtils.getStringOrDefault(config, "imageHeightField", "image_height");
+    this.frameImageField = ConfigUtils.getStringOrDefault(config, "frameImageField", "frame_image");
   }
 
   @Override
@@ -99,8 +101,8 @@ public class VideoFileHandler extends BaseFileHandler {
         parentId,
         fileName,
         frameStride,
-        sourceField,
-        fileNameField,
+        filePathField,
+        filenameField,
         frameIndexField,
         frameTimeMsField,
         frameTimecodeField,
@@ -117,8 +119,8 @@ public class VideoFileHandler extends BaseFileHandler {
     private final String parentId;
     private final String fileName;
     private final int frameStride;
-    private final String sourceField;
-    private final String fileNameField;
+    private final String filePathField;
+    private final String filenameField;
     private final String frameIndexField;
     private final String frameTimeMsField;
     private final String frameTimecodeField;
@@ -137,8 +139,8 @@ public class VideoFileHandler extends BaseFileHandler {
         String parentId,
         String fileName,
         int frameStride,
-        String sourceField,
-        String fileNameField,
+        String filePathField,
+        String filenameField,
         String frameIndexField,
         String frameTimeMsField,
         String frameTimecodeField,
@@ -151,8 +153,8 @@ public class VideoFileHandler extends BaseFileHandler {
       this.parentId = parentId;
       this.fileName = fileName;
       this.frameStride = frameStride;
-      this.sourceField = sourceField;
-      this.fileNameField = fileNameField;
+      this.filePathField = filePathField;
+      this.filenameField = filenameField;
       this.frameIndexField = frameIndexField;
       this.frameTimeMsField = frameTimeMsField;
       this.frameTimecodeField = frameTimecodeField;
@@ -223,8 +225,8 @@ public class VideoFileHandler extends BaseFileHandler {
 
           String frameId = parentId + "-f" + index;
           Document doc = Document.create(frameId);
-          doc.setField(sourceField, pathStr);
-          doc.setField(fileNameField, fileName);
+          doc.setField(filePathField, pathStr);
+          doc.setField(filenameField, fileName);
           doc.setField(frameIndexField, index);
           doc.setField(frameTimeMsField, timeMs);
           doc.setField(frameTimecodeField, formatTimecode(timeMs));
@@ -254,10 +256,12 @@ public class VideoFileHandler extends BaseFileHandler {
   }
 
   private String buildParentId(String pathStr) {
-    String leaf = FilenameUtils.getName(pathStr);
-    String stem = FilenameUtils.removeExtension(leaf);
-    String raw = (docIdFormat != null) ? String.format(docIdFormat, stem) : stem;
-    return docIdPrefix + raw;
+    if (docIdFormat == null) {
+      // the full path, not the stem, so same-named videos in different folders don't overwrite each other
+      return docIdPrefix + DigestUtils.md5Hex(pathStr);
+    }
+    String stem = FilenameUtils.removeExtension(FilenameUtils.getName(pathStr));
+    return docIdPrefix + String.format(docIdFormat, stem);
   }
 
   static String formatTimecode(long millis) {

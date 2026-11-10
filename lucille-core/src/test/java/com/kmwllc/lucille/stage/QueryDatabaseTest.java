@@ -90,7 +90,7 @@ public class QueryDatabaseTest {
     assertEquals((Long) 9223372036854775807L, d.getLong("bigint_col"));
     assertEquals((Double) 3.14159265359, d.getDouble("double_col"));
     assertEquals(true, d.getBoolean("boolean_col"));
-    assertEquals(Date.valueOf("2024-07-30"), d.getDate("date_col"));
+    assertEquals(Instant.ofEpochMilli(Date.valueOf("2024-07-30").getTime()), d.getInstant("date_col"));
 
     stage.stop();
   }
@@ -145,8 +145,8 @@ public class QueryDatabaseTest {
             "keyFields",
             "jdbcPassword",
             "sql",
-            "connectionRetries",
-            "connectionRetryPause",
+            "maxConnectionRetries",
+            "connectionRetryWaitDurationMs",
             "fieldMapping"),
         stage.getNonDefaultLegalProperties());
 
@@ -232,8 +232,8 @@ public class QueryDatabaseTest {
     assertEquals(true, d1.getBoolean("boolean_col"));
     assertEquals(true, d1.getBoolean("bit_col"));
     // Date & Timestamp
-    assertEquals(Date.valueOf("2024-07-30"), d1.getDate("date_col"));
-    assertEquals(Timestamp.valueOf("1970-01-01 00:00:01.0"), d1.getTimestamp("timestamp_col"));
+    assertEquals(Instant.ofEpochMilli(Date.valueOf("2024-07-30").getTime()), d1.getInstant("date_col"));
+    assertEquals(Timestamp.valueOf("1970-01-01 00:00:01.0").toInstant(), d1.getInstant("timestamp_col"));
     // Null will not be added to document
     assertFalse(d1.has("nullable_int"));
     assertNull(d1.getString("nullable_varchar"));
@@ -285,8 +285,8 @@ public class QueryDatabaseTest {
     assertEquals(false, d2.getBoolean("boolean_col"));
     assertEquals(false, d2.getBoolean("bit_col"));
     // Date & Timestamp
-    assertEquals(Date.valueOf("2023-01-01"), d2.getDate("date_col"));
-    assertEquals(Timestamp.valueOf("2038-01-19 03:14:07.0"), d2.getTimestamp("timestamp_col"));
+    assertEquals(Instant.ofEpochMilli(Date.valueOf("2023-01-01").getTime()), d2.getInstant("date_col"));
+    assertEquals(Timestamp.valueOf("2038-01-19 03:14:07.0").toInstant(), d2.getInstant("timestamp_col"));
     // null will not be added
     assertFalse(d2.has("nullable_int"));
     assertNull(d2.getString("nullable_varchar"));
@@ -317,29 +317,35 @@ public class QueryDatabaseTest {
   }
 
   @Test
-  public void testUnsupportedTypeTime() throws Exception {
+  public void testTimeTypeIsKeptAsString() throws Exception {
     Stage stage = factory.get("QueryDatabaseTest/time_type.conf");
 
     Document d = Document.create("id");
     d.setField("get_row", 1);
-    // JDBCUtils should log warning for the unsupported TIME column
-    stage.processDocument(d);
-    stage.stop();
+    try {
+      // a zone-less TIME round-trips losslessly as a string and must not be dropped
+      stage.processDocument(d);
+    } finally {
+      stage.stop();
+    }
 
-    assertFalse(d.has("time_col"));
+    assertTrue(d.has("time_col"));
     assertTrue(d.has("integer_col"));
     assertEquals(7, (int) d.getInt("integer_col"));
   }
 
   @Test
-  public void testUnsupportedTypeTimeWTimezone() throws Exception {
+  public void testUnsupportedTypeTimeWTimezoneFailsTheDocument() throws Exception {
     Stage stage = factory.get("QueryDatabaseTest/time_w_timezone_type.conf");
 
     Document d = Document.create("id");
     d.setField("get_row", 1);
-    // JDBCUtils should log warning
-    stage.processDocument(d);
-    stage.stop();
+    try {
+      // strict type handling: an unsupported column type fails rather than being silently dropped
+      assertThrows(StageException.class, () -> stage.processDocument(d));
+    } finally {
+      stage.stop();
+    }
   }
 
   @Test
@@ -394,5 +400,15 @@ public class QueryDatabaseTest {
     }
     // verify that connection has been established, and that prepareStatement was called
     verify(mockConnection, times(1)).prepareStatement(any());
+  }
+
+  @Test
+  public void testNullKeyField() throws Exception {
+    Stage stage = factory.get("QueryDatabaseTest/animal.conf");
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"name\":null}");
+    assertThrows(StageException.class, () -> stage.processDocument(doc));
+    Document leadingNull = Document.createFromJson("{\"id\":\"2\",\"name\":[null,\"cat\"]}");
+    assertThrows(StageException.class, () -> stage.processDocument(leadingNull));
+    stage.stop();
   }
 }

@@ -1,14 +1,17 @@
 package com.kmwllc.lucille.relevan.indexer;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.indexer.IndexerType;
 import com.kmwllc.lucille.relevan.indexer.RelevanClient.Response;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -16,7 +19,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,8 +38,8 @@ import org.slf4j.LoggerFactory;
  *
  * <p> Upserts are sent through the bulk endpoint, up to 1000 documents per request. Relevan rejects a whole bulk request
  * when any document in it fails validation, so this indexer fails only the rejected documents and resends the rest.
- * Documents marked for deletion with {@code indexer.deletionMarkerField} are deleted by ID. Delete-by-query
- * ({@code indexer.deleteByFieldField}) is not supported.
+ * Documents marked for deletion with {@code indexer.deletionMarker} are deleted by ID. Delete-by-query
+ * ({@code indexer.deleteByQuery}) is not supported.
  *
  * <p> HTTP 429 and 5xx responses and network errors are reported as {@link IndexerRetryableException}s, so they are
  * retried when {@code indexer.maxRetries} is set.
@@ -60,6 +61,8 @@ import org.slf4j.LoggerFactory;
  *   Defaults to {@value #DEFAULT_REQUEST_TIMEOUT_MS}.</li>
  * </ul>
  */
+@AutoService(Indexer.class)
+@IndexerType("Relevan")
 public class RelevanIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
@@ -91,13 +94,8 @@ public class RelevanIndexer extends Indexer {
   // field name -> kind, for each index whose mapping has been fetched; only used for dropUnmappedFields and coerceTypes
   private final Map<String, Map<String, String>> fieldKindsByIndex = new ConcurrentHashMap<>();
 
-  public RelevanIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, bypass, metricsPrefix, localRunId);
-
-    if (deleteByFieldField != null) {
-      throw new IllegalArgumentException(
-          "RelevanIndexer does not support delete-by-query. Remove indexer.deleteByFieldField and indexer.deleteByFieldValue.");
-    }
+  public RelevanIndexer(Config config, IndexerContext context) {
+    super(config, context);
 
     Config relevanConfig = config.getConfig("relevan");
     this.index = relevanConfig.getString("index");
@@ -107,11 +105,7 @@ public class RelevanIndexer extends Indexer {
     int timeoutMs = ConfigUtils.getOrDefault(relevanConfig, "requestTimeoutMs", DEFAULT_REQUEST_TIMEOUT_MS);
     String url = ConfigUtils.getOrDefault(relevanConfig, "url", DEFAULT_URL);
 
-    this.client = bypass ? null : new RelevanClient(url, relevanConfig.getString("apiKey"), Duration.ofMillis(timeoutMs));
-  }
-
-  public RelevanIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) {
-    this(config, messenger, false, metricsPrefix, localRunId);
+    this.client = isBypass() ? null : new RelevanClient(url, relevanConfig.getString("apiKey"), Duration.ofMillis(timeoutMs));
   }
 
   @Override
@@ -119,11 +113,14 @@ public class RelevanIndexer extends Indexer {
     return "relevan";
   }
 
+  // deletes by id only: Relevan has no delete-by-query endpoint
   @Override
-  public boolean validateConnection() {
-    if (bypass) {
-      return true;
-    }
+  protected Set<String> getUnsupportedSettings() {
+    return Set.of("deleteByQuery");
+  }
+
+  @Override
+  protected boolean checkConnection() {
     try {
       String indexPath = indexPath(index);
       Response indexResponse = client.get(indexPath);
@@ -153,14 +150,14 @@ public class RelevanIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
+  protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
     Map<String, List<Document>> documentsByIndex = new LinkedHashMap<>();
     for (Document doc : documents) {
       String override = getIndexOverride(doc);
       documentsByIndex.computeIfAbsent(override != null ? override : index, k -> new ArrayList<>()).add(doc);
     }
 
-    Set<Pair<Document, Exception>> failures = new LinkedHashSet<>();
+    List<IndexerFailure> failures = new ArrayList<>();
     for (Map.Entry<String, List<Document>> entry : documentsByIndex.entrySet()) {
       sendToRelevanIndex(entry.getKey(), entry.getValue(), failures);
     }
@@ -173,14 +170,14 @@ public class RelevanIndexer extends Indexer {
    * same ID is queued, so operations on any one ID are applied in the order the documents arrived. This also keeps
    * duplicate IDs, which Relevan rejects, out of a single bulk request.
    */
-  private void sendToRelevanIndex(String indexName, List<Document> documents, Set<Pair<Document, Exception>> failures)
+  private void sendToRelevanIndex(String indexName, List<Document> documents, List<IndexerFailure> failures)
       throws IndexerException {
     Map<String, String> fieldKinds = null;
     if (dropUnmappedFields || coerceTypes) {
       try {
         fieldKinds = fieldKinds(indexName);
       } catch (IndexerException e) {
-        documents.forEach(doc -> failures.add(Pair.of(doc, e)));
+        documents.forEach(doc -> failures.add(new IndexerFailure(doc, e)));
         return;
       }
     }
@@ -190,16 +187,15 @@ public class RelevanIndexer extends Indexer {
     Map<String, Document> pendingDeletes = new LinkedHashMap<>();
 
     for (Document doc : documents) {
-      String idOverride = getDocIdOverride(doc);
-      String id = idOverride != null ? idOverride : doc.getId();
+      String id = getDestinationId(doc);
       String idProblem = idProblem(id);
       if (idProblem != null) {
-        failures.add(Pair.of(doc, new IndexerException("Document ID '" + id + "' is not a valid Relevan document ID: "
+        failures.add(new IndexerFailure(doc, new IndexerException("Document ID '" + id + "' is not a valid Relevan document ID: "
             + idProblem + ". Use indexer.idOverrideField to send a different ID.")));
         continue;
       }
 
-      if (isDeletion(doc)) {
+      if (isMarkedForDeletion(doc)) {
         if (pendingUpserts.containsKey(id)) {
           flushUpserts(indexPath, pendingUpserts, failures);
         }
@@ -231,7 +227,7 @@ public class RelevanIndexer extends Indexer {
    * Sends the pending upserts in one bulk request. When Relevan rejects documents that fail validation, nothing
    * is written, so those documents are failed and the rest are sent again. Each round removes at least one document.
    */
-  private void flushUpserts(String indexPath, Map<String, PendingUpsert> pending, Set<Pair<Document, Exception>> failures) {
+  private void flushUpserts(String indexPath, Map<String, PendingUpsert> pending, List<IndexerFailure> failures) {
     List<PendingUpsert> remaining = new ArrayList<>(pending.values());
     pending.clear();
 
@@ -246,7 +242,7 @@ public class RelevanIndexer extends Indexer {
         response = client.post(indexPath + "/documents/_bulk", Map.of("documents", items));
       } catch (IOException e) {
         Exception failure = new IndexerRetryableException("Error sending documents to Relevan: " + reason(e), e);
-        remaining.forEach(upsert -> failures.add(Pair.of(upsert.doc(), failure)));
+        remaining.forEach(upsert -> failures.add(new IndexerFailure(upsert.doc(), failure)));
         return;
       }
 
@@ -257,7 +253,7 @@ public class RelevanIndexer extends Indexer {
       Map<Integer, List<String>> rejections = validationErrors(response, remaining.size());
       if (rejections.isEmpty()) {
         Exception failure = failureFor(response, "bulk ingest");
-        remaining.forEach(upsert -> failures.add(Pair.of(upsert.doc(), failure)));
+        remaining.forEach(upsert -> failures.add(new IndexerFailure(upsert.doc(), failure)));
         return;
       }
 
@@ -267,7 +263,7 @@ public class RelevanIndexer extends Indexer {
         if (messages == null) {
           accepted.add(remaining.get(i));
         } else {
-          failures.add(Pair.of(remaining.get(i).doc(),
+          failures.add(new IndexerFailure(remaining.get(i).doc(),
               new IndexerException("Relevan rejected document '" + remaining.get(i).id() + "': " + String.join("; ", messages))));
         }
       }
@@ -298,7 +294,7 @@ public class RelevanIndexer extends Indexer {
   }
 
   /** Deletes the pending documents by ID. A document that is already gone counts as deleted. */
-  private void flushDeletes(String indexPath, Map<String, Document> pending, Set<Pair<Document, Exception>> failures) {
+  private void flushDeletes(String indexPath, Map<String, Document> pending, List<IndexerFailure> failures) {
     List<Map.Entry<String, Document>> deletes = new ArrayList<>(pending.entrySet());
     pending.clear();
 
@@ -313,11 +309,11 @@ public class RelevanIndexer extends Indexer {
         try {
           Response response = responses.get(i).join();
           if (!response.isSuccess() && response.status() != 404) {
-            failures.add(Pair.of(doc, failureFor(response, "delete of document '" + wave.get(i).getKey() + "'")));
+            failures.add(new IndexerFailure(doc, failureFor(response, "delete of document '" + wave.get(i).getKey() + "'")));
           }
         } catch (CompletionException e) {
           Throwable cause = e.getCause() != null ? e.getCause() : e;
-          failures.add(Pair.of(doc, new IndexerRetryableException("Error deleting document from Relevan: " + reason(cause), cause)));
+          failures.add(new IndexerFailure(doc, new IndexerRetryableException("Error deleting document from Relevan: " + reason(cause), cause)));
         }
       }
     }
@@ -393,12 +389,6 @@ public class RelevanIndexer extends Indexer {
       return "it may only contain letters, digits, '_', '.', ':' and '-'";
     }
     return null;
-  }
-
-  private boolean isDeletion(Document doc) {
-    return deletionMarkerField != null
-        && doc.hasNonNull(deletionMarkerField)
-        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
   }
 
   /** Returns the kind of each field in the index's latest mapping, fetching it the first time the index is used. */

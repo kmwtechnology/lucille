@@ -207,6 +207,35 @@ public class MultiBatchTest {
     assertEquals(3, batch.flush().size());
   }
 
+  /**
+   * Test that adding a document to one index's sub-batch also flushes another index's sub-batch that has expired. Under
+   * continuous input the Indexer only calls add(), never flushIfExpired(), so a rarely seen index's documents would
+   * otherwise be held until input went idle, and with it the commit frontier of their partition.
+   */
+  @Test
+  public void testAddFlushesOtherExpiredSubBatch() throws InterruptedException {
+    MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 10, "index");
+    Document rare = Document.create("rare");
+    rare.setField("index", "rareIndex");
+    Document common1 = Document.create("common1");
+    common1.setField("index", "commonIndex");
+    Document common2 = Document.create("common2");
+    common2.setField("index", "commonIndex");
+
+    assertTrue(batch.add(rare).isEmpty());
+    TimeUnit.MILLISECONDS.sleep(15);
+
+    // The rare index's sub-batch has expired; adding to the common index flushes it. The common index's own sub-batch
+    // is new, so it is not flushed.
+    List<Document> docs = batch.add(common1);
+    assertEquals(1, docs.size());
+    assertEquals("rare", docs.get(0).getId());
+
+    // Nothing has expired since, so a further add to the common index flushes nothing.
+    assertTrue(batch.add(common2).isEmpty());
+    assertEquals(2, batch.flush().size());
+  }
+
   @Test
   public void testGetCapacity() throws InterruptedException {
     MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 1000, "index");
@@ -283,5 +312,25 @@ public class MultiBatchTest {
     assertEquals(2, finalFlush.size());
     assertEquals("doc3", finalFlush.get(0).getId());
     assertEquals("doc4", finalFlush.get(1).getId());
+  }
+
+  /**
+   * Test that delayExpirationBy applies to every per-index sub-batch: after adding docs to two indices and sleeping
+   * past the timeout, delaying by at least the elapsed time keeps both sub-batches from expiring.
+   */
+  @Test
+  public void testDelayExpirationBy() throws InterruptedException {
+    MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 20, "index");
+    Document doc1 = Document.create("doc1");
+    doc1.setField("index", "index1");
+    Document doc2 = Document.create("doc2");
+    doc2.setField("index", "index2");
+    assertTrue(batch.add(doc1).isEmpty());
+    assertTrue(batch.add(doc2).isEmpty());
+
+    TimeUnit.MILLISECONDS.sleep(40);
+    // Delaying by 1000 ms pushes every sub-batch's reference instant well into the future, so nothing expires.
+    batch.delayExpirationBy(1000);
+    assertTrue("delayed time must not expire any sub-batch", batch.flushIfExpired().isEmpty());
   }
 }

@@ -56,6 +56,7 @@ public class MatchQuery extends Stage {
   private final String matchedQueriesField;
 
   private Monitor monitor;
+  private Analyzer analyzer;
 
 
   public MatchQuery(Config config) {
@@ -67,10 +68,10 @@ public class MatchQuery extends Stage {
 
   @Override
   public void start() throws StageException {
-    if (fieldsList.size() == 0) {
+    if (fieldsList.isEmpty()) {
       throw new StageException(String.format("MatchQuery requires at least one %s property.", FIELDS_PARAM));
     }
-    if (queryList.size() == 0) {
+    if (queryList.isEmpty()) {
       throw new StageException(String.format("MatchQuery requires at least one %s property.", QUERIES_PARAM));
     }
     if (StringUtils.isBlank(matchedQueriesField)) {
@@ -78,7 +79,7 @@ public class MatchQuery extends Stage {
     }
 
     try {
-      Analyzer analyzer = new StandardAnalyzer();
+      analyzer = new StandardAnalyzer();
       monitor = new Monitor(analyzer);
 
       // TODO:: default field is the 1st field configured
@@ -98,14 +99,31 @@ public class MatchQuery extends Stage {
   }
 
   @Override
+  public void stop() throws StageException {
+    // start() may have failed before these were assigned, so guard against nulls and always close the analyzer
+    try {
+      if (monitor != null) {
+        monitor.close();
+      }
+    } catch (IOException e) {
+      throw new StageException("Unable to close the Lucene Monitor", e);
+    } finally {
+      if (analyzer != null) {
+        analyzer.close();
+      }
+    }
+  }
+
+  @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     try {
       org.apache.lucene.document.Document luceneDoc = new org.apache.lucene.document.Document();
 
       // add each configured field to the lucene document
       for (String field : this.fieldsList) {
-        if (doc.has(field)) {
-          luceneDoc.add(new TextField(field, doc.getString(field), Field.Store.YES));
+        String value = doc.getString(field);
+        if (value != null) {
+          luceneDoc.add(new TextField(field, value, Field.Store.YES));
         }
       }
 

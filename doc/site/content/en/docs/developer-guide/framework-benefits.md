@@ -150,27 +150,29 @@ You just call `publisher.publish(doc)` and the framework handles everything else
 
 ### What the framework handles (you don't have to)
 
-**Batching with size and timeout.** The base `Indexer` class accumulates documents in a `Batch` and flushes when either the configured `batchSize` is reached or `batchTimeout` milliseconds have elapsed. Your `sendToIndex()` method receives a pre-batched list of documents. You never manage batch accumulation or timeout logic.
+**Batching with size and timeout.** The base `Indexer` class accumulates documents in a `Batch` and flushes when either the configured `batchSize` is reached or `batchTimeoutMs` milliseconds have elapsed. Your `sendToIndex()` method receives a pre-batched list of documents. You never manage batch accumulation or timeout logic.
 
 **MultiBatch for index routing.** When `indexOverrideField` is configured, the framework uses a `MultiBatch` that maintains separate batches per destination index, flushing them independently. Your implementation receives documents already grouped by destination.
 
 **Retry with exponential backoff.** When `indexer.maxRetries` is configured, the framework wraps your `sendToIndex()` call in a Resilience4j retry. If you throw an `IndexerRetryableException` with a status code in the configured retryable list, the framework retries automatically with exponential backoff. You just throw the right exception type; the framework handles retry logic.
 
-**Event reporting for accounting.** After each batch, the framework sends FINISH events for successful documents and FAIL events for failed ones. You return a set of failed document/reason pairs from `sendToIndex()`; the framework handles all event communication with the Publisher.
+**Concurrent sends.** With `indexer.maxConcurrentBatches` above 1, the framework sends several batches to your backend at once, each on its own thread, calling your `sendToIndex()` from a pool. It never has two batches in flight that write the same destination id (a document's id, its `idOverrideField` value, or its children's ids), so an upsert and a delete of the same document still reach the backend in order. A batch containing a delete-by-query runs alone, and batches are completed (events emitted, Kafka offsets committed) in the order they were dispatched. You write the same single-batch `sendToIndex()`; see [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}).
 
-**Field filtering (whitelist/blacklist).** The `getConvertedIndexerDoc()` and `getRawIndexerDoc()` methods apply the configured field filter before you see the document. The filter treats reserved fields such as `run_id` and `___skipped` like any other field, so they reach the backend unless the whitelist leaves them out or the blacklist names them. Both always omit `___children`; an indexer that sends child documents reads them from `doc.getChildren()`. You call `getConvertedIndexerDoc(doc)` (or `getRawIndexerDoc(doc)` for a Jackson-based client) and get a clean map ready for the search backend.
+**Event reporting for accounting.** After each batch, the framework sends FINISH events for successful documents and FAIL events for failed ones. You return a list of `IndexerFailure`s from `sendToIndex()`; the framework handles all event communication with the Publisher.
 
-**ID override.** `getDocIdOverride(doc)` returns the override ID if configured, or null. You check this and use it as the document ID in the search backend.
+**Field filtering (`includeFields`/`excludeFields`).** The `getConvertedIndexerDoc()` and `getRawIndexerDoc()` methods apply the configured field filter before you see the document. The filter treats reserved fields such as `run_id` and `___skipped` like any other field, so they reach the backend unless `includeFields` leaves them out or `excludeFields` names them. Both always omit `___children`; an indexer that sends child documents reads them from `doc.getChildren()`. You call `getConvertedIndexerDoc(doc)` (or `getRawIndexerDoc(doc)` for a Jackson-based client) and get a clean map ready for the search backend.
+
+**ID override.** `getDestinationId(doc)` returns the override ID if configured, or else the document ID. You use it as the document ID in the search backend.
 
 **Index override.** `getIndexOverride(doc)` returns the destination index/collection override if configured, or null.
 
 **Connection validation.** The framework calls `validateConnection()` before processing any documents. If it returns false, the run is aborted immediately — no documents are wasted on a broken connection.
 
-**Offset commitment (in WorkerIndexer mode).** The `batchComplete()` call in the `finally` block of `sendToIndexWithAccounting` always fires, allowing the messenger to commit Kafka offsets. You don't manage offset semantics.
+**Offset commitment (Kafka and WorkerIndexer modes).** Once a batch has been handled (indexed, or reported as failed), `Indexer.completeBatch` calls the messenger's `batchComplete()`, which lets it commit Kafka offsets. The call is skipped if your `sendToIndex()` throws an `Error`, so offsets for documents that were never indexed are not committed. You don't manage offset semantics.
 
 **Graceful shutdown.** The `terminate()` method sets a flag that causes the polling loop to exit after the current batch. The framework handles the shutdown sequence.
 
-**Metrics.** The framework tracks indexing rate (documents/second), backend latency per batch, and logs periodic status updates.
+**Metrics.** The framework tracks indexing rate (documents/second), backend latency per send, and logs periodic status updates.
 
 **Bypass mode.** When `bypass=true` (test mode), the framework skips your `sendToIndex()` entirely. You don't need to handle test mode in your implementation.
 
@@ -178,13 +180,15 @@ You just call `publisher.publish(doc)` and the framework handles everything else
 
 **Bulk API construction.** Translate Lucille Documents into the search backend's bulk request format. This is backend-specific: Solr uses `SolrInputDocument`, OpenSearch uses `BulkRequest.Builder`, Pinecone uses its own upsert API. See `SolrIndexer.toSolrDoc()`, `OpenSearchIndexer.uploadDocuments()`.
 
-**Per-document failure extraction from bulk responses.** The bulk API may succeed overall but report failures for individual documents. You must parse the response, identify which documents failed, and return them as `Set<Pair<Document, String>>`. See `OpenSearchIndexer` (iterates `BulkResponseItem` checking for errors) and `SolrIndexer` (catches exceptions per-collection).
+**Per-document failure extraction from bulk responses.** The bulk API may succeed overall but report failures for individual documents. You must parse the response, identify which documents failed, and return them as a `List<IndexerFailure>`. See `OpenSearchIndexer` (iterates `BulkResponseItem` checking for errors) and `SolrIndexer` (catches exceptions per-collection).
 
-**Deletion handling.** Detect documents marked for deletion (using `deletionMarkerField`/`deletionMarkerFieldValue`) and issue the appropriate delete operation (delete-by-ID or delete-by-query). The framework provides the config values; you implement the detection logic and the delete API call. See `SolrIndexer.isDeletion()` and `OpenSearchIndexer.isMarkedForDeletion()`.
+**Deletion handling.** Detect documents marked for deletion (using `deletionMarker` and `deleteByQuery`) and issue the appropriate delete operation (delete-by-ID or delete-by-query). The framework provides the config values and the detection helpers `isMarkedForDeletion(doc)` and `isDeleteByQuery(doc)`, and `getDeleteByQueryFieldName(doc)` and `getDeleteByQueryValue(doc)` for a delete-by-query's target; you branch on them and make the delete API call. See `OpenSearchIndexer.sendToIndex()`. The base class uses the same two helpers to decide which batches are delete-by-query barriers when sends run concurrently, so use them (rather than your own check) to keep that decision consistent with yours.
 
 **Ordering within a batch.** If a batch contains both an upsert and a delete for the same document ID, you must ensure the operations are sent in the correct order. The SolrIndexer handles this by flushing pending upserts before processing a delete for the same ID. The OpenSearch indexer handles it by removing conflicting entries from the upload/delete maps.
 
-**Connection management.** Create the search engine client in the constructor, validate it in `validateConnection()`, close it in `closeConnection()`. Handle TLS, authentication, and certificate validation as needed. See `OpenSearchUtils.getOpenSearchRestClient()` for TLS/auth setup.
+**Thread safety of `sendToIndex()`.** With `indexer.maxConcurrentBatches` above 1, `sendToIndex()` can run on several threads at once, so the destination client must be safe for concurrent use and `sendToIndex()` must not mutate shared state on the indexer instance. Declare this by overriding `supportsConcurrentSends()` to return `true`; until you do, a `maxConcurrentBatches` above 1 is rejected at startup. The Solr, OpenSearch, and Elasticsearch indexers do. For an HTTP client, also make sure its connection pool allows at least that many concurrent requests (see [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}})).
+
+**Connection management.** Create the search engine client in the constructor, validate it in `checkConnection()`, close it in `closeConnection()`. Handle TLS, authentication, and certificate validation as needed. See `OpenSearchUtils.getOpenSearchRestClient()` for TLS/auth setup.
 
 **Nested/child document transformation.** If the search backend supports nested documents (Solr does), transform Lucille's attached children into the backend's nested format. See `SolrIndexer.addChildren()`.
 
@@ -199,6 +203,7 @@ You just call `publisher.publish(doc)` and the framework handles everything else
 | Concern | Framework handles | Implementor handles |
 |---|---|---|
 | **Batching** | Accumulation, size/timeout flush, MultiBatch | — |
+| **Concurrent sends** | Same-id ordering, delete-by-query barrier, in-order completion, offset commit | Declaring the client thread-safe (`supportsConcurrentSends()`) |
 | **Retry** | Exponential backoff, status code filtering | Classifying errors as retryable vs. permanent |
 | **Metrics** | Timer, counters, periodic logging | — |
 | **Conditional execution** | Evaluating conditions, skipping stages | — |
@@ -207,7 +212,7 @@ You just call `publisher.publish(doc)` and the framework handles everything else
 | **Document lifecycle tracking** | Publisher accounting, events | — |
 | **Backpressure** | maxPendingDocs, queue capacity | — |
 | **Error routing** | Catching StageException, sending FAIL events | Deciding what to throw vs. handle |
-| **Field filtering** | Whitelist/blacklist application | — |
+| **Field filtering** | `includeFields`/`excludeFields` application | — |
 | **Connection lifecycle** | Calling validate/close at right time | Implementing validate/close |
 | **Bulk API** | — | Constructing backend-specific requests |
 | **Deletion semantics** | Providing config values | Detecting markers, issuing deletes |

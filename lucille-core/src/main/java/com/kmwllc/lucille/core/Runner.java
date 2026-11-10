@@ -8,7 +8,13 @@ import com.codahale.metrics.Slf4jReporter;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
-import com.kmwllc.lucille.message.*;
+import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.IndexerMessengerFactory;
+import com.kmwllc.lucille.message.LocalMessenger;
+import com.kmwllc.lucille.message.PublisherMessenger;
+import com.kmwllc.lucille.message.PublisherMessengerFactory;
+import com.kmwllc.lucille.message.TestMessenger;
+import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.kmwllc.lucille.util.LogUtils;
 import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
@@ -16,19 +22,27 @@ import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import com.typesafe.config.ConfigValue;
 import java.util.Map.Entry;
-import org.apache.commons.cli.*;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.OptionGroup;
+import org.apache.commons.cli.Options;
 import org.apache.commons.lang3.time.StopWatch;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.slf4j.MDC;
-import sun.misc.Signal;
 
 /**
  * Executes a Lucille run. A run is a sequential execution of one or more Connectors.
@@ -64,21 +78,7 @@ public class Runner {
 
   public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .optionalString("metricsLoggingLevel")
-      .optionalNumber("connectorTimeout").build();
-
-  // package access for ConfigValidationTest
-  /**
-   * Config Keys & Specs for the "other parents" in a Lucille Config validated here.
-   * If a new "other" parent is added here, it should be added here along with its Spec.
-   */
-  static final List<Pair<String, Spec>> PARENTS_AND_SPECS = List.of(
-      Pair.of("publisher", PublisherImpl.SPEC),
-      Pair.of("log", LogUtils.SPEC),
-      Pair.of("runner", Runner.SPEC),
-      Pair.of("kafka", KafkaUtils.SPEC),
-      Pair.of("zookeeper", ZKRetryCounter.SPEC),
-      Pair.of("worker", Worker.SPEC)
-  );
+      .optionalNumber("connectorTimeoutMs").build();
 
   public static final int DEFAULT_CONNECTOR_TIMEOUT = 1000 * 60 * 60 * 24;
 
@@ -88,7 +88,7 @@ public class Runner {
 
   public enum RunType {
     LOCAL, // launch Worker(s) and Indexer as threads; have all components communicate via in-memory queues
-    TEST, // same as LOCAL, but bypass Solr, and store message traffic so it can be inspected after the run
+    TEST, // same as LOCAL, but skip sending to the search backend, and record message traffic so it can be inspected after the run (see runInTestMode)
     EXTERNAL, // launch Worker(s) and Indexer as threads; have all components communicate via Kafka
     DISTRIBUTED// assume Workers/Indexers were started separately (don't launch threads); have all components communicate via Kafka
   }
@@ -100,12 +100,17 @@ public class Runner {
   // static RunnerState that is only set via main() and should remain unset in execution contexts that don't involve main()
   private static RunnerState state = null;
 
+  /** Gives main() (via Launch) a RunnerState to hold the resources of the run it is about to start, for a clean shutdown. */
+  static void setState(RunnerState newState) {
+    state = newState;
+  }
+
   /**
-   * Holds various resources instantiated during a run so that we can attempt to cleanly close or stop them
-   * upon receiving an INT signal
+   * Holds various resources instantiated during a run so that the shutdown hook installed by main() can attempt to
+   * cleanly close or stop them when the process is told to shut down (SIGINT or SIGTERM)
    */
   static class RunnerState {
-    private Publisher publisher;
+    private PublisherImpl publisher;
     private Connector connector;
     private WorkerPool workerPool;
     private Indexer indexer;
@@ -114,7 +119,7 @@ public class Runner {
     public RunnerState() {
     }
 
-    public void set(Publisher publisher, Connector connector, WorkerPool workerPool, Indexer indexer, Thread thread) {
+    public void set(PublisherImpl publisher, Connector connector, WorkerPool workerPool, Indexer indexer, Thread thread) {
       this.publisher = publisher;
       this.connector = connector;
       this.workerPool = workerPool;
@@ -171,7 +176,7 @@ public class Runner {
   }
 
   /**
-   * Runs the configured connectors. NOTE: parameters are case insensitive.
+   * Runs the configured connectors. NOTE: option names are case insensitive.
    * <p>
    * no args: pipelines workers and indexers will be executed in separate threads within the same JVM; communication
    * between components will take place in memory and Kafka will not be used
@@ -183,16 +188,22 @@ public class Runner {
    * used for communication between them.
    * <p>
    * -render: prints out the effective/actual config in the exact form it will be seen by Lucille during the run
+   * <p>
+   * The process exits 0 when the run succeeds and 1 when it fails. On SIGINT or SIGTERM the shutdown hook stops and
+   * closes the run's components, and the process exits with the JVM's signal status. The body of this entry point is
+   * {@link Launch#runner}, which the other component entry points share their process-level behaviour with.
    */
   public static void main(String[] args) throws Exception {
-    // make a RunnerState available for holding resources that will be instantiated later in the run;
-    // the only purpose of doing this is so that we can cleanly stop/close these resources if an INT signal is received
-    // during the run
-    state = new RunnerState();
+    Launch.runner(args);
+  }
 
+  /**
+   * The options accepted by main(). Package access for Launch and for tests.
+   */
+  static Options cliOptions() {
     Option distributedOpt = Option.builder("distributed").hasArg(false)
-    .desc("Uses Kafka for inter-component communication and doesn't execute pipelines locally.")
-    .build();
+        .desc("Uses Kafka for inter-component communication and doesn't execute pipelines locally.")
+        .build();
 
     Option external = Option.builder("external").hasArg(false)
         .desc("Modified local mode where workers and indexers are separate threads within the JVM communicating "
@@ -201,69 +212,12 @@ public class Runner {
 
     OptionGroup distributedType = new OptionGroup().addOption(distributedOpt).addOption(external);
 
-    Options cliOptions = new Options()
+    return new Options()
         .addOptionGroup(distributedType)
         .addOption(Option.builder("validate").hasArg(false)
             .desc("Validate the configuration and exit").build())
         .addOption(Option.builder("render").hasArg(false)
             .desc("Print out the configuration file with substitutions applied and exit").build());
-
-    CommandLine cli = null;
-    try {
-      args = Arrays.stream(args).map(String::toLowerCase).toArray(String[]::new);
-      cli = new DefaultParser().parse(cliOptions, args);
-
-      if (!cli.getArgList().isEmpty()) {
-        printHelp(cliOptions, "Unrecognized argument(s): " + cli.getArgList());
-        SystemHelper.exit(1);
-        return;
-      }
-    } catch (UnrecognizedOptionException | MissingOptionException | AlreadySelectedException e) {
-      printHelp(cliOptions, e.getMessage());
-      SystemHelper.exit(1);
-      return;
-    }
-
-    Config config = ConfigFactory.load();
-
-    // allow handling of both validate and render flags
-    if (cli.hasOption("validate") || cli.hasOption("render")) {
-      if (cli.hasOption("render")) {
-        renderConfig(config);
-      }
-      if (cli.hasOption("validate")) {
-        runInValidationMode(config);
-      }
-      return;
-    }
-
-    // register a signal handler to attempt a clean shutdown of
-    // Connector, Publisher, WorkerPool, and Indexer if an INT signal is received
-    Signal.handle(new Signal("INT"), signal -> {
-      if (state != null) {
-        log.info("Runner attempting clean shutdown after receiving INT signal");
-        state.close();
-      }
-      SystemHelper.exit(0);
-    });
-
-    RunType runType = getRunType(cli.hasOption("distributed"), cli.hasOption("external"));
-
-    // Kick off the run with a log of the result
-    RunResult result = runAndLogResult(config, runType, true);
-
-    if (result.getStatus()) {
-      SystemHelper.exit(0);
-    } else {
-      SystemHelper.exit(1);
-    }
-  }
-
-  // utility class to allow mocking in a test context
-  class SystemHelper {
-    static void exit(int code) {
-      System.exit(code);
-    }
   }
 
   /** Utility method to generate a Run ID. */
@@ -272,169 +226,28 @@ public class Runner {
   }
 
   /**
-   * Run Lucille end-to-end using the sequence of Connectors and the pipeline defined in the given
-   * config file. Stop the run if any of the connectors fails.
-   * <p>
-   * Run in a local mode where message traffic is kept in memory and there is no
-   * communication with external systems like Kafka. Sending to solr is bypassed.
-   * <p>
-   * Return a TestMessenger for each connector that
-   * can be used to review the messages that were sent between various components during that connector's execution.
+   * Loads the named config and runs it in test mode. See {@link #runInTestMode(Config)}.
    */
   public static Map<String, TestMessenger> runInTestMode(String configName) throws Exception {
     Config config = ConfigFactory.load(configName);
     return runInTestMode(config);
   }
 
+  /**
+   * Runs the given config end to end in this JVM as a local run would, except that the indexer does not send
+   * documents to the search backend, and every document and event passing between components is recorded.
+   * Returns the recording for each connector, keyed by connector name. Like a local run, it stops if a connector fails.
+   *
+   * <p> Test mode is a supported way to develop and check pipelines, not only a unit-testing aid: try a pipeline
+   * on sample data, inspect what it produces, or assert on its output in a test, then run the same config for real
+   * with {@code Runner.run(config, RunType.LOCAL)} without changing it.
+   *
+   * <p> Only indexing is skipped. Connectors and stages still read from and call external systems as configured.
+   * All recorded documents and events are kept in memory, so run test mode on a sample rather than a full load.
+   */
   public static Map<String, TestMessenger> runInTestMode(Config config) throws Exception {
     RunResult result = run(config, RunType.TEST);
     return result.getHistory();
-  }
-
-  public static Map<String, List<Exception>> runInValidationMode(String configName) throws Exception {
-    return runInValidationMode(ConfigFactory.load(configName));
-  }
-
-  /**
-   * Validates the given Config, including its pipelines, connectors, indexers, and other miscellaneous configuration
-   * (Publisher, Runner, Kafka, etc). Returns a map of entry names to lists of Exceptions, representing errors with the
-   * configuration. The map uses individual pipeline / connector names for keys, and then "indexer" and "other" for the indexer / other
-   * validation issues, respectively. (Keys are only present if there are associated errors.)
-   *
-   * @param config The configuration you want to validate.
-   * @return Returns a map of entry names to lists of Exceptions (errors with the Config).
-   * @throws Exception If a larger error occurs, preventing the Config from being validates.
-   */
-  public static Map<String, List<Exception>> runInValidationMode(Config config) throws Exception {
-    // Resolve any potential substitutions once, to prevent errors about missing values.
-    config = config.resolve();
-    Map<String, List<Exception>> allExceptionsMap = new HashMap<>();
-
-    Map<String, List<Exception>> pipelineExceptions = validatePipelines(config);
-    log.info(stringifyValidation(pipelineExceptions, "Pipeline"));
-
-    Map<String, List<Exception>> connectorExceptions = validateConnectors(config);
-    log.info(stringifyValidation(connectorExceptions, "Connector"));
-
-    List<Exception> indexerExceptions = validateIndexer(config);
-    log.info(stringifyValidation(indexerExceptions, "Indexer"));
-
-    List<Exception> otherParentExceptions = validateOtherParents(config);
-    log.info(stringifyValidation(otherParentExceptions, "Other (Publisher, Runner, etc.)"));
-
-    allExceptionsMap.putAll(pipelineExceptions);
-    allExceptionsMap.putAll(connectorExceptions);
-
-    // only put "indexer" key in the map if there are errors.
-    if (!indexerExceptions.isEmpty()) {
-      if (allExceptionsMap.containsKey("indexer")) {
-        log.warn("A pipeline or connector was named \"indexer\". Its validation error(s) will be combined with error(s) for indexer configuration.");
-        allExceptionsMap.get("indexer").addAll(indexerExceptions);
-      } else {
-        allExceptionsMap.put("indexer", indexerExceptions);
-      }
-    }
-
-    // only put "other" key in the map if there are errors.
-    if (!otherParentExceptions.isEmpty()) {
-      if (allExceptionsMap.containsKey("other")) {
-        log.warn("A pipeline or connector was named \"other\". Its validation error(s) will be combined with error(s) for other configuration (publisher, worker, etc.).");
-        allExceptionsMap.get("other").addAll(otherParentExceptions);
-      } else {
-        allExceptionsMap.put("other", otherParentExceptions);
-      }
-    }
-
-    return allExceptionsMap;
-  }
-
-  private static Map<String, List<Exception>> validateConnectors(Config rootConfig) {
-    Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
-
-    if (!rootConfig.hasPath("connectors")) {
-      exceptionMap.put("connectors", List.of(new Exception("Configuration does not contain key \"connectors\".")));
-      return exceptionMap;
-    }
-
-    Set<String> seenNames = new HashSet<>();
-    int idx = 0;
-
-    for (Config connectorConfig : rootConfig.getConfigList("connectors")) {
-      idx++;
-      String connectorName = connectorConfig.hasPath("name") ? connectorConfig.getString("name") : null;
-
-      List<Exception> exceptionsForConnector = Connector.getConnectorConfigExceptions(connectorConfig);
-      if (connectorName != null && !connectorName.isEmpty()) {
-        if (!seenNames.add(connectorName)) {
-          exceptionMap.computeIfAbsent(connectorName, k -> new ArrayList<>()).add(new Exception("There are multiple connectors with the name " + connectorName));
-        }
-      }
-
-      if (!exceptionsForConnector.isEmpty()) {
-        String key = (connectorName != null && !connectorName.isEmpty()) ? connectorName : "connector[" + idx + "]";
-        exceptionMap.computeIfAbsent(key, k -> new ArrayList<>()).addAll(exceptionsForConnector);
-      }
-    }
-
-    return exceptionMap;
-  }
-
-  /**
-   * Returns a mapping from pipeline names to the list of exceptions produced when validating them. (only includes
-   * a pipeline name if there are errors with its config.)
-   */
-  private static Map<String, List<Exception>> validatePipelines(Config rootConfig) throws Exception {
-    Map<String, List<Exception>> exceptionMap = new LinkedHashMap<>();
-
-    if (!rootConfig.hasPath("pipelines")) {
-      exceptionMap.put("pipelines", List.of(new Exception("Configuration does not contain key \"pipelines\".")));
-      return exceptionMap;
-    }
-
-    for (Config pipelineConfig : rootConfig.getConfigList("pipelines")) {
-      String pipelineName = pipelineConfig.getString("name");
-
-      List<Exception> exceptionsForPipeline = Pipeline.validateStages(rootConfig, pipelineName);
-
-      if (!exceptionsForPipeline.isEmpty()) {
-        // No checks on whether the map has the pipeline name, since Pipeline checks for duplicate names...
-        exceptionMap.put(pipelineName, exceptionsForPipeline);
-      }
-    }
-
-    return exceptionMap;
-  }
-
-  private static List<Exception> validateIndexer(Config config) {
-    try {
-      IndexerFactory.fromConfig(config, new LocalMessenger(), true, "");
-    } catch (Exception e) {
-      return List.of(e);
-    }
-
-    return List.of();
-  }
-
-  private static List<Exception> validateOtherParents(Config rootConfig) {
-    List<Exception> exceptions = new ArrayList<>();
-
-    for (Pair<String, Spec> parentAndSpec : PARENTS_AND_SPECS) {
-      String parentName = parentAndSpec.getLeft();
-
-      if (!rootConfig.hasPath(parentName)) {
-        continue;
-      }
-
-      try {
-        Spec spec = parentAndSpec.getRight();
-        Config parentConfig = rootConfig.getConfig(parentName);
-        spec.validate(parentConfig, parentName);
-      } catch (IllegalArgumentException e) {
-        exceptions.add(e);
-      }
-    }
-
-    return exceptions;
   }
 
   public static void renderConfig(Config config) {
@@ -488,6 +301,21 @@ public class Runner {
    */
   public static RunResult runAndLogResult(Config config, RunType runType, String runId, boolean logMetrics)
       throws Exception {
+    return runAndLogResult(config, runType, runId, logMetrics, true);
+  }
+
+  /**
+   * As {@link #runAndLogResult(Config, RunType, String, boolean)}, with <code>validate</code> controlling whether the
+   * config is validated before the run. Pass false only for a config that has already been validated, as the
+   * RunnerManager does for configs validated when they were created.
+   *
+   * <p><code>runId</code> is in the MDC throughout this call: run() adds it for the run itself and removes it when the
+   * run ends, and this method adds it again for the run summary, metrics and duration it logs afterwards. It is
+   * removed from the MDC on return, so a caller on a long-lived thread, such as the API server's, never sees a run's
+   * id on later work; a caller that wants a run id on its own logging afterwards adds it again.
+   */
+  public static RunResult runAndLogResult(Config config, RunType runType, String runId, boolean logMetrics,
+      boolean validate) throws Exception {
     if (runId == null) {
       throw new IllegalArgumentException("Cannot specify null runId.");
     }
@@ -497,8 +325,10 @@ public class Runner {
     RunResult result;
 
     try {
-      result = run(config, runType, runId);
+      result = run(config, runType, runId, validate);
 
+      // run() removes the run id from the MDC before it returns; we add it again here for logging the metrics and summary
+      MDC.put(RUNID_FIELD, runId);
       if (logMetrics) {
         Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
             .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
@@ -508,12 +338,15 @@ public class Runner {
       log.info(result.toString());
       return result;
     } finally {
+      // whether the run returned or threw, make sure the run id is present in the MDC for the final log statement
+      MDC.put(RUNID_FIELD, runId);
       stopWatch.stop();
       log.info(String.format("Run took %.2f secs.",
           (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
 
       SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG)
           .removeMatching(MetricFilter.startsWith(runId));
+      MDC.remove(RUNID_FIELD);
     }
   }
 
@@ -528,24 +361,49 @@ public class Runner {
    * @throws Exception
    */
   public static RunResult run(Config config, RunType type, String runId) throws Exception {
+    return run(config, type, runId, true);
+  }
+
+  /**
+   * As {@link #run(Config, RunType, String)}, with <code>validate</code> controlling whether the config is validated
+   * first. Pass false only for a config that has already been validated.
+   *
+   * <p>The run id (<code>runId</code>, or one generated here if it is null) is added to the MDC for the duration of
+   * this call and removed from the MDC on return. runAndLogResult adds the same id again around its own logging; a
+   * caller that wants a run id on its logging after run() returns does likewise.
+   */
+  public static RunResult run(Config config, RunType type, String runId, boolean validate) throws Exception {
     if (runId == null) {
       runId = Runner.generateRunId();
     }
 
     MDC.put(RUNID_FIELD, runId);
+    try {
+      return runInternal(config, type, runId, validate);
+    } finally {
+      // on a pooled thread (such as the API server's) a stale run id would otherwise decorate the next run's logs
+      MDC.remove(RUNID_FIELD);
+    }
+  }
 
-    Map<String, List<Exception>> validationErrors = runInValidationMode(config);
-    if (!validationErrors.isEmpty()) {
-      log.error("Pre-run validation failed.");
+  private static RunResult runInternal(Config config, RunType type, String runId, boolean validate) throws Exception {
+    if (validate) {
+      Map<String, List<Exception>> validationErrors = ConfigValidator.validate(config);
+      if (!validationErrors.isEmpty()) {
+        log.error("Pre-run validation failed.");
 
-      Map<String, TestMessenger> history =
-          type.equals(RunType.TEST) ? new HashMap<>() : null;
+        Map<String, TestMessenger> history =
+            type.equals(RunType.TEST) ? new HashMap<>() : null;
 
-      return new RunResult(false,
-          Collections.emptyList(), Collections.emptyList(), history, runId);
+        return new RunResult(false,
+            Collections.emptyList(), Collections.emptyList(), history, runId);
+      }
     }
 
-    log.info("Starting run with id " + runId);
+    log.info("Starting run with id {}", runId);
+
+    // fail now rather than when the metrics are logged after the run
+    getMetricsLoggingLevel(config);
 
     List<Connector> connectors = Connector.fromConfig(config);
     List<ConnectorResult> connectorResults = new ArrayList<>();
@@ -585,7 +443,7 @@ public class Runner {
       connectorResults.add(result);
 
       if (!result.getStatus()) {
-        log.error("Aborting run because " + connector.getName() + " failed.");
+        log.error("Aborting run because {} failed.", connector.getName());
         return new RunResult(false, connectors, connectorResults, history, runId);
       }
     }
@@ -599,9 +457,18 @@ public class Runner {
    * an end state in the workflow: either being indexed or erroring-out. Returns a failing ConnectorResult
    * if any connector lifecycle method throws an exception or the publisher itself fails
    */
-  public static ConnectorResult runConnector(Config config, String runId, Connector connector, Publisher publisher) {
+  public static ConnectorResult runConnector(Config config, String runId, Connector connector, PublisherImpl publisher) {
+    return runConnector(config, runId, connector, publisher, null);
+  }
+
+  /**
+   * As {@link #runConnector(Config, String, Connector, PublisherImpl)}, additionally failing the connector as soon as a
+   * worker in the given pool (if any) dies, instead of waiting for the connector timeout.
+   */
+  static ConnectorResult runConnector(Config config, String runId, Connector connector, PublisherImpl publisher,
+      WorkerPool workerPool) {
     try {
-      return runConnectorInternal(config, runId, connector, publisher);
+      return runConnectorInternal(config, runId, connector, publisher, workerPool);
     } finally {
       try {
         connector.close();
@@ -638,9 +505,10 @@ public class Runner {
    * 3) call publisher.waitForCompletion()
    * 4) call connector.postExecute()
    */
-  private static ConnectorResult runConnectorInternal(Config config, String runId, Connector connector, Publisher publisher) {
-    log.info("Running connector " + connector.getName() + " feeding to pipeline " +
-        (connector.getPipelineName() == null ? "NOT CONFIGURED" : connector.getPipelineName()));
+  private static ConnectorResult runConnectorInternal(Config config, String runId, Connector connector, PublisherImpl publisher,
+      WorkerPool workerPool) {
+    log.info("Running connector {} feeding to pipeline {}",
+        connector.getName(), (connector.getPipelineName() == null ? "NOT CONFIGURED" : connector.getPipelineName()));
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
 
@@ -664,15 +532,28 @@ public class Runner {
         return new ConnectorResult(connector, publisher, false, "execute failed.");
       }
     } else {
+      ConnectorThread connectorThread =
+          new ConnectorThread(connector, publisher, runId, ThreadNameUtils.createName("Connector", runId));
       try {
-        ConnectorThread connectorThread = new ConnectorThread(connector, publisher, runId, ThreadNameUtils.createName("Connector", runId));
+        if (workerPool != null) {
+          // a worker that died cannot finish the documents the connector publishes; end the run now rather than after
+          // the connector timeout. The listener fires immediately if the pool has already failed.
+          workerPool.setFailureListener(cause -> connectorThread.abort("Worker failed.", cause));
+        }
         connectorThread.start();
-        final int connectorTimeout = config.hasPath("runner.connectorTimeout") ?
-            config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
+        final int connectorTimeout = ConfigUtils.getIntOrDefault(config, "runner.connectorTimeoutMs", DEFAULT_CONNECTOR_TIMEOUT);
         pubResult = publisher.waitForCompletion(connectorThread, connectorTimeout);
       } catch (Exception e) {
         log.error("waitForCompletion failed", e);
-        return new ConnectorResult(connector, publisher, false, "waitForCompletion failed");
+        pubResult = new PublisherResult(false, "waitForCompletion failed");
+      } finally {
+        if (workerPool != null) {
+          workerPool.setFailureListener(null);
+        }
+        stopConnectorThread(connectorThread);
+      }
+      if (pubResult != null && !pubResult.getStatus() && "waitForCompletion failed".equals(pubResult.getMessage())) {
+        return new ConnectorResult(connector, publisher, false, pubResult.getMessage());
       }
     }
 
@@ -696,6 +577,29 @@ public class Runner {
   }
 
   /**
+   * Makes sure the connector thread has ended before its connector and publisher are closed. On a normal completion
+   * the thread has already ended; after a timeout or an abort it may still be inside execute(), so it is interrupted
+   * and given a moment to finish. A connector that ignores the interrupt is reported, since it keeps running (and in
+   * distributed mode keeps publishing) after the run has been recorded as failed.
+   */
+  private static void stopConnectorThread(ConnectorThread connectorThread) {
+    if (!connectorThread.isAlive()) {
+      return;
+    }
+    log.warn("Connector thread {} is still running after the run ended; interrupting it.", connectorThread.getName());
+    connectorThread.interrupt();
+    try {
+      connectorThread.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+    if (connectorThread.isAlive()) {
+      log.error("Connector thread {} did not stop within {} ms of being interrupted; its connector and publisher will be "
+          + "closed underneath it.", connectorThread.getName(), DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
+    }
+  }
+
+  /**
    * Wrapper around runConnector() that starts and stops the other components necessary for a complete connector
    * execution; specifically, a WorkerPool and an Indexer.
    */
@@ -712,7 +616,7 @@ public class Runner {
     WorkerPool workerPool = null;
     Indexer indexer = null;
     Thread indexerThread = null;
-    Publisher publisher = null;
+    PublisherImpl publisher = null;
 
     try {
       // If local/test we want to give WorkerPool/Indexer the run_id directly.
@@ -729,7 +633,7 @@ public class Runner {
         try {
           workerPool.start();
         } catch (Exception e) {
-          log.error("Error starting workers for pipeline " + pipelineName, e);
+          log.error("Error starting workers for pipeline {}", pipelineName, e);
           return new ConnectorResult(connector, publisher, false, "Error starting workers for pipeline " + pipelineName);
         }
 
@@ -760,13 +664,21 @@ public class Runner {
       }
 
       // store resources in RunnerState so we can attempt to stop/close them cleanly
-      // if the run is aborted by an INT signal; state should only be non-null when running via main
+      // if the run is aborted by a shutdown signal; state should only be non-null when running via main
       // so this is skipped in other execution contexts
       if (state != null) {
         state.set(publisher, connector, workerPool, indexer, indexerThread);
       }
 
-      return runConnector(config, runId, connector, publisher);
+      ConnectorResult result = runConnector(config, runId, connector, publisher, workerPool);
+
+      // a worker that died during the run may have left documents unprocessed, or may simply have died after the last
+      // document was accounted for; either way the run did not go as configured, so it does not report success
+      if (result.getStatus() && workerPool != null && workerPool.isFailed()) {
+        log.error("Connector {} completed, but a worker failed during the run.", connector.getName(), workerPool.getThrowable());
+        return new ConnectorResult(connector, publisher, false, "Worker failed.");
+      }
+      return result;
 
     } finally {
 
@@ -788,60 +700,29 @@ public class Runner {
   }
 
   /**
-   * Returns a stringified version of the given map of exceptions, which is mapping individual "elements" (usually, pipelines) to their associated
-   * exceptions. Map may be empty. Uses the given validation name in logged messages to clarify which element of the Lucille Config is being validated.
+   * Returns the level at which run metrics are logged: runner.metricsLoggingLevel (case-insensitive), or DEBUG if unset.
+   * @throws IllegalArgumentException If runner.metricsLoggingLevel is not one of the levels Slf4jReporter supports.
    */
-  // Package access for unit test
-  static String stringifyValidation(Map<String, List<Exception>> exceptions, String validationName) {
-    if (exceptions.isEmpty()) {
-      return validationName + " Configuration is valid.";
-    } else {
-      StringBuilder message = new StringBuilder(validationName + " Configuration is invalid. See exceptions for each element:\n");
+  static Slf4jReporter.LoggingLevel getMetricsLoggingLevel(Config config) {
+    if (!config.hasPath("runner.metricsLoggingLevel")) {
+      return Slf4jReporter.LoggingLevel.DEBUG;
+    }
 
-      for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
-        message.append("\t").append(entry.getKey()).append(":").append("\n");
-
-        for (Exception e : entry.getValue()) {
-          message.append("\t\t").append(e.getMessage()).append("\n");
-        }
+    String value = config.getString("runner.metricsLoggingLevel");
+    for (Slf4jReporter.LoggingLevel level : Slf4jReporter.LoggingLevel.values()) {
+      if (level.name().equalsIgnoreCase(value.trim())) {
+        return level;
       }
-      return message.delete(message.length() - 1, message.length()).toString();
     }
-  }
 
-  /**
-   * Returns a stringified version of the given list of exceptions. List may be empty. Uses the given validation name in logged messages
-   * to clarify which element of the Lucille Config is being validated.
-   */
-  // package access for unit test
-  static String stringifyValidation(List<Exception> exceptions, String validationName) {
-    if (exceptions.isEmpty()) {
-      return validationName + " Configuration is valid.";
-    } else {
-      StringBuilder message = new StringBuilder(validationName + " Configuration is invalid. Errors:\n");
-
-      for (Exception exc : exceptions) {
-        message.append("\t").append(exc.getMessage()).append("\n");
-      }
-      return message.delete(message.length() - 1, message.length()).toString();
-    }
-  }
-
-  private static Slf4jReporter.LoggingLevel getMetricsLoggingLevel(Config config) {
-    try {
-      return config.hasPath("runner.metricsLoggingLevel") ?
-          Slf4jReporter.LoggingLevel.valueOf(config.getString("runner.metricsLoggingLevel")) :
-          Slf4jReporter.LoggingLevel.DEBUG;
-    } catch (Exception e) {
-      log.error("Error obtaining metrics logging level", e);
-    }
-    return Slf4jReporter.LoggingLevel.DEBUG;
+    throw new IllegalArgumentException("Unknown runner.metricsLoggingLevel \"" + value + "\"; expected one of "
+        + Arrays.stream(Slf4jReporter.LoggingLevel.values()).map(l -> l.name().toLowerCase()).collect(Collectors.joining(", ")));
   }
 
   /**
    * Prints CLI help text
    */
-  private static void printHelp(Options cliOptions, String message) {
+  static void printHelp(Options cliOptions, String message) {
     if (message != null) {
       log.warn(message);
     }

@@ -14,7 +14,7 @@ These are the overarching design decisions that shape everything about Lucille. 
 
 ### 1. Built for search
 
-The system should be purpose-built for getting data into search engines and vector databases — not a general-purpose ETL tool adapted for search. This focus should shape the document model, the identity model, the wire format, and the operations the system supports natively.
+The system should be purpose-built for getting data into search engines and vector databases — not a general-purpose ETL tool adapted for search. [What Is Search ETL?]({{< relref "docs/getting-started/what-is-search-etl" >}}) explains why the two are different problems. This focus should shape the document model, the identity model, the wire format, and the operations the system supports natively.
 
 ### 2. Concurrency
 

@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.stage;
 
+import java.util.Map;
+import static org.junit.Assert.assertFalse;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -182,5 +184,18 @@ public class ApplyRegexTest {
             "dotall",
             "literal"),
         stage.getNonDefaultLegalProperties());
+  }
+
+  @Test
+  public void testNullValues() throws Exception {
+    Stage stage = factory.get(Map.of("source", List.of("f"), "dest", List.of("o"), "regex", "\\w+"));
+
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"f\":null}");
+    stage.processDocument(doc);
+    assertFalse(doc.has("o"));
+
+    Document mixed = Document.createFromJson("{\"id\":\"1\",\"f\":[null,\"Hi There\"]}");
+    stage.processDocument(mixed);
+    assertEquals(List.of("Hi", "There"), mixed.getStringList("o"));
   }
 }

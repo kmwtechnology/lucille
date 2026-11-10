@@ -15,7 +15,7 @@ import java.util.List;
 
 /**
  * Create teasers of a given length from the given source fields. If the character limit is reached in
- * the middle of a word, the teaser will not be truncated until the end of the word.
+ * the middle of a word, the teaser is cut back to the end of the previous word.
  * <br> <b>NOTE:</b> If a given field is multivalued, this Stage will only operate on the first value.
  * <p>
  * Config Parameters -
@@ -67,21 +67,21 @@ public class CreateStaticTeaser extends Stage {
       String source = sourceFields.get(i);
       String dest = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
-      if (!doc.has(source)) {
+      String fullText = doc.getString(source);
+      if (fullText == null) {
         continue;
       }
 
-      String fullText = doc.getStringList(source).get(0);
-
-      // If this field value is shorter than the max length, put the whole String in the destination field
-      if (maxLength > fullText.length()) {
+      // If this field value fits within the max length, put the whole String in the destination field
+      if (fullText.length() <= maxLength) {
         doc.update(dest, updateMode, fullText.trim());
         continue;
       }
 
-      int pointer = maxLength - 1;
+      // start at the first character past the limit: if it is a delimiter, the text before it ends on a whole word
+      int pointer = maxLength;
       String delims = " .?!,";
-      // While we are in the middle of a word, move the pointer forward
+      // While we are in the middle of a word, move the pointer back
       while (pointer > 0 && !delims.contains("" + fullText.charAt(pointer))) {
         pointer--;
       }

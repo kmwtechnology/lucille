@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -9,7 +10,12 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.JDBCUtils;
 import com.typesafe.config.Config;
 import java.util.concurrent.TimeUnit;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -33,32 +39,31 @@ import org.slf4j.LoggerFactory;
  *   <li>inputTypes (List&lt;String&gt;) : Each input type of each of the keyField.</li>
  *   <li>fieldMapping (Map&lt;String, String&gt;) : map of columns retrieved from result set to the name of the field in the Lucille document
  *   it will populate with.</li>
- *   <li>connectionRetries (Integer, Optional) : number of retries allowed to connect to database, defaults to 1.</li>
- *   <li>connectionRetryPause (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds.</li>
+ *   <li>maxConnectionRetries (Integer, Optional) : number of retries after a failed attempt to connect to the database, defaults to 1. 0 disables retries.</li>
+ *   <li>connectionRetryWaitDurationMs (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds.</li>
  * </ul>
  */
 public class QueryDatabase extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("driver", "connectionString", "jdbcUser", "jdbcPassword")
+      .requiredString("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql")
       .requiredList("keyFields", new TypeReference<List<String>>(){})
       .requiredList("inputTypes", new TypeReference<List<String>>(){})
-      .optionalString("sql")
-      .optionalNumber("connectionRetries", "connectionRetryPause")
+      .optionalNumber("maxConnectionRetries", "connectionRetryWaitDurationMs")
       .requiredParent("fieldMapping", new TypeReference<Map<String, String>>(){}).build();
 
-  private String driver;
-  private String connectionString;
-  private String jdbcUser;
-  private String jdbcPassword;
-  private String sql;
-  private List<String> keyFields;
-  private List<PreparedStatementParameterType> inputTypes;
-  private Map<String, Object> fieldMapping;
+  private final String driver;
+  private final String connectionString;
+  private final String jdbcUser;
+  private final String jdbcPassword;
+  private final String sql;
+  private final List<String> keyFields;
+  private final List<PreparedStatementParameterType> inputTypes;
+  private final Map<String, Object> fieldMapping;
   protected Connection connection = null;
   private PreparedStatement preparedStatement;
-  private Integer connectionRetries;
-  private Integer connectionRetryPause;
+  private final Integer maxConnectionRetries;
+  private final Integer connectionRetryPause;
   private static final Logger log = LoggerFactory.getLogger(QueryDatabase.class);
 
   public QueryDatabase(Config config) {
@@ -69,17 +74,19 @@ public class QueryDatabase extends Stage {
     jdbcUser = config.getString("jdbcUser");
     jdbcPassword = config.getString("jdbcPassword");
     keyFields = config.getStringList("keyFields");
-    sql = config.hasPath("sql") ? config.getString("sql") : null;
+    sql = ConfigUtils.getStringOrDefault(config, "sql", null);
     fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     List<String> inputTypeList = config.getStringList("inputTypes");
     inputTypes = new ArrayList<>();
     for (String type : inputTypeList) {
       inputTypes.add(PreparedStatementParameterType.getType(type));
     }
-    connectionRetries = config.hasPath("connectionRetries") && config.getInt("connectionRetries") > 0
-        ? config.getInt("connectionRetries") : 1;
-    connectionRetryPause = config.hasPath("connectionRetryPause") && config.getInt("connectionRetryPause") > 0
-        ? config.getInt("connectionRetryPause") : 10000;
+    maxConnectionRetries = ConfigUtils.getIntOrDefault(config, "maxConnectionRetries", 1);
+    if (maxConnectionRetries < 0) {
+      throw new IllegalArgumentException("maxConnectionRetries must not be negative, got " + maxConnectionRetries + ".");
+    }
+    connectionRetryPause = config.hasPath("connectionRetryWaitDurationMs") && config.getInt("connectionRetryWaitDurationMs") > 0
+        ? config.getInt("connectionRetryWaitDurationMs") : 10000;
   }
 
   @Override
@@ -107,8 +114,9 @@ public class QueryDatabase extends Stage {
       for (int i = 0; i < keyFields.size(); i++) {
         String field = keyFields.get(i);
 
-        if (!doc.has(field)) {
-          throw new StageException("document does not have field " + field);
+        // the first value is what gets bound; hasNonNull passes for [null, ...]
+        if (doc.getString(field) == null) {
+          throw new StageException("document does not have a non-null value for field " + field);
         }
 
         PreparedStatementParameterType t = inputTypes.get(i);
@@ -158,13 +166,13 @@ public class QueryDatabase extends Stage {
     } catch (ClassNotFoundException e) {
       throw new StageException("Database driver could not be loaded.", e);
     }
-    // try to get connection, and if fails, retry "connectionRetries" amount of times
-    for (int attempt = 0; attempt <= connectionRetries; attempt++) {
+    // try to get connection, and if fails, retry "maxConnectionRetries" amount of times
+    for (int attempt = 0; attempt <= maxConnectionRetries; attempt++) {
       try {
         connection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
         break;
       } catch (SQLException e) {
-        if (attempt == connectionRetries) {
+        if (attempt == maxConnectionRetries) {
           log.error("Unable to connect to database {} user:{} after retrying {} time(s).", connectionString, jdbcUser, attempt);
           throw new StageException("Unable to connect to database " + connectionString, e);
         }

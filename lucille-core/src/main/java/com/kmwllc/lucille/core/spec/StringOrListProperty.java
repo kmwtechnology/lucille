@@ -9,14 +9,10 @@ import com.typesafe.config.ConfigValueType;
  * A property that may be either a single String or a non-empty list of Strings. Useful for settings like a URL that
  * can optionally name several equivalent hosts.
  */
-public class StringOrListProperty extends Property {
+class StringOrListProperty extends Property {
 
   public StringOrListProperty(String name, boolean required) {
-    this(name, required, null);
-  }
-
-  public StringOrListProperty(String name, boolean required, String description) {
-    super(name, required, description);
+    super(name, required);
   }
 
   @Override

@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Iterator;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
@@ -239,7 +240,7 @@ public class ApplyFileHandlersTest {
     while (handledDocs.hasNext()) {
       Document d = handledDocs.next();
       docsCount++;
-      assertEquals("secretCSV.txt-" + docsCount, d.getId());
+      assertEquals(DigestUtils.md5Hex(d.getString("source")) + "-" + docsCount, d.getId());
     }
 
     assertEquals(4, docsCount);
@@ -344,5 +345,24 @@ public class ApplyFileHandlersTest {
     // Will try to *actually* create a GoogleStorageClient which will not succeed, as we have given it a bad
     // path to a service key.
     assertThrows(StageException.class, () -> factory.get("ApplyFileHandlersTest/allTypesAndCloud.conf"));
+  }
+
+  // an upper-case extension uses the handler configured in lower case
+  @Test
+  public void testUpperCaseExtension() throws StageException {
+    Stage stage = factory.get("ApplyFileHandlersTest/allTypes.conf");
+
+    Document doc = Document.create("csv_doc");
+    doc.setField("file_path", "some/folder/TEST.CSV");
+    doc.setField("file_content", testCsvContents);
+
+    Iterator<Document> docs = stage.processDocument(doc);
+    int docsCount = 0;
+    while (docs.hasNext()) {
+      docs.next();
+      docsCount++;
+    }
+
+    assertEquals(4, docsCount);
   }
 }

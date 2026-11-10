@@ -3,7 +3,7 @@
 #
 # To build an image using this Dockerfile you must first:
 #   clone the lucille repo
-#   run "mvn clean install -Pshaded-plugin-jars" from the top-level lucille repo (the profile builds target/lucille-api-plugin.jar)
+#   run "mvn clean install -Pshaded-plugin-jars -Padmin-ui" from the top-level lucille repo (builds target/lucille-api-plugin.jar and lucille-admin-ui/target/lucille-admin-ui.jar; -Padmin-ui needs network access for Node)
 #
 # Once you have completed the build process locally, you should cd into the top level of the lucille-api module
 # and run the following command to build the image:
@@ -49,14 +49,16 @@ WORKDIR /lucille-api
 # remove pebble due to CVE with go. unused.
 RUN apt-get update && apt-get upgrade -y && rm -f /usr/bin/pebble /bin/pebble
 
-# we copy local build artifacts and configuration into the image that we're building
-COPY conf/ /lucille-api/conf/
-COPY target/ /lucille-api/target/
-
-# non-root user
+# non-root user. Created before the COPYs so they can set ownership with --chown: a "chown -R" after them
+# would store a second copy of every file (including the jar) in its own layer.
 RUN groupadd -r lucille \
  && useradd -r -g lucille -d /lucille-api -s /usr/sbin/nologin lucille \
- && chown -R lucille:lucille /lucille-api
+ && chown lucille:lucille /lucille-api
+
+# we copy local build artifacts and configuration into the image that we're building
+COPY --chown=lucille:lucille conf/ /lucille-api/conf/
+COPY --chown=lucille:lucille target/lucille-api-plugin.jar /lucille-api/lib/lucille-api-plugin.jar
+COPY --chown=lucille:lucille lucille-admin-ui/target/lucille-admin-ui.jar /lucille-api/lib/lucille-admin-ui.jar
 
 # Set the necessary environment variables
 ENV JAVA_OPTS=""

@@ -45,9 +45,17 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # -Pshaded-plugin-jars builds the shaded lucille-api-plugin.jar that the lucille-api image runs
+      # -Pshaded-plugin-jars builds the shaded lucille-api-plugin.jar; -Padmin-ui adds the UI jar
       - name: Build with Maven (No Tests)
-        run: mvn -B package --file pom.xml -DskipTests -Pshaded-plugin-jars
+        run: mvn -B package --file pom.xml -DskipTests -Pshaded-plugin-jars -Padmin-ui
+
+      - name: Verify the admin UI jar
+        run: |
+          unzip -l lucille-plugins/lucille-api/lucille-admin-ui/target/lucille-admin-ui.jar | grep -q 'admin/index.html'
+          if unzip -l lucille-plugins/lucille-api/target/lucille-api-plugin.jar | grep -q 'admin/index.html'; then
+            echo "lucille-api-plugin.jar must not contain the admin UI"
+            exit 1
+          fi
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -55,13 +63,27 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_IMAGE_TOKEN }}
 
+      # Both images are built from the single multi-stage Dockerfile. The default (last) stage is
+      # `core`; the all-plugins image is the explicit `all` target.
       - name: Build and push (lucille-core)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile
+          target: core
           push: true
           tags: kmwtechnology/lucille:${{ env.release }}
+
+      # lucille-all image: lucille-core + every component plugin, assembled by lucille-all's
+      # copy-dependencies into lucille-all/target/lib (produced by the package build above).
+      - name: Build and push (lucille-all)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          target: all
+          push: true
+          tags: kmwtechnology/lucille-all:${{ env.release }}
 
       - name: Build and push (lucille-api)
         uses: docker/build-push-action@v6

@@ -10,11 +10,11 @@ public class SleepConnector extends AbstractConnector {
 
   private final int duration;
 
-  public static final Spec SPEC = SpecBuilder.connector().requiredNumber("duration").build();
+  public static final Spec SPEC = SpecBuilder.connector().requiredNumber("durationMs").build();
 
   public SleepConnector(Config config) {
     super(config);
-    this.duration = config.getInt("duration");
+    this.duration = config.getInt("durationMs");
   }
 
   @Override

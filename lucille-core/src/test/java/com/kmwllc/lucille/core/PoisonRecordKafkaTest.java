@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.util.EmbeddedKafkaUtils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -12,6 +13,8 @@ import com.kmwllc.lucille.message.HybridWorkerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.kmwllc.lucille.message.KafkaWorkerMessenger;
+import com.kmwllc.lucille.message.MessengerException;
+import com.kmwllc.lucille.message.UndeserializableRecordException;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.util.StoringAppender;
 import com.typesafe.config.Config;
@@ -51,7 +54,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
-import org.springframework.kafka.test.EmbeddedKafkaKraftBroker;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 
 /**
@@ -72,8 +74,8 @@ public class PoisonRecordKafkaTest {
 
   @BeforeClass
   public static void startKafka() throws Exception {
-    embeddedKafka = new EmbeddedKafkaKraftBroker(1, 1);
-    embeddedKafka.afterPropertiesSet();
+    // a warmed-up broker, so the one-time creation of __consumer_offsets does not land inside a test's time budget
+    embeddedKafka = EmbeddedKafkaUtils.startBroker();
   }
 
   @AfterClass
@@ -144,7 +146,7 @@ public class PoisonRecordKafkaTest {
         "kafka {\n"
             + "  bootstrapServers: \"%s\"\n"
             + "  consumerGroupId: \"%s\"\n"
-            + "  maxPollIntervalSecs: 30\n"
+            + "  maxPollIntervalMs: 30000\n"
             + "  maxRequestSize: 10000000\n"
             + "  %s\n"
             + "}\n"
@@ -186,18 +188,22 @@ public class PoisonRecordKafkaTest {
     return null;
   }
 
-  /** Polls until the poll throws a RecordDeserializationException. */
-  private static RecordDeserializationException pollUntilPoison(PollFn poll) throws Exception {
+  /** Polls until the poll throws an UndeserializableRecordException. */
+  private static UndeserializableRecordException pollUntilPoison(PollFn poll) throws Exception {
     long deadline = System.currentTimeMillis() + 60000;
     while (System.currentTimeMillis() < deadline) {
       try {
         assertNull("no document should be returned past the poison record", poll.poll());
-      } catch (RecordDeserializationException e) {
+      } catch (UndeserializableRecordException e) {
         return e;
       }
     }
-    fail("poll did not throw RecordDeserializationException within 60s");
+    fail("poll did not throw UndeserializableRecordException within 60s");
     return null;
+  }
+
+  private static long offsetOf(UndeserializableRecordException e) {
+    return ((RecordDeserializationException) e.getCause()).offset();
   }
 
   private interface PollFn {
@@ -233,14 +239,19 @@ public class PoisonRecordKafkaTest {
   }
 
   private static long committedOffset(Config config, String groupId, String topic) throws Exception {
+    OffsetAndMetadata offset = committed(config, groupId, topic);
+    assertNotNull("no committed offset for " + topic, offset);
+    return offset.offset();
+  }
+
+  // The group's committed offset for partition 0 of the topic, or null if none.
+  private static OffsetAndMetadata committed(Config config, String groupId, String topic) throws Exception {
     Properties adminProps = new Properties();
     adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     try (Admin admin = Admin.create(adminProps)) {
       Map<TopicPartition, OffsetAndMetadata> committed =
           admin.listConsumerGroupOffsets(groupId).partitionsToOffsetAndMetadata().get();
-      OffsetAndMetadata offset = committed.get(new TopicPartition(topic, 0));
-      assertNotNull("no committed offset for " + topic, offset);
-      return offset.offset();
+      return committed.get(new TopicPartition(topic, 0));
     }
   }
 
@@ -258,13 +269,14 @@ public class PoisonRecordKafkaTest {
     try {
       assertEquals("doc1", pollUntilDoc(messenger::pollDocToProcess).getId());
 
-      RecordDeserializationException poison = pollUntilPoison(messenger::pollDocToProcess);
-      assertEquals(1L, poison.offset());
+      UndeserializableRecordException poison = pollUntilPoison(messenger::pollDocToProcess);
+      assertEquals(1L, offsetOf(poison));
+      assertTrue(poison.getMessage(), poison.getMessage().contains("offset=1"));
 
       // the position was not advanced: the same record fails again
-      RecordDeserializationException again =
-          assertThrows(RecordDeserializationException.class, messenger::pollDocToProcess);
-      assertEquals(1L, again.offset());
+      UndeserializableRecordException again =
+          assertThrows(UndeserializableRecordException.class, messenger::pollDocToProcess);
+      assertEquals(1L, offsetOf(again));
     } finally {
       messenger.close();
     }
@@ -293,7 +305,7 @@ public class PoisonRecordKafkaTest {
 
     workerThread.join(120000);
     assertFalse("worker should stop on the poison record", workerThread.isAlive());
-    assertTrue(messenger.lastPollFailure instanceof RecordDeserializationException);
+    assertTrue(messenger.lastPollFailure instanceof UndeserializableRecordException);
     assertTrue("worker should close its messenger on the way out", messenger.closed);
 
     assertEquals(1L, committedOffset(config, groupId, sourceTopic));
@@ -352,14 +364,17 @@ public class PoisonRecordKafkaTest {
       // poison2 is skipped; doc3 resets the streak
       assertEquals("doc3", pollUntilDoc(messenger::pollDocToProcess).getId());
       // poison4 is skipped, poison5 is the second in a row and escalates
-      RecordDeserializationException e = pollUntilPoison(messenger::pollDocToProcess);
-      assertEquals(4L, e.offset());
+      UndeserializableRecordException e = pollUntilPoison(messenger::pollDocToProcess);
+      assertEquals(4L, offsetOf(e));
     } finally {
       messenger.close();
     }
   }
 
-  /** Skip mode on the indexer's consumer: the poison record is skipped and the position committed past it. */
+  /**
+   * Skip mode on the indexer's consumer: the poison record is skipped, nothing is committed while the documents around
+   * it are still pending, and the commit moves past it once they complete.
+   */
   @Test(timeout = 120000)
   public void testSkipModeOnIndexerMessenger() throws Exception {
     String pipelineName = "poison_indexer";
@@ -370,13 +385,18 @@ public class PoisonRecordKafkaTest {
 
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipelineName);
     try {
-      assertEquals("doc1", pollUntilDoc(messenger::pollDocToIndex).getId());
-      assertEquals("doc3", pollUntilDoc(messenger::pollDocToIndex).getId());
+      Document doc1 = pollUntilDoc(messenger::pollDocToIndex);
+      Document doc3 = pollUntilDoc(messenger::pollDocToIndex);
+      assertEquals("doc1", doc1.getId());
+      assertEquals("doc3", doc3.getId());
+      // Skipping must not commit past doc1 and doc3 while they are still being indexed.
+      assertNull(committed(config, groupId + "-indexer", destTopic));
+      messenger.batchComplete(List.of(doc1, doc3));
     } finally {
       messenger.close();
     }
 
-    assertTrue(committedOffset(config, groupId, destTopic) >= 2L);
+    assertEquals(3L, committedOffset(config, groupId + "-indexer", destTopic));
     assertFailTopicEmpty(pipelineName);
     assertLocationLogged(destTopic, 1L, "poison2");
   }
@@ -389,8 +409,7 @@ public class PoisonRecordKafkaTest {
     String sourceTopic = KafkaUtils.getSourceTopicName(pipelineName, config);
     produce(sourceTopic, "doc1", "poison2", "doc3");
 
-    HybridWorkerMessenger messenger = new HybridWorkerMessenger(config, pipelineName,
-        new LinkedBlockingQueue<>(), new LinkedBlockingQueue<>());
+    HybridWorkerMessenger messenger = new HybridWorkerMessenger(config, pipelineName, new LinkedBlockingQueue<>());
     try {
       assertEquals("doc1", pollUntilDoc(messenger::pollDocToProcess).getId());
       assertEquals("doc3", pollUntilDoc(messenger::pollDocToProcess).getId());
@@ -461,42 +480,42 @@ public class PoisonRecordKafkaTest {
     }
 
     @Override
-    public Document pollDocToProcess() throws Exception {
+    public Document pollDocToProcess() throws MessengerException {
       try {
         return delegate.pollDocToProcess();
-      } catch (Exception e) {
+      } catch (MessengerException | RuntimeException e) {
         lastPollFailure = e;
         throw e;
       }
     }
 
     @Override
-    public void commitPendingDocOffsets() throws Exception {
+    public void commitPendingDocOffsets() throws MessengerException {
       delegate.commitPendingDocOffsets();
     }
 
     @Override
-    public void sendForIndexing(Document document) throws Exception {
+    public void sendForIndexing(Document document) throws MessengerException {
       delegate.sendForIndexing(document);
     }
 
     @Override
-    public void sendFailed(Document document) throws Exception {
+    public void sendFailed(Document document) throws MessengerException {
       delegate.sendFailed(document);
     }
 
     @Override
-    public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+    public void sendEvent(Document document, String message, Event.Type type) throws MessengerException {
       delegate.sendEvent(document, message, type);
     }
 
     @Override
-    public void sendEvent(Event event) throws Exception {
+    public void sendEvent(Event event) throws MessengerException {
       delegate.sendEvent(event);
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
       closed = true;
       delegate.close();
     }

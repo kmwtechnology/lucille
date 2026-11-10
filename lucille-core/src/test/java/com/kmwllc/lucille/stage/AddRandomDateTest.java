@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.stage;
 
+import java.util.Map;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Document;
@@ -44,9 +46,9 @@ public class AddRandomDateTest {
     Date startDate = Date.from(Instant.ofEpochMilli(0));
     Date endDate = Date.from(Instant.now());
 
-    assertTrue(startDate.before(doc1.getDate("data")) && endDate.after(doc1.getDate("data")));
-    assertTrue(startDate.before(doc2.getDate("data")) && endDate.after(doc2.getDate("data")));
-    assertTrue(startDate.before(doc3.getDate("data")) && endDate.after(doc3.getDate("data")));
+    assertTrue(startDate.toInstant().isBefore(doc1.getInstant("data")) && endDate.toInstant().isAfter(doc1.getInstant("data")));
+    assertTrue(startDate.toInstant().isBefore(doc2.getInstant("data")) && endDate.toInstant().isAfter(doc2.getInstant("data")));
+    assertTrue(startDate.toInstant().isBefore(doc3.getInstant("data")) && endDate.toInstant().isAfter(doc3.getInstant("data")));
   }
 
   /**
@@ -70,8 +72,13 @@ public class AddRandomDateTest {
         LocalDate.of(2024, 11, 30)
             .atStartOfDay().toInstant(ZoneOffset.UTC));
 
-    assertTrue(startDate.before(doc1.getDate("randomDate")) && endDate.after(doc1.getDate("randomDate")));
-    assertTrue(startDate.before(doc2.getDate("randomDate")) && endDate.after(doc2.getDate("randomDate")));
-    assertTrue(startDate.before(doc3.getDate("randomDate")) && endDate.after(doc3.getDate("randomDate")));
+    assertTrue(startDate.toInstant().isBefore(doc1.getInstant("randomDate")) && endDate.toInstant().isAfter(doc1.getInstant("randomDate")));
+    assertTrue(startDate.toInstant().isBefore(doc2.getInstant("randomDate")) && endDate.toInstant().isAfter(doc2.getInstant("randomDate")));
+    assertTrue(startDate.toInstant().isBefore(doc3.getInstant("randomDate")) && endDate.toInstant().isAfter(doc3.getInstant("randomDate")));
+  }
+
+  @Test
+  public void testEqualBoundsFailAtStartup() {
+    assertThrows(StageException.class, () -> factory.get(Map.of("rangeStartDate", "2024-12-18", "rangeEndDate", "2024-12-18")));
   }
 }

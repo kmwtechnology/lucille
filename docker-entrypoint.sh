@@ -13,10 +13,12 @@ if [ ! -f "$LUCILLE_CONF" ]; then
   exit 1
 fi
 
-# LUCILLE_ROLE selects which component this container runs:
-#   runner  (default)  - com.kmwllc.lucille.core.Runner. Optionally driven by LUCILLE_OPTS (e.g. -distributed)
-#   worker             - com.kmwllc.lucille.core.Worker <pipeline>, requires LUCILLE_PIPELINE
-#   indexer            - com.kmwllc.lucille.core.Indexer <pipeline>, requires LUCILLE_PIPELINE
+# LUCILLE_ROLE selects which component this container runs. Every component main installs the shutdown hook that
+# handles SIGTERM and SIGINT:
+#   runner  (default)  - com.kmwllc.lucille.core.Runner ${LUCILLE_OPTS}        (e.g. -distributed, -external)
+#   worker             - com.kmwllc.lucille.core.Worker ${LUCILLE_PIPELINE}    requires LUCILLE_PIPELINE
+#   indexer            - com.kmwllc.lucille.core.Indexer ${LUCILLE_PIPELINE}   requires LUCILLE_PIPELINE
+#   worker-indexer     - com.kmwllc.lucille.core.WorkerIndexer ${LUCILLE_PIPELINE}   requires LUCILLE_PIPELINE
 LUCILLE_ROLE_NORMALIZED=$(echo "${LUCILLE_ROLE:-runner}" | tr '[:upper:]' '[:lower:]')
 case "$LUCILLE_ROLE_NORMALIZED" in
   runner)
@@ -26,7 +28,7 @@ case "$LUCILLE_ROLE_NORMALIZED" in
     MAIN_CLASS="com.kmwllc.lucille.core.Runner"
     MAIN_ARGS=(${LUCILLE_OPTS})
     ;;
-  worker|indexer)
+  worker|indexer|worker-indexer)
     if [ -z "$LUCILLE_PIPELINE" ]; then
       echo "ERROR: LUCILLE_PIPELINE must be set when LUCILLE_ROLE=${LUCILLE_ROLE_NORMALIZED}."
       exit 1
@@ -34,24 +36,34 @@ case "$LUCILLE_ROLE_NORMALIZED" in
     if [ -n "$LUCILLE_OPTS" ]; then
       echo "WARN: LUCILLE_OPTS is set, but LUCILLE_ROLE=${LUCILLE_ROLE_NORMALIZED}. It will not be used."
     fi
-    if [ "$LUCILLE_ROLE_NORMALIZED" = "worker" ]; then
-      MAIN_CLASS="com.kmwllc.lucille.core.Worker"
-    else
-      MAIN_CLASS="com.kmwllc.lucille.core.Indexer"
-    fi
+    case "$LUCILLE_ROLE_NORMALIZED" in
+      worker) MAIN_CLASS="com.kmwllc.lucille.core.Worker" ;;
+      indexer) MAIN_CLASS="com.kmwllc.lucille.core.Indexer" ;;
+      worker-indexer) MAIN_CLASS="com.kmwllc.lucille.core.WorkerIndexer" ;;
+    esac
     MAIN_ARGS=("$LUCILLE_PIPELINE")
     ;;
   *)
-    echo "ERROR: unrecognized LUCILLE_ROLE '${LUCILLE_ROLE}'. Must be one of: runner, worker, indexer."
+    echo "ERROR: unrecognized LUCILLE_ROLE '${LUCILLE_ROLE}'. Must be one of: runner, worker, indexer, worker-indexer."
     exit 1
     ;;
 esac
 
 # JAVA_OPTS: JVM-level flags (heap, GC, etc.)
 # LUCILLE_OPTS: Lucille Runner CLI flags (e.g. -distributed, -external)
+# LUCILLE_LOG4J_CONF: log4j2 config file (defaults to the editable /lucille/conf/log4j2.xml). lucille-core
+#   ships no log4j2 config of its own ; we point log4j2 at the external file here. Setting it to empty
+#   falls back to the non-auto-discovered copy bundled in lucille-logging.jar.
 # exec replaces the shell so Java is PID 1 and receives signals (SIGTERM, SIGINT) directly
+if [ -n "$LUCILLE_LOG4J_CONF" ]; then
+  LOG4J_OPT="-Dlog4j2.configurationFile=${LUCILLE_LOG4J_CONF}"
+else
+  LOG4J_OPT="-Dlog4j2.configurationFile=classpath:lucille-log4j2.xml"
+fi
+
 exec java \
   ${JAVA_OPTS} \
+  "${LOG4J_OPT}" \
   -Dconfig.file="${LUCILLE_CONF}" \
   -cp '/lucille/lib/*' \
   "$MAIN_CLASS" \

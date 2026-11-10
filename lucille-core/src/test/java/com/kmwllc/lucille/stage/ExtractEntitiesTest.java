@@ -8,7 +8,8 @@ import org.junit.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 public abstract class ExtractEntitiesTest {
 
@@ -844,5 +845,25 @@ public abstract class ExtractEntitiesTest {
     stage.processDocument(doc);
 
     assertEquals(List.of("Hit"), doc.getStringList("output"));
+  }
+
+  @Test
+  public void testNullValues() throws Exception {
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/startOfString.dict"]
+        }
+        """;
+    Stage stage = newStage(config);
+
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"input1\":null}");
+    stage.processDocument(doc);
+    assertFalse(doc.has("output"));
+
+    Document mixed = Document.createFromJson("{\"id\":\"1\",\"input1\":[null,\"United States is large\"]}");
+    stage.processDocument(mixed);
+    assertEquals(List.of("North America"), mixed.getStringList("output"));
   }
 }

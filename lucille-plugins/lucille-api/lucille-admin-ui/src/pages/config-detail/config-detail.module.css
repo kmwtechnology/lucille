@@ -1,0 +1,142 @@
+@reference "../../index.css";
+
+/* Configuration detail page styles */
+.page {
+  @apply p-4 sm:p-6 lg:p-8;
+}
+
+/* Header */
+.detailHeader {
+  @apply mb-6 sm:mb-8 space-y-3;
+}
+
+.titleRow {
+  @apply flex items-center gap-2 flex-wrap;
+}
+
+.headerActions {
+  @apply ml-auto flex items-center gap-2;
+}
+
+.startError {
+  @apply text-sm text-red-600;
+}
+
+.configId {
+  @apply truncate font-mono text-xl sm:text-2xl font-bold text-primary-800;
+}
+
+/* Section grid + cards */
+.sectionGrid {
+  @apply grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6;
+}
+
+.sectionCard {
+  @apply border-primary-100 shadow-sm flex flex-col h-full;
+}
+
+.sectionHeader {
+  @apply pb-2;
+}
+
+.sectionTitle {
+  @apply flex items-center gap-2 text-base sm:text-lg text-primary-800;
+}
+
+.emptyRow {
+  @apply text-sm text-muted-foreground;
+}
+
+/* Connector / generic item lists */
+.itemList {
+  @apply space-y-2;
+}
+
+.item {
+  @apply flex flex-wrap items-center gap-2;
+}
+
+.itemName {
+  @apply font-medium text-sm text-primary-800;
+}
+
+.itemClass {
+  @apply font-mono text-xs rounded px-1.5 py-0.5 bg-primary-50 text-primary-700;
+}
+
+.itemMeta {
+  @apply text-xs text-muted-foreground;
+}
+
+/* Pipelines */
+.pipelineList {
+  @apply space-y-4;
+}
+
+.pipelineItem {
+  @apply space-y-2;
+}
+
+.pipelineToggle {
+  @apply flex w-full items-center gap-2 cursor-pointer text-left;
+}
+
+.stageCount {
+  @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-primary-50 text-primary-700;
+}
+
+.stageList {
+  @apply space-y-1 pl-6 border-l border-primary-100 mt-2;
+}
+
+.stageItem {
+  @apply flex flex-wrap items-center gap-2;
+}
+
+.stageIndex {
+  @apply text-xs text-muted-foreground tabular-nums;
+}
+
+/* Indexer key/value */
+.kvList {
+  @apply space-y-2;
+}
+
+.kvRow {
+  @apply flex justify-between items-start gap-2;
+}
+
+.kvKey {
+  @apply text-sm text-muted-foreground;
+}
+
+.kvValue {
+  @apply font-mono text-xs text-primary-800 text-right break-all;
+}
+
+.kvSubheading {
+  @apply text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-2;
+}
+
+/* Raw config */
+.rawHeader {
+  @apply flex flex-row items-center justify-between pb-2;
+}
+
+.rawToggle {
+  @apply flex items-center gap-2 text-base sm:text-lg font-semibold text-primary-800 cursor-pointer;
+}
+
+.chevron {
+  @apply h-4 w-4 transition-transform;
+}
+
+.chevronOpen {
+  @apply rotate-180;
+}
+
+.rawPre {
+  @apply overflow-x-auto rounded-md bg-slate-50 p-4 text-xs font-mono text-slate-800 whitespace-pre;
+}
+
+

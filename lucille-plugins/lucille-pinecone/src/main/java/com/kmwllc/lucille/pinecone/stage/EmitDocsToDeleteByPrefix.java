@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.pinecone.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -17,6 +18,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This stage collects all records from namespace(s) if their prefix ID matches the ID of the Lucille document marked for deletion.
@@ -34,15 +37,18 @@ import java.util.stream.Collectors;
  *    retrieve from default namespace.
  *   - note that value of mapping will not matter, rather intended to make it convenient for user to reuse same namespaces configs as
  *     PineconeIndexer
- * - deletionMarkerField (String) : name of the field which indicates the document is marked for deletion
- * - deletionMarkerFieldValue (String) : value of the field which indicates that the document is marked for deletion
- *   - for stage to work as intended, index, apiKey, namespaces, deletionMarkerField and deletionMarkerFieldValue
- *     should have the same value provided in indexer configs
+ * - deletionMarker (Map) : the marker for documents to delete, with <code>field</code> (String), the name of the field
+ *   that marks a document for deletion, and <code>value</code> (String), the value of that field that marks it
+ *   - for stage to work as intended, index, apiKey, namespaces and deletionMarker should have the same values as in the
+ *     indexer config
  */
 public class EmitDocsToDeleteByPrefix extends Stage {
 
+  private static final Logger log = LoggerFactory.getLogger(EmitDocsToDeleteByPrefix.class);
+
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("apiKey", "deletionMarkerField", "deletionMarkerFieldValue", "index")
+      .requiredString("apiKey", "index")
+      .requiredParent("deletionMarker", SpecBuilder.withoutDefaults().requiredString("field", "value").build())
       .optionalBoolean("dropOriginal")
       .optionalString("addPrefix")
       .optionalParent("namespaces", new TypeReference<Map<String, Object>>(){}).build();
@@ -54,16 +60,16 @@ public class EmitDocsToDeleteByPrefix extends Stage {
   private final boolean dropOriginal;
   private final String addPrefix;
   private final String deletionMarkerField;
-  private final String deletionMarkerFieldValue;
+  private final String deletionMarkerValue;
 
   public EmitDocsToDeleteByPrefix(Config config) {
     super(config);
     this.indexName = config.getString("index");
     this.namespaces = config.hasPath("namespaces") ? config.getConfig("namespaces").root().unwrapped() : null;
-    this.dropOriginal = config.hasPath("dropOriginal") ? config.getBoolean("dropOriginal") : false;
-    this.addPrefix = config.hasPath("addPrefix") ? config.getString("addPrefix") : "";
-    this.deletionMarkerField = config.getString("deletionMarkerField");
-    this.deletionMarkerFieldValue = config.getString("deletionMarkerFieldValue");
+    this.dropOriginal = ConfigUtils.getBooleanOrDefault(config, "dropOriginal", false);
+    this.addPrefix = ConfigUtils.getStringOrDefault(config, "addPrefix", "");
+    this.deletionMarkerField = config.getString("deletionMarker.field");
+    this.deletionMarkerValue = config.getString("deletionMarker.value");
   }
 
   @Override
@@ -120,8 +126,13 @@ public class EmitDocsToDeleteByPrefix extends Stage {
   private List<Document> createDocsToDeleteFromIds(List<String> idsToDelete) {
     List<Document> documents = new ArrayList<>();
     for (String id : idsToDelete) {
+      if (!Document.isValidId(id)) {
+        // Pinecone does not allow blank ids, so this is not expected; skip it rather than fail the whole document
+        log.error("Skipping a Pinecone vector to delete because its id is null or blank.");
+        continue;
+      }
       Document newDoc = Document.create(id);
-      newDoc.setField(deletionMarkerField, deletionMarkerFieldValue);
+      newDoc.setField(deletionMarkerField, deletionMarkerValue);
       documents.add(newDoc);
     }
     return documents;
@@ -150,10 +161,7 @@ public class EmitDocsToDeleteByPrefix extends Stage {
   }
 
   private boolean isMarkedForDeletion(Document doc) {
-    return deletionMarkerField != null
-        && deletionMarkerFieldValue != null
-        && doc.hasNonNull(deletionMarkerField)
-        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
+    return doc.hasNonNull(deletionMarkerField) && doc.getString(deletionMarkerField).equals(deletionMarkerValue);
   }
 }
 

@@ -1,4 +1,5 @@
 package com.kmwllc.lucille.core;
+import com.kmwllc.lucille.stage.StartStopCaptureStage;
 
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -25,7 +26,9 @@ import java.util.List;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 
 @RunWith(JUnit4.class)
 public class PipelineTest {
@@ -96,7 +99,7 @@ public class PipelineTest {
     List<Document> results = IteratorUtils.toList(pipeline.processDocument(doc));
     pipeline.stopStages();
 
-    ArrayList<Document> expected = new ArrayList<>();
+    List<Document> expected = new ArrayList<>();
     expected.add(Document.createFromJson("{\"id\":\"d1-s2c1-s3c1\",\"s4\":\"v4\"}"));
     expected.add(Document.createFromJson("{\"id\":\"d1-s2c1-s3c2\",\"s4\":\"v4\"}"));
     expected.add(Document.createFromJson("{\"id\":\"d1-s2c1\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
@@ -276,7 +279,7 @@ public class PipelineTest {
     Config pipelineConfig = ConfigFactory.load("PipelineTest/all-disabled.conf");
     Pipeline pipeline = Pipeline.fromConfig(pipelineConfig, "my-pipeline", "");
 
-    // Note: two of the stages have invalid config (missing "destField").
+    // Note: two of the stages have invalid config (missing "dest").
     // However, no validation errors are thrown - since disabled stages are not instantiated in Pipeline.fromConfig()
     // (Disabled Stages are still validated in Pipeline.validateStages()... see next test. So, from the end user's perspective,
     // disabled Stages "are validated" - the Runner does validation before building & starting a pipeline.)
@@ -285,13 +288,13 @@ public class PipelineTest {
 
   @Test
   public void testDisabledStagesAreValidated() throws Exception {
-    // all three stages are disabled. the two timestamp stages do not have the "destField".
+    // all three stages are disabled. the two timestamp stages do not have the "dest".
     Config pipelineConfig = ConfigFactory.load("PipelineTest/all-disabled.conf");
     List<Exception> validationErrors = Pipeline.validateStages(pipelineConfig, "my-pipeline");
 
     assertEquals(2, validationErrors.size());
-    assertTrue(validationErrors.get(0).getMessage().contains("destField"));
-    assertTrue(validationErrors.get(1).getMessage().contains("destField"));
+    assertTrue(validationErrors.get(0).getMessage().contains("dest"));
+    assertTrue(validationErrors.get(1).getMessage().contains("dest"));
   }
 
   private static class Stage1 extends Stage {
@@ -322,7 +325,7 @@ public class PipelineTest {
       doc.setField("s2", "v2");
       Document c1 = Document.create(doc.getId() + "-" + "s2c1");
       Document c2 = Document.create(doc.getId() + "-" + "s2c2");
-      ArrayList<Document> result = new ArrayList<>();
+      List<Document> result = new ArrayList<>();
       result.add(c1);
       result.add(c2);
       return result.iterator();
@@ -342,7 +345,7 @@ public class PipelineTest {
       doc.setField("s3", "v3");
       Document c1 = Document.create(doc.getId() + "-" + "s3c1");
       Document c2 = Document.create(doc.getId() + "-" + "s3c2");
-      ArrayList<Document> result = new ArrayList<>();
+      List<Document> result = new ArrayList<>();
       result.add(c1);
       result.add(c2);
       return result.iterator();
@@ -394,11 +397,50 @@ public class PipelineTest {
       Document child2 = Document.create(doc.getId() + "-" + "child1");
       child2.setField(field, 2);
       child2.setOrAddAll(doc);
-      ArrayList<Document> children = new ArrayList<>();
+      List<Document> children = new ArrayList<>();
       children.add(child1);
       children.add(child2);
       return children.iterator();
     }
+  }
+
+
+  @Test
+  public void testStartFailureStopsTheStagesAlreadyStarted() throws Exception {
+    // RUN-16
+    StartStopCaptureStage.reset();
+    Config config = ConfigFactory.parseString("pipelines: [{name: p, stages: ["
+        + "{class: \"com.kmwllc.lucille.stage.StartStopCaptureStage\"},"
+        + "{class: \"com.kmwllc.lucille.stage.ErrorStage\", exceptionOnStart: true}]}]");
+    assertThrows(StageException.class, () -> Pipeline.fromConfig(config, "p", "metrics"));
+    assertTrue(StartStopCaptureStage.startCalled);
+    assertTrue(StartStopCaptureStage.stopCalled);
+    StartStopCaptureStage.reset();
+  }
+
+  @Test
+  public void testStopContinuesPastAFailingStage() throws Exception {
+    // STG-32: the stages after a stage whose stop() throws must still be stopped
+    StartStopCaptureStage.reset();
+    Config config = ConfigFactory.parseString("pipelines: [{name: p, stages: ["
+        + "{class: \"com.kmwllc.lucille.stage.ThrowingStage\", throwOnStop: true},"
+        + "{class: \"com.kmwllc.lucille.stage.StartStopCaptureStage\"}]}]");
+    Pipeline pipeline = Pipeline.fromConfig(config, "p", "metrics");
+    assertThrows(StageException.class, pipeline::stopStages);
+    assertTrue(StartStopCaptureStage.stopCalled);
+    StartStopCaptureStage.reset();
+  }
+
+  @Test
+  public void testValidationStopsTheStagesItConstructs() throws Exception {
+    // RUN-06: a stage constructed only for validation must be released again
+    StartStopCaptureStage.reset();
+    Config config = ConfigFactory.parseString("pipelines: [{name: p, stages: ["
+        + "{class: \"com.kmwllc.lucille.stage.StartStopCaptureStage\"}]}]");
+    assertTrue(Pipeline.validateStages(config, "p").isEmpty());
+    assertFalse(StartStopCaptureStage.startCalled);
+    assertTrue(StartStopCaptureStage.stopCalled);
+    StartStopCaptureStage.reset();
   }
 
 }

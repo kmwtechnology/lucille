@@ -28,7 +28,7 @@ The guiding principle: *get as much data into the search engine as possible, but
 
 ### 1. Invalid Configuration
 
-Before any run starts, `Runner.run()` calls `runInValidationMode(config)` which validates all pipelines (every Stage's SPEC), all connectors, the indexer config, and other parent configs (publisher, worker, etc.). If any validation errors are found, the run is aborted immediately — no connectors are started, no documents are processed. A `RunResult` with `status=false` is returned. All errors are reported at once (not fail-fast on the first one).
+Before any run starts, `Runner.run()` calls `ConfigValidator.validate(config)`, which validates all pipelines (every Stage's SPEC), all connectors, the indexer config, and other parent configs (publisher, worker, etc.). If any validation errors are found, the run is aborted immediately — no connectors are started, no documents are processed. A `RunResult` with `status=false` is returned. All errors are reported at once (not fail-fast on the first one).
 
 **Severity:** Fatal to the run. Nothing executes.
 
@@ -68,7 +68,9 @@ The connector runs inside a `ConnectorThread`. If `execute()` throws, the except
 
 ### 6. Stage processDocument() Throws for a Given Document
 
-The Worker catches the exception, logs it via the DocLogger (`"Document FAILED during pipeline processing: " + doc.getId()`), sends a FAIL event to the Publisher via `messenger.sendEvent(doc, null, Event.Type.FAIL)`, commits offsets, and continues processing the next document. The failed document is counted in the Publisher's `numFailed` tally. The run does NOT stop.
+The Worker catches the exception, logs it via the DocLogger (`"Document FAILED during pipeline processing: " + doc.getId()`), sends a FAIL event to the Publisher whose message is the exception's message (see [Event Messages]({{< relref "docs/architecture/components/events#event-messages" >}})), commits offsets, and continues processing the next document. The failed document is counted in the Publisher's `numFailed` tally. The run does NOT stop.
+
+If `worker.sendFailedDocsToTopic` is enabled (Kafka/Hybrid modes only), the Worker also stamps failure metadata on the document and copies it to the pipeline's [fail topic](#the-fail-topic-dead-letter-queue). See that section for details.
 
 **Severity:** Per-document failure. The run continues. Other documents are unaffected.
 
@@ -90,11 +92,11 @@ This depends on the deployment mode:
 
 When `worker.maxRetries` is configured, a `RetryCounter` (backed by ZooKeeper or Redis) tracks how many times each document has been attempted across all Worker instances. Each time a Worker picks up a document, it calls `counter.add(doc)`. If the retry count exceeds the configured maximum, the Worker:
 
-1. Sends the document to a "failed" / dead-letter queue via `messenger.sendFailed(doc)`
+1. Stamps failure metadata on the document and sends it to the pipeline's [fail topic](#the-fail-topic-dead-letter-queue) via `messenger.sendFailed(doc)`
 2. Sends a FAIL event to the Publisher
 3. Skips processing and moves on
 
-The document is effectively quarantined. The rest of the ingest continues unaffected.
+The document is effectively quarantined. The rest of the ingest continues unaffected. Note that this retry-exceeded path always routes to the fail topic as part of the dead-letter-queue behavior; it does not depend on `worker.sendFailedDocsToTopic`, which gates only the ordinary pipeline-processing failure path (scenario #6).
 
 **Severity:** Per-document failure. The poison pill is isolated. The run continues.
 
@@ -119,10 +121,10 @@ Before the Indexer thread starts processing, `validateConnection()` is called. I
 There are two sub-cases:
 
 **10a. The entire batch call throws an exception (batch-level failure):**
-The Indexer catches the exception, logs it, and sends a FAIL event for every document in the batch. If retries are configured (`indexer.maxRetries > 0`) and the failure's status code is in `indexer.retryableStatusCodes` (default `[429, 503, -1]`), the batch is retried with exponential backoff before being declared failed. After all retries are exhausted (or if the status code is not retryable), all documents in the batch receive FAIL events. The Indexer continues processing subsequent batches. The `batchComplete()` call in the `finally` block always fires regardless of outcome.
+The Indexer catches the exception, logs it, and sends a FAIL event for every document in the batch. If retries are configured (`indexer.maxRetries > 0`) and the failure's status code is in `indexer.retryableStatusCodes` (default `[429, 503, -1]`), the batch is retried with exponential backoff before being declared failed. After all retries are exhausted (or if the status code is not retryable), all documents in the batch receive FAIL events. If `indexer.sendFailedDocsToTopic` is enabled (Kafka/Hybrid modes only), each failed document is also stamped with failure metadata and copied to the pipeline's [fail topic](#the-fail-topic-dead-letter-queue). The Indexer continues processing subsequent batches. `batchComplete()` is still called once the batch has been handled, so Kafka offsets can be committed even though the batch failed; it is skipped only after an `Error` (such as an `OutOfMemoryError`), so offsets for documents that were never indexed are not committed.
 
 **10b. The bulk API succeeds but reports per-document failures:**
-`sendToIndex()` returns a set of failed document/reason pairs. The Indexer sends FAIL events for those specific documents and FINISH events for the rest. The Indexer continues normally.
+`sendToIndex()` returns a list of `IndexerFailure`s, each holding a document and its cause. The Indexer sends FAIL events for those specific documents and FINISH events for the rest. A failure that doesn't match a document awaiting a result (a copy, or an instance reported twice) fails the rest of the batch, because there is no telling which document was rejected. The Indexer continues normally.
 
 **Severity:** Per-batch or per-document failure. The run continues. Failed documents are counted in the Publisher's accounting.
 
@@ -132,7 +134,7 @@ The Indexer catches the exception, logs it, and sends a FAIL event for every doc
 
 - **Local mode:** The Indexer thread dies. Documents accumulate on the indexing queue but are never consumed. The Publisher's `waitForCompletion()` will eventually time out because pending documents never reach a terminal state. The run fails.
 
-- **Distributed mode:** The Indexer process dies. Kafka's consumer group protocol reassigns its partitions to another available Indexer instance. Unacknowledged documents (those in the batch that was being processed) are redelivered to the new Indexer. Since search engine upserts are idempotent, re-indexing an already-indexed document produces the same result.
+- **Distributed mode:** The Indexer process dies. Kafka's consumer group protocol reassigns its partitions to another available Indexer instance. Documents the Indexer had polled but not yet completed (those in its open batch and in any batches still being sent, up to `indexer.maxConcurrentBatches`) have uncommitted offsets, because offsets are committed only when a batch completes, and are redelivered to the new Indexer. Since search engine upserts are idempotent, re-indexing an already-indexed document produces the same result.
 
 **Severity:** In local mode, fatal to the run. In distributed mode, recoverable.
 
@@ -162,7 +164,7 @@ The `WorkerPool` runs a watcher thread that checks each Worker's last poll times
 The Runner catches this and returns a failing `ConnectorResult`. Since `close()` is called in a `finally` block after all other work, the documents may have been successfully processed, but the run is reported as failed.
 
 **Publisher's waitForCompletion() times out:**
-If the configured `runner.connectorTimeout` (default 24 hours) is exceeded, `waitForCompletion()` returns a failing `PublisherResult`. The run is reported as failed. This catches scenarios where documents are stuck (lost events, hung Workers, etc.).
+If the configured `runner.connectorTimeoutMs` (default 24 hours) is exceeded, `waitForCompletion()` returns a failing `PublisherResult`. The run is reported as failed. This catches scenarios where documents are stuck (lost events, hung Workers, etc.).
 
 **Kafka offset commit fails:**
 The Worker calls `messenger.commitPendingDocOffsets()` after processing each document. If this throws, the Worker logs the error and continues. The consequence is that if the Worker later crashes, the document may be redelivered and reprocessed (at-least-once semantics). This is safe because pipeline processing is expected to be idempotent.
@@ -175,6 +177,48 @@ Connectors **must not** catch and swallow exceptions from `publish()`. Doing so 
 The exception propagates up to the Connector's `execute()` method, which becomes scenario #3 (connector execute throws) and the run fails. Connectors that need to handle per-document errors (e.g., a malformed source record) should do so *before* calling `publish()`.
 
 ---
+
+---
+
+## The Fail Topic (Dead-Letter Queue)
+
+When Lucille runs against Kafka (distributed or Hybrid mode), each pipeline has a corresponding **fail topic** — a dead-letter queue named `<pipeline>_fail` (for example, `pipeline1_fail`). Failed documents can be copied there so they can be inspected, reprocessed, or alerted on without blocking the main ingest. The fail topic holds only deserializable Documents; a record that could not be deserialized is never copied there.
+
+### When documents are routed to the fail topic
+
+| Source | Trigger | Config gate |
+|---|---|---|
+| Worker | Retry count exceeded (`worker.maxRetries`) — the poison-pill path | Always routes (no gate) |
+| Worker | A document throws during pipeline processing | `worker.sendFailedDocsToTopic` (default `false`) |
+| Indexer | A document or batch fails to index (after retries are exhausted) | `indexer.sendFailedDocsToTopic` (default `false`) |
+
+In all cases the FAIL event and the `FailedDocuments` log are emitted regardless; routing to the fail topic is an *additional* signal, not a replacement.
+
+### When the fail topic can't take a document
+
+The document is written to the fail topic before its FAIL event is sent. If that write fails:
+
+- **The topic rejects that document** (for example, a record too large for the topic): the failure is logged and the document fails as usual, since sending it again would only repeat the rejection. It does not reach the fail topic, though the FAIL event and the `FailedDocuments` log still record it.
+- **Any other failure, in a Worker:** this is a messenger failure like any other, so the Worker stops without sending a FAIL event or committing the document's offset, and the document is redelivered.
+- **Any other failure, in an Indexer:** the failure is logged and the document fails as usual. The copy is best-effort, since the FAIL event and the `FailedDocuments` log still record the document, so the batch's offsets are committed and the Indexer goes on. The other failed documents in the same batch are not copied either, so that an unavailable fail topic delays a batch by one Kafka producer timeout rather than one per document.
+
+A child document announced before its parent failed gets a FAIL event but is not copied to the fail topic.
+
+### Failure metadata
+
+A document routed to the fail topic is stamped with these fields so a consumer of the fail topic knows what happened:
+
+| Field | Meaning |
+|---|---|
+| `___failure_reason` | The error message (or `"Retry count exceeded"` for the poison-pill path) |
+| `___failure_component` | `"worker"` or `"indexer"` |
+| `___failure_time` | The time the failure was recorded (ISO-8601 instant) |
+
+These `___`-prefixed fields are **Lucille-internal reserved fields**: like the other reserved fields, they are protected from being set via the normal field API, skipped by field-copying stages and connectors, preserved by the FieldFilter, and immune to JSONata mutation. Lucille stamps them through a dedicated setter (`setFailureMetadata`). They additionally travel with the document to the fail topic but are stripped from the document written to the search index, so they never leak into the index. Pipelines should avoid field names that begin with `___`.
+
+### Local mode
+
+There is no fail topic in local mode — it is a Kafka/Hybrid concept. The `sendFailedDocsToTopic` settings have no effect in local mode. The FAIL event and the `FailedDocuments` log remain the failure signals.
 
 ---
 
@@ -204,11 +248,11 @@ Lucille has two deployment patterns with different offset semantics:
 The Worker commits offsets via `KafkaWorkerMessenger.commitPendingDocOffsets()` after processing each document and placing it on the indexing topic. The guarantee is: if the Worker crashes, unprocessed documents are redelivered. However, documents that were processed and placed on the indexing topic but not yet indexed are safe — they're on Kafka and will be picked up by an Indexer.
 
 **WorkerIndexer mode (paired Worker + Indexer in one process):**
-The offset flow is more sophisticated. The Indexer, after successfully sending a batch to the search backend, places the offsets of the indexed documents on an in-memory queue. The Worker reads from this queue during its `commitPendingDocOffsets()` call and commits them back to Kafka. The guarantee is stronger: offsets are only committed after documents are *indexed*, not just processed. If the WorkerIndexer crashes, documents that were processed but not yet indexed are redelivered and re-indexed. Since search engine upserts are idempotent, this produces correct results.
+The offset flow is more sophisticated. The Indexer, once it has handled a batch (sent it to the search backend, or reported its documents as failed), places the offsets of the batch's documents on an in-memory queue. The Worker reads from this queue during its `commitPendingDocOffsets()` call and commits them back to Kafka. The guarantee is stronger: offsets are only committed after documents are *handled by the Indexer* (indexed, or reported failed), not just processed. If the WorkerIndexer crashes, documents that were processed but not yet indexed are redelivered and re-indexed. Since search engine upserts are idempotent, this produces correct results.
 
 ### What Fault Tolerance Guarantees
 
-- **No data loss.** A document that enters the system (is placed on a Kafka topic) will eventually be processed and indexed, or will exhaust its retry count and be routed to a dead-letter queue. It will not silently disappear.
+- **No data loss.** A document that enters the system (is placed on a Kafka topic) will eventually be processed and indexed, or will exhaust its retry count and be routed to a dead-letter queue. It will not silently disappear. (One documented boundary: in WorkerIndexer mode with `indexOverrideField`, a crash can skip a record that was still waiting in another index's batch; see [Delivery semantics]({{< relref "docs/operations/indexing-throughput#delivery-semantics-kafka-distributed-mode" >}}).)
 - **At-least-once processing.** A document may be processed more than once if a crash occurs after processing but before offset commit. Pipeline stages and indexing operations should be idempotent (search engine upserts naturally are).
 - **Automatic recovery.** No manual intervention is required when a Worker or Indexer crashes. Kafka's consumer group protocol handles partition reassignment automatically. New instances can be added at any time.
 

@@ -27,33 +27,33 @@ import java.util.concurrent.ThreadLocalRandom;
  * <ul>
  *   <li>inputDataPath (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,
  *   defaults to numeric data based on range size (0 -&gt; rangeSize - 1). Note that duplicate entries will not be removed.</li>
- *   <li>fieldName (String, Optional) : Field name of field where data is placed, defaults to "data".</li>
+ *   <li>dest (String, Optional) : Field name of field where data is placed, defaults to "data".</li>
  *   <li>rangeSize (int, Optional) : size of the subset of datapoints to be grabbed either from given datapath or from
  *   random numbers.</li>
- *   <li>minNumOfTerms (Integer, Optional) : minimum number of terms to be in the field, defaults to 1.</li>
- *   <li>maxNumOfTerms (Integer, Optional) : maximum number of terms to be in the field, defaults to 1.</li>
- *   <li>isNested (bool, Optional) : When enabled, the generated data will be output as a JSON array of objects, with
+ *   <li>minNumTerms (Integer, Optional) : minimum number of terms to be in the field, defaults to 1.</li>
+ *   <li>maxNumTerms (Integer, Optional) : maximum number of terms to be in the field, defaults to 1.</li>
+ *   <li>outputObjects (bool, Optional) : When enabled, the generated data will be output as a JSON array of objects, with
  *   each object holding the data in <code>"data"</code>.</li>
  *   <li>concatenate (bool, Optional) : if true, represent multiple terms as a single space-separated string instead of multiple
  *   values, defaults to false.</li>
  * </ul>
- * <p> <b>Note:</b> <code>concatenate</code> and <code>isNested</code> cannot both be <code>true</code> in your Config.
+ * <p> <b>Note:</b> <code>concatenate</code> and <code>outputObjects</code> cannot both be <code>true</code> in your Config.
  */
 public class AddRandomString extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("inputDataPath", "fieldName")
-      .optionalNumber("minNumOfTerms", "maxNumOfTerms", "rangeSize")
-      .optionalBoolean("isNested", "concatenate").build();
+      .optionalString("inputDataPath", "dest")
+      .optionalNumber("minNumTerms", "maxNumTerms", "rangeSize")
+      .optionalBoolean("outputObjects", "concatenate").build();
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private final String inputDataPath;
   private final String fieldName;
-  private Integer rangeSize;
+  private final Integer rangeSize;
   private Integer minNumOfTerms;
   private Integer maxNumOfTerms;
-  private final boolean isNested;
+  private final boolean outputObjects;
   private List<String> fileData;
   private final boolean concatenate;
 
@@ -65,13 +65,13 @@ public class AddRandomString extends Stage {
   public AddRandomString(Config config) throws StageException {
     super(config);
 
-    this.inputDataPath = ConfigUtils.getOrDefault(config, "inputDataPath", null);
-    this.fieldName = ConfigUtils.getOrDefault(config, "fieldName", "data");
-    this.minNumOfTerms = ConfigUtils.getOrDefault(config, "minNumOfTerms", null);
-    this.maxNumOfTerms = ConfigUtils.getOrDefault(config, "maxNumOfTerms", null);
-    this.isNested = ConfigUtils.getOrDefault(config, "isNested", false);
+    this.inputDataPath = ConfigUtils.getStringOrDefault(config, "inputDataPath", null);
+    this.fieldName = ConfigUtils.getOrDefault(config, "dest", "data");
+    this.minNumOfTerms = ConfigUtils.getIntOrDefault(config, "minNumTerms", null);
+    this.maxNumOfTerms = ConfigUtils.getIntOrDefault(config, "maxNumTerms", null);
+    this.outputObjects = ConfigUtils.getOrDefault(config, "outputObjects", false);
     this.concatenate = ConfigUtils.getOrDefault(config, "concatenate", false);
-    this.rangeSize = ConfigUtils.getOrDefault(config, "rangeSize", null);
+    this.rangeSize = ConfigUtils.getIntOrDefault(config, "rangeSize", null);
     this.fileData = null;
 
     if (this.minNumOfTerms == null ^ this.maxNumOfTerms == null) {
@@ -87,8 +87,8 @@ public class AddRandomString extends Stage {
     if (inputDataPath == null && rangeSize == null) {
       throw new StageException("rangeSize must be specified if there is no inputDataPath");
     }
-    if (concatenate && isNested) {
-      throw new StageException("concatenate=true is not currently supported when isNested=true");
+    if (concatenate && outputObjects) {
+      throw new StageException("concatenate=true is not currently supported when outputObjects=true");
     }
   }
 
@@ -118,7 +118,7 @@ public class AddRandomString extends Stage {
     List<String> data = (fileData == null) ? getRandomIntegerStringList(fieldLength, rangeSize) :
         selectRandomElements(fileData, fieldLength);
 
-    if (isNested) {
+    if (outputObjects) {
       ArrayNode array = MAPPER.createArrayNode();
       // TODO: concatenate option not yet supported with nested mode; need tests for nested mode
       for (String value : data) {
@@ -146,7 +146,7 @@ public class AddRandomString extends Stage {
   }
 
   private static List<String> getRandomIntegerStringList(int length, int rangeSize) {
-    List<String> result = new ArrayList();
+    List<String> result = new ArrayList<>();
     for (int i = 0; i < length; i++) {
       result.add(String.valueOf(ThreadLocalRandom.current().nextInt(0, rangeSize)));
     }
@@ -154,7 +154,7 @@ public class AddRandomString extends Stage {
   }
 
   private static List<String> selectRandomElements(List<String> values, int length) {
-    ArrayList<String> fieldData = new ArrayList<>();
+    List<String> fieldData = new ArrayList<>();
     for (int i = 0; i < length; i++) {
       fieldData.add(values.get(ThreadLocalRandom.current().nextInt(values.size())));
     }

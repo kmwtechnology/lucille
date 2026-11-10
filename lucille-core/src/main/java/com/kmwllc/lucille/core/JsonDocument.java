@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -13,7 +12,6 @@ import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.util.FieldFilter;
-import java.sql.Timestamp;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,15 +20,26 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.UnaryOperator;
 
 /**
  * Document implementation that functions as a lightweight wrapper around a piece of JSON.
  * Stores all field data in Jackson ObjectNode.
  *
+ * <p>The backing ObjectNode is not part of Lucille's API. Code in this package that reads it directly, for example to
+ * hand a document's JSON to an indexer's client without copying it, offers that to indexers through protected
+ * methods on {@link Indexer}, such as {@link Indexer#getRawIndexerDoc}, rather than through public classes.
  */
-public class JsonDocument implements Document {
+public sealed class JsonDocument implements Document permits KafkaDocument {
 
   protected static final ObjectMapper MAPPER = createDocumentMapper();
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>() {
@@ -45,8 +54,7 @@ public class JsonDocument implements Document {
    *
    * The mapper is used in several places: it backs {@link #MAPPER} (and therefore {@link #fromJsonString},
    * which {@link Document#createFromJson} dispatches to and which JsonFileHandler calls for each line of
-   * a JSON-Lines file), {@link HashMapDocument}'s mapper, {@link KafkaDocument}'s ConsumerRecord
-   * constructor, and KafkaDocumentDeserializer. Every path that turns JSON text into a Document goes
+   * a JSON-Lines file) and KafkaDocumentDeserializer. Every path that turns JSON text into a Document goes
    * through the constraints configured here.
    *
    * Jackson's default StreamReadConstraints cap any single JSON string value at 20,000,000 chars
@@ -73,9 +81,10 @@ public class JsonDocument implements Document {
    * validity of the document.
    *
    * @param document document to copy
-   * @throws DocumentException if document is missing a nonempty {@link Document#ID_FIELD}
+   * @throws DocumentException if the id is invalid, as for {@link #JsonDocument(ObjectNode)}; not expected, since the
+   * document being copied already has a valid id
    */
-  public JsonDocument(Document document) throws DocumentException {
+  JsonDocument(Document document) throws DocumentException {
     this(getData(document).deepCopy());
   }
 
@@ -84,48 +93,82 @@ public class JsonDocument implements Document {
    * not defensively copy the given ObjectNode, so it must not be modified after creation
    *
    * @param data the data to be stored in the document
-   * @throws DocumentException if document is missing a nonempty {@link Document#ID_FIELD}
+   * @throws DocumentException if the {@link Document#ID_FIELD} is missing, null, empty, blank, or not a string. The id is data
+   * here, so a bad one is reported as a checked exception that callers can catch in order to skip the record. See the
+   * "Invalid ids" section of {@link Document}.
    */
-  public JsonDocument(ObjectNode data) throws DocumentException {
+  JsonDocument(ObjectNode data) throws DocumentException {
 
     if (!data.hasNonNull(ID_FIELD)) {
-      throw new DocumentException("id is missing");
+      throw new DocumentException("id is missing or null");
     }
 
     JsonNode id = data.get(ID_FIELD);
-    if (!id.isTextual() || id.asText().isEmpty()) {
-      throw new DocumentException("id is present but null or empty or not a string");
+    if (!id.isTextual() || !Document.isValidId(id.asText())) {
+      throw new DocumentException("id must be a non-blank string but was "
+          + (id.isTextual() ? "an empty or blank string" : "a " + describe(id)));
     }
 
     this.data = data;
   }
 
-  public JsonDocument(String id) {
-    if (id == null) {
-      throw new NullPointerException("ID cannot be null");
+  /**
+   * Creates a new {@link JsonDocument} with the given id.
+   *
+   * <p>The id is a Java argument here, so an invalid one is reported as an unchecked IllegalArgumentException, as
+   * invalid field names are. This constructor assumes a valid id: code that obtains ids from external data is
+   * responsible for validating them first, with {@link Document#isValidId(String)}, and deciding whether to skip the
+   * record or fail. See the "Invalid ids" section of {@link Document}.
+   *
+   * @param id the document id
+   * @throws IllegalArgumentException if the id is null, empty or blank
+   */
+  JsonDocument(String id) {
+    if (!Document.isValidId(id)) {
+      throw new IllegalArgumentException(id == null ? "ID cannot be null" : "ID cannot be empty or blank");
     }
     this.data = MAPPER.createObjectNode();
     this.data.put(ID_FIELD, id);
   }
 
-  public JsonDocument(String id, String runId) {
+  JsonDocument(String id, String runId) {
     this(id);
+    if (runId == null) {
+      throw new IllegalArgumentException("Run ID cannot be null");
+    }
     this.data.put(RUNID_FIELD, runId);
   }
 
-  public static JsonDocument fromJsonString(String json) throws DocumentException, JsonProcessingException {
+  public static JsonDocument fromJsonString(String json) throws DocumentException {
     return fromJsonString(json, null, null);
   }
 
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater)
-      throws DocumentException, JsonProcessingException {
+      throws DocumentException {
     return fromJsonString(json, idUpdater, null);
   }
 
+  /**
+   * Parses the given JSON text into a {@link JsonDocument}, optionally dropping fields according to the filter and
+   * rewriting the id with the updater.
+   *
+   * @throws DocumentException if the text is not well-formed JSON (with the parser's exception as the cause), if the
+   * JSON is not an object, if its id is invalid as for {@link #JsonDocument(ObjectNode)},
+   * or if the id updater returns a null or empty id. All of these concern the data, so they are DocumentExceptions.
+   */
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater, FieldFilter filter)
-      throws DocumentException, JsonProcessingException {
+      throws DocumentException {
 
-    ObjectNode node = (ObjectNode) MAPPER.readTree(json);
+    JsonNode parsed;
+    try {
+      parsed = MAPPER.readTree(json);
+    } catch (JsonProcessingException e) {
+      throw new DocumentException("Document JSON is not well-formed: " + e.getOriginalMessage(), e);
+    }
+    if (!parsed.isObject()) {
+      throw new DocumentException("Document JSON must be an object but was " + describe(parsed));
+    }
+    ObjectNode node = (ObjectNode) parsed;
 
     if (filter != null && filter.isActive()) {
       Iterator<String> iter = node.fieldNames();
@@ -140,8 +183,22 @@ public class JsonDocument implements Document {
     }
     
     JsonDocument doc = new JsonDocument(node);
-    doc.data.put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
+    if (idUpdater != null) {
+      String updatedId = idUpdater.apply(doc.getId());
+      if (!Document.isValidId(updatedId)) {
+        throw new DocumentException("idUpdater returned a null, empty or blank id for the document with id '" + doc.getId() + "'");
+      }
+      doc.data.put(ID_FIELD, updatedId);
+    }
     return doc;
+  }
+
+  /**
+   * Describes a parsed JSON value for an error message: its node type, or "empty input" for the MissingNode that
+   * readTree returns when there is no content.
+   */
+  public static String describe(JsonNode node) {
+    return node.isMissingNode() ? "empty input" : node.getNodeType().toString().toLowerCase();
   }
 
   @Override
@@ -153,6 +210,10 @@ public class JsonDocument implements Document {
   @Override
   public void removeFromArray(String name, int index) {
     validateFieldNames(name);
+    // withArray() would create an empty array for a missing field and throw for a single-valued one
+    if (!isMultiValued(name)) {
+      return;
+    }
     data.withArray(name).remove(index);
   }
 
@@ -167,9 +228,7 @@ public class JsonDocument implements Document {
 
   @Override
   public void clearRunId() {
-    if (data.has(RUNID_FIELD)) {
-      data.remove(RUNID_FIELD);
-    }
+    data.remove(RUNID_FIELD);
   }
 
   @Override
@@ -217,8 +276,8 @@ public class JsonDocument implements Document {
   @Override
   public void setField(String name, Instant value) {
     validateFieldNames(name);
-    String instantStr = DateTimeFormatter.ISO_INSTANT.format(value);
-    data.put(name, instantStr);
+    // a null value is stored as a JSON null, as every other setField overload does
+    data.put(name, value == null ? null : DateTimeFormatter.ISO_INSTANT.format(value));
   }
 
   @Override
@@ -228,20 +287,12 @@ public class JsonDocument implements Document {
   }
 
   @Override
-  public void setField(String name, Date value) {
-    Instant instant = Instant.ofEpochMilli(value.getTime());
-    setField(name, instant);
-  }
-
-  @Override
-  public void setField(String name, Timestamp value) {
-    Instant instant = Instant.ofEpochMilli(value.getTime());
-    setField(name, instant);
-  }
-
-  @Override
   public void renameField(String oldName, String newName, UpdateMode mode) {
     validateFieldNames(oldName, newName);
+    if (!data.has(oldName)) {
+      // nothing to rename; in particular do not create newName or disturb an existing newName
+      return;
+    }
     JsonNode oldValues = data.get(oldName);
     data.remove(oldName);
 
@@ -358,7 +409,28 @@ public class JsonDocument implements Document {
 
     JsonNode node = getSingleNode(name);
 
-    return node.isNull() ? null : node.floatValue();
+    return node.isNull() ? null : toFloat(node);
+  }
+
+  /**
+   * Converts a node to a float. A number is converted with floatValue(). Anything else is coerced the way the other
+   * numeric getters (asInt, asLong, asDouble) coerce: a numeric string such as "1.5" is parsed and a boolean becomes 1
+   * or 0.
+   *
+   * <p>Jackson has no asFloat(), and floatValue() does not coerce: it returns 0 for anything that is not a number.
+   * Using it for every node would make a field holding "1.5" read as 0.0 through getFloat() but as 1.5 through
+   * getDouble(). Nodes that are not numbers therefore go through asDouble(), which coerces them consistently with the
+   * other getters.
+   *
+   * <p>Numbers are not converted that way, because going through a double rounds twice, first to a double and then to a
+   * float. When the first rounding lands exactly on the midpoint between two floats, the second can round the wrong
+   * way, giving a result one float step from the nearest float. That can happen for a long above 2^53 or a decimal value
+   * that is extremely close to such a midpoint; it does not happen for the float, double and int values that make up
+   * ordinary data. floatValue() rounds once, straight from the stored value to the nearest float, so every number is
+   * converted exactly.
+   */
+  private static float toFloat(JsonNode node) {
+    return node.isNumber() ? node.floatValue() : (float) node.asDouble();
   }
 
   @Override
@@ -374,7 +446,7 @@ public class JsonDocument implements Document {
     ArrayNode array = data.withArray(name);
     List<Float> result = new ArrayList<>();
     for (JsonNode node : array) {
-      result.add(node.isNull() ? null : node.floatValue());
+      result.add(node.isNull() ? null : toFloat(node));
     }
     return result;
   }
@@ -448,7 +520,19 @@ public class JsonDocument implements Document {
       return null;
     }
 
-    return Instant.from(DateTimeFormatter.ISO_INSTANT.parse(node.asText()));
+    return toInstant(name, node);
+  }
+
+  private static Instant toInstant(String name, JsonNode node) {
+    if (node.isTextual()) {
+      try {
+        return Instant.from(DateTimeFormatter.ISO_INSTANT.parse(node.textValue()));
+      } catch (DateTimeParseException e) {
+        // fall through to the exception below
+      }
+    }
+    throw new IllegalArgumentException("Field " + name + " does not hold an ISO-8601 instant (such as "
+        + "2024-01-01T00:00:00Z); its value is " + node);
   }
 
   @Override
@@ -459,10 +543,14 @@ public class JsonDocument implements Document {
 
     JsonNode node = getSingleNode(name);
 
+    return toBytes(node);
+  }
+
+  // null for a null value, a value that is not a string or byte[], and a string that is not valid base64
+  private static byte[] toBytes(JsonNode node) {
     try {
       return node.isNull() ? null : node.binaryValue();
     } catch (IOException e) {
-      log.error("Error accessing byte[] field", e);
       return null;
     }
   }
@@ -484,7 +572,7 @@ public class JsonDocument implements Document {
         result.add(null);
         continue;
       }
-      result.add(Instant.from(DateTimeFormatter.ISO_INSTANT.parse(node.asText())));
+      result.add(toInstant(name, node));
     }
     return result;
   }
@@ -502,11 +590,7 @@ public class JsonDocument implements Document {
     ArrayNode array = data.withArray(name);
     List<byte[]> result = new ArrayList<>();
     for (JsonNode node : array) {
-      try {
-        result.add(node.isNull() ? null : node.binaryValue());
-      } catch (IOException e) {
-        log.error("Error accessing byte[] field", e);
-      }
+      result.add(toBytes(node));
     }
     return result;
   }
@@ -535,6 +619,7 @@ public class JsonDocument implements Document {
     return result;
   }
 
+  @Override
   public JsonNode getJson(String name) {
     if (!data.has(name)) {
       return null;
@@ -545,42 +630,6 @@ public class JsonDocument implements Document {
     return data.get(name);
   }
 
-  @Override
-  public Date getDate(String name) {
-    Instant instant = getInstant(name);
-    return instant == null ? null : Date.from(instant);
-  }
-
-  @Override
-  public List<Date> getDateList(String name) {
-    List<Instant> instants = getInstantList(name);
-    if (instants == null) {
-      return null;
-    } else {
-      return instants.stream()
-          .map(instant -> instant == null ? null : Date.from(instant))
-          .collect(Collectors.toList());
-    }
-  }
-
-
-  @Override
-  public Timestamp getTimestamp(String name) {
-    Instant instant = getInstant(name);
-    return instant == null ? null : Timestamp.from(instant);
-  }
-
-  @Override
-  public List<Timestamp> getTimestampList(String name) {
-    List<Instant> instants = getInstantList(name);
-    if (instants == null) {
-      return null;
-    } else {
-      return instants.stream()
-          .map(instant -> instant == null ? null : Timestamp.from(instant))
-          .collect(Collectors.toList());
-    }
-  }
 
   private JsonNode getSingleNode(String name) {
     if (!isMultiValued(name)) {
@@ -634,10 +683,12 @@ public class JsonDocument implements Document {
     if (this == other) {
       return true;
     }
-    if (other instanceof JsonDocument) {
-      return data.equals(((JsonDocument) other).data);
+    // compares classes rather than using instanceof, so that a JsonDocument and a KafkaDocument with the same data
+    // are unequal in both directions (KafkaDocument also compares its Kafka metadata)
+    if (other == null || getClass() != other.getClass()) {
+      return false;
     }
-    return false;
+    return data.equals(((JsonDocument) other).data);
   }
 
   @Override
@@ -712,8 +763,8 @@ public class JsonDocument implements Document {
     validateFieldNames(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
-    String dateStr = DateTimeFormatter.ISO_INSTANT.format(value);
-    array.add(dateStr);
+    // ArrayNode.add((String) null) appends a JSON null, as the other addToField overloads do
+    array.add(value == null ? null : DateTimeFormatter.ISO_INSTANT.format(value));
   }
 
   @Override
@@ -730,18 +781,6 @@ public class JsonDocument implements Document {
     convertToList(name);
     ArrayNode array = data.withArray(name);
     array.add(value);
-  }
-
-  @Override
-  public void addToField(String name, Date value) {
-    Instant instant = Instant.ofEpochMilli(value.getTime());
-    addToField(name, instant);
-  }
-
-  @Override
-  public void addToField(String name, Timestamp value) {
-    Instant instant = Instant.ofEpochMilli(value.getTime());
-    addToField(name, instant);
   }
 
   @Override
@@ -826,54 +865,43 @@ public class JsonDocument implements Document {
   }
 
   @Override
-  public void setOrAdd(String name, Date value) {
-    if (has(name)) {
-      addToField(name, value);
-    } else {
-      setField(name, value);
-    }
-  }
-
-  @Override
-  public void setOrAdd(String name, Timestamp value) {
-    if (has(name)) {
-      addToField(name, value);
-    } else {
-      setField(name, value);
-    }
-  }
-
-  @Override
   public void setOrAdd(String name, Document other) throws IllegalArgumentException {
     validateFieldNames(name);
 
-    if (!has(name)) {
-
-      if (!other.has(name)) {
-        return;
-      } else {
-        data.set(name, getData(other).get(name));
-        return;
-      }
-
-    } else {
-
-      convertToList(name);
-      ArrayNode currentValues = (ArrayNode) data.get(name);
-      JsonNode otherValue = getData(other).get(name);
-
-      if (otherValue.getNodeType() == JsonNodeType.ARRAY) {
-        currentValues.addAll((ArrayNode) otherValue);
-      } else {
-        currentValues.add(otherValue);
-      }
-
+    // checked before anything is modified, so a no-op leaves this document exactly as it was
+    JsonNode otherValue = getData(other).get(name);
+    if (otherValue == null) {
+      return;
     }
+
+    if (!has(name)) {
+      data.set(name, unshared(otherValue));
+      return;
+    }
+
+    convertToList(name);
+    ArrayNode currentValues = (ArrayNode) data.get(name);
+    if (otherValue.getNodeType() == JsonNodeType.ARRAY) {
+      // copied as a whole before appending: when other is this document, otherValue is currentValues itself, and
+      // appending to it while iterating it would throw ConcurrentModificationException
+      currentValues.addAll((ArrayNode) unshared(otherValue));
+    } else {
+      currentValues.add(unshared(otherValue));
+    }
+  }
+
+  /**
+   * Returns a node safe to store in this document when it came from another document: an object or array is deep
+   * copied, so that later changes to either document cannot show up in the other, and any other scalar is immutable and
+   * is shared. The exception is a byte[] value, whose array is shared like everywhere else (see {@link Document}).
+   */
+  private static JsonNode unshared(JsonNode node) {
+    return node.isContainerNode() ? node.deepCopy() : node;
   }
 
   @Override
   public void setOrAddAll(Document other) {
-    for (Iterator<String> it = ((JsonDocument) other).data.fieldNames(); it.hasNext(); ) {
+    for (Iterator<String> it = getData(other).fieldNames(); it.hasNext(); ) {
       String name = it.next();
       if (RESERVED_FIELDS.contains(name)) {
         continue;
@@ -969,24 +997,58 @@ public class JsonDocument implements Document {
 
   @Override
   public boolean hasChildren() {
-    if (!data.has(CHILDREN_FIELD)) {
+    // Answered by inspecting the children array in place. Delegating to getChildren() would deep copy every child
+    // only to count them, and hasChildren() is called per document by the indexers and several stages.
+    JsonNode children = data.get(CHILDREN_FIELD);
+    if (children == null || !children.isArray()) {
       return false;
     }
-    if (getChildren().isEmpty()) {
-      return false;
+    for (JsonNode child : children) {
+      if (isValidChild(child)) {
+        return true;
+      }
     }
-    return true;
+    return false;
   }
 
+  /**
+   * True when the element would be accepted by {@link #getChildren()}: an object with a non-empty string id, the
+   * same requirement {@link #JsonDocument(ObjectNode)} enforces. Keeps hasChildren() consistent with getChildren()
+   * without constructing any child.
+   */
+  private static boolean isValidChild(JsonNode child) {
+    if (!child.isObject()) {
+      return false;
+    }
+    JsonNode id = child.get(ID_FIELD);
+    return id != null && id.isTextual() && Document.isValidId(id.asText());
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Each returned child wraps a deep copy of the stored child node. The copy is deliberate: a caller may read,
+   * modify, or hold on to the returned Documents without affecting this document, and this document may be modified
+   * without affecting them. A caller that wants to change the children replaces them: modify the returned copies,
+   * then {@link #removeChildren()} and {@link #addChild(Document)} each one.
+   *
+   * <p>The one exception is byte[] values: a child's byte arrays are shared with the stored child, so changing the
+   * contents of an array in place (as opposed to setting the field to a new array) changes both. See
+   * {@link Document} for the rationale.
+   */
   @Override
   public List<Document> getChildren() {
     if (!data.has(CHILDREN_FIELD)) {
       return new ArrayList<>();
     }
     ArrayNode node = data.withArray(CHILDREN_FIELD);
-    ArrayList<Document> children = new ArrayList<>();
+    List<Document> children = new ArrayList<>();
     for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
       JsonNode element = it.next();
+      if (!element.isObject()) {
+        log.error("Unable to instantiate child Document: child is not an object: {}", element);
+        continue;
+      }
       try {
         children.add(new JsonDocument((ObjectNode) element.deepCopy()));
       } catch (DocumentException e) {
@@ -1001,6 +1063,12 @@ public class JsonDocument implements Document {
     return data.toString();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Implemented with {@link ObjectNode#deepCopy()}, which copies objects, arrays and immutable scalars but, for a
+   * binary value, returns the same node, so the copy and the original share their byte[] values.
+   */
   @Override
   public Document deepCopy() {
     try {
@@ -1012,7 +1080,7 @@ public class JsonDocument implements Document {
 
   @Override
   public Set<String> getFieldNames() {
-    LinkedHashSet<String> fieldNames = new LinkedHashSet<String>();
+    LinkedHashSet<String> fieldNames = new LinkedHashSet<>();
     // ObjectNode uses a LinkedHashMap internally, so this iteration will follow insertion order into the ObjectNode.
     data.fieldNames().forEachRemaining(fieldNames::add);
     return fieldNames;
@@ -1020,7 +1088,8 @@ public class JsonDocument implements Document {
 
   @Override
   public boolean isDropped() {
-    return data.has(DROP_FIELD);
+    // by value, not presence: JSON carrying "___dropped": false must not drop the document
+    return data.path(DROP_FIELD).asBoolean(false);
   }
 
   @Override
@@ -1034,7 +1103,7 @@ public class JsonDocument implements Document {
 
   @Override
   public boolean isSkipped() {
-    return data.has(SKIP_FIELD);
+    return data.path(SKIP_FIELD).asBoolean(false);
   }
 
   @Override
@@ -1077,97 +1146,26 @@ public class JsonDocument implements Document {
     }
   }
 
-  @Override
-  public void transform(Jsonata expr) throws DocumentException {
-    Object transformed = expr.evaluate(asMapWithByteArrayConversion(data));
-
-    if (transformed == null) {
-      throw new DocumentException("Transformation must return a Map (JSON object), returned null");
-    } else if (!(transformed instanceof Map)) {
-      throw new DocumentException("Transformation must return a Map (JSON object), returned " + transformed.getClass());
-    }
-
-    // Jsonata-java outputs a Map, converting to ObjectNode so we can update data.
-    ObjectNode transformedNode = MAPPER.valueToTree(transformed);
-
-    HashMap<String, JsonNode> reserved = new HashMap<>();
-    RESERVED_FIELDS.stream().filter(this::has).forEach(field -> reserved.put(field, data.get(field)));
-    for (Map.Entry<String, JsonNode> entry : reserved.entrySet()) {
-      if (!entry.getValue().equals(transformedNode.get(entry.getKey()))) {
-        throw new DocumentException("The given transformation mutates a reserved field");
-      }
-    }
-
-    data = transformedNode;
-  }
-
-  @Override
-  public void transform(Jsonata expr, String sourceField, String destField) throws DocumentException {
-    JsonNode sourceNode = getNestedJson(sourceField);
-    Object transformed = expr.evaluate(asMapWithByteArrayConversion(sourceNode));
-
-    if (transformed == null) {
-      throw new DocumentException("Transformation returned null");
-    }
-
-    // Converting the output back to a Jackson-compatible value.
-    if (destField == null) {
-      destField = sourceField;
-    }
-    setNestedJson(destField, MAPPER.valueToTree(transformed));
-  }
-
-  /**
-   * Recursively converts a JsonNode to a Map/List/primitive, including converting binary nodes to base64 strings
-   *  for compatibility with jsonata-java. It wants only raw values, Maps, or Lists (not arrays or binary types).
-   *
-   * This is used in place of this.asMap() when you need to handle byte[]. The asMap() method uses MAPPER.convertValue which does not handle byte[].
-   *
-   * @param node the JsonNode to convert
-   * @return Object that can be evaluated by jsonata-java
-   */
-  private Object asMapWithByteArrayConversion(JsonNode node) {
-    if (node == null || node.isNull()) {
-      return null;
-    } else if (node.isObject()) {
-      Map<String, Object> map = new HashMap<>();
-      node.fields().forEachRemaining(entry ->
-          map.put(entry.getKey(), asMapWithByteArrayConversion(entry.getValue()))
-      );
-      return map;
-    } else if (node.isArray()) {
-      List<Object> list = new ArrayList<>();
-      node.forEach(element -> list.add(asMapWithByteArrayConversion(element)));
-      return list;
-    } else if (node.isBinary()) {
-      try {
-        return Base64.getEncoder().encodeToString(node.binaryValue());
-      } catch (IOException e) {
-        return null;
-      }
-    } else if (node.isTextual()) {
-      return node.asText();
-    } else if (node.isNumber()) {
-      return node.numberValue();
-    } else if (node.isBoolean()) {
-      return node.booleanValue();
-    } else {
-      return node.toString();
-    }
-  }
-
   private static ObjectNode getData(Document other) {
     if (other == null) {
       throw new IllegalStateException("Document is null");
     }
-    if (!(other instanceof JsonDocument)) {
-      throw new IllegalStateException("Documents are not of the same type");
-    }
+    // Document is sealed, so every Document is a JsonDocument
     return ((JsonDocument) other).data;
   }
 
   @Override
   public void removeChildren() {
     data.remove(CHILDREN_FIELD);
+  }
+
+  /**
+   * Records why and where this document failed, before it is sent to the fail topic. These are reserved fields, so they
+   * are written directly rather than through the field setters. Any metadata from an earlier failure is replaced.
+   */
+  void setFailureMetadata(String reason, String component, Instant time) {
+    data.put(FAILURE_REASON_FIELD, reason);
+    data.put(FAILURE_COMPONENT_FIELD, component);
+    data.put(FAILURE_TIME_FIELD, DateTimeFormatter.ISO_INSTANT.format(time));
   }
 }

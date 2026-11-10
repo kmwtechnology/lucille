@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -17,23 +18,23 @@ import java.util.regex.Pattern;
  * Config Parameters -
  * <ul>
  *   <li>delimiter (String) : A delimiter to replace spaces, defaults to "_".</li>
- *   <li>nonAlphanumReplacement (String) : A replacement for non-alphanumeric characters, defaults to "".</li>
+ *   <li>nonAlphanumericReplacement (String) : A replacement for non-alphanumeric characters, defaults to "".</li>
  * </ul>
  */
 public class NormalizeFieldNames extends Stage {
 
-  public static final Spec SPEC = SpecBuilder.stage().optionalString("delimiter", "nonAlphanumReplacement").build();
+  public static final Spec SPEC = SpecBuilder.stage().optionalString("delimiter", "nonAlphanumericReplacement").build();
 
   private static final Pattern SPACE = Pattern.compile(" ");
   private static final Pattern NON_ALPHANUM = Pattern.compile("[^a-zA-Z0-9_.]");
 
-  private final String delimeter;
-  private final String nonAlphanumReplacement;
+  private final String delimiter;
+  private final String nonAlphanumericReplacement;
 
   public NormalizeFieldNames(Config config) {
     super(config);
-    this.delimeter = config.hasPath("delimeter") ? config.getString("delimeter") : "_";
-    this.nonAlphanumReplacement = config.hasPath("nonAlphaNumReplacement") ? config.getString("nonAlphanumReplacement") : "";
+    this.delimiter = ConfigUtils.getOrDefault(config, "delimiter", "_");
+    this.nonAlphanumericReplacement = ConfigUtils.getOrDefault(config, "nonAlphanumericReplacement", "");
   }
 
   @Override
@@ -43,8 +44,8 @@ public class NormalizeFieldNames extends Stage {
         continue;
       }
 
-      String spaced = SPACE.matcher(field).replaceAll(delimeter);
-      String normalizedField = NON_ALPHANUM.matcher(spaced).replaceAll(nonAlphanumReplacement);
+      String spaced = SPACE.matcher(field).replaceAll(delimiter);
+      String normalizedField = NON_ALPHANUM.matcher(spaced).replaceAll(nonAlphanumericReplacement);
       doc.renameField(field, normalizedField, UpdateMode.DEFAULT);
     }
 

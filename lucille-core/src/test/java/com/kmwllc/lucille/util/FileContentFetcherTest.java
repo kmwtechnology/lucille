@@ -2,6 +2,7 @@ package com.kmwllc.lucille.util;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -11,16 +12,20 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.kmwllc.lucille.connector.storageclient.AzureStorageClient;
 import com.kmwllc.lucille.connector.storageclient.GoogleStorageClient;
 import com.kmwllc.lucille.connector.storageclient.S3StorageClient;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
+import com.kmwllc.lucille.connector.storageclient.StorageClientTest;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Paths;
+import java.util.List;
 import org.apache.commons.io.IOUtils;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
@@ -29,9 +34,28 @@ import org.mockito.MockedStatic;
 public class FileContentFetcherTest {
 
   @Test
+  public void testCustomSchemeStorageClient() throws Exception {
+    Config config = StorageClientTest.memoryClientConfig("mem");
+
+    // one-time reads, as used by stages that read a script or dictionary
+    try (BufferedReader reader = FileContentFetcher.getOneTimeReader("mem://host/path/file.txt", config)) {
+      assertEquals("hello", reader.readLine());
+    }
+
+    // a FileContentFetcher instance
+    FileContentFetcher fetcher = FileContentFetcher.create(config);
+    fetcher.start();
+    try (InputStream stream = fetcher.getInputStream("mem://host/path/file.txt")) {
+      assertEquals("hello", IOUtils.toString(stream, "UTF-8"));
+    } finally {
+      fetcher.stop();
+    }
+  }
+
+  @Test
   public void testGetInputStream() throws Exception {
     DefaultFileContentFetcher fetcher = new DefaultFileContentFetcher(ConfigFactory.empty());
-    fetcher.startup();
+    fetcher.start();
 
     // 1. Classpath file
     String path = "classpath:FileContentFetcherTest/hello.txt";
@@ -55,7 +79,7 @@ public class FileContentFetcherTest {
     assertThrows(IOException.class, () -> fetcher.getInputStream("s3://bucket/hello.txt"));
 
     // 5. Trying to get a file after a shutdown
-    fetcher.shutdown();
+    fetcher.stop();
     assertThrows(IOException.class, () -> fetcher.getInputStream("classpath:FileContentFetcherTest/hello.txt"));
 
     // 6. Trying to get a file after never calling startup
@@ -83,7 +107,7 @@ public class FileContentFetcherTest {
         });
     ) {
       DefaultFileContentFetcher fetcher = new DefaultFileContentFetcher(cloudOptions);
-      fetcher.startup();
+      fetcher.start();
 
       URI localPathURI = Paths.get("src/test/resources/FileContentFetcherTest/hello.txt").toUri();
       InputStream localInputStream = fetcher.getInputStream(localPathURI.toString());
@@ -100,19 +124,46 @@ public class FileContentFetcherTest {
   }
 
   @Test
+  public void testAzureAllowedHosts() throws Exception {
+    Config config = ConfigFactory.parseString("azure { connectionString: connectionString, allowedHosts: [\"storage.example.internal\"] }");
+    URI allowedURI = URI.create("https://storage.example.internal/container/hello.txt");
+
+    try (MockedConstruction<AzureStorageClient> mockedAzure = mockConstruction(AzureStorageClient.class, (mock, context) -> {
+      when(mock.getFileContentStream(allowedURI)).thenReturn(new ByteArrayInputStream("Hello there - Azure.".getBytes()));
+    })) {
+      DefaultFileContentFetcher fetcher = new DefaultFileContentFetcher(config);
+      fetcher.start();
+
+      // a host in allowedHosts is read with the azure client
+      try (InputStream stream = fetcher.getInputStream(allowedURI.toString())) {
+        assertEquals("Hello there - Azure.", new String(stream.readAllBytes()));
+      }
+
+      // any other https host, including the default, has no client
+      for (String path : List.of("https://example.com/container/hello.txt", "https://storagename.blob.core.windows.net/container/hello.txt")) {
+        IOException e = assertThrows(IOException.class, () -> fetcher.getInputStream(path));
+        assertTrue(e.getMessage().contains("No Storage Client available"));
+      }
+
+      verify(mockedAzure.constructed().get(0), times(1)).getFileContentStream(any());
+      fetcher.stop();
+    }
+  }
+
+  @Test
   public void testClientFailsInit() throws Exception {
     Config cloudOptions = ConfigFactory.parseResourcesAnySyntax("FileContentFetcherTest/s3Only.conf");
 
     try (MockedConstruction<S3StorageClient> mockedConstruction = mockConstruction(S3StorageClient.class, (mock, context) -> {
-      doThrow(new IOException("Mock Init Exception")).when(mock).init();
-      doThrow(new IOException("Mock Shutdown Exception")).when(mock).shutdown();
+      doThrow(new IOException("Mock Init Exception")).when(mock).start();
+      doThrow(new IOException("Mock Shutdown Exception")).when(mock).stop();
     })) {
       DefaultFileContentFetcher fetcher = new DefaultFileContentFetcher(cloudOptions);
-      assertThrows(IOException.class, () -> fetcher.startup());
+      assertThrows(IOException.class, () -> fetcher.start());
 
-      // an error in fetcher.startup() should call shutdown automatically, which will shutdown each storage client.
+      // an error in fetcher.start() should call stop automatically, which will stop each storage client.
       S3StorageClient mockS3 = mockedConstruction.constructed().get(0);
-      verify(mockS3, times(1)).shutdown();
+      verify(mockS3, times(1)).stop();
     }
   }
 
@@ -132,11 +183,11 @@ public class FileContentFetcherTest {
       assertEquals(1, mockedConstruction.constructed().size());
 
       S3StorageClient mockedClient = mockedConstruction.constructed().get(0);
-      verify(mockedClient, times(0)).shutdown();
+      verify(mockedClient, times(0)).stop();
 
       assertEquals("Hello there - S3.", new String(s3MockInputStream.readAllBytes()));
       s3MockInputStream.close();
-      verify(mockedClient, times(1)).shutdown();
+      verify(mockedClient, times(1)).stop();
 
       URI localPathURI = Paths.get("src/test/resources/FileContentFetcherTest/hello.txt").toUri();
       InputStream localInputStream = FileContentFetcher.getOneTimeInputStream(localPathURI.toString(), cloudOptions);
@@ -154,7 +205,7 @@ public class FileContentFetcherTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileContentFetcherTest/s3Only.conf");
 
     S3StorageClient mockS3StorageClient = mock(S3StorageClient.class);
-    doThrow(new IOException("mock exc")).when(mockS3StorageClient).init();
+    doThrow(new IOException("mock exc")).when(mockS3StorageClient).start();
 
     try (MockedStatic<StorageClient> mockedStatic = mockStatic(StorageClient.class)) {
       mockedStatic.when(() -> StorageClient.create(any(), any())).thenReturn(mockS3StorageClient);
@@ -164,7 +215,7 @@ public class FileContentFetcherTest {
       assertThrows(IOException.class, () -> FileContentFetcher.getOneTimeInputStream("s3://my_bucket/my_directory/hello.txt", config));
 
       // the storage client gets shutdown by the file fetcher.
-      verify(mockS3StorageClient, times(1)).shutdown();
+      verify(mockS3StorageClient, times(1)).stop();
     }
   }
 
@@ -177,5 +228,23 @@ public class FileContentFetcherTest {
     try(InputStream io = fetcher.getInputStream("test")) {
       assertEquals("Content of fetched content from custom fetcher should be \"Test.\"", "Test.", IOUtils.toString(io, "UTF-8"));
     }
+  }
+
+  // A Windows drive path used to be read as a URI with the scheme "C", failing with "No Storage Client available". It is
+  // now read from the local file system, so a missing file is reported as missing.
+  @Test
+  public void testDrivePathIsLocal() throws Exception {
+    FileContentFetcher fetcher = new DefaultFileContentFetcher(ConfigFactory.empty());
+    fetcher.start();
+    try {
+      IOException e = assertThrows(IOException.class, () -> fetcher.getInputStream("C:/no/such/dir/report.csv"));
+      assertTrue(e.getMessage(), !e.getMessage().contains("No Storage Client"));
+    } finally {
+      fetcher.stop();
+    }
+
+    IOException e = assertThrows(IOException.class,
+        () -> FileContentFetcher.getOneTimeInputStream("C:/no/such/dir/report.csv", ConfigFactory.empty()));
+    assertTrue(e.getMessage(), !e.getMessage().contains("Error setting up"));
   }
 }

@@ -11,4 +11,4 @@ Removes specified fields from a Document.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `fields` | List\<String\> | Yes | Field names to delete. |
+| `fields` | List\<String\> | Yes | Field names to delete. Fields missing on a Document are skipped. An empty list fails at startup. |

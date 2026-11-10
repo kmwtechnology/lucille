@@ -13,6 +13,9 @@ import java.util.List;
  * A batch is considered to be "expired" if a configured timeout has
  * elapsed since last add or flush. If a batch is expired,
  * it will be flushed during the next call to add() or flushIfExpired().
+ *
+ * <p> Internal to Lucille: the Indexer chooses the implementation (a SingleBatch, or a MultiBatch when
+ * indexOverrideField is set). It is not an extension point.
  */
 public interface Batch {
 
@@ -48,4 +51,15 @@ public interface Batch {
    * Retrieves the capacity of a batch.
    */
   public int getCapacity();
+
+  /**
+   * Pushes this batch's expiry deadline later by the given span, as if the last add or flush had happened that much
+   * later. The Indexer calls this after it has been blocked sending batches: no document could be added during that
+   * time, so it says nothing about whether the input has gone idle and must not expire a partly filled batch. The
+   * default does nothing.
+   *
+   * @param millis the time, in milliseconds, to add to the deadline.
+   */
+  default void delayExpirationBy(long millis) {
+  }
 }

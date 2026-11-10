@@ -1,5 +1,16 @@
 package com.kmwllc.lucille.parquet;
 
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import org.apache.parquet.example.data.Group;
+import org.apache.parquet.example.data.simple.SimpleGroupFactory;
+import org.apache.parquet.hadoop.ParquetWriter;
+import org.apache.parquet.hadoop.example.ExampleParquetWriter;
+import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.MessageTypeParser;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
@@ -13,6 +24,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.apache.parquet.io.InputFile;
+import org.apache.parquet.io.LocalOutputFile;
 import org.junit.Test;
 
 public class ParquetFileIteratorTest {
@@ -49,6 +61,45 @@ public class ParquetFileIteratorTest {
     }
 
     assertFalse(testIterator.hasNext());
+  }
+
+  @Test
+  public void testRowsWithNullOrBlankIdsAreSkipped() throws Exception {
+    // a row whose id is null or blank cannot be told apart from others like it, so it is skipped; the other rows are read
+    MessageType schema = MessageTypeParser.parseMessageType(
+        "message test { optional binary id (UTF8); optional binary name (UTF8); }");
+    SimpleGroupFactory groups = new SimpleGroupFactory(schema);
+
+    java.nio.file.Path dir = Files.createTempDirectory("parquet-ids");
+    Path file = new Path(dir.resolve("ids.parquet").toUri());
+    try {
+      // LocalOutputFile writes with java.nio, because writing through Hadoop's local file system
+      // fails on Windows unless winutils.exe is present
+      try (ParquetWriter<Group> writer =
+          ExampleParquetWriter.builder(new LocalOutputFile(dir.resolve("ids.parquet"))).withType(schema).build()) {
+        writer.write(groups.newGroup().append("id", "1").append("name", "a"));
+        writer.write(groups.newGroup().append("name", "b"));                       // null id
+        writer.write(groups.newGroup().append("id", "   ").append("name", "c"));  // blank id
+        writer.write(groups.newGroup().append("id", "4").append("name", "d"));
+        writer.write(groups.newGroup().append("name", "e"));                       // null id as the last row
+      }
+
+      ParquetFileReader reader = ParquetFileReader.open(HadoopInputFile.fromPath(file, new Configuration()));
+      ParquetFileIterator iterator = new ParquetFileIterator(reader, "id", 0, -1);
+
+      List<String> ids = new ArrayList<>();
+      while (iterator.hasNext()) {
+        Document doc = iterator.next();
+        if (doc != null) {
+          ids.add(doc.getId() + ":" + doc.getString("name"));
+        }
+      }
+      assertEquals(List.of("1:a", "4:d"), ids);
+    } finally {
+      try (var files = Files.walk(dir)) {
+        files.sorted(Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
+      }
+    }
   }
 
   @Test

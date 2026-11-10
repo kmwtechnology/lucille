@@ -1,0 +1,31 @@
+@reference "../../index.css";
+
+.container {
+  @apply flex min-h-screen items-center justify-center p-6;
+  background: linear-gradient(135deg, #f0fafa, #f0f7ff);
+}
+
+.content {
+  @apply flex flex-col items-center text-center max-w-md;
+}
+
+.icon {
+  @apply h-16 w-16 text-destructive mb-6;
+}
+
+.title {
+  @apply text-2xl font-bold text-foreground mb-2;
+}
+
+.message {
+  @apply text-muted-foreground mb-6;
+}
+
+.details {
+  @apply w-full rounded-md bg-muted p-4 text-left text-sm text-muted-foreground
+    overflow-auto max-h-32 mb-6 font-mono;
+}
+
+.actions {
+  @apply flex gap-3;
+}

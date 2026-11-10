@@ -8,7 +8,7 @@ description: >
 
 A StorageClient traverses a storage system, discovers files, and provides access to their content. The `FileConnector` uses StorageClients to list and read files from local disk, S3, Azure Blob Storage, and Google Cloud Storage. If you need to read files from a storage system that Lucille doesn't support out of the box (e.g., SFTP, SMB/CIFS, WebDAV), you implement a StorageClient.
 
-> **Note:** It is not currently possible to reference a custom StorageClient from a Lucille config. The mapping from URI scheme to StorageClient implementation is hardcoded in `StorageClient.create()`. Adding a new storage backend today requires a PR to lucille-core — see the [Contributor Guide]({{< relref "docs/contributing" >}}) for project structure and contribution workflow. Config-driven pluggable StorageClients are a roadmap feature. This page is included in the Component Developer Guide because the implementation pattern is the same regardless of how the client is registered.
+Once implemented, you register your StorageClient for a URI scheme in the `storageClients` config; see [Using Your StorageClient](#using-your-storageclient). You can also register your own StorageClient for `s3`, `gs`, or `https`, in place of the built-in client for that scheme. The built-in clients are not meant to be subclassed: they expose the cloud SDKs' types and can change in any release. Write a StorageClient on `BaseStorageClient` instead.
 
 ---
 
@@ -23,7 +23,11 @@ The `FileConnector` determines which StorageClient to use based on the URI schem
 | `gs` | `GoogleStorageClient` |
 | `https` (Azure blob) | `AzureStorageClient` |
 
-When you add a new StorageClient, you add a new case to this mapping for your URI scheme (e.g., `sftp`).
+A StorageClient you register in `storageClients` adds a row to this mapping for its URI scheme (e.g., `sftp`), or replaces the row for `s3`, `gs`, or `https`. The `file` row can't be replaced.
+
+`StorageClient.createClients()` builds the clients for a config, keyed by scheme, and `StorageClient.clientFor()` looks up the client for a URI in that map. `StorageClient.create()` builds the single client for one URI. All three apply the same rules, and the `FileConnector` and the stages that read files by URI use them.
+
+For `https`, the built-in `AzureStorageClient` only handles URIs whose authority contains one of `azure.allowedHosts` (a substring match), which defaults to `["blob.core.windows.net"]`; `clientFor()` returns null and `create()` throws for any other host. The URI's host only selects the client; `AzureStorageClient` sends requests to the endpoint in its credentials. A StorageClient registered for `https` in `storageClients` handles every `https` URI, so it must apply any host rule of its own.
 
 ---
 
@@ -31,12 +35,12 @@ When you add a new StorageClient, you add a new case to this mapping for your UR
 
 To create a StorageClient, extend `BaseStorageClient`. The base class manages the heavy lifting so you only provide the storage-specific operations:
 
-- **Lifecycle management** — Tracks initialization state and ensures `init()` is called before traversal.
+- **Lifecycle management** — Tracks initialization state and ensures `start()` is called before traversal.
 - **File filtering** — Applies include/exclude patterns, file size limits, and modification time cutoffs from `TraversalParams`.
-- **Archive handling** — Automatically detects and extracts `.zip`, `.tar`, `.tar.gz`, and `.gz` files, processing their contents through the appropriate FileHandlers.
-- **Compressed file handling** — Decompresses `.gz` and `.bz2` files transparently before passing to FileHandlers.
+- **Archive handling** — With `handleArchivedFiles`, extracts `.zip` and `.tar` archives (and `.tar.gz`, when `handleCompressedFiles` is also set), processing their entries through the appropriate FileHandlers.
+- **Compressed file handling** — With `handleCompressedFiles`, decompresses `.gz` files before passing them to FileHandlers. No other compression formats are supported.
 - **FileHandler delegation** — Routes files to the correct FileHandler based on extension and publishes the resulting Documents.
-- **Incremental mode** — Integrates with `FileConnectorStateManager` to track which files have been processed and skip unchanged files on subsequent runs.
+- **Incremental mode** — Reads and updates the `FileStateTracker` the `FileConnector` passes to `traverse()`, to track which files have been processed and skip unchanged files on subsequent runs.
 - **Success/error directory handling** — Moves files to configured success or error directories after processing.
 
 ---
@@ -46,28 +50,34 @@ To create a StorageClient, extend `BaseStorageClient`. The base class manages th
 | Method | Required | Purpose |
 |---|---|---|
 | `validateOptions(Config config)` | No | Validate that the config has the required credentials/settings for your storage backend. Throw `IllegalArgumentException` if invalid. Has an empty default implementation — override when your backend has config options that necessitate each other (e.g., mutual exclusivity, co-dependency). |
-| `initializeStorageClient()` | Yes | Create the client connection (e.g., open an SFTP session). Called once before traversal begins. |
-| `shutdownStorageClient()` | Yes | Close the client connection. Called after traversal completes. |
-| `traverseStorageClient(Publisher, TraversalParams, FileConnectorStateManager)` | Yes | List files in the storage system and call `processAndPublishFileIfValid()` for each one. |
+| `initializeStorageClient()` | Yes | Create the client connection (e.g., open an SFTP session). Called by `start()`, once before traversal begins. |
+| `shutdownStorageClient()` | Yes | Close the client connection. Called by `stop()`, after traversal completes. |
+| `traverseStorageClient(Publisher, TraversalParams, FileStateTracker)` | Yes | List files in the storage system and call `processAndPublishFileIfValid()` for each one, passing the `FileStateTracker` through. It is null when state is not enabled. |
 | `getFileContentStreamFromStorage(URI uri)` | Yes | Open and return an `InputStream` for a single file at the given URI. |
-| `moveFile(URI filePath, URI folder)` | Yes | Move a file to a different location (used for success/error directories). Throw `UnsupportedOperationException` if your backend doesn't support moves. |
+| `moveFile(URI filePath, URI folder)` | Yes | Move a file to a different location (used for success/error directories). Throw `UnsupportedOperationException` if your backend doesn't support moves; see [Errors](#errors). |
+| `moveTargetInsidePath(URI path, URI folder)` | No | Whether files moved to the folder would land back inside the path being traversed. A move folder for which this returns `true` fails at startup. By default, whether `containsPath(path, folder)`. Override it if your `moveFile()` keeps part of the source path under the folder. |
+
+Constants for the Document field names and config keys are on `StorageClientFields` and `StorageClientOptions` in `com.kmwllc.lucille.connector.storageclient`. Import them from there rather than from `FileConnector`, which keeps aliases of them.
 
 ---
 
 ## What's in `config`
 
-The `Config` passed to your StorageClient constructor is the cloud/storage-provider-specific config block extracted from the connector config. For example, if the connector config contains:
+The `Config` passed to your StorageClient constructor is your scheme's entry in `storageClients`, extracted from the connector config. For example, if the connector config contains:
 
 ```hocon
-sftp: {
-  host: "files.example.com"
-  port: 22
-  username: "ingest"
-  privateKeyPath: "/home/ingest/.ssh/id_rsa"
+storageClients: {
+  sftp: {
+    class: "com.mycompany.lucille.storage.SftpStorageClient"
+    host: "files.example.com"
+    port: 22
+    username: "ingest"
+    privateKeyPath: "/home/ingest/.ssh/id_rsa"
+  }
 }
 ```
 
-...your constructor receives a Config containing `host`, `port`, `username`, and `privateKeyPath`. It does not contain the connector config or the full Lucille config.
+...your constructor receives a Config containing `class`, `host`, `port`, `username`, and `privateKeyPath`. It does not contain the connector config or the full Lucille config. Lucille doesn't validate the settings in the entry beyond `class`, so check them in `validateOptions()`.
 
 ---
 
@@ -79,48 +89,96 @@ When traversing, you call `processAndPublishFileIfValid()` for each file. This m
 public class SftpFileReference extends BaseFileReference {
 
   private final ChannelSftp channel;
+  private final ChannelSftp.LsEntry entry;
   private final String remotePath;
 
-  public SftpFileReference(LsEntry entry, String basePath, ChannelSftp channel, TraversalParams params) {
+  // directoryPath must end with "/"
+  public SftpFileReference(ChannelSftp.LsEntry entry, String directoryPath, ChannelSftp channel, TraversalParams params)
+      throws URISyntaxException {
     super(
-        URI.create("sftp://" + channel.getSession().getHost() + basePath + entry.getFilename()),
-        entry.getAttrs().getMTime(),   // last modified (epoch seconds)
-        entry.getAttrs().getSize(),    // file size
-        null                           // creation time (not available via SFTP)
+        // the multi-argument URI constructor percent-encodes the path, so the URI is canonical
+        new URI("sftp", params.getURI().getAuthority(), directoryPath + entry.getFilename(), null, null),
+        Instant.ofEpochSecond(entry.getAttrs().getMTime()),  // last modified
+        entry.getAttrs().getSize(),                          // file size
+        null                                                 // creation time (not available via SFTP)
     );
     this.channel = channel;
-    this.remotePath = basePath + entry.getFilename();
+    this.entry = entry;
+    this.remotePath = directoryPath + entry.getFilename();
   }
 
   @Override
   public String getName() {
-    return remotePath;
+    return entry.getFilename();
   }
 
   @Override
   public boolean isValidFile() {
-    return !remotePath.endsWith("/");
+    return !entry.getAttrs().isDir();
   }
 
   @Override
-  public InputStream getContentStream(TraversalParams params) {
+  public InputStream getContentStream(TraversalParams params) throws IOException {
     try {
       return channel.get(remotePath);
     } catch (SftpException e) {
-      throw new RuntimeException("Failed to open " + remotePath, e);
+      throw new IOException("Failed to open " + remotePath, e);
     }
   }
 
   @Override
-  protected byte[] getFileContent(TraversalParams params) {
+  protected byte[] getFileContent(TraversalParams params) throws IOException {
     try (InputStream is = getContentStream(params)) {
       return is.readAllBytes();
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to read " + remotePath, e);
     }
   }
 }
 ```
+
+What each method must return:
+
+| Method | Contract |
+|---|---|
+| `getFullPath()` | The file's full URI. The Document ID and the state key are derived from it; see [Document IDs and State Keys](#document-ids-and-state-keys). Passed to the `BaseFileReference` constructor. |
+| `getName()` | The file's leaf name, the last segment of its path (`a.json` for `sftp://host/data/a.json`). Used for the file's extension, which selects its FileHandler. |
+| `getFilterName()` | The name `filterOptions.includes` and `excludes` are matched against. Defaults to `getName()`. The built-in S3, Google, and Azure clients return the whole object key (`data/a.json`), so patterns can match on folders; override it if your backend should do the same. |
+| `getLastModified()` | The last-modified time, or null if your backend doesn't report one. A file with no last-modified time passes `lastModifiedCutoff` and, in incremental mode, is published on every run, since it can't be shown to be unchanged. |
+| `getContentStream()` / `getFileContent()` | The file's contents. Throw `IOException` if they can't be read; see [Errors](#errors). |
+
+---
+
+## Fields Your Client Emits
+
+For a file with no FileHandler, `BaseFileReference.asDoc()` builds the Document the `FileConnector` publishes, with the fields listed under [Document Fields]({{< relref "docs/ingest-design/connectors/file_connector#document-fields" >}}): `file_path`, `file_modification_date`, `file_size_bytes`, `file_creation_date`, and `file_content`. A field whose value your `FileReference` doesn't provide (a null last-modified time, size, or creation time) is left out. These names are part of the StorageClient contract: stages such as `FetchFileContent` and `ApplyFileHandlers` read `file_path` and `file_content` by default. If your client builds Documents itself, use the names on `StorageClientFields` so they match.
+
+---
+
+## Document IDs and State Keys
+
+The `FileConnector` derives both the Document ID and the incremental state for a file from `getFullPath().toString()`:
+
+- **Document ID:** the connector's `docIdPrefix` plus the MD5 hash of the full path. For an entry in an archive or a decompressed file, the full path is the container's full path, `!` (`StorageClientFields.ARCHIVE_FILE_SEPARATOR`), and the entry's name, e.g. `sftp://host/data/files.zip!a.json`.
+- **State key:** the full path itself is the row in the state database, so it must fit in `state.pathLength`.
+
+So `getFullPath()` must be a canonical URI that is the same for the same file on every run and on every platform:
+
+- Build it with the multi-argument `java.net.URI` constructors, which percent-encode the path, rather than by concatenating strings. A path with a space then always becomes `%20`.
+- Use the same scheme and authority as the path configured in `paths`, so that `containsPath()` and the configured path agree.
+- Use `/` as the separator, and don't let it depend on the listing order, the local platform, or a session-specific host name or token.
+
+If the full path of a file changes between runs, the file is published under a new ID, and in incremental mode its old path is treated as deleted (and gets a tombstone when `sendTombstones` is set).
+
+---
+
+## Errors
+
+`processAndPublishFileIfValid()` handles errors for one file at a time:
+
+- An exception while processing a file, such as an `IOException` from `getContentStream()`, a file over `maxSizeBytes`, or an error in a FileHandler, is logged. The file is moved to `moveToErrorFolder`, if set, and the traversal continues with the next file. This includes an `UnsupportedOperationException` thrown while processing one file.
+- If `moveToAfterProcessing` or `moveToErrorFolder` is set and your `moveFile()` throws `UnsupportedOperationException`, the traversal stops with an `UnsupportedOperationException` naming the option, since every file would fail the same way.
+- A path longer than `state.pathLength` stops the traversal.
+
+An exception thrown by `traverseStorageClient()` itself, for example when a listing call fails, stops the traversal and fails the run.
 
 ---
 
@@ -130,8 +188,8 @@ public class SftpFileReference extends BaseFileReference {
 package com.mycompany.lucille.storage;
 
 import com.jcraft.jsch.*;
-import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.connector.storageclient.BaseStorageClient;
+import com.kmwllc.lucille.connector.storageclient.FileStateTracker;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
@@ -198,17 +256,18 @@ public class SftpStorageClient extends BaseStorageClient {
 
   @Override
   protected void traverseStorageClient(Publisher publisher, TraversalParams params,
-      FileConnectorStateManager stateMgr) throws Exception {
-    String remotePath = params.getURI().getPath();
+      FileStateTracker stateMgr) throws Exception {
+    String path = params.getURI().getPath();
+    String directoryPath = path.endsWith("/") ? path : path + "/";
 
     @SuppressWarnings("unchecked")
-    Vector<ChannelSftp.LsEntry> entries = channel.ls(remotePath);
+    Vector<ChannelSftp.LsEntry> entries = channel.ls(directoryPath);
 
     for (ChannelSftp.LsEntry entry : entries) {
       if (entry.getFilename().startsWith(".")) continue;
       if (entry.getAttrs().isDir()) continue;
 
-      SftpFileReference ref = new SftpFileReference(entry, remotePath, channel, params);
+      SftpFileReference ref = new SftpFileReference(entry, directoryPath, channel, params);
       processAndPublishFileIfValid(publisher, ref, params, stateMgr);
     }
   }
@@ -238,9 +297,9 @@ public class SftpStorageClient extends BaseStorageClient {
 
 ---
 
-## How It Would Be Used (Once Pluggable)
+## Using Your StorageClient
 
-When config-driven StorageClient registration is available, the config would look like:
+Add an entry to `storageClients`, keyed by your URI scheme, with `class` set to your StorageClient:
 
 ```hocon
 connectors: [{
@@ -248,11 +307,14 @@ connectors: [{
   class: "com.kmwllc.lucille.connector.FileConnector"
   pipeline: "my-pipeline"
   paths: ["sftp://files.example.com/data/incoming/"]
-  sftp: {
-    host: "files.example.com"
-    port: 22
-    username: "ingest"
-    privateKeyPath: "/home/ingest/.ssh/id_rsa"
+  storageClients: {
+    sftp: {
+      class: "com.mycompany.lucille.storage.SftpStorageClient"
+      host: "files.example.com"
+      port: 22
+      username: "ingest"
+      privateKeyPath: "/home/ingest/.ssh/id_rsa"
+    }
   }
   fileHandlers: {
     csv: {}
@@ -261,7 +323,13 @@ connectors: [{
 }]
 ```
 
-Until then, adding a new StorageClient requires modifying the `StorageClient.create()` and `StorageClient.createClients()` factory methods in lucille-core to add a case for your URI scheme.
+- `class` must implement `StorageClient` (usually by extending `BaseStorageClient`), must not be abstract, and must have a public constructor that takes a `Config`. Your class must be on the classpath.
+- The scheme must be a valid URI scheme of at least two characters. One-letter schemes are read as Windows drive letters (e.g. `C:/data`).
+- A StorageClient for `s3`, `gs`, or `https` replaces the built-in client for that scheme, and that scheme's built-in block (`s3`, `gcp`, or `azure`) can't also be given. The built-in blocks only ever configure the built-in clients. For `https`, `azure.allowedHosts` doesn't apply to a registered client, so your client must check the host itself if it should reject some hosts.
+- `file` can't be configured in `storageClients`.
+- Stages that read files by URI, such as `FetchFileContent`, `ApplyFileHandlers`, `ApplyJavascript`, and the dictionary-based stages, accept the same `storageClients` config.
+
+`StorageClient.create()` and `StorageClient.createClients()` throw an `IllegalArgumentException` if an entry breaks one of these rules or its class can't be created.
 
 ---
 
@@ -270,6 +338,17 @@ Until then, adding a new StorageClient requires modifying the `StorageClient.cre
 - **Call `processAndPublishFileIfValid()` for each file** — The base class handles filtering, archive extraction, FileHandler delegation, and state management. Don't bypass it.
 - **Implement a `FileReference` subclass** — Provide the file's full URI, size, modification time, and a method to open its content stream. The base class uses this metadata for filtering and incremental mode.
 - **Use `maxResultsPerPage`** — The base class exposes this config value as the number of results to request per listing call (default: 100, or a provider-specific default passed to the protected `BaseStorageClient(Config, int)` constructor, as `S3StorageClient` does with 1000).
-- **Handle `moveFile()` appropriately** — If your storage system doesn't support moves (e.g., a read-only archive), throw `UnsupportedOperationException` and note in your documentation that success/error directories are not supported.
+- **Handle `moveFile()` appropriately** — If your storage system doesn't support moves (e.g., a read-only archive), throw `UnsupportedOperationException` and note in your documentation that success/error directories are not supported. A traversal with `moveToAfterProcessing` or `moveToErrorFolder` set then stops at the first move.
 - **Keep connections open across traversal** — Open the connection in `initializeStorageClient()` and close it in `shutdownStorageClient()`. Don't reconnect per file.
 - **Validate eagerly** — Check credentials and required config in `validateOptions()` so errors surface at startup, not mid-traversal.
+
+---
+
+## Testing Your StorageClient
+
+You can test a StorageClient without a `FileConnector`, a database, or a live backend:
+
+- Build `TraversalParams` directly with `new TraversalParams(config, uri, docIdPrefix)`, where `config` holds any `fileOptions` and `filterOptions` you want to test.
+- Publish to a `TestMessenger` (in `com.kmwllc.lucille.message`) through a `PublisherImpl`, and check `getDocsSentForProcessing()`.
+- To test incremental mode, implement `FileStateTracker` in memory (four methods) and pass it to `traverse(publisher, params, state)`. Run the traversal twice to check that unchanged files are skipped.
+- To test against a mock of your backend's SDK client, inject the mock and call `initializeForTesting()`, which marks the client as started without calling `initializeStorageClient()`.

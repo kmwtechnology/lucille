@@ -10,7 +10,12 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
 import org.apache.commons.text.StringSubstitutor;
 
 /**
@@ -66,17 +71,16 @@ public class Concatenate extends Stage {
   // NOTE : If a given field is multivalued, this Stage will only operate on the first value
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    HashMap<String, String> replacements = new HashMap<>();
+    Map<String, String> replacements = new HashMap<>();
     for (String source : fields) {
-      String value;
-      if (!doc.has(source)) {
+      // null for a missing field, a JSON null, or an empty array
+      String value = doc.getString(source);
+      if (value == null) {
         if (defaultInputs.containsKey(source)) {
           value = (String) defaultInputs.get(source);
         } else {
           continue;
         }
-      } else {
-        value = doc.getStringList(source).get(0);
       }
 
       // For each source field, add the field name and first value to our replacement map
@@ -84,8 +88,10 @@ public class Concatenate extends Stage {
     }
 
     // TODO : Consider making Document a Map
-    // Substitute all of the {field} formatters in the string with the field value.
-    StringSubstitutor sub = new StringSubstitutor(replacements, "{", "}");
+    // Substitute all of the {field} formatters in the string with the field value. Values are inserted as-is, without
+    // expanding any {x} inside them, and '$' is not an escape, so "${price}" gives "$9.99" rather than "{price}".
+    StringSubstitutor sub = new StringSubstitutor(replacements, "{", "}", '\0');
+    sub.setDisableSubstitutionInValues(true);
     doc.update(destField, updateMode, sub.replace(formatStr));
 
     return null;

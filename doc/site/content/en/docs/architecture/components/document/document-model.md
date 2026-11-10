@@ -116,7 +116,7 @@ Similarly, Lucille's JSONata transformation support operates on the Jackson tree
 
 The JSON backing is not free:
 
-**Per-field access overhead.** Getting a String from an ObjectNode means `node.get("field").asText()` rather than `(String) map.get("field")`. The Document API hides this behind typed getters, but the implementation does more work per access than a HashMap. For stages that read many fields in a tight loop, this is measurably slower.
+**Per-field access overhead.** Getting a String from an ObjectNode means `node.get("field").asText()` rather than `(String) map.get("field")`. In practice the difference is negligible: a typed getter costs tens of nanoseconds either way, and in microbenchmarks a Document backed by a map of typed Java objects was no faster at building, reading, parsing, or serializing a document than the ObjectNode-backed one. Because Lucille's inputs and outputs are JSON, any other internal representation still pays the Jackson parse and then adds a conversion pass of its own at every boundary.
 
 **Memory overhead.** Each field value is wrapped in a JsonNode subclass (TextNode, IntNode, etc.) rather than stored as a raw Java object. For documents with many small fields, the per-field wrapper overhead adds up.
 
@@ -125,6 +125,12 @@ The JSON backing is not free:
 **Deep copy cost.** Copying a document requires `objectNode.deepCopy()`, which recursively copies the entire JSON tree. A HashMap with immutable String values would be cheaper to shallow-copy.
 
 In practice, these tradeoffs are acceptable because pipeline stages typically read a small number of fields, do expensive work (API calls, model inference, text processing), and write a small number of fields. The per-access overhead is negligible relative to the actual enrichment work. The serialization savings at every boundary crossing more than compensate.
+
+---
+
+## Interface and Implementation
+
+`Document` is a sealed interface: `JsonDocument` is its only implementation, and `KafkaDocument` (a `JsonDocument` read from a Kafka topic, carrying its topic, partition, offset and key) its only subclass. Operations that combine two Documents, such as `setOrAddAll` and `addChild`, read the other Document's backing JSON directly, which is why other implementations are not allowed. Stages, indexers, and connectors program against the interface and construct documents through the static factories `Document.create(...)` and `Document.createFromJson(...)`; `JsonDocument`'s constructors are not public. The shared contract tests live in `DocumentTest` (and `NodeDocumentTest` for JSON-node-backed behavior).
 
 ---
 
@@ -154,9 +160,24 @@ With `setOrAdd`, it's one line: `doc.setOrAdd("tags", newTag)`. Across a pipelin
 
 Every getter returns `null` for both "field absent" and "field present but null." The `has()` method distinguishes between these cases when it matters. This is a deliberate choice: most stage logic doesn't care *why* a value is missing — it just needs to handle the missing case. The rare stage that needs to distinguish "field not set" from "field explicitly null" can use `has()` + `hasNonNull()`.
 
+A getter does not check that the stored value has its type; it converts what is there. An absent field or a null value gives `null`, a multi-valued field gives its first value converted, and the list getters convert each element the same way. Only `getInstant` throws for a value it cannot convert.
+
+| Getter | String value | Number value | Boolean value | Object or array value |
+|---|---|---|---|---|
+| `getString` | the string | its JSON text, such as `"12"` or `"1.5"` | `"true"` or `"false"` | `""` (an empty string) |
+| `getInt`, `getLong` | the number it spells, truncated toward zero (`"1.9"` gives 1), or 0 | truncated toward zero; `getInt` keeps only the low 32 bits of a value outside the int range | 1 or 0 | 0 |
+| `getDouble`, `getFloat` | the number it spells, or 0.0 | the value (`getFloat` rounds it to the nearest float) | 1.0 or 0.0 | 0.0 |
+| `getBoolean` | `true` only for `"true"` (case-sensitive, surrounding whitespace ignored); `false` otherwise, including `"yes"` and `"1"` | `true` for a non-zero integer; `false` for zero and every decimal, such as 1.5 | the value | `false` |
+| `getInstant` | the instant, if it is ISO-8601, such as `"2024-01-01T00:00:00Z"`; otherwise `IllegalArgumentException` | `IllegalArgumentException`; epoch numbers are not converted | `IllegalArgumentException` | `IllegalArgumentException` |
+| `getBytes` | decoded as base64, or `null` if it is not valid base64 | `null` | `null` | `null` |
+
+A `byte[]` value reads as its base64 text through `getString`, as 0, 0.0 or `false` through the numeric and boolean getters, and as the array itself through `getBytes`. `getJson` returns the stored `JsonNode` itself, whatever its type, including an array.
+
+`java.util.Date` and `java.sql.Timestamp` values can be passed to `setField(String, Object)` (and `addToField`, `setOrAdd`, `update`), which stores them as Instants; read them back with `getInstant`.
+
 ### Reserved Fields with Triple-Underscore Prefix
 
-Internal control fields (`___dropped`, `___skipped`, `___children`) use a triple-underscore prefix. This keeps them out of the normal field namespace — a triple-underscore prefix is highly unlikely to collide with any user-defined field name — and makes them visually distinct from user data fields. The `validateFieldNames()` method prevents stages from accidentally writing to reserved fields by checking membership in `RESERVED_FIELDS`.
+Internal control fields (`___dropped`, `___skipped`, `___children`) use a triple-underscore prefix. This keeps them out of the normal field namespace — a triple-underscore prefix is highly unlikely to collide with any user-defined field name — and makes them visually distinct from user data fields. The `validateFieldNames()` method prevents stages from accidentally writing to reserved fields by checking membership in `RESERVED_FIELDS`, which is immutable. The `___` prefix is Lucille's namespace: a minor release may add reserved fields that use it, so avoid it in field names of your own.
 
 ### Field Name Validation on Every Write
 
@@ -172,14 +193,16 @@ The validation happens at write time, not at indexing time, so bugs are caught i
 
 ### JSONata Integration
 
-The `transform()` method applies a JSONata expression directly to the Document's backing ObjectNode. JSONata is a query and transformation language for JSON — think of it as XPath/XSLT for JSON. Because the Document is already JSON, there's no conversion step. A stage can reshape a document's structure with a single expression:
+The `ApplyJSONata` stage applies a JSONata expression to a Document, either to one field or to the whole Document. JSONata is a query and transformation language for JSON — think of it as XPath/XSLT for JSON. Because the Document is already JSON, a pipeline can reshape a document's structure with a single expression, without writing procedural Java code:
 
-```java
-Jsonata expr = Jsonata.jsonata("{ 'fullName': firstName & ' ' & lastName }");
-doc.transform(expr);
+```hocon
+{
+  class: "com.kmwllc.lucille.stage.ApplyJSONata"
+  expression: "$merge([$, { 'fullName': firstName & ' ' & lastName }])"
+}
 ```
 
-This is particularly powerful for stages that need to restructure complex nested data without writing procedural Java code.
+A whole-Document transformation must return an object and must leave the reserved fields (`id`, `run_id`, `___children`, and so on) as they were; otherwise the stage logs a warning and leaves the Document unchanged. The transformation lives in the stage rather than on the Document interface, so `Document` does not depend on the JSONata library.
 
 ### The asMap() Escape Hatch
 

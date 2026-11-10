@@ -1,7 +1,12 @@
 package com.kmwllc.lucille.connector;
 
+import com.kmwllc.lucille.core.DocumentException;
+import org.apache.kafka.common.errors.SerializationException;
+import static org.junit.Assert.assertTrue;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -31,9 +36,11 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.mockito.ArgumentCaptor;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.Test;
 
@@ -45,7 +52,7 @@ public class KafkaConnectorTest {
       "kafka.bootstrapServers", "localhost:9092",
       "kafka.topic", "test-topic",
       "kafka.consumerGroupId", "test-group",
-      "kafka.maxPollIntervalSecs", 600,
+      "kafka.maxPollIntervalMs", 600000,
       "kafka.clientId", "test-client",
       "continueOnTimeout", false);
 
@@ -70,8 +77,16 @@ public class KafkaConnectorTest {
 
     connector.execute(mock(Publisher.class));
 
+    // offsets are applied from the rebalance listener registered with subscribe(), once partitions are assigned
+    ArgumentCaptor<ConsumerRebalanceListener> listener = ArgumentCaptor.forClass(ConsumerRebalanceListener.class);
+    verify(mockConsumer).subscribe(anyCollection(), listener.capture());
+    listener.getValue().onPartitionsAssigned(Arrays.asList(tp0, tp1));
     verify(mockConsumer).seek(tp0, 100L);
     verify(mockConsumer).seek(tp1, 200L);
+
+    // a later re-assignment of the same partitions must not seek again (the consumer resumes from its committed offset)
+    listener.getValue().onPartitionsAssigned(Arrays.asList(tp0, tp1));
+    verify(mockConsumer, times(1)).seek(tp0, 100L);
   }
 
   @Test
@@ -148,7 +163,7 @@ public class KafkaConnectorTest {
   @Test
   public void testMessageTimeoutConfig() throws Exception {
     Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
-    configMap.put("messageTimeout", 500L);
+    configMap.put("messageTimeoutMs", 500L);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
@@ -293,7 +308,6 @@ public class KafkaConnectorTest {
     Set<TopicPartition> assignment = new HashSet<>();
     assignment.add(tp0);
     when(mockConsumer.assignment()).thenReturn(assignment);
-    when(mockConsumer.poll(Duration.ZERO)).thenReturn(new ConsumerRecords<>(Collections.emptyMap()));
     when(mockConsumer.poll(any(Duration.class))).thenReturn(new ConsumerRecords<>(Collections.emptyMap()));
 
     KafkaConnector connector = spy(new KafkaConnector(config));
@@ -301,13 +315,16 @@ public class KafkaConnectorTest {
 
     connector.execute(mock(Publisher.class));
 
+    ArgumentCaptor<ConsumerRebalanceListener> listener = ArgumentCaptor.forClass(ConsumerRebalanceListener.class);
+    verify(mockConsumer).subscribe(anyCollection(), listener.capture());
+    listener.getValue().onPartitionsAssigned(Collections.singletonList(tp0));
     verify(mockConsumer).seek(tp0, 100L);
   }
 
   @Test
   public void testThreadTerminatesUponClose() throws Exception {
     Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
-    configMap.put("messageTimeout", 10000L); // Long timeout
+    configMap.put("messageTimeoutMs", 10000L); // Long timeout
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
@@ -339,7 +356,7 @@ public class KafkaConnectorTest {
     connectorThread.start();
     Thread.sleep(200);
     connector.close();
-    connectorThread.join(config.getLong("messageTimeout"));
+    connectorThread.join(config.getLong("messageTimeoutMs"));
 
     assertEquals(Thread.State.TERMINATED, connectorThread.getState());
     verify(mockConsumer, times(1)).poll(any(Duration.class));
@@ -348,7 +365,7 @@ public class KafkaConnectorTest {
   @Test
   public void testThreadTerminatesUponPollTimedOut() throws Exception {
     Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
-    configMap.put("messageTimeout", 10L);
+    configMap.put("messageTimeoutMs", 10L);
     // continue on timeout is false, after the poll times out the connector should terminate
     configMap.put("continueOnTimeout", false);
     Config config = ConfigFactory.parseMap(configMap);
@@ -357,7 +374,7 @@ public class KafkaConnectorTest {
 
     // Mock poll to wait LONGER than messageTimeout
     doAnswer(invocation -> {
-      Thread.sleep(config.getLong("messageTimeout") + 10L);
+      Thread.sleep(config.getLong("messageTimeoutMs") + 10L);
       return ConsumerRecords.empty();
     }).when(mockConsumer).poll(any(Duration.class));
 
@@ -402,6 +419,28 @@ public class KafkaConnectorTest {
     String jsonValue = "{\"id\":\"doc1\"}";
     Document doc = deserializer.deserialize("test-topic", jsonValue.getBytes());
     assertEquals("prefix_doc1", doc.getId());
+  }
+
+  @Test
+  public void testDeserializerTreatsNullIdAsMissing() throws Exception {
+    KafkaConnectorDefaultDeserializer deserializer = new KafkaConnectorDefaultDeserializer();
+    deserializer.configure(new HashMap<>(), false);
+
+    // a JSON null id is not turned into the text "null"; it is a missing id, which cannot be a Document
+    SerializationException e = assertThrows(SerializationException.class,
+        () -> deserializer.deserialize("test-topic", "{\"id\":null}".getBytes()));
+    assertTrue(e.getCause() instanceof DocumentException);
+  }
+
+  @Test
+  public void testDeserializerFallsBackFromNullIdField() throws Exception {
+    KafkaConnectorDefaultDeserializer deserializer = new KafkaConnectorDefaultDeserializer();
+    Map<String, Object> kafkaConfigs = new HashMap<>();
+    kafkaConfigs.put("idField", "myIdField");
+    deserializer.configure(kafkaConfigs, false);
+
+    Document doc = deserializer.deserialize("test-topic", "{\"id\":\"doc1\", \"myIdField\":null}".getBytes());
+    assertEquals("doc1", doc.getId());
   }
 
   @Test

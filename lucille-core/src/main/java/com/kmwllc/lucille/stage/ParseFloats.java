@@ -20,17 +20,17 @@ import org.slf4j.LoggerFactory;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>field (String) : the name of the document field containing the JSON string to parse.</li>
+ *   <li>source (String) : the name of the document field containing the JSON string to parse.</li>
  *   <li>dest (String, optional) : the name of the document field into which to write the floats.</li>
  * </ul>
  */
 public class ParseFloats extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("field")
+      .requiredString("source")
       .optionalString("dest").build();
 
-  private final String field;
+  private final String source;
   private final String dest;
   private static final Logger log = LoggerFactory.getLogger(ParseFloats.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -38,14 +38,14 @@ public class ParseFloats extends Stage {
 
   public ParseFloats(Config config) {
     super(config);
-    this.field = config.getString("field");
-    this.dest = ConfigUtils.getOrDefault(config, "dest", null);
+    this.source = config.getString("source");
+    this.dest = ConfigUtils.getStringOrDefault(config, "dest", null);
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    if (doc.has(field)) {
-      String value = doc.getString(this.field);
+    if (doc.has(source)) {
+      String value = doc.getString(this.source);
       List<Float> floats;
       try {
         floats = MAPPER.readValue(value, TYPE_REFERENCE);
@@ -53,9 +53,9 @@ public class ParseFloats extends Stage {
         log.warn("String: {} cannot be parsed.", value, e);
         return null;
       }
-      doc.removeField(dest != null ? dest : field);
+      doc.removeField(dest != null ? dest : source);
       for (Float d : floats) {
-        doc.addToField(dest != null ? dest : field, d);
+        doc.addToField(dest != null ? dest : source, d);
       }
     }
     return null;

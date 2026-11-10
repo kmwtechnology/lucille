@@ -36,11 +36,12 @@ public class KafkaConnectorDefaultDeserializer implements Deserializer<Document>
       }
       ObjectNode objectNode = (ObjectNode) node;
 
-      // use the id field if it exists, otherwise fall back to the Lucene Document.ID_FIELD
+      // use the id field if it has a value, otherwise fall back to the Lucene Document.ID_FIELD. A JSON null counts as
+      // no value: asText() would turn it into the text "null", which would become the document id.
       String rawId = null;
-      if (idField != null && objectNode.has(idField)) {
+      if (idField != null && objectNode.hasNonNull(idField)) {
         rawId = objectNode.get(idField).asText();
-      } else if (objectNode.has(Document.ID_FIELD)) {
+      } else if (objectNode.hasNonNull(Document.ID_FIELD)) {
         rawId = objectNode.get(Document.ID_FIELD).asText();
       }
 

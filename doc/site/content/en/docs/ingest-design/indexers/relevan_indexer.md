@@ -7,7 +7,7 @@ description: Configuration reference for the Relevan Indexer — index documents
 
 `com.kmwllc.lucille.relevan.indexer.RelevanIndexer`
 
-Indexes documents into a [Relevan](https://relevan.dev) search index through the Relevan REST API. Config block: `relevan { ... }`
+Indexes documents into a [Relevan](https://relevan.dev) search index through the Relevan REST API. Config block: `indexer.relevan { ... }`
 
 **Maven dependency:**
 ```xml
@@ -30,17 +30,21 @@ Indexes documents into a [Relevan](https://relevan.dev) search index through the
 
 ```hocon
 indexer {
-  class: "com.kmwllc.lucille.relevan.indexer.RelevanIndexer"
   maxRetries: 3
-  deletionMarkerField: "is_deleted"
-  deletionMarkerFieldValue: "true"
-}
 
-relevan {
-  apiKey: ${RELEVAN_API_KEY}
-  index: "songs"
+  deletionMarker {
+    field: "is_deleted"
+    value: "true"
+  }
+
+  relevan {
+    apiKey: ${RELEVAN_API_KEY}
+    index: "songs"
+  }
 }
 ```
+
+The nested `relevan` block selects this indexer, so `indexer.type` and `indexer.class` are not needed.
 
 ---
 
@@ -74,7 +78,7 @@ curl -X POST https://api.relevan.dev/v1/{orgId}/indexes/songs/mappings \
 
 - The Lucille document ID becomes the Relevan document ID. Set `indexer.idOverrideField` to use a different field.
 - Lucille's `id` and `run_id` fields are never sent as content.
-- Every other field is sent as content after `indexer.whitelist` and `indexer.blacklist` are applied, and Relevan rejects a document that has a field its mapping does not declare. Remove extra fields with the blacklist or a `DeleteFields` stage, or set `dropUnmappedFields: true`. This includes the deletion marker field on documents that are not deletions.
+- Every other field is sent as content after `indexer.includeFields` and `indexer.excludeFields` are applied, and Relevan rejects a document that has a field its mapping does not declare. Remove extra fields with `indexer.excludeFields` or a `DeleteFields` stage, or set `dropUnmappedFields: true`. This includes the deletion marker field on documents that are not deletions.
 - Relevan does not accept arrays of objects, and does not search the contents of an object field. Flatten nested data into top-level fields in the pipeline.
 
 ### Document IDs
@@ -101,7 +105,7 @@ When the same document ID appears more than once in a batch, the operations on i
 
 ## Deletion
 
-Deletion is by ID only, using `deletionMarkerField` / `deletionMarkerFieldValue`. Deleting a document that does not exist counts as success. Delete-by-query (`deleteByFieldField` / `deleteByFieldValue`) is not supported: the indexer refuses to start when it is configured.
+Deletion is by ID only, using the generic `indexer.deletionMarker` setting (see [Deletion Mechanics]({{< relref "docs/ingest-design/indexers#deletion-mechanics" >}})). Deleting a document that does not exist counts as success. Delete-by-query (`indexer.deleteByQuery`) is not supported: the indexer fails at startup when it is configured.
 
 ---
 
@@ -147,15 +151,14 @@ pipelines: [
 ]
 
 indexer {
-  class: "com.kmwllc.lucille.relevan.indexer.RelevanIndexer"
   maxRetries: 3
-}
 
-relevan {
-  apiKey: ${RELEVAN_API_KEY}
-  index: "songs"
-  dropUnmappedFields: true
-  coerceTypes: true
+  relevan {
+    apiKey: ${RELEVAN_API_KEY}
+    index: "songs"
+    dropUnmappedFields: true
+    coerceTypes: true
+  }
 }
 ```
 

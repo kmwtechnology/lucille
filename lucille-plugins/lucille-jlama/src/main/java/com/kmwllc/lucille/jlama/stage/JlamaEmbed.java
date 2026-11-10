@@ -5,6 +5,7 @@ import com.github.tjake.jlama.model.ModelSupport;
 import com.github.tjake.jlama.model.functions.Generator.PoolingType;
 import com.github.tjake.jlama.safetensors.DType;
 import com.github.tjake.jlama.safetensors.SafeTensorSupport;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -36,12 +37,12 @@ import org.slf4j.LoggerFactory;
  * Config Parameters:
  * - source (String) : field of which the embedding Stage will retrieve content from
  * - dest (String, Optional) : name of the field that will store the embeddings, defaults to "embeddings"
- * - pathToStoreModel (String) : Path where the model will be downloaded to and used
- * - model (String, Optional) : the name of the embedding model to use in the format of owner/name, retrieved from HuggingFace
+ * - modelDownloadPath (String) : Path where the model will be downloaded to and used
+ * - modelName (String) : the name of the embedding model to use in the format of owner/name, retrieved from HuggingFace
  * - workingMemoryType (String, Optional) : the data type used during runtime for model, impacts accuracy and resource usage.
  * - workingQuantizationType (String, Optional): the data type used during quantization for model, influences the compression and
  *   speed of the model, trading off accuracy for performance.
- * - deleteModelAfter (Boolean, Optional) : whether to delete the model after use, defaults to false
+ * - deleteModelOnStop (Boolean, Optional) : whether to delete the model after use, defaults to false
  *
  *   DType Options:
  *    "BOOL" (1 byte)
@@ -63,9 +64,9 @@ import org.slf4j.LoggerFactory;
 public class JlamaEmbed extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("model", "source", "pathToStoreModel")
+      .requiredString("modelName", "source", "modelDownloadPath")
       .optionalString("workingMemoryType", "workingQuantizationType", "dest")
-      .optionalBoolean("deleteModelAfter").build();
+      .optionalBoolean("deleteModelOnStop").build();
 
   private final String embeddingModel;
   private final String source;
@@ -73,20 +74,20 @@ public class JlamaEmbed extends Stage {
   private final String workingMemoryType;
   private final String workingQuantizationType;
   private final String dest;
-  private final boolean deleteModelAfter;
+  private final boolean deleteModelOnStop;
   private AbstractModel model;
 
   private static final Logger log = LoggerFactory.getLogger(JlamaEmbed.class);
 
   public JlamaEmbed(Config config) {
     super(config);
-    this.pathToStoreModel = config.getString("pathToStoreModel");
-    this.embeddingModel = config.getString("model");
+    this.pathToStoreModel = config.getString("modelDownloadPath");
+    this.embeddingModel = config.getString("modelName");
     this.source = config.getString("source");
-    this.dest = config.hasPath("dest") ? config.getString("dest") : "embeddings";
-    this.workingMemoryType = config.hasPath("workingMemoryType") ? config.getString("workingMemoryType") : "";
-    this.workingQuantizationType = config.hasPath("workingQuantizationType") ? config.getString("workingQuantizationType") : "";
-    this.deleteModelAfter = config.hasPath("deleteModelAfter") ? config.getBoolean("deleteModelAfter") : false;
+    this.dest = ConfigUtils.getStringOrDefault(config, "dest", "embeddings");
+    this.workingMemoryType = ConfigUtils.getStringOrDefault(config, "workingMemoryType", "");
+    this.workingQuantizationType = ConfigUtils.getStringOrDefault(config, "workingQuantizationType", "");
+    this.deleteModelOnStop = ConfigUtils.getBooleanOrDefault(config, "deleteModelOnStop", false);
   }
 
   @Override
@@ -118,7 +119,7 @@ public class JlamaEmbed extends Stage {
       model.close();
     }
 
-    if (deleteModelAfter) {
+    if (deleteModelOnStop) {
       // using the same process as how Jlama creates the path to store the model
       String[] parts = embeddingModel.split("/");
       if (parts.length != 0 && parts.length <= 2) {
@@ -143,7 +144,11 @@ public class JlamaEmbed extends Stage {
     }
   }
 
+  // An unset type uses the default; a set but unrecognized type is a configuration error (it used to fall back silently).
   private DType getDType(String type, DType defaultType) {
+    if (type == null || type.isBlank()) {
+      return defaultType;
+    }
     return switch (type.trim().toUpperCase()) {
       case "BOOL" -> DType.BOOL;
       case "U8" -> DType.U8;
@@ -160,7 +165,8 @@ public class JlamaEmbed extends Stage {
       case "U64" -> DType.U64;
       case "Q4" -> DType.Q4;
       case "Q5" -> DType.Q5;
-      default -> defaultType;
+      default -> throw new IllegalArgumentException("Unknown data type \"" + type
+          + "\"; expected one of BOOL, U8, I8, I16, U16, F16, BF16, I32, U32, F32, F64, I64, U64, Q4, Q5");
     };
   }
 

@@ -1,0 +1,25 @@
+@reference "../../index.css";
+
+.container {
+  @apply flex min-h-[60vh] items-center justify-center p-6;
+}
+
+.content {
+  @apply flex flex-col items-center text-center max-w-md;
+}
+
+.icon {
+  @apply h-16 w-16 text-destructive mb-6;
+}
+
+.title {
+  @apply text-2xl font-bold text-foreground mb-2;
+}
+
+.message {
+  @apply text-muted-foreground mb-6;
+}
+
+.actions {
+  @apply flex items-center gap-4;
+}

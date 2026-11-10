@@ -16,7 +16,12 @@ import org.junit.Test;
 
 import java.util.Arrays;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 public class EmbeddedPythonTest {
 
@@ -52,6 +57,46 @@ public class EmbeddedPythonTest {
     d2.setField("b", 250);
     stage.processDocument(d2);
     assertEquals(Integer.valueOf(350), d2.getInt("sum"));
+  }
+
+  @Test
+  public void testGlobalsDoNotLeakBetweenDocuments() throws StageException {
+    stage = stageWithInline("""
+    if "title" in doc:
+        uppercaseTitle = doc.title.upper()
+    doc.result = uppercaseTitle if 'uppercaseTitle' in dir() else "EMPTY"
+    """);
+
+    Document d1 = Document.create("d1");
+    d1.setField("title", "hello");
+    stage.processDocument(d1);
+    assertEquals("HELLO", d1.getString("result"));
+
+    Document d2 = Document.create("d2");
+    stage.processDocument(d2);
+    assertEquals("EMPTY", d2.getString("result"));
+  }
+
+  @Test
+  public void testFunctionsAndImportsWorkAcrossDocuments() throws StageException {
+    stage = stageWithInline("""
+    import math
+
+    def double(x):
+        return x * 2
+
+    doc.result = double(doc.n) + math.floor(0.5)
+    """);
+
+    Document d1 = Document.create("d1");
+    d1.setField("n", 3);
+    stage.processDocument(d1);
+    assertEquals(Integer.valueOf(6), d1.getInt("result"));
+
+    Document d2 = Document.create("d2");
+    d2.setField("n", 10);
+    stage.processDocument(d2);
+    assertEquals(Integer.valueOf(20), d2.getInt("result"));
   }
 
   @Test

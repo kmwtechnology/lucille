@@ -82,9 +82,8 @@ public class MethodDescriptor {
   public boolean equals(Object o) {
     if (this == o)
       return true;
-    if (!(o instanceof MethodDescriptor))
+    if (!(o instanceof MethodDescriptor that))
       return false;
-    MethodDescriptor that = (MethodDescriptor) o;
     return Objects.equals(declaringClass, that.declaringClass)
         && Objects.equals(methodName, that.methodName)
         && Objects.equals(parameterTypes, that.parameterTypes)

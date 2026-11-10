@@ -1,0 +1,5 @@
+@reference "../../index.css";
+
+.loadingText {
+  @apply text-sm font-medium text-muted-foreground;
+}

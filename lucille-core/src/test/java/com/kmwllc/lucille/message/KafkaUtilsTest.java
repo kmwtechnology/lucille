@@ -1,16 +1,23 @@
 package com.kmwllc.lucille.message;
 
+import com.kmwllc.lucille.core.Document;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.time.Duration;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.KafkaFuture;
+import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.junit.Test;
 
+import java.util.Map;
 import java.util.Properties;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -20,6 +27,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -64,12 +72,12 @@ public class KafkaUtilsTest {
 
     // buffer.memory must be at least 32MB (Kafka's default) regardless of maxRequestSize,
     // so the async producer has room to buffer multiple records
-    Config smallMaxRequest = ConfigFactory.parseString("kafka { bootstrapServers: \"localhost:9092\", maxRequestSize: 1048576, maxPollIntervalSecs: 300, consumerGroupId: \"test\" }");
+    Config smallMaxRequest = ConfigFactory.parseString("kafka { bootstrapServers: \"localhost:9092\", maxRequestSize: 1048576, maxPollIntervalMs: 300000, consumerGroupId: \"test\" }");
     Properties smallProps = KafkaUtils.createProducerProps(smallMaxRequest);
     assertTrue(Long.parseLong(smallProps.get("buffer.memory").toString()) >= 33_554_432L);
 
     // buffer.memory grows if maxRequestSize exceeds 32MB
-    Config largeMaxRequest = ConfigFactory.parseString("kafka { bootstrapServers: \"localhost:9092\", maxRequestSize: 67108864, maxPollIntervalSecs: 300, consumerGroupId: \"test\" }");
+    Config largeMaxRequest = ConfigFactory.parseString("kafka { bootstrapServers: \"localhost:9092\", maxRequestSize: 67108864, maxPollIntervalMs: 300000, consumerGroupId: \"test\" }");
     Properties largeProps = KafkaUtils.createProducerProps(largeMaxRequest);
     assertTrue(Long.parseLong(largeProps.get("buffer.memory").toString()) >= 67_108_864L);
   }
@@ -138,6 +146,30 @@ public class KafkaUtilsTest {
     }
   }
 
+  // a multi-broker cluster needs the event topic replicated, with min.insync.replicas, so it survives a broker loss
+  @Test
+  public void testCreateEventTopicReplicationAndMinInsyncReplicas() throws Exception {
+    try (MockedStatic<Admin> admin = Mockito.mockStatic(Admin.class)) {
+      KafkaFuture future = Mockito.mock(KafkaFuture.class);
+      CreateTopicsResult result = Mockito.mock(CreateTopicsResult.class);
+      Mockito.doReturn(future).when(result).all();
+
+      AdminClient adminClient = Mockito.mock(AdminClient.class);
+      ArgumentCaptor<List<NewTopic>> captor = ArgumentCaptor.forClass(List.class);
+      Mockito.doReturn(result).when(adminClient).createTopics(captor.capture(), Mockito.any());
+
+      admin.when(() -> Admin.create((Properties) Mockito.any())).thenReturn(adminClient);
+
+      Config config = ConfigFactory.parseString(BASE_KAFKA
+          + "kafka.eventTopicReplicationFactor: 3\nkafka.eventTopicMinInsyncReplicas: 2\n");
+      KafkaUtils.createEventTopic(config, "pipeline1", "run1");
+
+      NewTopic topic = captor.getValue().get(0);
+      assertEquals((short) 3, topic.replicationFactor());
+      assertEquals("2", topic.configs().get(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG));
+    }
+  }
+
   @Test
   public void testCreateConsumerPropsArbitrary() {
     Config directConfig = ConfigFactory.load("KafkaUtilsTest/consumer-conf/direct-arbitrary.conf");
@@ -200,11 +232,228 @@ public class KafkaUtilsTest {
     assertThrows(IllegalArgumentException.class, () -> KafkaUtils.createProducerProps(listPropConfig));
   }
 
+  private static final String BASE_KAFKA =
+      "kafka { bootstrapServers: \"localhost:9092\", maxRequestSize: 1048576, maxPollIntervalMs: 300000, consumerGroupId: \"test\" }\n";
+
+  @Test
+  public void testQuotedAndUnquotedDottedKeysProduceSameClientKey() {
+    Config quoted = ConfigFactory.parseString(BASE_KAFKA + "kafka.producer { \"linger.ms\": 7 }");
+    Config unquoted = ConfigFactory.parseString(BASE_KAFKA + "kafka.producer { linger.ms: 7 }");
+    Config nestedObject = ConfigFactory.parseString(BASE_KAFKA + "kafka.producer { linger { ms: 7 } }");
+
+    for (Config config : List.of(quoted, unquoted, nestedObject)) {
+      Properties props = KafkaUtils.createProducerProps(config);
+      assertEquals(7, props.get("linger.ms"));
+      assertFalse(props.containsKey("\"linger.ms\""));
+    }
+  }
+
+  @Test
+  public void testQuotedKeyInsideNestedObject() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA + "kafka.producer { ssl { \"keystore.location\": \"/ks\" } }");
+    Properties props = KafkaUtils.createProducerProps(config);
+    assertEquals("/ks", props.get("ssl.keystore.location"));
+    assertEquals(Set.of(), quotedKeys(props));
+  }
+
+  @Test
+  public void testQuotedKeysForConsumer() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA + "kafka.consumer { \"fetch.min.bytes\": 1024 }");
+    Properties props = KafkaUtils.createConsumerProps(config, "client-1");
+    assertEquals(1024, props.get("fetch.min.bytes"));
+    assertEquals(Set.of(), quotedKeys(props));
+  }
+
+  @Test
+  public void testQuotedKeysForAdmin() throws Exception {
+    try (MockedStatic<Admin> admin = Mockito.mockStatic(Admin.class)) {
+      CreateTopicsResult result = Mockito.mock(CreateTopicsResult.class);
+      Mockito.doReturn(Mockito.mock(KafkaFuture.class)).when(result).all();
+      AdminClient adminClient = Mockito.mock(AdminClient.class);
+      Mockito.doReturn(result).when(adminClient).createTopics(Mockito.any(), Mockito.any());
+      ArgumentCaptor<Properties> captor = ArgumentCaptor.forClass(Properties.class);
+      admin.when(() -> Admin.create(captor.capture())).thenReturn(adminClient);
+
+      Config config = ConfigFactory.parseString(BASE_KAFKA + "kafka.admin { \"request.timeout.ms\": 1234 }");
+      KafkaUtils.createEventTopic(config, "pipeline1", "run1");
+
+      Properties captured = captor.getValue();
+      assertEquals(1234, captured.get("request.timeout.ms"));
+      assertEquals(Set.of(), quotedKeys(captured));
+    }
+  }
+
+  @Test
+  public void testConflictingQuotedAndUnquotedKeysThrow() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA + "kafka.producer { \"linger.ms\": 0, linger.ms: 5 }");
+    IllegalArgumentException e =
+        assertThrows(IllegalArgumentException.class, () -> KafkaUtils.createProducerProps(config));
+    assertTrue(e.getMessage(), e.getMessage().contains("linger.ms"));
+  }
+
+  @Test
+  public void testAgreeingQuotedAndUnquotedKeysAreAccepted() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA + "kafka.producer { \"linger.ms\": 5, linger.ms: 5 }");
+    assertEquals(5, KafkaUtils.createProducerProps(config).get("linger.ms"));
+  }
+
+  @Test
+  public void testSubstitutedStringAndLiteralNumberAreNotAConflict() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA
+        + "kafka.lingerFromEnv: \"5\"\nkafka.producer { \"linger.ms\": ${kafka.lingerFromEnv}, linger.ms: 5 }").resolve();
+    assertEquals("5", String.valueOf(KafkaUtils.createProducerProps(config).get("linger.ms")));
+  }
+
+  private static Set<String> quotedKeys(Properties props) {
+    return props.stringPropertyNames().stream().filter(k -> k.contains("\"")).collect(Collectors.toSet());
+  }
+
+  @Test
+  public void testDocumentConsumerRejectsAutoCommit() {
+    // The indexer commits destination-topic offsets on batch completion; auto-commit would commit them at poll time
+    // (before indexing) and could skip documents on a crash. An override that re-enables it must fail fast rather than
+    // silently undermine the design.
+    Config autoCommitOn = ConfigFactory.parseString(
+        "kafka { bootstrapServers: \"localhost:9092\", maxPollIntervalMs: 300000, consumerGroupId: \"test\", "
+        + "consumer { enable.auto.commit: true } }");
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> KafkaUtils.createDocumentConsumer(autoCommitOn, "test-client"));
+    assertTrue(e.getMessage().contains("enable.auto.commit"));
+  }
+
+  @Test
+  public void testDocumentConsumerRejectsUnsetAutoCommitFromPropertyFile() {
+    // kafka-clients defaults enable.auto.commit to true, so a consumerPropertiesPath that OMITS it would auto-commit at
+    // poll just as surely as one that sets it true. An unset value must be rejected, not treated as safe.
+    Config unsetInFile = ConfigFactory.load("KafkaUtilsTest/consumer-conf/external-no-auto-commit-setting.conf");
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> KafkaUtils.createDocumentConsumer(unsetInFile, "test-client"));
+    assertTrue(e.getMessage().contains("enable.auto.commit"));
+  }
+
+  @Test
+  public void testDocumentConsumerAllowsExplicitlyDisabledAutoCommit() {
+    // Explicitly setting it to the required value must be accepted (constructing the consumer connects lazily, so this
+    // does not require a running broker).
+    Config autoCommitOff = ConfigFactory.parseString(
+        "kafka { bootstrapServers: \"localhost:9092\", maxPollIntervalMs: 300000, consumerGroupId: \"test\", "
+        + "consumer { enable.auto.commit: false } }");
+    KafkaUtils.createDocumentConsumer(autoCommitOff, "test-client").close();
+  }
+
+  @Test
+  public void testDocumentConsumerAllowsAutoCommitDisabledInPropertyFile() {
+    // A consumerPropertiesPath that explicitly sets enable.auto.commit=false is accepted.
+    Config disabledInFile = ConfigFactory.load("KafkaUtilsTest/consumer-conf/external.conf");
+    KafkaUtils.createDocumentConsumer(disabledInFile, "test-client").close();
+  }
+
+  @Test
+  public void testToMessengerException() {
+    // the Kafka error behind an ExecutionException is the cause; only a record too large is specific to the document
+    MessengerException tooLarge = KafkaUtils.toMessengerException("Sending doc1", new ExecutionException(
+        new org.apache.kafka.common.errors.RecordTooLargeException("too large")));
+    assertTrue(tooLarge.isDocumentSpecific());
+    assertTrue(tooLarge.getCause() instanceof org.apache.kafka.common.errors.RecordTooLargeException);
+    assertTrue(tooLarge.getMessage(), tooLarge.getMessage().startsWith("Sending doc1 failed"));
+
+    MessengerException timeout = KafkaUtils.toMessengerException("Sending doc1", new ExecutionException(
+        new org.apache.kafka.common.errors.TimeoutException("timed out")));
+    assertFalse(timeout.isDocumentSpecific());
+    assertTrue(timeout.getCause() instanceof org.apache.kafka.common.errors.TimeoutException);
+  }
+
   @Test
   public void testGetPollInterval() {
     assertEquals(Duration.ofMillis(2000), KafkaUtils.getPollInterval(ConfigFactory.empty()));
     assertEquals(Duration.ofMillis(150), KafkaUtils.getPollInterval(ConfigFactory.parseString("kafka.pollIntervalMs: 150")));
     assertThrows(IllegalArgumentException.class,
         () -> KafkaUtils.getPollInterval(ConfigFactory.parseString("kafka.pollIntervalMs: 0")));
+  }
+
+  @Test
+  public void testWorkerFailTopicEnabled() {
+    // Neither the fail-topic feature nor retry tracking is configured: no document can reach the fail topic.
+    assertFalse(KafkaUtils.workerFailTopicEnabled(ConfigFactory.empty()));
+
+    // The pipeline-processing failure path is enabled, so failed documents are routed to the fail topic.
+    assertTrue(KafkaUtils.workerFailTopicEnabled(
+        ConfigFactory.parseString("worker.sendFailedDocsToTopic: true")));
+
+    // sendFailedDocsToTopic is explicitly off: disabled.
+    assertFalse(KafkaUtils.workerFailTopicEnabled(
+        ConfigFactory.parseString("worker.sendFailedDocsToTopic: false")));
+
+    // Retry tracking is on; the retry-exceeded path always routes to the fail topic.
+    assertTrue(KafkaUtils.workerFailTopicEnabled(
+        ConfigFactory.parseString("worker.maxRetries: 2")));
+
+    // Both configured.
+    assertTrue(KafkaUtils.workerFailTopicEnabled(
+        ConfigFactory.parseString("worker { sendFailedDocsToTopic: true, maxRetries: 2 }")));
+  }
+
+  @Test
+  public void testIndexerFailTopicEnabled() {
+    assertFalse(KafkaUtils.indexerFailTopicEnabled(ConfigFactory.empty()));
+    assertTrue(KafkaUtils.indexerFailTopicEnabled(
+        ConfigFactory.parseString("indexer.sendFailedDocsToTopic: true")));
+    assertFalse(KafkaUtils.indexerFailTopicEnabled(
+        ConfigFactory.parseString("indexer.sendFailedDocsToTopic: false")));
+  }
+
+  @Test
+  public void testSendToFailTopicRequiresTheFailTopicToBeEnabled() {
+    assertThrows(IllegalStateException.class, () -> KafkaUtils.sendToFailTopic(null, "pipeline1", Document.create("doc1")));
+  }
+
+  @Test
+  public void testAdminPropsUseSecurityProtocol() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA + "kafka.securityProtocol: \"SSL\"");
+    assertEquals("SSL", KafkaUtils.createAdminProps(config).get("security.protocol"));
+
+    Config noProtocol = ConfigFactory.parseString(BASE_KAFKA);
+    assertFalse(KafkaUtils.createAdminProps(noProtocol).containsKey("security.protocol"));
+
+    Config overridden = ConfigFactory.parseString(BASE_KAFKA + "kafka.securityProtocol: \"SSL\", kafka.admin { \"security.protocol\": \"SASL_SSL\" }");
+    assertEquals("SASL_SSL", KafkaUtils.createAdminProps(overridden).get("security.protocol"));
+  }
+
+  @Test
+  public void testEventTopicUsesBrokerDefaultReplication() {
+    NewTopic topic = KafkaUtils.newEventTopic(ConfigFactory.parseString(BASE_KAFKA), "events");
+    assertEquals("events", topic.name());
+    assertEquals(1, topic.numPartitions());
+    // -1 tells the broker to apply its default
+    assertEquals(-1, topic.replicationFactor());
+    assertNull(topic.configs());
+  }
+
+  @Test
+  public void testEventTopicReplicationSettings() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA + "kafka.eventTopicReplicationFactor: 3, kafka.eventTopicMinInsyncReplicas: 2");
+    NewTopic topic = KafkaUtils.newEventTopic(config, "events");
+    assertEquals(1, topic.numPartitions());
+    assertEquals(3, topic.replicationFactor());
+    assertEquals(Map.of("min.insync.replicas", "2"), topic.configs());
+  }
+
+  @Test
+  public void testIndexerHasItsOwnConsumerGroup() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA);
+    String workersGroup = KafkaUtils.createConsumerProps(config, "client").getProperty("group.id");
+    assertEquals(workersGroup + "-indexer", KafkaUtils.createIndexerConsumerProps(config, "client").getProperty("group.id"));
+
+    // however the Workers' group was set
+    Config overridden = ConfigFactory.parseString(BASE_KAFKA + "kafka.consumer { \"group.id\": \"other\" }");
+    assertEquals("other-indexer", KafkaUtils.createIndexerConsumerProps(overridden, "client").getProperty("group.id"));
+  }
+
+  @Test
+  public void testEventConsumerJoinsNoGroupAndCommitsNothing() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA + "kafka.consumer { \"group.id\": \"other\" }");
+    Properties props = KafkaUtils.createEventConsumerProps(config, "client");
+    assertFalse(props.containsKey("group.id"));
+    assertEquals("false", props.get("enable.auto.commit"));
   }
 }

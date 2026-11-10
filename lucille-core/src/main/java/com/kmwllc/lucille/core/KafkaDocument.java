@@ -1,8 +1,6 @@
 package com.kmwllc.lucille.core;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-
 import java.util.Objects;
 
 /**
@@ -11,9 +9,9 @@ import java.util.Objects;
  *
  * In Lucille, plain (non-Kafka) Documents are written to Kafka. Those same Documents are then retrieved/deserialized
  * from kafka as KafkaDocuments. The topic, partition, offset, and key is copied from the Kafka ConsumerRecord onto the
- * KafkaDocument after deserialization.
+ * KafkaDocument after deserialization. Its public API names no Kafka types, so this class loads without kafka-clients.
  */
-public class KafkaDocument extends JsonDocument {
+public final class KafkaDocument extends JsonDocument {
 
   private String topic;
   private int partition;
@@ -24,16 +22,15 @@ public class KafkaDocument extends JsonDocument {
     super(data);
   }
 
-  public void setKafkaMetadata(ConsumerRecord<String, ?> record) {
-    this.topic = record.topic();
-    this.partition = record.partition();
-    this.offset = record.offset();
-    this.key = record.key();
-  }
-
-  public KafkaDocument(ConsumerRecord<String, String> record) throws Exception {
-    super((ObjectNode) MAPPER.readTree(record.value()));
-    setKafkaMetadata(record);
+  /**
+   * Records where this Document was read from. Called by Lucille's Kafka messengers with the topic, partition, offset
+   * and key of the ConsumerRecord that contained the Document; not intended for use by stages or indexers.
+   */
+  public void setKafkaMetadata(String topic, int partition, long offset, String key) {
+    this.topic = topic;
+    this.partition = partition;
+    this.offset = offset;
+    this.key = key;
   }
 
   KafkaDocument(ObjectNode data, String topic, int partition, long offset, String key) throws DocumentException {
@@ -77,8 +74,7 @@ public class KafkaDocument extends JsonDocument {
     if (this == other) {
       return true;
     }
-    if (other instanceof KafkaDocument) {
-      KafkaDocument doc = (KafkaDocument) other;
+    if (other instanceof KafkaDocument doc) {
 
       return
           Objects.equals(topic, doc.topic) &&
@@ -95,12 +91,18 @@ public class KafkaDocument extends JsonDocument {
     return Objects.hash(data, topic, partition, offset, key);
   }
 
+  /**
+   * Returns a deep copy that is itself a KafkaDocument carrying the same topic, partition, offset, and key. Overrides
+   * {@link JsonDocument#deepCopy()}, which would otherwise return a plain JsonDocument and silently drop the Kafka
+   * metadata, so that code which copies Documents generically (for example FieldFilter) keeps the metadata an indexer
+   * may later read from the copy.
+   */
   @Override
-  public KafkaDocument clone() {
+  public KafkaDocument deepCopy() {
     try {
       return new KafkaDocument(data.deepCopy(), topic, partition, offset, key);
     } catch (DocumentException e) {
-      throw new IllegalStateException("Document not cloneable", e);
+      throw new IllegalStateException("Document not copyable", e);
     }
   }
 }

@@ -25,6 +25,7 @@ import java.io.File;
 import com.kmwllc.lucille.stage.StageFactory;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -42,29 +43,29 @@ public class JlamaEmbedTest {
 
   @Before
   public void setUp() throws Exception {
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("source", "source");
-    configValues.put("pathToStoreModel", "./model");
-    configValues.put("model", "owner/name");
+    configValues.put("modelDownloadPath", "./model");
+    configValues.put("modelName", "owner/name");
     defaultConfig = ConfigFactory.parseMap(configValues);
   }
 
   @Test
   public void testGettingDType() throws StageException {
     // create the test config, here DTypes is set to F16 and I16
-    HashMap<String, Object> configValues2 = new HashMap<>();
+    Map<String, Object> configValues2 = new HashMap<>();
     configValues2.put("source", "source");
-    configValues2.put("pathToStoreModel", "./model");
-    configValues2.put("model", "owner/name");
+    configValues2.put("modelDownloadPath", "./model");
+    configValues2.put("modelName", "owner/name");
     configValues2.put("workingMemoryType", "F16");
     configValues2.put("workingQuantizationType", "I16");
     Config otherConfig = ConfigFactory.parseMap(configValues2);
 
     // create the test config, here DTypes is set to U16 and Q5
-    HashMap<String, Object> configValues3 = new HashMap<>();
+    Map<String, Object> configValues3 = new HashMap<>();
     configValues3.put("source", "source");
-    configValues3.put("pathToStoreModel", "./model");
-    configValues3.put("model", "owner/name");
+    configValues3.put("modelDownloadPath", "./model");
+    configValues3.put("modelName", "owner/name");
     configValues3.put("workingMemoryType", "U16");
     configValues3.put("workingQuantizationType", "Q5");
     Config thirdConfig = ConfigFactory.parseMap(configValues3);
@@ -103,10 +104,10 @@ public class JlamaEmbedTest {
 
   @Test
   public void testInvalidStart() throws StageException {
-    HashMap<String, Object> configValues2 = new HashMap<>();
+    Map<String, Object> configValues2 = new HashMap<>();
     configValues2.put("source", "source");
-    configValues2.put("pathToStoreModel", "./model");
-    configValues2.put("model", "ownerName");
+    configValues2.put("modelDownloadPath", "./model");
+    configValues2.put("modelName", "ownerName");
     Config modelNameNotInFormat = ConfigFactory.parseMap(configValues2);
 
     // test model not in format of owner/name
@@ -184,11 +185,11 @@ public class JlamaEmbedTest {
     File testModelModelSafeTensors = new File("src/test/resources/owner_name/model.safetensors");
     FileUtils.writeStringToFile(testModelModelSafeTensors, "{}", StandardCharsets.UTF_8);
 
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("source", "source");
-    configValues.put("pathToStoreModel", "src/test/resources");
-    configValues.put("model", "owner/name");
-    configValues.put("deleteModelAfter", true);
+    configValues.put("modelDownloadPath", "src/test/resources");
+    configValues.put("modelName", "owner/name");
+    configValues.put("deleteModelOnStop", true);
     Config config = ConfigFactory.parseMap(configValues);
 
     AbstractModel mockModel = mock(AbstractModel.class);
@@ -233,11 +234,11 @@ public class JlamaEmbedTest {
     File testModelModelSafeTensors = new File("src/test/resources/na_NoOwnerOnlyName/model.safetensors");
     FileUtils.writeStringToFile(testModelModelSafeTensors, "{}", StandardCharsets.UTF_8);
 
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("source", "source");
-    configValues.put("pathToStoreModel", "src/test/resources");
-    configValues.put("model", "NoOwnerOnlyName");
-    configValues.put("deleteModelAfter", true);
+    configValues.put("modelDownloadPath", "src/test/resources");
+    configValues.put("modelName", "NoOwnerOnlyName");
+    configValues.put("deleteModelOnStop", true);
     Config config = ConfigFactory.parseMap(configValues);
 
     AbstractModel mockModel = mock(AbstractModel.class);
