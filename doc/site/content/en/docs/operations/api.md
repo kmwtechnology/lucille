@@ -103,7 +103,6 @@ All endpoints are under the `/v1` prefix.
 |---|---|---|
 | `GET` | `/v1/livez` | Liveness check — returns 200 if the service is running. |
 | `GET` | `/v1/readyz` | Readiness check — returns 200 if the service is ready. |
-| `GET` | `/v1/systemstats` | CPU, RAM, JVM heap, and disk usage as JSON. |
 | `GET` | `/v1/systemstats/metrics` | Dropwizard Codahale metrics registry as JSON. |
 
 ---

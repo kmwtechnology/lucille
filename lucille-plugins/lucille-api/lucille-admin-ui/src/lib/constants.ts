@@ -17,8 +17,6 @@ export const NAV_LINKS = [
 /** Poll interval (ms) for refreshing an in-progress run. */
 export const RUN_POLL_INTERVAL_MS = 3000
 
-/** Poll interval (ms) for refreshing system stats on the dashboard. */
-export const SYSTEM_STATS_POLL_INTERVAL_MS = 5000
 
 /** Poll interval (ms) for re-checking API health on the dashboard. */
 export const HEALTH_POLL_INTERVAL_MS = 5000
