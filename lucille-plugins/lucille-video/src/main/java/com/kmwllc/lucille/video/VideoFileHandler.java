@@ -14,6 +14,7 @@ import java.io.InputStream;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import javax.imageio.ImageIO;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.bytedeco.javacv.FFmpegFrameGrabber.Exception;
 import org.slf4j.Logger;
@@ -32,7 +33,7 @@ import org.bytedeco.javacv.Java2DFrameConverter;
  * <ul>
  *   <li>docIdPrefix (String, Optional) : Prefix prepended to all generated document ids.</li>
  *   <li>docIdFormat (String, Optional) : The pattern applied to the filename stem when composing the
- *   parent id (a single %s placeholder).</li>
+ *   parent id (a single %s placeholder). Without it, the parent id is the md5 hash of the full file path.</li>
  *   <li>frameStride (Int, Optional) : Emit every Nth video frame; defaults to 1.</li>
  *   <li>filePathField (String, Optional) : Field used to store the original file path; defaults to "source".</li>
  *   <li>filenameField (String, Optional) : Field used to store the leaf filename; defaults to "file_name".</li>
@@ -255,10 +256,12 @@ public class VideoFileHandler extends BaseFileHandler {
   }
 
   private String buildParentId(String pathStr) {
-    String leaf = FilenameUtils.getName(pathStr);
-    String stem = FilenameUtils.removeExtension(leaf);
-    String raw = (docIdFormat != null) ? String.format(docIdFormat, stem) : stem;
-    return docIdPrefix + raw;
+    if (docIdFormat == null) {
+      // the full path, not the stem, so same-named videos in different folders don't overwrite each other
+      return docIdPrefix + DigestUtils.md5Hex(pathStr);
+    }
+    String stem = FilenameUtils.removeExtension(FilenameUtils.getName(pathStr));
+    return docIdPrefix + String.format(docIdFormat, stem);
   }
 
   static String formatTimecode(long millis) {

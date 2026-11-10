@@ -33,6 +33,7 @@ import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import java.nio.file.attribute.FileTime;
 import org.junit.After;
@@ -317,13 +318,19 @@ public class FileConnectorTest {
         d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subdir/e.yaml")).findAny().orElseThrow();
     assertTrue(doc11.getId().startsWith("normal-"));
 
-    Document doc12 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-1")).findAny().orElseThrow();
+    Document doc12 = documentList.stream().filter(d -> d.has("source") &&
+        d.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv") &&
+        d.getId().equals("csvHandled-" + DigestUtils.md5Hex(d.getString("source")) + "-1")).findAny().orElseThrow();
     assertTrue(doc12.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
-    Document doc13 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-2")).findAny().orElseThrow();
+    Document doc13 = documentList.stream().filter(d -> d.has("source") &&
+        d.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv") &&
+        d.getId().equals("csvHandled-" + DigestUtils.md5Hex(d.getString("source")) + "-2")).findAny().orElseThrow();
     assertTrue(doc13.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
-    Document doc14 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-3")).findAny().orElseThrow();
+    Document doc14 = documentList.stream().filter(d -> d.has("source") &&
+        d.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv") &&
+        d.getId().equals("csvHandled-" + DigestUtils.md5Hex(d.getString("source")) + "-3")).findAny().orElseThrow();
     assertTrue(doc14.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
     Document doc15 = documentList.stream().filter(d -> d.getId().equals("xmlHandled-1001")).findAny().orElseThrow();

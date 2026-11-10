@@ -47,6 +47,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.Test;
 import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
@@ -387,13 +388,13 @@ public class S3StorageClientTest {
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar
     Document doc1 = docs.get(0);
-    assertEquals("default.csv-1", doc1.getId());
+    assertEquals(DigestUtils.md5Hex(doc1.getString("source")) + "-1", doc1.getId());
     assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc1.getString("source"));
     Document doc2 = docs.get(1);
-    assertEquals("default.csv-2", doc2.getId());
+    assertEquals(DigestUtils.md5Hex(doc2.getString("source")) + "-2", doc2.getId());
     assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc2.getString("source"));
     Document doc3 = docs.get(2);
-    assertEquals("default.csv-3", doc3.getId());
+    assertEquals(DigestUtils.md5Hex(doc3.getString("source")) + "-3", doc3.getId());
     assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc3.getString("source"));
     Document doc4 = docs.get(3);
     assertEquals("2", doc4.getId());
@@ -414,13 +415,13 @@ public class S3StorageClientTest {
     assertEquals("s3://bucket/textFiles.tar" + ARCHIVE_FILE_SEPARATOR + "goodbye.txt", doc9.getString(FILE_PATH));
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar.gz
     Document doc10 = docs.get(9);
-    assertEquals("default.csv-1", doc10.getId());
+    assertEquals(DigestUtils.md5Hex(doc10.getString("source")) + "-1", doc10.getId());
     assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc10.getString("source"));
     Document doc11 = docs.get(10);
-    assertEquals("default.csv-2", doc11.getId());
+    assertEquals(DigestUtils.md5Hex(doc11.getString("source")) + "-2", doc11.getId());
     assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc11.getString("source"));
     Document doc12 = docs.get(11);
-    assertEquals("default.csv-3", doc12.getId());
+    assertEquals(DigestUtils.md5Hex(doc12.getString("source")) + "-3", doc12.getId());
     assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc12.getString("source"));
     Document doc13 = docs.get(12);
     assertEquals("2", doc13.getId());
@@ -435,13 +436,13 @@ public class S3StorageClientTest {
     assertEquals("s3://bucket/zippedFolder.zip" + ARCHIVE_FILE_SEPARATOR + "zippedFolder/foo.txt", doc16.getString(FILE_PATH));
     // check documents published from zipped.csv.zip
     Document doc17 = docs.get(16);
-    assertEquals("zipped.csv-1", doc17.getId());
+    assertEquals(DigestUtils.md5Hex(doc17.getString("source")) + "-1", doc17.getId());
     assertEquals("s3://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc17.getString("source"));
     Document doc18 = docs.get(17);
-    assertEquals("zipped.csv-2", doc18.getId());
+    assertEquals(DigestUtils.md5Hex(doc18.getString("source")) + "-2", doc18.getId());
     assertEquals("s3://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc18.getString("source"));
     Document doc19 = docs.get(18);
-    assertEquals("zipped.csv-3", doc19.getId());
+    assertEquals(DigestUtils.md5Hex(doc19.getString("source")) + "-3", doc19.getId());
     assertEquals("s3://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc19.getString("source"));
 
     s3StorageClient.stop();
