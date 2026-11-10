@@ -16,6 +16,7 @@ import com.kmwllc.lucille.api.endpoints.LivenessResource;
 import com.kmwllc.lucille.api.endpoints.LucilleResource;
 import com.kmwllc.lucille.api.endpoints.ReadinessResource;
 import com.kmwllc.lucille.api.endpoints.SystemStatsResource;
+import com.kmwllc.lucille.ui.AdminUiServlet;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.auth.PrincipalImpl;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
@@ -147,6 +148,29 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
     // Register SystemStatsResource
     env.jersey().register(new SystemStatsResource());
     env.jersey().register(new ConfigInfo());
+
+    registerAdminUi(env);
+  }
+
+  /**
+   * Registers the admin UI servlet at {@code /admin/*} when the built UI is on the classpath;
+   * @param env the Dropwizard environment
+   */
+  private void registerAdminUi(Environment env) {
+    boolean uiBundled = Thread.currentThread().getContextClassLoader()
+        .getResource("admin/index.html") != null
+        || APIApplication.class.getClassLoader().getResource("admin/index.html") != null;
+
+    if (!uiBundled) {
+      log.info("Admin UI assets not found on the classpath; /admin will not be served. "
+          + "Add lucille-admin-ui.jar to the classpath to enable it.");
+      return;
+    }
+
+    env.servlets()
+        .addServlet("admin-ui", new AdminUiServlet())
+        .addMapping("/admin", "/admin/*");
+    log.info("Admin UI is being served at /admin (unauthenticated).");
   }
 
   /**
