@@ -10,7 +10,8 @@ The API can be run locally or in a Docker container:
 ### Local Run
 
 1. Replace the placeholders with your config file names or export them as environment variables. See [Configuration](#configuration) for more information
-2. `java -jar target/lucille-api-plugin.jar server ${DROPWIZARD_CONF}`
+2. Auth is enabled in the default `conf/api.yml`, so export a password first: `export LUCILLE_API_PASSWORD=<password>`. See [Setting the password](#setting-the-password)
+3. `java -jar target/lucille-api-plugin.jar server ${DROPWIZARD_CONF}`
 
 ### Admin UI
 
@@ -22,18 +23,18 @@ In a deployment the UI is a separate jar, `lucille-admin-ui.jar`, and the API se
 
 1. Build both jars with `mvn clean install -Pshaded-plugin-jars -Padmin-ui`, then create the docker image: `docker build -t lucille-api .` The image includes the admin UI.
 2. Replace the placeholders with your config file names or export them as environment variables. See [Configuration](#configuration) for more information
-3. Run the image: `docker run --env DROPWIZARD_CONF=${DROPWIZARD_CONF} -p 8080:8080 lucille-api`
+3. Run the image, passing the auth password (required while auth is enabled): `docker run --env DROPWIZARD_CONF=${DROPWIZARD_CONF} --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 lucille-api`
 
 ### Upload Lucille Config
 1. This should be a HOCON file
-2. `curl -X POST http://localhost:8080/v1/config -H "Content-Type: application/hocon" -d @${LUCILLE_CONF}`
+2. `curl -u user:${LUCILLE_API_PASSWORD} -X POST http://localhost:8080/v1/config -H "Content-Type: application/hocon" -d @${LUCILLE_CONF}` (drop `-u` if auth is disabled)
 3. This will respond with a configId for your config
 
 **Note:** Uploaded configs cannot resolve / use environment variables. 
 
 ### Run Lucille with the Config
-1. `curl -X POST http://localhost:8080/v1/run -H "Content-Type: application/json" -d '{"configId":"CONFIG_ID"}'`
-2. You can do `curl http://localhost:8080/v1/run` to check the status of your runs
+1. `curl -u user:${LUCILLE_API_PASSWORD} -X POST http://localhost:8080/v1/run -H "Content-Type: application/json" -d '{"configId":"CONFIG_ID"}'`
+2. You can do `curl -u user:${LUCILLE_API_PASSWORD} http://localhost:8080/v1/run` to check the status of your runs
 
 ## Available Endpoints
 
@@ -60,7 +61,7 @@ the table requires Basic Auth credentials, except the liveness and readiness pro
 If auth is enabled, add `-u <anyuser>:<password>` (the username is not validated, only the password). If HTTPS is enabled with a self-signed cert, also add `-k`:
 
 ```bash
-curl -k -u user:password https://localhost:8443/v1/run
+curl -k -u user:${LUCILLE_API_PASSWORD} https://localhost:8443/v1/run
 ```
 
 ## Configuration
@@ -103,24 +104,62 @@ Details on how can be found [here](https://www.dropwizard.io/en/stable/manual/co
 
 ### Auth Configuration
 
-Authentication is configured under the `auth` block. When `enabled: true`, every endpoint in the table above (except the Dropwizard admin port, which is separate) requires Basic Auth credentials.
+Authentication is configured under the `auth` block. When `enabled: true`, every endpoint in the table above (except the Dropwizard admin port, which is separate) requires authentication.
+
+When enabled, a request may authenticate with **either** of two schemes, interchangeably:
+
+- **HTTP Basic** — send `Authorization: Basic <base64(user:password)>`. Intended for programmatic/`curl` access. A client using Basic never needs a token.
+- **Bearer (JWT)** — obtain a short-lived token from `POST /v1/login` (with the password) and send it as `Authorization: Bearer <token>`. This is what the browser-based Admin UI uses for its login flow.
+
+In other words, `basicAndBearer` does not require a caller to use Bearer — `curl` and other clients keep using Basic exactly as before. Bearer is simply *also* accepted so the Admin UI has a usable login.
 
 | Property |            Description                |
 |----------|-------------------------------------- |
-| type     | required when `enabled` is `true`, currently only `basicAuth` is supported |
+| type     | required when `enabled` is `true`. Use `basicAndBearer` to accept both schemes. `basicAuth` is kept as a backward-compatible alias and behaves identically. |
 | enabled  | `true` to require auth, `false` to disable |
-| password | the password Basic Auth requests must match |
+| password | the password that Basic requests and the login endpoint must match. Supplied at runtime via the `LUCILLE_API_PASSWORD` environment variable (see below) — not hard-coded in the committed config. |
 
-Note: Only the password is validated, so any non-empty username works.
+Note: Only the password is validated, so any non-empty username works for Basic.
 
-#### Example
+#### Setting the password
+
+The shipped `conf/api.yml` has auth **enabled** by default, and reads the password from an environment variable so no secret is committed:
 
 ```yaml
 auth:
-  type: basicAuth
+  type: "basicAndBearer"
   enabled: true
-  password: KEYSTORE_PASSWORD
+  password: ${LUCILLE_API_PASSWORD:-}
 ```
+
+The `${LUCILLE_API_PASSWORD:-}` syntax is resolved at startup (Dropwizard's `SubstitutingSourceProvider`, wired in `APIApplication.initialize()`). If the variable is unset it resolves to an empty string.
+
+Because auth is enabled, **`LUCILLE_API_PASSWORD` must be set to a non-blank value or the API will refuse to start** with
+`auth.password must be set and not blank when auth.enabled is true.`
+
+**Local run:** export the password in your shell before starting the server:
+
+```bash
+export LUCILLE_API_PASSWORD=password
+java -Dconfig.file=conf/simple-config.conf -jar target/lucille-api-plugin.jar server conf/api.yml
+```
+
+**Docker:** pass the password to the container:
+
+```bash
+docker run --env LUCILLE_API_PASSWORD=<secret> --env DROPWIZARD_CONF=conf/api.yml -p 8080:8080 lucille-api
+```
+
+**Disabling auth:** to run without authentication (for example, local experimentation), set `enabled: false` in your config. You can
+mount your own config and point `DROPWIZARD_CONF` at it; it can still use `${LUCILLE_API_PASSWORD}` or an injected value:
+
+```bash
+docker run --env LUCILLE_API_PASSWORD=<secret> \
+  --env DROPWIZARD_CONF=/mnt/conf/api.yml \
+  -v /host/conf:/mnt/conf -p 8080:8080 lucille-api
+```
+
+Do not commit a real password to `api.yml`.
 
 ### Local HTTPS Configuration
 
@@ -158,10 +197,11 @@ The `-ext san=...` is necessary, or else Jetty's SNI host check rejects requests
       disableSniHostCheck: true
 ```
 
-Hit endpoints with `-k` (skip cert verification, since the cert isn't in any trust store) and `-u <anyuser>:<password>` if auth is on:
+`conf/https_api.yml` reads the auth password from `LUCILLE_API_PASSWORD`, so export it before starting the server (the API will not start without it). Hit endpoints with `-k` (skip cert verification, since the cert isn't in any trust store) and `-u <anyuser>:<password>`:
 
 ```bash
-curl -k -u user:password https://localhost:8443/v1/config -H "Content-Type: application/json" -d @${LUCILLE_CONF}
+export LUCILLE_API_PASSWORD=<password>
+curl -k -u user:${LUCILLE_API_PASSWORD} https://localhost:8443/v1/config -H "Content-Type: application/json" -d @${LUCILLE_CONF}
 ```
 
 #### Production HTTPS
