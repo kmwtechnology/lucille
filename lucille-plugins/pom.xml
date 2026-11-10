@@ -29,6 +29,7 @@
     <module>lucille-jlama</module>
     <module>lucille-entity-extraction</module>
     <module>lucille-video</module>
+    <module>lucille-salesforce</module>
   </modules>
 
   <properties>

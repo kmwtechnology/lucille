@@ -30,7 +30,7 @@ These parameters are available on all Connectors via `AbstractConnector`:
 | `class` | String | Yes | Fully qualified class name of the Connector implementation. Not enforced by the Spec, but the Runner cannot load the connector without it. |
 | `name` | String | No | Connector name for logging and run summaries. Two connectors with the same name fail at startup. Default: `connector_<N>`, where N is the connector's 1-based position in `connectors`. |
 | `pipeline` | String | No | Name of the pipeline to process this connector's documents. It must match the `name` of a pipeline in `pipelines`, or pre-run validation fails. If omitted, no Workers, Indexer or Publisher are started, and the connector runs with no Publisher, so a connector that publishes documents fails. Only use this for connectors that do their work outside of publishing (for example `SolrConnector` actions or `SleepConnector`). See [Setup-Only Connectors]({{< relref "docs/ingest-design/control-flow#setup-only-connectors-no-pipeline" >}}) for this pattern. |
-| `docIdPrefix` | String | No | String prepended to Document IDs to prevent collisions across connectors. Applied only by connectors that build IDs with it: the Database, Kafka (default deserializer), Solr, Sequence and File connectors, and the deprecated CSV, JSON and XML connectors. The RSS and Parquet connectors ignore it. Default: no prefix. |
+| `docIdPrefix` | String | No | String prepended to Document IDs to prevent collisions across connectors. Applied only by connectors that build IDs with it: the Database, Kafka (default deserializer), Solr, Salesforce, Sequence and File connectors, and the deprecated CSV, JSON and XML connectors. The RSS and Parquet connectors ignore it. Default: no prefix. |
 | `collapse` | Boolean | No | If `true`, the Publisher merges consecutive published documents that share the same ID into one document before sending it for processing (see [Collapsing](#collapsing)). Default: `false`. |
 
 ### Collapsing
@@ -66,6 +66,7 @@ connectors: [
 | Connector | Description |
 |---|---|
 | [Parquet Connector]({{< relref "docs/ingest-design/connectors/parquet_connector" >}}) | Reads Apache Parquet files and publishes each row as a Document. Requires `lucille-parquet` dependency. |
+| [Salesforce Connector]({{< relref "docs/ingest-design/connectors/salesforce_connector" >}}) | Crawls Salesforce standard and custom objects (Account, Contact, Opportunity, Lead, custom objects, and their fields). Requires `lucille-salesforce` dependency. |
 | [Solr Connector]({{< relref "docs/ingest-design/connectors/solr_connector" >}}) | Reads documents from a Solr collection using cursor-based pagination. Supports pre/post update actions. Requires `lucille-solr` dependency. |
 
 File Handler configuration (CSV, JSON, XML, custom) is documented on the [File Connector]({{< relref "docs/ingest-design/connectors/file_connector" >}}) page.
