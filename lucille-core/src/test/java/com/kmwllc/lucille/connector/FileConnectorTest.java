@@ -868,6 +868,29 @@ public class FileConnectorTest {
     assertTrue(docs.stream().map(doc -> doc.getString(FILE_PATH)).anyMatch(path -> path != null && path.endsWith("backup.ZIP!inner.txt")));
   }
 
+  @Test
+  public void testSameNamedCsvFilesInDifferentFoldersGetUniqueIds() throws Exception {
+    File root = tempFolder.newFolder("sameName");
+    File a = new File(root, "a");
+    File b = new File(root, "b");
+    assertTrue(a.mkdir() && b.mkdir());
+    Files.writeString(new File(a, "data.csv").toPath(), "name\nx\ny\n");
+    Files.writeString(new File(b, "data.csv").toPath(), "name\nx\ny\n");
+
+    Config config = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of(root.getPath()),
+        "fileHandlers", Map.of("csv", Map.of())));
+
+    TestMessenger messenger = new TestMessenger();
+    Connector conn = new FileConnector(config);
+    conn.execute(new PublisherImpl(config, messenger, "run", "pipeline1"));
+    conn.close();
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(4, docs.size());
+    assertEquals(4, docs.stream().map(Document::getId).distinct().count());
+  }
+
   // A move folder the traversal would visit is rejected at startup, since moved files would be published again.
   @Test
   public void testMoveTargetInsideTraversedPathRejected() throws Exception {
