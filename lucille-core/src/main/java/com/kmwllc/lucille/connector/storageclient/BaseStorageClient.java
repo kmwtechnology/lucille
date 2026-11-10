@@ -968,10 +968,13 @@ public abstract class BaseStorageClient implements StorageClient {
 
       // handle file types using fileHandler if needed to the end
       if (params.supportsFileExtension(fileExtension)) {
-        // Get a stream for the file content, so we don't have to load it all at once.
-        InputStream contentStream = fileReference.getContentStream(params);
-        // get the right FileHandler and publish based on content
-        publishUsingFileHandler(publisher, fileExtension, params, contentStream, fullPath);
+        // Get a stream for the file content, so we don't have to load it all at once. It is closed before the file is
+        // moved, and when the handler throws, which includes being cut off by maxDocuments: an open stream from a cloud
+        // provider holds an HTTP connection.
+        try (InputStream contentStream = fileReference.getContentStream(params)) {
+          // get the right FileHandler and publish based on content
+          publishUsingFileHandler(publisher, fileExtension, params, contentStream, fullPath);
+        }
 
         if (stateMgr != null) {
           stateMgr.successfullyPublishedFile(fullPath.toString());

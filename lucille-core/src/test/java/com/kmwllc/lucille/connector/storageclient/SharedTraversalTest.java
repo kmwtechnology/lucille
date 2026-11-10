@@ -15,6 +15,7 @@ import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherException;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.core.filehandler.FileHandler;
+import com.kmwllc.lucille.core.filehandler.FileHandlerException;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -716,6 +717,87 @@ public class SharedTraversalTest {
         throw new IllegalStateException(e);
       }
     }
+  }
+
+  /** A FileHandler that publishes one document per line of its file, and never closes the stream it's given. */
+  public static class LinePerDocumentFileHandler implements FileHandler {
+
+    public LinePerDocumentFileHandler(Config config) { }
+
+    @Override
+    public Iterator<Document> processFile(InputStream inputStream, String pathStr) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException {
+      try {
+        for (String line : new String(inputStream.readNBytes(1000), StandardCharsets.UTF_8).split("\n")) {
+          if (line.equals("fail")) {
+            throw new FileHandlerException("Failed on purpose.");
+          }
+          publisher.publish(Document.create(pathStr + "-" + line));
+        }
+      } catch (IOException | PublisherException e) {
+        throw new FileHandlerException("Error handling " + pathStr, e);
+      }
+    }
+  }
+
+  // A tree client whose content streams record whether they were closed.
+  private static class ClosingTrackedClient extends TreeStorageClient {
+
+    final Map<String, AtomicBoolean> closed = new ConcurrentHashMap<>();
+
+    ClosingTrackedClient(List<String> keys) {
+      super(clientConfig(keys));
+    }
+
+    @Override
+    protected String contentFor(String key) {
+      return key.startsWith("bad") ? "1\nfail\n3" : "1\n2\n3\n4\n5";
+    }
+
+    @Override
+    protected InputStream getFileContentStreamFromStorage(URI uri) {
+      AtomicBoolean wasClosed = new AtomicBoolean();
+      closed.put(keyPrefix(uri), wasClosed);
+      return new java.io.FilterInputStream(super.getFileContentStreamFromStorage(uri)) {
+        @Override
+        public void close() throws IOException {
+          wasClosed.set(true);
+          super.close();
+        }
+      };
+    }
+  }
+
+  private static TraversalParams lineHandlerParams(Map<String, Object> traversalSettings) {
+    return traversal(ROOT, traversalSettings, Map.of("fileHandlers", Map.of("lines", Map.of("class", LinePerDocumentFileHandler.class.getName()))));
+  }
+
+  // On S3 and Azure, an open content stream holds an HTTP connection, so one left open by a failing handler leaks it.
+  @Test
+  public void testAFileHandlerStreamIsClosedWhenTheHandlerFails() throws Exception {
+    ClosingTrackedClient client = new ClosingTrackedClient(List.of("bad.lines", "good.lines"));
+
+    List<String> published = traverse(client, lineHandlerParams(Map.of()));
+
+    assertEquals(6, published.size());
+    assertEquals(Set.of("bad.lines", "good.lines"), client.closed.keySet());
+    assertTrue("the failed file's stream was left open", client.closed.get("bad.lines").get());
+    assertTrue(client.closed.get("good.lines").get());
+  }
+
+  @Test
+  public void testAFileHandlerStreamIsClosedWhenMaxDocumentsCutsItOff() throws Exception {
+    ClosingTrackedClient client = new ClosingTrackedClient(List.of("first.lines", "second.lines"));
+
+    List<String> published = traverse(client, lineHandlerParams(Map.of("maxDocuments", 7)));
+
+    assertEquals(7, published.size());
+    assertEquals(Set.of("first.lines", "second.lines"), client.closed.keySet());
+    assertTrue("the cut-off file's stream was left open", client.closed.get("second.lines").get());
   }
 
   @Test
