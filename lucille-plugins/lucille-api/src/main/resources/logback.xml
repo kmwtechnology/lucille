@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logging config for the Lucille API. Logback is the API's SLF4J backend, and Dropwizard's own logging
+  setup is disabled (APIApplication.bootstrapLogging and "logging: type: external" in conf/api.yml), so
+  without this file Logback falls back to its defaults and logs everything at DEBUG.
+
+  Override at runtime with -Dlogback.configurationFile=/path/to/logback.xml
+-->
+<configuration>
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+  </root>
+</configuration>
