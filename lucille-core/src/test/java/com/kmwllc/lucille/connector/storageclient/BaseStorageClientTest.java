@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.PublisherImpl;
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -97,12 +98,84 @@ public class BaseStorageClientTest {
     assertEquals(List.of("list://root/a.txt"), traverse(client, config, state));
   }
 
+  @Test
+  public void testMessengerFailureStopsTraversal() {
+    ListStorageClient client = new ListStorageClient(List.of(
+        new TestFileReference("a.txt"), new TestFileReference("b.txt"), new TestFileReference("c.txt")));
+    Config config = ConfigFactory.parseMap(Map.of("fileOptions", Map.of("moveToErrorFolder", "list://root/errors/")));
+    // how KafkaPublisherMessenger reports a send that failed after its retries: on every later send
+    MessengerException failure = new MessengerException("Kafka send failed", new RuntimeException("buffer exhausted"));
+    FailingMessenger messenger = new FailingMessenger(path -> !path.endsWith("a.txt"), failure);
+
+    RuntimeException e = assertThrows(RuntimeException.class, () -> traverse(client, config, null, messenger));
+
+    assertTrue(e.getMessage(), e.getMessage().contains("list://root/b.txt"));
+    assertTrue("expected the messenger's failure in the cause chain of " + e, hasCause(e, failure));
+    // c.txt is never tried, and b.txt isn't moved to the error folder, since it isn't the file that failed
+    assertEquals(List.of("list://root/a.txt", "list://root/b.txt"), messenger.attempted);
+    assertEquals(List.of("list://root/a.txt"), paths(messenger));
+    assertEquals(List.of(), client.moves);
+  }
+
+  @Test
+  public void testDocumentSpecificMessengerFailureSkipsOnlyThatFile() throws Exception {
+    ListStorageClient client = new ListStorageClient(List.of(
+        new TestFileReference("a.txt"), new TestFileReference("b.txt"), new TestFileReference("c.txt")));
+    Config config = ConfigFactory.parseMap(Map.of("fileOptions", Map.of("moveToErrorFolder", "list://root/errors/")));
+    FailingMessenger messenger = new FailingMessenger(path -> path.endsWith("b.txt"),
+        new MessengerException("b.txt is too large", new RuntimeException("record too large"), true));
+
+    assertEquals(List.of("list://root/a.txt", "list://root/c.txt"), traverse(client, config, null, messenger));
+    assertEquals(List.of("list://root/b.txt -> list://root/errors/"), client.moves);
+  }
+
+  private static boolean hasCause(Throwable e, Throwable cause) {
+    for (Throwable t = e; t != null; t = t.getCause()) {
+      if (t == cause) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** A TestMessenger whose sendForProcessing throws the given exception for the matching file paths. */
+  private static class FailingMessenger extends TestMessenger {
+    private final java.util.function.Predicate<String> failsFor;
+    private final MessengerException failure;
+    private final List<String> attempted = new ArrayList<>();
+
+    FailingMessenger(java.util.function.Predicate<String> failsFor, MessengerException failure) {
+      this.failsFor = failsFor;
+      this.failure = failure;
+    }
+
+    @Override
+    public void sendForProcessing(Document document) throws MessengerException {
+      String path = document.getString(StorageClientFields.FILE_PATH);
+      attempted.add(path);
+      if (failsFor.test(path)) {
+        throw failure;
+      }
+      super.sendForProcessing(document);
+    }
+  }
+
   private static List<String> traverse(ListStorageClient client, Config config) throws Exception {
     return traverse(client, config, null);
   }
 
   private static List<String> traverse(ListStorageClient client, Config config, FileStateTracker state) throws Exception {
-    TestMessenger messenger = new TestMessenger();
+    return traverse(client, config, state, new TestMessenger());
+  }
+
+  private static List<String> paths(TestMessenger messenger) {
+    return messenger.getDocsSentForProcessing().stream()
+        .map(doc -> doc.getString(StorageClientFields.FILE_PATH))
+        .collect(Collectors.toList());
+  }
+
+  private static List<String> traverse(ListStorageClient client, Config config, FileStateTracker state,
+      TestMessenger messenger) throws Exception {
     client.start();
     try {
       client.traverse(new PublisherImpl(ConfigFactory.empty(), messenger, "run", "pipeline"),
@@ -110,9 +183,7 @@ public class BaseStorageClientTest {
     } finally {
       client.stop();
     }
-    return messenger.getDocsSentForProcessing().stream()
-        .map(doc -> doc.getString(StorageClientFields.FILE_PATH))
-        .collect(Collectors.toList());
+    return paths(messenger);
   }
 
   private static class ListStorageClient extends BaseStorageClient {

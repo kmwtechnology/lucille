@@ -15,6 +15,7 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.filehandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.FileUtils.ContentTooLargeException;
 import com.typesafe.config.Config;
@@ -353,6 +354,13 @@ public abstract class BaseStorageClient implements StorageClient {
     } catch (StatePathTooLongException e) {
       throw e;
     } catch (Exception e) {
+      MessengerException messengerFailure = messengerFailureIn(e);
+      if (messengerFailure != null && !messengerFailure.isDocumentSpecific()) {
+        // the messenger can't send any more documents, so every later file would be skipped the same way. Stop the
+        // traversal, and leave this file where it is: it isn't the file that failed.
+        throw new MessengerFailedException("Unable to publish document '" + fullPath + "'. The messenger can no "
+            + "longer send documents, so the traversal is stopped.", e);
+      }
       try {
         errorProcessingFile(fullPath, params);
       } catch (IOException ex) {
@@ -577,6 +585,25 @@ public abstract class BaseStorageClient implements StorageClient {
     } catch (UnsupportedOperationException e) {
       throw new MoveNotSupportedException(getClass().getName() + " does not support moving files, which fileOptions."
           + option + " requires.", e);
+    }
+  }
+
+  private static MessengerException messengerFailureIn(Throwable e) {
+    for (Throwable t = e; t != null; t = t.getCause()) {
+      if (t instanceof MessengerException messengerException) {
+        return messengerException;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Thrown when publishing a file fails with a {@link MessengerException} that is not specific to the document, such
+   * as a Kafka send that failed after its retries. Stops the traversal.
+   */
+  private static class MessengerFailedException extends RuntimeException {
+    MessengerFailedException(String message, Throwable cause) {
+      super(message, cause);
     }
   }
 
