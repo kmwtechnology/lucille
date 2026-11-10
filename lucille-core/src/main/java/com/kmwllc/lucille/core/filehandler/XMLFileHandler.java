@@ -100,8 +100,13 @@ public class XMLFileHandler extends BaseFileHandler {
   }
 
   @Override
+  public boolean supportsProcessFile() {
+    return false;
+  }
+
+  @Override
   public Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException {
-    throw new FileHandlerException("Unsupported Operation");
+    throw new FileHandlerException("XMLFileHandler does not support processFile, only processFileAndPublish. (" + pathStr + ")");
   }
 
   @Override

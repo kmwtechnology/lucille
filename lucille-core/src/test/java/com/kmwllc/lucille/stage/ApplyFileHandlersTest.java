@@ -3,6 +3,7 @@ package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.connector.storageclient.GoogleStorageClient;
@@ -252,6 +253,12 @@ public class ApplyFileHandlersTest {
     // attempts to use a custom file handler that is not present in the classpath
     // IllegalArgumentException is thrown in the FileHandler.create method
     assertThrows(IllegalArgumentException.class, () -> factory.get("ApplyFileHandlersTest/missingCustom.conf"));
+  }
+
+  @Test
+  public void testAHandlerThatCanOnlyPublishIsRejectedAtStart() {
+    StageException e = assertThrows(StageException.class, () -> factory.get("ApplyFileHandlersTest/xml.conf"));
+    assertTrue(e.getMessage().contains("\"xml\""));
   }
 
   @Test

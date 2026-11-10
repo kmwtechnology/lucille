@@ -15,8 +15,27 @@ import java.util.Map;
 /**
  * Each implementation of the FileHandler handles a specific file type and is able to process the file and return an Iterator
  * of documents. It can also publish straight to the Lucille pipeline if given a Publisher.
+ *
+ * <p><b>Threads:</b> a FileHandler need not be thread-safe, and Lucille's handlers are not (XMLFileHandler, for one, keeps
+ * its parser in fields). Lucille creates one instance for each thread that uses it, so a handler is only ever called
+ * from one thread at a time. A caller sharing handlers across threads must do the same.
+ *
+ * <p><b>Iterator or publish only:</b> a handler that can only publish, because its format isn't read through an Iterator,
+ * returns false from {@link #supportsProcessFile()}, so that callers needing an Iterator can reject it when they start.
  */
 public interface FileHandler {
+
+  /**
+   * Whether this handler supports {@link #processFile}. A handler that returns false supports only
+   * {@link #processFileAndPublish}, which it must override, and throws from {@link #processFile}. Callers that need an
+   * Iterator, such as the ApplyFileHandlers stage, check this when they start, so a misconfiguration is reported then,
+   * instead of when the first file arrives.
+   *
+   * @return true, unless this handler can only publish.
+   */
+  default boolean supportsProcessFile() {
+    return true;
+  }
 
   /**
    * Processes a file given an InputStream of its contents and a representation path String to it, and returns an iterator

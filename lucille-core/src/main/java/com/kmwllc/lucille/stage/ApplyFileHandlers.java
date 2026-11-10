@@ -34,7 +34,8 @@ import org.apache.commons.io.FilenameUtils;
  *     </ul>
  *     <p> <b>Note:</b> An Exception is thrown if your <code>fileHandlers</code> Config is empty.
  *     <p> <b>Note:</b> See {@link FileHandler#createFromConfig(Config)} for notes on JSON and JSONL configuration.
- *     <p> <b>Note:</b> Lucille's XMLFileHandler is not supported.
+ *     <p> <b>Note:</b> Lucille's XMLFileHandler is not supported, nor is any handler whose <code>supportsProcessFile()</code>
+ *     returns false. The stage throws when it starts if one is configured.
  *   </li>
  *   <li>filePathField (String, Optional) : The field in your documents which will has the file path you want to apply handlers to.
  *   No processing will occur on documents without this field, even if they have the fileContentField present. Defaults to "file_path".</li>
@@ -91,6 +92,14 @@ public class ApplyFileHandlers extends Stage {
 
     if (fileHandlers.isEmpty()) {
       throw new StageException("No file handlers could be created from the given fileHandlers.");
+    }
+
+    // this stage returns the handler's Iterator, so a handler that can only publish would fail on every file
+    for (Map.Entry<String, FileHandler> entry : fileHandlers.entrySet()) {
+      if (!entry.getValue().supportsProcessFile()) {
+        throw new StageException("The FileHandler for \"" + entry.getKey() + "\" (" + entry.getValue().getClass().getName()
+            + ") can only publish, and does not support processFile, which ApplyFileHandlers needs.");
+      }
     }
 
     try {
