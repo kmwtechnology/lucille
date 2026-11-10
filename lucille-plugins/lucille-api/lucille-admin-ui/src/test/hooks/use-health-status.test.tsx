@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, it, expect, vi } from "vitest"
 import { act, renderHook, waitFor } from "@testing-library/react"
 import { HealthProvider } from "@/hooks/health-provider"
 import { useHealth, useHealthStatus } from "@/hooks/use-health-status"
-import { HEALTH_POLL_INTERVAL_MS } from "@/lib/constants"
-import { mockFetch, mockFetchReject } from "@/test/helpers/fetch-mock"
+import { HEALTH_POLL_INTERVAL_MS, HEALTH_PROBE_TIMEOUT_MS } from "@/lib/constants"
+import { mockFetch, mockFetchHang, mockFetchReject } from "@/test/helpers/fetch-mock"
 
 function wrapper({ children }: { children: ReactNode }) {
   return <HealthProvider>{children}</HealthProvider>
@@ -60,6 +60,7 @@ describe("useHealthStatus", () => {
     })
 
     const { result } = renderHook(() => useHealthStatus(), { wrapper })
+    await advanceOnePoll()
 
     await waitFor(() => expect(result.current).toBe("unavailable"))
   })
@@ -69,8 +70,40 @@ describe("useHealthStatus", () => {
     mockFetchReject()
 
     const { result } = renderHook(() => useHealthStatus(), { wrapper })
+    await advanceOnePoll()
 
     await waitFor(() => expect(result.current).toBe("unavailable"))
+  })
+
+  // A hung API (accepts connections, never answers) is caught by the probe timeout.
+  it("reports unavailable when the API hangs", async () => {
+    const fetchMock = mockFetchHang()
+
+    const { result } = renderHook(() => useHealthStatus(), { wrapper })
+
+    // First probe times out (one failure), the next poll's probe times out too.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(HEALTH_POLL_INTERVAL_MS + HEALTH_PROBE_TIMEOUT_MS)
+    })
+
+    expect(result.current).toBe("unavailable")
+    // Each poll started a fresh probe rather than waiting forever on the first one.
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2)
+  })
+
+  // A slow but responsive API (answers before the deadline) is not treated as hung.
+  it("does not fail a probe that answers before the timeout", async () => {
+    vi.stubGlobal("fetch", async () => {
+      await new Promise((resolve) => setTimeout(resolve, HEALTH_PROBE_TIMEOUT_MS - 500))
+      return new Response("", { status: 200 })
+    })
+
+    const { result } = renderHook(() => useHealthStatus(), { wrapper })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2 * (HEALTH_PROBE_TIMEOUT_MS - 500))
+    })
+
+    expect(result.current).toBe("healthy")
   })
 
   // A failed request elsewhere triggers an immediate probe instead of waiting for the next poll.
@@ -132,6 +165,7 @@ describe("useHealthStatus", () => {
   it("recovers to healthy when the API comes back", async () => {
     mockFetchReject()
     const { result } = renderHook(() => useHealthStatus(), { wrapper })
+    await advanceOnePoll()
     await waitFor(() => expect(result.current).toBe("unavailable"))
 
     mockFetch({

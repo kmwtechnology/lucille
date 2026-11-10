@@ -47,3 +47,18 @@ export function mockFetchReject(message = "network down") {
   vi.stubGlobal("fetch", fn)
   return fn
 }
+
+/**
+ * Stub global `fetch` so every request hangs, simulating an API that accepts connections but never
+ * answers. Requests only settle when their AbortSignal fires (rejecting with an AbortError).
+ */
+export function mockFetchHang() {
+  const fn = vi.fn(
+    (_input: RequestInfo | URL, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")))
+      }),
+  )
+  vi.stubGlobal("fetch", fn)
+  return fn
+}

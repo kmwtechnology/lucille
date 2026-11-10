@@ -6,9 +6,14 @@ import { MemoryRouter, Route, Routes } from "react-router-dom"
 import Layout from "@/components/layout/layout"
 import Dashboard from "@/pages/dashboard/dashboard"
 import { HealthProvider } from "@/hooks/health-provider"
-import { DOCS_URL, SYSTEM_STATS_POLL_INTERVAL_MS } from "@/lib/constants"
+import {
+  DOCS_URL,
+  HEALTH_POLL_INTERVAL_MS,
+  HEALTH_PROBE_TIMEOUT_MS,
+  SYSTEM_STATS_POLL_INTERVAL_MS,
+} from "@/lib/constants"
 import type { SystemStats } from "@/types/api"
-import { mockFetch, mockFetchReject } from "@/test/helpers/fetch-mock"
+import { mockFetch, mockFetchHang, mockFetchReject } from "@/test/helpers/fetch-mock"
 
 // Sidebar reads auth state; the Layout gate doesn't care, so stub it as "no auth required".
 vi.mock("@/lib/auth-context", () => ({
@@ -60,6 +65,9 @@ describe("Layout", () => {
     mockFetchReject()
 
     renderLayout()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(HEALTH_POLL_INTERVAL_MS)
+    })
 
     expect(await screen.findByText("Can't reach the Lucille API")).toBeInTheDocument()
     expect(screen.queryByText("page content")).not.toBeInTheDocument()
@@ -94,5 +102,27 @@ describe("Layout", () => {
     expect(await screen.findByText("Can't reach the Lucille API")).toBeInTheDocument()
     observer.disconnect()
     expect(sawCardError).toBe(false)
+  })
+
+  // The API hangs (accepts connections, never answers) while the dashboard is open. Widget
+  // fetches never settle, so only the probe timeout can detect it.
+  it("switches to the error screen when the API hangs mid-session", async () => {
+    mockFetch({
+      "/v1/livez": { status: 200 },
+      "/v1/readyz": { status: 200 },
+      "/v1/systemstats": { json: stats },
+      "/v1/config": { json: {} },
+      "/v1/run": { json: [] },
+    })
+    const { container } = renderLayout(<Dashboard />)
+    expect(await screen.findByText("60%")).toBeInTheDocument()
+
+    mockFetchHang()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2 * HEALTH_POLL_INTERVAL_MS + HEALTH_PROBE_TIMEOUT_MS)
+    })
+
+    expect(screen.getByText("Can't reach the Lucille API")).toBeInTheDocument()
+    expect(container.textContent).not.toContain("An error has occurred")
   })
 })
