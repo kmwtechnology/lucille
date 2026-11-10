@@ -54,6 +54,22 @@ public class CSVFileHandlerTest {
   }
 
   @Test
+  public void testFilePathFieldDefaultsToFilePath() throws Exception {
+    // the same field the storage clients and ApplyFileHandlers use for the path
+    FileHandler handler = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of())));
+    Iterator<Document> docs = handler.processFile(new ByteArrayInputStream("id\n1\n".getBytes(StandardCharsets.UTF_8)), "dir/test.csv");
+    Document doc = docs.next();
+
+    assertEquals("dir/test.csv", doc.getString("file_path"));
+    assertFalse(doc.has("source"));
+
+    FileHandler custom = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("filePathField", "source"))));
+    docs = custom.processFile(new ByteArrayInputStream("id\n1\n".getBytes(StandardCharsets.UTF_8)), "dir/test.csv");
+
+    assertEquals("dir/test.csv", docs.next().getString("source"));
+  }
+
+  @Test
   public void testBlankIdRowsAtTheEndDoNotCauseAnError() throws Exception {
     FileHandler handler = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("idField", "id"))));
 

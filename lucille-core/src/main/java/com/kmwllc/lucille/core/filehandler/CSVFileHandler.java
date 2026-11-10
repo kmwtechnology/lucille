@@ -77,7 +77,8 @@ public class CSVFileHandler extends BaseFileHandler {
 
     this.lineNumField = ConfigUtils.getStringOrDefault(config, "lineNumberField", "csvLineNumber");
     this.filenameField = ConfigUtils.getStringOrDefault(config, "filenameField", "filename");
-    this.filePathField = ConfigUtils.getStringOrDefault(config, "filePathField", "source");
+    // the same field the storage clients and ApplyFileHandlers use for the path
+    this.filePathField = ConfigUtils.getStringOrDefault(config, "filePathField", "file_path");
     String idField = ConfigUtils.getStringOrDefault(config, "idField", null);
     // Either specify the idField, or idFields
     if (idField != null) {

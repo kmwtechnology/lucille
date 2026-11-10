@@ -259,20 +259,20 @@ public class LocalStorageClientTest {
 
     docs.stream().filter(d -> d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("hello.zip!hello")).findAny().orElseThrow();
 
-    Document doc = docs.stream().filter(d -> d.getId().equals("default.csv-1") && d.has("source") &&
-        d.getString("source").endsWith("jsonlCsvAndFolderWithFooTxt.tar!default.csv")).findAny().orElseThrow();
+    Document doc = docs.stream().filter(d -> d.getId().equals("default.csv-1") && d.has("file_path") &&
+        d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar!default.csv")).findAny().orElseThrow();
     assertEquals("a", doc.getString("field1"));
     assertEquals("b", doc.getString("field2"));
     assertEquals("c", doc.getString("field3"));
 
-    doc = docs.stream().filter(d -> d.getId().equals("default.csv-2") && d.has("source") &&
-        d.getString("source").endsWith("jsonlCsvAndFolderWithFooTxt.tar!default.csv")).findAny().orElseThrow();
+    doc = docs.stream().filter(d -> d.getId().equals("default.csv-2") && d.has("file_path") &&
+        d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar!default.csv")).findAny().orElseThrow();
     assertEquals("d", doc.getString("field1"));
     assertEquals("e,f", doc.getString("field2"));
     assertEquals("g", doc.getString("field3"));
 
-    doc = docs.stream().filter(d -> d.getId().equals("default.csv-3") && d.has("source") &&
-        d.getString("source").endsWith("jsonlCsvAndFolderWithFooTxt.tar!default.csv")).findAny().orElseThrow();
+    doc = docs.stream().filter(d -> d.getId().equals("default.csv-3") && d.has("file_path") &&
+        d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar!default.csv")).findAny().orElseThrow();
     assertEquals("x", doc.getString("field1"));
     assertEquals("y", doc.getString("field2"));
     assertEquals("z", doc.getString("field3"));
@@ -290,20 +290,20 @@ public class LocalStorageClientTest {
     docs.stream().filter(d ->
         d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("jsonlCsvAndFolderWithFooTxt.tar!FolderWithFooTxt/foo.txt")).findAny().orElseThrow();
 
-    doc = docs.stream().filter(d -> d.getId().equals("default.csv-1") && d.has("source") &&
-        d.getString("source").endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!default.csv")).findAny().orElseThrow();
+    doc = docs.stream().filter(d -> d.getId().equals("default.csv-1") && d.has("file_path") &&
+        d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!default.csv")).findAny().orElseThrow();
     assertEquals("a", doc.getString("field1"));
     assertEquals("b", doc.getString("field2"));
     assertEquals("c", doc.getString("field3"));
 
-    doc = docs.stream().filter(d -> d.getId().equals("default.csv-2") && d.has("source") &&
-        d.getString("source").endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!default.csv")).findAny().orElseThrow();
+    doc = docs.stream().filter(d -> d.getId().equals("default.csv-2") && d.has("file_path") &&
+        d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!default.csv")).findAny().orElseThrow();
     assertEquals("d", doc.getString("field1"));
     assertEquals("e,f", doc.getString("field2"));
     assertEquals("g", doc.getString("field3"));
 
-    doc = docs.stream().filter(d -> d.getId().equals("default.csv-3") && d.has("source") &&
-        d.getString("source").endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!default.csv")).findAny().orElseThrow();
+    doc = docs.stream().filter(d -> d.getId().equals("default.csv-3") && d.has("file_path") &&
+        d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!default.csv")).findAny().orElseThrow();
     assertEquals("x", doc.getString("field1"));
     assertEquals("y", doc.getString("field2"));
     assertEquals("z", doc.getString("field3"));

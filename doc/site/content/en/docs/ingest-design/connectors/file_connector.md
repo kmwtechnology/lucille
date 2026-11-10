@@ -209,7 +209,7 @@ Extracts one Document per row from a CSV file, read as UTF-8 (a leading byte ord
 | `docIdFormat` | String | No | Java `String.format` pattern applied to the `idField`/`idFields` values to build the Document ID. |
 | `lineNumberField` | String | No | Field for the row number. The first row after the header is 1, and skipped rows are counted. Default: `csvLineNumber`. |
 | `filenameField` | String | No | Field for the source file name. Default: `filename`. |
-| `filePathField` | String | No | Field for the full file path. Default: `source`. |
+| `filePathField` | String | No | Field for the full file path. Default: `file_path`. |
 | `separator` | String | No | Column delimiter character. Default: `,`. |
 | `useTabs` | Boolean | No | Use tab as the delimiter. Overrides `separator`. Default: `false`. |
 | `interpretQuotes` | Boolean | No | Treat `"` as a quoting character. Default: `true`. |
