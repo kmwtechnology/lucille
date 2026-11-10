@@ -342,7 +342,7 @@ fileHandlers: {
 }
 ```
 
-File Handlers accept an `InputStream` and return Documents via an `Iterator`. The `InputStream` and any underlying resources are closed when the Iterator's `hasNext()` returns `false`. When working directly with File Handlers in code, always exhaust the returned Iterator. `XMLFileHandler` is the exception: its `processFile` throws, so call `processFileAndPublish` instead.
+File Handlers accept an `InputStream` and return Documents via an `Iterator`. The `InputStream` and any underlying resources are closed when the Iterator's `hasNext()` returns `false`. When working directly with File Handlers in code, always exhaust the returned Iterator. `XMLFileHandler` is the exception: its `processFile` throws and its `supportsProcessFile()` returns `false`, so call `processFileAndPublish` instead, which closes the stream however it ends.
 
 ---
 
