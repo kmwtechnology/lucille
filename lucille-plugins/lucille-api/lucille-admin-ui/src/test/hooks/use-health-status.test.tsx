@@ -83,9 +83,49 @@ describe("useHealthStatus", () => {
     await waitFor(() => expect(result.current.status).toBe("healthy"))
 
     mockFetchReject()
-    act(() => result.current.reportFailure())
+    let reported: string | undefined
+    await act(async () => {
+      reported = await result.current.reportFailure()
+    })
 
-    await waitFor(() => expect(result.current.status).toBe("unavailable"))
+    expect(reported).toBe("unavailable")
+    expect(result.current.status).toBe("unavailable")
+  })
+
+  // A probe that began before the outage can't vouch for a failure seen after it, so
+  // reportFailure must run its own probe rather than reuse the in-flight one.
+  it("reportFailure does not reuse a probe that started before the failure", async () => {
+    let releaseLivez: () => void = () => {}
+    let apiDown = false
+    mockFetch({
+      "/v1/livez": () => (apiDown ? { status: 500 } : { status: 200 }),
+      "/v1/readyz": { status: 200 },
+    })
+    const original = globalThis.fetch
+    // Hold the first livez response so the initial probe is still in flight.
+    const gate = new Promise<void>((resolve) => (releaseLivez = resolve))
+    let first = true
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      const response = original(input, init) // resolve the mock now, while the API is still up
+      if (first && String(input).includes("/v1/livez")) {
+        first = false
+        await gate
+      }
+      return response
+    })
+
+    const { result } = renderHook(() => useHealth(), { wrapper })
+
+    let reported: string | undefined
+    await act(async () => {
+      const pending = result.current.reportFailure()
+      releaseLivez() // the pre-outage probe now answers healthy...
+      apiDown = true // ...but the API is down for the probe that follows
+      reported = await pending
+    })
+
+    expect(reported).toBe("unavailable")
+    expect(result.current.status).toBe("unavailable")
   })
 
   // Polling continues while down, so the status recovers on its own when the API returns.

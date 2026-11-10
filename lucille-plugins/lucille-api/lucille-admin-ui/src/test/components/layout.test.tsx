@@ -1,10 +1,13 @@
 // Tests Layout's API-down gate: one error screen replaces the page, the sidebar docs link stays.
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import type { ReactElement } from "react"
+import { act, render, screen } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import Layout from "@/components/layout/layout"
+import Dashboard from "@/pages/dashboard/dashboard"
 import { HealthProvider } from "@/hooks/health-provider"
-import { DOCS_URL } from "@/lib/constants"
+import { DOCS_URL, SYSTEM_STATS_POLL_INTERVAL_MS } from "@/lib/constants"
+import type { SystemStats } from "@/types/api"
 import { mockFetch, mockFetchReject } from "@/test/helpers/fetch-mock"
 
 // Sidebar reads auth state; the Layout gate doesn't care, so stub it as "no auth required".
@@ -12,13 +15,20 @@ vi.mock("@/lib/auth-context", () => ({
   useAuth: () => ({ status: "authenticated", authRequired: false, login: vi.fn(), logout: vi.fn() }),
 }))
 
-function renderLayout() {
+const stats: SystemStats = {
+  cpu: { percent: 12, used: 1, available: 7, total: 8, loadAverage: 0.5 },
+  ram: { total: 16, available: 8, used: 8, percent: 50 },
+  jvm: { total: 4, free: 1, used: 3, percent: 75 },
+  storage: { total: 100, available: 40, used: 60, percent: 60 },
+}
+
+function renderLayout(page: ReactElement = <div>page content</div>) {
   return render(
     <MemoryRouter>
       <HealthProvider>
         <Routes>
           <Route element={<Layout />}>
-            <Route index element={<div>page content</div>} />
+            <Route index element={page} />
           </Route>
         </Routes>
       </HealthProvider>
@@ -55,5 +65,34 @@ describe("Layout", () => {
     expect(screen.queryByText("page content")).not.toBeInTheDocument()
     expect(screen.getAllByRole("alert")).toHaveLength(1)
     expect(screen.getByRole("link", { name: /documentation/i })).toHaveAttribute("href", DOCS_URL)
+  })
+
+  // The API shuts down while the dashboard is open. Via the Vite dev proxy every request then
+  // returns 500. No per-card error may render at any point before the error screen takes over.
+  it("never shows per-card errors when the API shuts down mid-session", async () => {
+    mockFetch({
+      "/v1/livez": { status: 200 },
+      "/v1/readyz": { status: 200 },
+      "/v1/systemstats": { json: stats },
+      "/v1/config": { json: {} },
+      "/v1/run": { json: [] },
+    })
+    const { container } = renderLayout(<Dashboard />)
+    expect(await screen.findByText("60%")).toBeInTheDocument()
+
+    let sawCardError = false
+    const observer = new MutationObserver(() => {
+      if (container.textContent?.includes("An error has occurred")) sawCardError = true
+    })
+    observer.observe(container, { childList: true, subtree: true, characterData: true })
+
+    mockFetch({ "/v1": { status: 500, body: "proxy error" } })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SYSTEM_STATS_POLL_INTERVAL_MS)
+    })
+
+    expect(await screen.findByText("Can't reach the Lucille API")).toBeInTheDocument()
+    observer.disconnect()
+    expect(sawCardError).toBe(false)
   })
 })

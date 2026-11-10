@@ -4,9 +4,6 @@ import { API_BASE } from "@/lib/constants"
 import { authHeader, notifyUnauthorized } from "@/lib/auth-token"
 import { HealthContext } from "./health-context"
 
-/** Proxy/gateway statuses that mean the upstream API is unreachable. */
-const GATEWAY_ERROR_STATUSES = new Set([502, 503, 504])
-
 export type FetchState<T> =
   | { status: "loading" }
   | { status: "error"; error: string }
@@ -17,6 +14,9 @@ export interface UseFetchOptions<T> {
   stopPollingWhen?: (data: T) => boolean
   reloadKey?: number
 }
+
+/** Thrown for failures that could mean the API itself is down (network error or 5xx). */
+class PossibleOutageError extends Error {}
 
 export function useFetch<T>(path: string, options: UseFetchOptions<T> = {}): FetchState<T> {
   const { pollIntervalMs, stopPollingWhen, reloadKey } = options
@@ -40,13 +40,15 @@ export function useFetch<T>(path: string, options: UseFetchOptions<T> = {}): Fet
           res = await fetch(`${API_BASE}${path}`, { signal: controller.signal, headers: authHeader() })
         } catch (err) {
           // fetch rejects with a TypeError on network failure (e.g. connection refused).
-          if (!controller.signal.aborted) reportFailureRef.current?.()
-          throw err
+          throw new PossibleOutageError(err instanceof Error ? err.message : "Network error")
         }
         if (controller.signal.aborted) return
         if (res.status === 401) notifyUnauthorized()
-        if (GATEWAY_ERROR_STATUSES.has(res.status)) reportFailureRef.current?.()
-        if (!res.ok) throw new Error(await errorMessageFrom(res))
+        if (!res.ok) {
+          const message = await errorMessageFrom(res)
+          // 5xx includes the Vite dev proxy's 500 when the API isn't running.
+          throw res.status >= 500 ? new PossibleOutageError(message) : new Error(message)
+        }
         const data: T = await res.json()
         if (controller.signal.aborted) return
 
@@ -58,12 +60,20 @@ export function useFetch<T>(path: string, options: UseFetchOptions<T> = {}): Fet
           intervalId = undefined
         }
       } catch (err) {
-        if (!controller.signal.aborted) {
-          setState({
-            status: "error",
-            error: err instanceof Error ? err.message : "Unknown error",
-          })
+        if (controller.signal.aborted) return
+
+        // Hold possible-outage errors until a health probe answers. If the API is down, the
+        // site-wide error screen takes over and this widget never shows its own error.
+        const reportFailure = reportFailureRef.current
+        if (err instanceof PossibleOutageError && reportFailure) {
+          const healthStatus = await reportFailure()
+          if (controller.signal.aborted || healthStatus === "unavailable") return
         }
+
+        setState({
+          status: "error",
+          error: err instanceof Error ? err.message : "Unknown error",
+        })
       }
     }
 
