@@ -190,14 +190,15 @@ Here are some queries you might run (using curl):
 curl -XGET "http://localhost:9200/logs/_search" -H 'Content-Type: application/json' -d '{
   "query": {
     "term": {
-      "id.keyword": "songs.csv-1"
+      "id.keyword": "<pathHash>-1"
     }
   }
 }'
 ```
 
-This query will only return log statements where the id of the Document being processed is "songs.csv-1", a Document ID
-from the Lucille Simple CSV example. This allows you to easily track the lifecycle of the Document as it was processed and published.
+This query will only return log statements where the id of the Document being processed is `<pathHash>-1`, the Document ID
+of the first row in the Lucille Simple CSV example. `<pathHash>` is the MD5 hash of the full path of `songs.csv`, so copy it
+from the `id` of any Document in your logs. This allows you to easily track the lifecycle of the Document as it was processed and published.
 
 ```
 curl -XGET "http://localhost:9200/logs/_search" -H 'Content-Type: application/json' -d '{
@@ -233,7 +234,7 @@ At the top right of the screen, you'll see a time range. Only logs within this t
 logs within the last 15 minutes, so you'll likely need to change it. Set **absolute** time ranges that cover your Lucille run. (The UI
 for setting these times can be a bit finicky, but keep trying.)
 
-Like before, we can trace the entire lifecycle of a single Document. In the search bar, type in: `id:"songs.csv-1"`. Now, you
+Like before, we can trace the entire lifecycle of a single Document. In the search bar, type in: `id:"<pathHash>-1"`. Now, you
 should only see the log statements relevant to this Document. Each entry will be a large blob of text representing the entire Document.
 You can select certain fields on the left side of your screen to get a more focused view of each statement. 
 

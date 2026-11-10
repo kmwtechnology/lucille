@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Iterator;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
@@ -239,7 +240,7 @@ public class ApplyFileHandlersTest {
     while (handledDocs.hasNext()) {
       Document d = handledDocs.next();
       docsCount++;
-      assertEquals("secretCSV.txt-" + docsCount, d.getId());
+      assertEquals(DigestUtils.md5Hex(d.getString("source")) + "-" + docsCount, d.getId());
     }
 
     assertEquals(4, docsCount);
