@@ -237,31 +237,20 @@ to place these "included" configs in another directory so they are not loaded by
 **Note:** Environment variables for preset configs are resolved _once_ during the initialization of the API. They are not reevaluated 
 while the API is in use.
 
-## Logging and Integration Testing with Dropwizard
+## Logging
 
-### Important Notes for Logging Configuration
+The API logs through Log4j2 with Lucille's default configuration (`lucille-log4j2.xml` from `lucille-logging`), the same as the CLI and the `lucille` Docker image: console output plus files under `./log/`. Pipelines started through the API log the same way.
 
-The lucille-api module uses Dropwizard, which is tightly coupled with Logback for logging, especially during integration and test runs. If you attempt to use Log4j2 or mix multiple SLF4J providers (e.g., log4j-slf4j2-impl and logback-classic), you will encounter errors such as:
+- **Custom configuration:** pass `-Dlog4j2.configurationFile=/path/to/log4j2.xml`. Without it, the API uses the bundled `classpath:lucille-log4j2.xml`.
+- **Docker image:** the image ships an editable copy at `/lucille-api/conf/log4j2.xml` and writes log files to `/lucille-api/log`. Set `LUCILLE_LOG4J_CONF` to use a different file.
 
-- `NoClassDefFoundError: ch/qos/logback/classic/LoggerContext`
-- `IllegalStateException: Unable to acquire the logger context`
-- SLF4J multiple provider warnings
+### Why Logback is on the classpath too
 
-#### **Best Practices for Integration Tests:**
-- **Use only Logback for integration and test runs.**
-- Remove all log4j2 dependencies and configuration files from the classpath for tests.
-- Ensure only `logback-classic` is present as a test dependency in your `pom.xml`.
-- Exclude `log4j-slf4j2-impl` from any transitive dependencies (such as lucille-core) to prevent SLF4J provider conflicts.
-- If you want to use Log4j2 for production, you can do so in your main application module, but keep Logback for Dropwizard-based tests.
+Dropwizard depends on Logback directly, so `logback-classic` stays on the classpath even though the API doesn't log through it. With two SLF4J providers present, `APIApplication` selects Log4j2 by setting `slf4j.provider` (and a default `log4j2.configurationFile`) before its logger is created, unless you set either property yourself. Because Log4j2 is the backend, `api.yml` keeps `logging: type: external`, Dropwizard's `logging:` block does not configure anything, and Dropwizard's `log-level` admin task does not work. Set levels in `log4j2.xml` instead.
 
-#### **Troubleshooting**
-If you see logger context or SLF4J errors during integration tests:
-- Make sure no log4j2 SLF4J bridge jars are present in the test classpath.
-- Check your dependency tree for `log4j-slf4j2-impl` and exclude it if found.
-- Make sure only one SLF4J provider (logback-classic) is on the test classpath.
-- Free up any ports (e.g., 8080) required by integration tests before running them.
+### Tests
 
-This setup ensures reliable Dropwizard integration testing and avoids logger conflicts.
+Dropwizard's test support (`ResourceExtension`, `DropwizardAppExtension`) bootstraps Logback directly and fails with errors such as `Unable to acquire the logger context` if Log4j2 is the provider. The module's surefire configuration therefore sets `slf4j.provider` to Logback for tests. If you run the tests outside Maven, pass `-Dslf4j.provider=ch.qos.logback.classic.spi.LogbackServiceProvider`.
 
 **Note**: The API will only store details for the last 10,000 runs. If you need this information,
 you will need to persist it yourself. Similarly, only 10,000 configs can be stored by the API.

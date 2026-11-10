@@ -27,7 +27,7 @@ java -Dlog4j2.configurationFile=/path/to/my-log4j2.xml \
      com.kmwllc.lucille.core.Runner
 ```
 
-This applies to all Lucille components (Runner, Worker, Indexer, WorkerIndexer). To use the bundled default instead of your own file, point the property at `classpath:lucille-log4j2.xml`. If you provide no configuration at all, Log4j2 falls back to its own built-in default (status messages to the console), since Lucille's config is not auto-discovered.
+This applies to all Lucille components (Runner, Worker, Indexer, WorkerIndexer) and to the Lucille API, which logs through the same Log4j2 backend and default configuration. The API uses the bundled default when the property is not set, and its Docker image ships an editable copy at `/lucille-api/conf/log4j2.xml` (set `LUCILLE_LOG4J_CONF` to use another file). To use the bundled default instead of your own file, point the property at `classpath:lucille-log4j2.xml`. If you provide no configuration at all, Log4j2 falls back to its own built-in default (status messages to the console), since Lucille's config is not auto-discovered.
 
 Common reasons to provide a custom configuration:
 - Route the DocLogger to a separate file (to avoid mixing per-document lifecycle events with operational logs)
