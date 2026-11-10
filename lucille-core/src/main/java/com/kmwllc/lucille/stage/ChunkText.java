@@ -59,7 +59,7 @@ import org.slf4j.LoggerFactory;
  *   merging and overlapping if they are set.</li>
  * </ul>
  * <p>  - child document fields:
- * <p>       - "id" : the child id, in the format of "parent_id-chunk_number"
+ * <p>       - "id" : the child id, in the format of "parent_id-chunk-chunk_number", e.g. "doc1-chunk-1"
  * <p>       - "parent_id" : id of parent Document
  * <p>       - "offset" : number of character offset from start of document
  * <p>       - "length" : number of characters in this chunk
@@ -418,8 +418,9 @@ public class ChunkText extends Stage {
     int offset = 0;
 
     for (int i = 0; i < totalChunks; i++) {
-      // currently set children id to be parentsId-chunkNumber
-      String id = parentId + "-" + (i + 1);
+      // "-chunk-" rather than "-" so that chunk ids don't collide with ordinary hyphenated parent ids, and so a prefix of
+      // "{parentId}-chunk-" matches only this parent's chunks (unless parent ids themselves contain "-chunk-")
+      String id = parentId + "-chunk-" + (i + 1);
       Document childDoc = Document.create(id);
 
       childDoc.setField("parent_id", parentId);

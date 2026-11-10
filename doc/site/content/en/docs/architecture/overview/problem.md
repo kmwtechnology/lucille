@@ -1,12 +1,12 @@
 ---
-title: The Problem of Search ETL
+title: Outgrowing the Ingest Loop
 weight: 1
 date: 2025-06-09
 description: >
   Why a simple sequential loop falls short for production search ingestion, and how Lucille addresses the pitfalls.
 ---
 
-Organizations build search applications when their users need to find information across large, heterogeneous collections of data — product catalogs, legal documents, support tickets, research papers, internal wikis, file shares. The data lives in databases, cloud storage, APIs, and content management systems, often in different formats and with varying levels of structure. Before any of it becomes searchable, it must be extracted from these sources, cleaned, enriched (with metadata, classifications, embeddings, or extracted entities), and delivered to a search engine or vector database in the right format. This process — getting source data into a search-ready state — is search ETL.
+Search ETL is the process of getting source data into a search-ready state: extracting it from databases, cloud storage, APIs and content systems, cleaning and enriching it, and delivering it to a search engine or vector database. [What Is Search ETL?]({{< relref "docs/getting-started/what-is-search-etl" >}}) explains why this is a distinct category of ETL problem. This page takes an engineering view: it starts from the simplest possible ingest and follows what breaks as it moves to production.
 
 Getting data into a search engine involves three distinct functions:
 
@@ -70,7 +70,7 @@ For semantic search and RAG pipelines, a single source document — a PDF, a sup
 
 The simple loop has no model for this. `searchClient.index(doc)` indexes one document. If a stage in the pipeline splits a document into chunks, those chunks need to flow through the rest of the pipeline independently, be tracked individually for accounting purposes, and be indexed as separate records. The parent document and its chunks may also need to be indexed in a specific order if the chunks reference the parent by ID.
 
-This 1-to-N fan-out is unique to search ingestion. It doesn't arise in database ETL, and it breaks both the loop's execution model and any completion-tracking logic built on top of it.
+This 1-to-N fan-out breaks both the loop's execution model and any completion-tracking logic built on top of it.
 
 ---
 
@@ -88,7 +88,7 @@ This is the hardest problem, and the reason all the others matter more once you 
 
 If a full dataset ingest takes a day, the obvious question is: can we make it faster? The answer is yes — but not by iterating on the sequential loop. To go faster, you have to parallelize.
 
-Part of what makes this problem harder in search ingestion than in general ETL is the cost of the enrichment step itself. In database-to-database ETL, transformation is often lightweight — type conversion, field mapping, simple lookups. In search ingestion, enrichment exists specifically to pre-compute things that make search fast and relevant: OCR on scanned documents, named entity extraction, classification, vector embedding generation. This work is genuinely expensive per document. The pipeline is CPU-bound in a way that most ETL pipelines are not, which is exactly why parallelizing it matters so much — and why the gains from doing it correctly are so large.
+Search enrichment — OCR, entity extraction, classification, embedding generation — is genuinely expensive per document, so the pipeline is CPU-bound in a way that most ETL pipelines are not. That is why parallelizing it matters so much, and why the gains from doing it correctly are so large.
 
 The loop is slow because its three steps have fundamentally different performance characteristics: connecting to the source system is I/O-bound, pipeline enrichment is often CPU-bound (model inference, API calls, computation), and indexing is I/O-bound but also depends on the CPU of the search backend. The sequential loop adds the latency of all three steps per document:
 

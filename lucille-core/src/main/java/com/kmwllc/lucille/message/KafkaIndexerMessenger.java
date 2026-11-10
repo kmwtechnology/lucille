@@ -27,6 +27,8 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   private static final Logger log = LoggerFactory.getLogger(KafkaIndexerMessenger.class);
   private final Consumer<String, KafkaDocument> destConsumer;
   private final KafkaProducer<String, String> kafkaEventProducer;
+  // only created when the fail topic is enabled, so an indexer that doesn't use it needs no document producer config
+  private final KafkaProducer<String, Document> failTopicProducer;
   private final String pipelineName;
   private final Config config;
   private final EventFieldConfig eventFieldConfig;
@@ -37,18 +39,35 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   private final DeserializationErrorHandler deserializationErrorHandler;
   private final Duration pollInterval;
 
+  // The consumer's max.poll.interval.ms, and when the last poll() that has returned was entered. Once the consumer has
+  // gone that long without polling it has left its group, and its partitions may be assigned elsewhere, so ownsInput
+  // stops confirming ownership. The time is taken just before the consumer's own poll timer resets, so this deadline
+  // expires no later than the consumer's; and it is published only once the poll returns, after any rebalance callback
+  // has dropped lost partitions, so a poll that rejoins the group after an eviction does not confirm the old
+  // assignment while it is still in progress. Written on the indexer thread, read from send threads.
+  private final long maxPollIntervalNanos;
+  private volatile long lastReturnedPollStartNanos = System.nanoTime();
+
   public KafkaIndexerMessenger(Config config, String pipelineName) {
-    this(config, pipelineName, KafkaUtils.createDocumentConsumer(config, "com.kmwllc.lucille-indexer-" + pipelineName));
+    this(config, pipelineName, KafkaUtils.createIndexerDocumentConsumer(config, "com.kmwllc.lucille-indexer-" + pipelineName));
   }
 
   // For tests: allows a MockConsumer (or other test double) to be supplied in place of the real Kafka consumer.
   KafkaIndexerMessenger(Config config, String pipelineName, Consumer<String, KafkaDocument> destConsumer) {
+    this(config, pipelineName, destConsumer, KafkaUtils.getMaxPollInterval(config));
+  }
+
+  // For tests: also allows the max poll interval to be set independently of the consumer's config.
+  KafkaIndexerMessenger(Config config, String pipelineName, Consumer<String, KafkaDocument> destConsumer,
+      Duration maxPollInterval) {
     this.pipelineName = pipelineName;
+    this.maxPollIntervalNanos = maxPollInterval.toNanos();
     this.destConsumer = destConsumer;
     this.offsetCommitTracker = new OffsetCommitTracker(destConsumer);
     this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)),
         offsetCommitTracker.rebalanceListener());
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    this.failTopicProducer = KafkaUtils.indexerFailTopicEnabled(config) ? KafkaUtils.createDocumentProducer(config) : null;
     this.config = config;
     this.eventFieldConfig = EventFieldConfig.fromConfig(config);
     this.deserializationErrorHandler =
@@ -65,6 +84,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     // callback, and with it the pre-revocation hook, can run. The Indexer calls this from its run loop, never while
     // dispatching or draining a batch, so the hook never re-enters the dispatcher.
     ConsumerRecords<String, KafkaDocument> consumerRecords;
+    long pollStartNanos = System.nanoTime();
     try {
       consumerRecords = destConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
@@ -74,13 +94,21 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
       // skips) it again.
       deserializationErrorHandler.handleOrThrow(e);
       return null;
+    } finally {
+      lastReturnedPollStartNanos = pollStartNanos;
     }
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
+    // Any rebalance callback has run, so ownership of the partitions of batches that were not sent is now known.
+    Set<TopicPartition> rewound = offsetCommitTracker.rewindUnsent();
     if (consumerRecords.count() > 0) {
       // Offsets are not committed here. Committing at poll, before the document is indexed, is at-most-once: a crash
       // after the commit but before indexing would skip the document entirely. Instead the offset is committed in
       // batchComplete, once the document has been indexed and its events emitted (at-least-once).
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
+      if (rewound.contains(new TopicPartition(record.topic(), record.partition()))) {
+        // The partition was just seeked back below this record, which will be polled again in order.
+        return null;
+      }
       deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record.topic(), record.partition(), record.offset(), record.key());
@@ -103,6 +131,25 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   @Override
   public void setPreRevocationHook(Runnable hook) {
     offsetCommitTracker.setPreRevocationHook(hook);
+  }
+
+  // Ownership is confirmed only while the consumer is within its poll deadline and the document's offset is still
+  // outstanding (polled since the partition was last assigned here, and not completed). Called from send threads.
+  @Override
+  public boolean ownsInput(Document doc) {
+    if (System.nanoTime() - lastReturnedPollStartNanos >= maxPollIntervalNanos) {
+      return false;
+    }
+    if (!(doc instanceof KafkaDocument kafkaDoc)) {
+      return true;
+    }
+    return offsetCommitTracker.isOutstanding(new TopicPartition(kafkaDoc.getTopic(), kafkaDoc.getPartition()),
+        kafkaDoc.getOffset());
+  }
+
+  @Override
+  public void batchNotSent(List<Document> batch) {
+    offsetCommitTracker.batchNotSent(batch);
   }
 
   // The destination-topic partitions currently assigned to this consumer. Package-private for tests that drive real
@@ -171,10 +218,24 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   }
 
   @Override
+  public void sendFailed(Document document) throws MessengerException {
+    KafkaUtils.sendToFailTopic(failTopicProducer, pipelineName, document);
+  }
+
+  @Override
   public void close() {
-    // Commit offsets of batches completed but not yet committed, so a clean shutdown does not force their re-delivery.
-    offsetCommitTracker.commitOnClose();
-    destConsumer.close();
+    try {
+      // Commit offsets of batches completed but not yet committed, so a clean shutdown does not force their re-delivery.
+      offsetCommitTracker.commitOnClose();
+      destConsumer.close();
+    } finally {
+      if (kafkaEventProducer != null) {
+        kafkaEventProducer.close();
+      }
+      if (failTopicProducer != null) {
+        failTopicProducer.close();
+      }
+    }
   }
 
   /**

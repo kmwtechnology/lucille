@@ -31,6 +31,14 @@ public interface IndexerMessenger {
   Document pollDocToIndex() throws MessengerException;
 
   /**
+   * Copy the designated Document to the fail topic, a dead letter queue for Documents that could not be indexed. Only
+   * called when indexer.sendFailedDocsToTopic is set. A messenger with no fail topic does nothing.
+   *
+   * @throws MessengerException if the Document could not be sent; see {@link MessengerException#isDocumentSpecific()}
+   */
+  void sendFailed(Document document) throws MessengerException;
+
+  /**
    * Make the designated Event available to the Publisher or any other component that is listening for
    * Document-related Events.
    *
@@ -99,5 +107,27 @@ public interface IndexerMessenger {
    */
   default boolean commitsOnBatchCompletion() {
     return false;
+  }
+
+  /**
+   * Whether this indexer may still write the given polled document: false once the messenger knows, or must assume,
+   * that another consumer may own the document's input — for a Kafka messenger, once the consumer has gone longer than
+   * max.poll.interval.ms without polling (it has left its group), or once the document's partition was lost or revoked
+   * since it was polled. The Indexer checks every document of a batch before each send attempt and does not send a batch
+   * that fails the check, so an evicted indexer does not write documents a new owner may already have written (and
+   * perhaps deleted since). Called from send threads, so implementations must be thread-safe. The default is true: a
+   * messenger whose input cannot move to another consumer always owns it.
+   */
+  default boolean ownsInput(Document doc) {
+    return true;
+  }
+
+  /**
+   * Reports, on the indexer thread, a batch the Indexer did not send (or stopped retrying) because {@link #ownsInput}
+   * returned false for one of its documents. The batch emits no events and is not marked complete, so its input stays
+   * uncommitted and is re-delivered: to another consumer, or, if this one turns out to own it still, to this one. The
+   * default does nothing.
+   */
+  default void batchNotSent(List<Document> batch) {
   }
 }

@@ -30,9 +30,9 @@ public class ChunkTextTest {
     Document child2 = childrenDocs.get(1);
     Document child3 = childrenDocs.get(2);
 
-    assertEquals("id-1", child1.getString("id"));
-    assertEquals("id-2", child2.getString("id"));
-    assertEquals("id-3", child3.getString("id"));
+    assertEquals("id-chunk-1", child1.getString("id"));
+    assertEquals("id-chunk-2", child2.getString("id"));
+    assertEquals("id-chunk-3", child3.getString("id"));
 
     assertEquals(Integer.valueOf(1), child1.getInt("chunk_number"));
     assertEquals(Integer.valueOf(2), child2.getInt("chunk_number"));

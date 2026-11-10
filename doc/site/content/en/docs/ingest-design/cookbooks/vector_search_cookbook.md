@@ -114,7 +114,7 @@ pipelines: [
         source: "file_content"
         dest: "extracted_text"
       },
-      # Split long text into smaller chunks (each chunk → child document)
+      # Split long text into smaller chunks (each chunk → attached child document)
       {
         class: "com.kmwllc.lucille.stage.ChunkText"
         source: "extracted_text"
@@ -133,6 +133,12 @@ pipelines: [
         modelDownloadPath: "/models/all-MiniLM-L6-v2"
         embedDocument: false
         embedChildren: true
+      },
+      # Emit each chunk as its own Document; Pinecone does not index attached children.
+      # Drop the parent, which has no vector.
+      {
+        class: "com.kmwllc.lucille.stage.EmitNestedChildren"
+        dropParent: true
       }
     ]
   }
@@ -184,7 +190,7 @@ indexer {
 
 ## Recipe 4: Chunking Strategy
 
-The `ChunkText` Stage splits a long text field into chunks and emits each chunk as a **child document**. The child documents flow through all downstream stages and are indexed independently — the parent document is also indexed (unless dropped).
+The `ChunkText` Stage splits a long text field into chunks and **attaches** each chunk to the Document as a child document. Attached children travel with the parent: the Solr indexer sends them as nested child documents, and the OpenSearch and Elasticsearch indexers send them only when `childDocumentsField` is set. To index each chunk as its own Document, which Pinecone and Weaviate require, add an `EmitNestedChildren` stage after chunking (and after embedding, if you embed with `embedChildren: true`). See [ChunkText]({{< relref "docs/ingest-design/stages/chunk_text" >}}).
 
 ```hocon
 {
@@ -200,17 +206,109 @@ The `ChunkText` Stage splits a long text field into chunks and emits each chunk 
 ```
 
 After chunking, each child document has:
-- `id`: `{parent-id}-chunk-{n}` (e.g., `doc-42-chunk-0`, `doc-42-chunk-1`, ...)
+- `id`: `{parent_id}-chunk-{chunk_number}` (e.g., `doc-42-chunk-1`, `doc-42-chunk-2`, ...)
 - `parent_id`: ID of the parent document
-- `chunk_number`: zero-based index
+- `chunk_number`: one-based index
 - `total_chunks`: total number of chunks from this parent
-- `offset`: character offset of this chunk in the original text
+- `offset`: sum of the lengths of the preceding chunks (not the position in the original text once cleaning, merging, or overlap changes the chunks)
 - `length`: character length of this chunk
 - `text` (or whatever `dest` is set to): the chunk text
 
-Parent document fields are **not** automatically copied to child documents.
+Parent document fields are **not** automatically copied to child documents. `EmitNestedChildren` can copy them with `fieldMapping`.
 
-## Recipe 5: Conditional Embedding
+## Recipe 5: Keeping Chunks in Sync with Their Source
+
+When a source document is deleted, all of its chunks must be deleted. When it is re-ingested with less text, chunks with higher numbers from the earlier version must not stay behind. Neither failure produces an error: stale chunks simply remain searchable. How you handle this depends on how chunks are indexed.
+
+### Nested chunks: handled by the backend
+
+If chunks stay attached to the parent (no `EmitNestedChildren`), they are indexed as part of the parent:
+
+- **Solr** indexes them as nested child documents. Deleting the parent by ID deletes the whole block, and re-indexing the parent replaces its children.
+- **OpenSearch and Elasticsearch** with `childDocumentsField` store them in a field of the parent document, so deleting or re-indexing the parent deletes or replaces them.
+
+An ordinary delete by ID (`deletionMarker`) on the parent, including a FileConnector tombstone, is enough.
+
+### Emitted chunks: deleting a parent's chunks
+
+Once `EmitNestedChildren` emits chunks as independent Documents, deleting the parent's ID does not touch them. Delete them by their `parent_id` field instead.
+
+**Solr, OpenSearch, Elasticsearch: delete-by-query.** Give each deletion Document two extra fields: one naming the destination field to match (`parent_id`), one holding the value (the parent's ID). The Indexer then issues a delete-by-query instead of a delete by ID. This example reads rows from a database whose query returns `is_deleted` as the string `"true"` for deleted records:
+
+```hocon
+pipelines: [
+  {
+    name: "chunk-pipeline"
+    stages: [
+      # Deletion Documents: delete every chunk whose parent_id is this Document's ID
+      {
+        class: "com.kmwllc.lucille.stage.SetStaticValues"
+        staticValues: { delete_by_field: "parent_id" }
+        conditions: [ { fields: ["is_deleted"], values: ["true"] } ]
+      },
+      {
+        class: "com.kmwllc.lucille.stage.CopyFields"
+        fieldMapping: { id: "delete_by_value" }
+        conditions: [ { fields: ["is_deleted"], values: ["true"] } ]
+      },
+      # Live Documents: chunk, embed, and emit the chunks
+      {
+        class: "com.kmwllc.lucille.stage.ChunkText"
+        source: "body"
+        dest: "text"
+        conditions: [ { fields: ["is_deleted"], values: ["true"], operator: "must_not" } ]
+      },
+      {
+        class: "com.kmwllc.lucille.stage.OpenAIEmbed"
+        source: "text"
+        dest: "content_vector"
+        modelName: "text-embedding-3-small"
+        apiKey: ${OPENAI_API_KEY}
+        embedDocument: false
+        embedChildren: true
+      },
+      {
+        class: "com.kmwllc.lucille.stage.EmitNestedChildren"
+        dropParent: true
+      }
+    ]
+  }
+]
+
+indexer {
+  deletionMarker {
+    field: "is_deleted"
+    value: "true"
+  }
+  deleteByQuery {
+    fieldNameField: "delete_by_field"
+    valueField: "delete_by_value"
+  }
+
+  opensearch {
+    url: "https://localhost:9200"
+    index: "chunks"
+  }
+}
+```
+
+`EmitNestedChildren` leaves a deletion Document alone, because it has no children, so the Indexer receives it. The delete-by-query replaces the delete by ID: if you index the parent too (`dropParent: false`), copy its `id` into its own `parent_id` field so the same query deletes it.
+
+**Pinecone: delete by prefix.** Pinecone has no delete-by-query. Use [EmitDocsToDeleteByPrefix]({{< relref "docs/ingest-design/stages/emit_docs_to_delete_by_prefix" >}}) with `addPrefix: "-chunk-"` to delete every vector whose ID starts with `{parent_id}-chunk-`. The match is a plain prefix, but it can only reach another parent's chunks if parent IDs themselves contain `-chunk-`.
+
+**Weaviate** does not support deletion.
+
+{{% alert title="FileConnector tombstones cannot delete emitted chunks" color="warning" %}}
+FileConnector tombstones for deleted files are marked skipped, so they bypass every stage. No stage can add the delete-by-query fields or run `EmitDocsToDeleteByPrefix`, and the tombstone deletes only the Document whose ID is the file's ID. With emitted chunks and `dropParent: true`, nothing was indexed under that ID, so the file's chunks remain. If you ingest files and need deletions to remove chunks, index the chunks nested (Solr, or OpenSearch and Elasticsearch with `childDocumentsField`), or remove orphaned chunks outside Lucille.
+{{% /alert %}}
+
+### Emitted chunks: re-ingesting a shorter document
+
+Re-indexing a document that now produces fewer chunks overwrites the chunks it still produces, but leaves the higher-numbered ones from the earlier version. A single pipeline cannot clear them safely: a parent reaches the Indexer after its emitted chunks, so a delete-by-query carried by the parent would delete the new chunks too.
+
+The workaround is a deletion pass before the indexing pass, using two connectors over the same changed records in one run. Each connector finishes, with all of its Documents indexed, before the next one starts. The first connector's pipeline marks every Document for deletion and adds the delete-by-query fields (or runs `EmitDocsToDeleteByPrefix` for Pinecone); the second re-indexes. The chunks of the changed records are missing from the index between the two passes. This suits sources that can select the same changed records twice, such as a database query on a modification time.
+
+## Recipe 6: Conditional Embedding
 
 Only generate embeddings for documents that have content, skipping short or empty documents:
 
@@ -229,7 +327,7 @@ Only generate embeddings for documents that have content, skipping short or empt
 }
 ```
 
-## Recipe 6: Database → Ollama Summarization → Embeddings → OpenSearch
+## Recipe 7: Database → Ollama Summarization → Embeddings → OpenSearch
 
 Enrich database records with LLM-generated summaries before embedding.
 

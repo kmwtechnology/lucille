@@ -48,7 +48,7 @@ All distributed-mode Kafka settings belong in a top-level `kafka {}` block share
 kafka {
   bootstrapServers: "kafka1:9092,kafka2:9092"
 
-  # Consumer group ID for all Lucille Workers and Indexers
+  # Consumer group ID for Lucille Workers. Indexers use this name plus "-indexer".
   consumerGroupId: "lucille_workers"
 
   # Maximum time between polls before consumer is evicted from consumer group.
@@ -104,7 +104,7 @@ Create the following topics before starting Lucille:
 |---|---|---|---|---|
 | Source | `{pipeline}_source` | `kafka.sourceTopic` | ≥ total Worker threads across all processes | Admin |
 | Dest | `{pipeline}_dest` | — (not overridable) | ≥ number of Indexer processes (typically 1) | Admin |
-| Event | `{pipeline}_event_{runId}` | `kafka.eventTopic` | Exactly 1 (required for ordering) | Lucille creates this automatically via Admin API |
+| Event | `{pipeline}_event_{runId}` | `kafka.eventTopic` | Exactly 1 (required for ordering) | Lucille creates this automatically via Admin API, with the broker's default replication factor unless `kafka.eventTopicReplicationFactor` is set |
 | Fail | `{pipeline}_fail` | — (not overridable) | ≥ 1 | Admin (only needed if `worker.maxRetries` is configured) |
 
 **Example** — for a pipeline named `my-pipeline` with 8 Worker threads:
@@ -150,9 +150,9 @@ In streaming mode (no Runner), you can either disable events entirely (`kafka.ev
 
 **Fail topic** (`{pipeline}_fail`)
 
-The Worker publishes poison-pill documents here when they exceed `worker.maxRetries`. This topic is only used when `worker.maxRetries` is configured (which also requires ZooKeeper). If you don't use retry tracking, this topic is never written to and doesn't need to exist.
+The Worker publishes poison-pill documents here when they exceed `worker.maxRetries` (which also requires ZooKeeper). Workers and Indexers also copy failed documents here when `worker.sendFailedDocsToTopic` or `indexer.sendFailedDocsToTopic` is set. If none of these is configured, this topic is never written to and doesn't need to exist.
 
-Documents in the fail topic can be inspected with standard Kafka tooling, corrected if needed, and replayed by pointing a connector at the topic. The topic relies on auto-creation or must be pre-created by an admin — Lucille does not create it via the Admin API.
+Documents in the fail topic can be inspected with standard Kafka tooling, corrected if needed, and replayed by pointing a connector at the topic. The topic relies on auto-creation or must be pre-created by an admin — Lucille does not create it via the Admin API. A missing topic is not detected at startup, only when the first document fails. See [The Fail Topic]({{< relref "docs/architecture/internals/error-handling#the-fail-topic-dead-letter-queue" >}}) for what happens when a document can't be written to it.
 
 The name is not overridable — it is always `{pipeline}_fail`.
 
@@ -166,7 +166,7 @@ The Kafka user Lucille connects with needs:
 | `Produce` on source topic | The Runner publishes documents to the source topic |
 | `Produce` on dest topic | Workers publish processed documents to the dest topic |
 | `Produce` on event topic | Workers and Indexers publish lifecycle events |
-| `Produce` on fail topic | Workers publish poison-pill documents (if `maxRetries` is configured) |
+| `Produce` on fail topic | Workers and Indexers write failed documents (if `worker.maxRetries`, `worker.sendFailedDocsToTopic` or `indexer.sendFailedDocsToTopic` is configured) |
 | `Consume` on source topic | Workers consume documents for processing |
 | `Consume` on dest topic | Indexer consumes documents for indexing |
 | `Consume` on event topic | The Runner's Publisher consumes lifecycle events |

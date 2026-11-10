@@ -9,6 +9,7 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.CSVIndexer;
 import com.kmwllc.lucille.indexer.NopIndexer;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -177,6 +178,10 @@ public class IndexerConfigTest {
 
     @Override
     public void batchComplete(List<Document> batch) {
+    }
+
+    @Override
+    public void sendFailed(Document document) throws MessengerException {
     }
 
     @Override

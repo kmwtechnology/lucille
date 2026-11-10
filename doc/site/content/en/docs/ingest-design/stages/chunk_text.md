@@ -109,7 +109,7 @@ Each final chunk becomes an attached child document with these fields:
 
 | Field | Description |
 |---|---|
-| `id` | `{parent_id}-{chunk_number}` (e.g., `doc-42-1`). |
+| `id` | `{parent_id}-chunk-{chunk_number}` (e.g., `doc-42-chunk-1`). |
 | `parent_id` | ID of the parent document. |
 | `chunk_number` | One-based index of this chunk. |
 | `total_chunks` | Total number of chunks from this parent. |

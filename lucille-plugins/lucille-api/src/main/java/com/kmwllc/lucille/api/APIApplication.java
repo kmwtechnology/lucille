@@ -21,6 +21,7 @@ import com.kmwllc.lucille.api.endpoints.LoginResource;
 import com.kmwllc.lucille.api.endpoints.LucilleResource;
 import com.kmwllc.lucille.api.endpoints.ReadinessResource;
 import com.kmwllc.lucille.api.endpoints.SystemStatsResource;
+import com.kmwllc.lucille.ui.AdminUiServlet;
 import io.dropwizard.auth.AuthFilter;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.auth.PrincipalImpl;
@@ -30,8 +31,13 @@ import io.dropwizard.auth.oauth.OAuthCredentialAuthFilter;
 import io.dropwizard.configuration.EnvironmentVariableSubstitutor;
 import io.dropwizard.configuration.SubstitutingSourceProvider;
 import io.dropwizard.core.Application;
+import io.dropwizard.core.server.DefaultServerFactory;
+import io.dropwizard.core.server.ServerFactory;
+import io.dropwizard.core.server.SimpleServerFactory;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
+import io.dropwizard.jetty.ConnectorFactory;
+import io.dropwizard.jetty.HttpsConnectorFactory;
 import io.federecio.dropwizard.swagger.SwaggerBundle;
 import io.federecio.dropwizard.swagger.SwaggerBundleConfiguration;
 import jdk.jfr.Experimental;
@@ -148,6 +154,10 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
       env.jersey().register(new RequireAuthDynamicFeature(buildAuthFilter(config, jwtService), AUTH_EXEMPT_PACKAGES));
       env.jersey().register(new AuthValueFactoryProvider.Binder<>(PrincipalImpl.class));
       log.info("Authentication has been enabled (Basic and Bearer accepted).");
+      if (usesPlainHttp(config)) {
+        log.warn("Authentication is enabled but the API is serving plain HTTP, so passwords and bearer tokens are sent "
+            + "unencrypted. Configure an https application connector, or terminate TLS in front of the API.");
+      }
     } else {
       log.info("Authentication is disabled.");
     }
@@ -173,6 +183,27 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
 
     env.jersey().register(new LoginResource(jwtService, config.getAuthConfig().getPassword()));
     env.jersey().register(new AuthInfoResource(authEnabled));
+
+    registerAdminUi(env);
+  }
+
+  /**
+   * Whether any application connector serves plain HTTP. Admin connectors are ignored, and TLS that is
+   * terminated in front of the API (for example by a reverse proxy) cannot be detected here.
+   * @param config the application configuration
+   * @return true if at least one application connector is not HTTPS
+   */
+  private static boolean usesPlainHttp(LucilleAPIConfiguration config) {
+    ServerFactory serverFactory = config.getServerFactory();
+    List<ConnectorFactory> connectors;
+    if (serverFactory instanceof DefaultServerFactory defaultFactory) {
+      connectors = defaultFactory.getApplicationConnectors();
+    } else if (serverFactory instanceof SimpleServerFactory simpleFactory) {
+      connectors = List.of(simpleFactory.getConnector());
+    } else {
+      return false;
+    }
+    return connectors.stream().anyMatch(connector -> !(connector instanceof HttpsConnectorFactory));
   }
 
   /**
@@ -196,6 +227,27 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
     @SuppressWarnings({"unchecked", "rawtypes"})
     AuthFilter<?, PrincipalImpl> chained = new ChainedAuthFilter(List.of(basicFilter, bearerFilter));
     return chained;
+  }
+
+  /**
+   * Registers the admin UI servlet at {@code /admin/*} when the built UI is on the classpath;
+   * @param env the Dropwizard environment
+   */
+  private void registerAdminUi(Environment env) {
+    boolean uiBundled = Thread.currentThread().getContextClassLoader()
+        .getResource("admin/index.html") != null
+        || APIApplication.class.getClassLoader().getResource("admin/index.html") != null;
+
+    if (!uiBundled) {
+      log.info("Admin UI assets not found on the classpath; /admin will not be served. "
+          + "Add lucille-admin-ui.jar to the classpath to enable it.");
+      return;
+    }
+
+    env.servlets()
+        .addServlet("admin-ui", new AdminUiServlet())
+        .addMapping("/admin", "/admin/*");
+    log.info("Admin UI is being served at /admin (unauthenticated).");
   }
 
   /**
