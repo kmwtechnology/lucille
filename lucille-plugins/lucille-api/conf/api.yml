@@ -5,7 +5,7 @@ server:
   requestLog:
     type: external
 logging:
-  type: external
+  level: INFO
 auth:
   type: "basicAndBearer"
   enabled: true

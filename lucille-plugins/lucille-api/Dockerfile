@@ -25,16 +25,11 @@
 #
 #   docker run --env DROPWIZARD_CONF=/mnt/conf/api_conf.yml -v <absolute-path-on-local-fs>/conf:/mnt/conf -p 8080:8080 lucille-api
 #
-# By default, Lucille log output is written both to STDOUT and to file in the a "log" directory that is created where Lucille is run
-# Since log output goes to STDOUT you will see it in the container's output.
+# By default, the API logs at INFO level to STDOUT, so you will see it in the container's output.
+# The level and appenders (for example, a log file) are set in the "logging" section of the DROPWIZARD_CONF file;
+# see the "Logging" section of lucille-api/README.md.
 # If you want to view it after the container terminates you can run "docker ps -a" to find the ID of the terminated container.
 # Once you have the ID, you can then run "docker logs <ID>" to see the output.
-# If you would like the container to write logs to your local filesystem, you can add a parameter like the following one
-# when you launch the container. Output written to "/log" inside the container will then be go to your chosen
-# local directory which is specified here as <absolute-path-on-local-fs>/mylog. The "mylog" directory will be created if
-# it does not already exist:
-#
-#       -v <absolute-path-on-local-fs>/mylog:/log
 #
 # What follows is the main content of this Dockerfile:
 #
