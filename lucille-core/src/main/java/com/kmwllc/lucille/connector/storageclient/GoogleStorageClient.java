@@ -63,6 +63,11 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
+  protected boolean traversesByListing() {
+    return true;
+  }
+
+  @Override
   protected Stream<ListingEntry> listDirectory(String prefix, TraversalParams params) {
     return storage.list(getBucketOrContainerName(params),
             BlobListOption.prefix(prefix),

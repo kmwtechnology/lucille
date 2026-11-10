@@ -62,15 +62,19 @@ public interface StorageClient {
   void traverse(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws IOException, ConnectorException;
 
   /**
-   * Rejects a traversal that this client's settings can't run correctly. FileConnector calls this at startup for each
-   * path, so that a bad combination fails before any file is published. Does not require this client to be initialized,
-   * and does not contact the provider. By default, accepts every traversal.
+   * Rejects a traversal that this client can't run as configured, so that a setting is either honored or refused, never
+   * ignored. FileConnector calls this at startup for each path, so that a bad combination fails before any file is
+   * published. Does not require this client to be initialized, and does not contact the provider.
+   * <p> By default, rejects the <code>traversal</code> settings that only {@link BaseStorageClient} honors:
+   * <code>threadsPerPath</code> above 1, <code>listingMode</code> and <code>maxDocuments</code>. Override this if your
+   * client honors some of them, or has settings of its own to check.
    * @param params Parameters for the traversal. Its URI may not be set.
-   * @param stateEnabled Whether the traversal will update state.
-   * @param collapsing Whether the Publisher will collapse documents, which is not safe for concurrent publish() calls.
    * @throws IllegalArgumentException If the traversal can't run as configured.
    */
-  default void validateTraversal(TraversalParams params, boolean stateEnabled, boolean collapsing) { }
+  default void validateTraversal(TraversalParams params) {
+    params.rejectListingSettings(this);
+    params.rejectMaxDocuments(this);
+  }
 
   /**
    * Returns whether a traversal of the given parent would also visit the files under the given child, based on this

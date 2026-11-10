@@ -186,13 +186,13 @@ public class AzureStorageClientIT {
         nestedContainer.getBlobClient(blobName).upload(toStream(blobName), blobName.length(), true);
       }
 
-      Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", CONNECTION_STRING, "traversalThreads", 4));
+      Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", CONNECTION_STRING));
       TestMessenger messenger = new TestMessenger();
       Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
       AzureStorageClient client = new AzureStorageClient(cloudOptions);
       URI containerUri = URI.create("https://devstoreaccount1.blob.core.windows.net/" + nestedContainerName + "/");
-      TraversalParams params = new TraversalParams(ConfigFactory.empty(), containerUri, "it-");
+      TraversalParams params = new TraversalParams(ConfigFactory.parseMap(Map.of("traversal", Map.of("threadsPerPath", 4))), containerUri, "it-");
 
       try {
         client.start();

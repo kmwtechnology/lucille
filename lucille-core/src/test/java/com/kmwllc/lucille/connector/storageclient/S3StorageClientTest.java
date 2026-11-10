@@ -836,7 +836,7 @@ public class S3StorageClientTest {
       }
     });
 
-    Set<String> published = publishedPathsFromClient(mockClient, "s3://bucket/", ConfigFactory.empty(), Map.of("traversalThreads", 3));
+    Set<String> published = publishedPathsFromClient(mockClient, "s3://bucket/", ConfigFactory.empty(), Map.of("threadsPerPath", 3));
 
     assertEquals(publishedPathsFromFakeBucket(NESTED_KEYS, "s3://bucket/", ConfigFactory.empty()), published);
     assertEquals(Set.of("/"), delimiters);
@@ -878,18 +878,18 @@ public class S3StorageClientTest {
     return mockClient;
   }
 
-  private Set<String> publishedPathsFromClient(S3Client mockClient, String start, Config connectorConfig, Map<String, Object> s3Settings) throws Exception {
+  private Set<String> publishedPathsFromClient(S3Client mockClient, String start, Config connectorConfig, Map<String, Object> traversalSettings) throws Exception {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     Config fullConnectorConfig = connectorConfig.withFallback(
-        ConfigFactory.parseMap(Map.of("fileOptions", Map.of(GET_FILE_CONTENT, false))));
+        ConfigFactory.parseMap(Map.of("fileOptions", Map.of(GET_FILE_CONTENT, false), "traversal", traversalSettings)));
 
-    Map<String, Object> s3Config = new HashMap<>(s3Settings);
-    s3Config.put(S3_REGION, "us-east-1");
-    S3StorageClient s3StorageClient = new S3StorageClient(ConfigFactory.parseMap(s3Config));
+    S3StorageClient s3StorageClient = new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1")));
     s3StorageClient.setS3ClientForTesting(mockClient);
     s3StorageClient.initializeForTesting();
-    s3StorageClient.traverse(publisher, new TraversalParams(fullConnectorConfig, URI.create(start), ""));
+    TraversalParams params = new TraversalParams(fullConnectorConfig, URI.create(start), "");
+    s3StorageClient.validateTraversal(params);
+    s3StorageClient.traverse(publisher, params);
 
     Set<String> paths = new HashSet<>();
     messenger.getDocsSentForProcessing().forEach(doc -> paths.add(doc.getString(FILE_PATH)));

@@ -108,6 +108,11 @@ public class S3StorageClient extends BaseStorageClient {
     traverseByListing(publisher, params, stateMgr);
   }
 
+  @Override
+  protected boolean traversesByListing() {
+    return true;
+  }
+
   // One listing of every key under the prefix needs far fewer requests than one listing per directory.
   @Override
   protected ListingMode defaultListingMode() {

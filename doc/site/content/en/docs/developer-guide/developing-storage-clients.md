@@ -73,7 +73,8 @@ To create a StorageClient, extend `BaseStorageClient`. The base class manages th
 - **FileHandler delegation** — Routes files to the correct FileHandler based on extension and publishes the resulting Documents.
 - **Incremental mode** — Reads and updates the `FileStateTracker` the `FileConnector` passes to `traverse()`, to track which files have been processed and skip unchanged files on subsequent runs.
 - **Success/error directory handling** — Moves files to configured success or error directories after processing.
-- **Shared traversal** — If your backend has a directory-like listing, `traverseByListing()` handles the descent, `pathsToSkip`, `traversalThreads`, `listingMode`, and `maxDocuments`. See [Using the Shared Traversal](#using-the-shared-traversal).
+- **`traversal.maxDocuments`** — `traverse()` enforces the connector's document limit for every subclass, however it traverses. See [Document Limit](#document-limit).
+- **Shared traversal** — If your backend has a directory-like listing, `traverseByListing()` handles the descent, `pathsToSkip`, `traversal.threadsPerPath`, and `traversal.listingMode`. See [Using the Shared Traversal](#using-the-shared-traversal).
 
 ---
 
@@ -91,7 +92,7 @@ To create a StorageClient, extend `BaseStorageClient`. The base class manages th
 
 `traverse()` and `traverseStorageClient()` declare `IOException` and `ConnectorException`. Wrap any other checked exception, such as a `PublisherException` from publishing directly, in a `ConnectorException`.
 
-If your client has settings that can't work with some traversals, override `validateTraversal(TraversalParams params, boolean stateEnabled, boolean collapsing)` and throw an `IllegalArgumentException`. The `FileConnector` calls it at startup for each path. If you extend `BaseStorageClient`, call `super.validateTraversal()`.
+If your client has settings that can't work with some traversals, override `validateTraversal(TraversalParams params)` and throw an `IllegalArgumentException`. The `FileConnector` calls it at startup for each path, and adds the path to the message. If you extend `BaseStorageClient`, call `super.validateTraversal(params)`: it rejects `traversal.threadsPerPath` above `1` and `traversal.listingMode` unless your client uses the shared traversal.
 
 Constants for the Document field names and config keys are on `StorageClientFields` and `StorageClientOptions` in `com.kmwllc.lucille.connector.storageclient`. Import them from there rather than from `FileConnector`, which keeps aliases of them.
 
@@ -144,13 +145,30 @@ protected Stream<ListingEntry> listDirectory(String prefix, TraversalParams para
 }
 ```
 
-The traversal reads `traversalThreads`, `maxDocuments`, and `listingMode` from your entry in `storageClients`. They have no effect on a client that doesn't call `traverseByListing()`. With `traversalThreads` above `1`:
+Also override `traversesByListing()` to return `true`:
+
+```java
+@Override
+protected boolean traversesByListing() {
+  return true;
+}
+```
+
+The traversal reads `threadsPerPath` and `listingMode` from the connector's `traversal` block, through `TraversalParams`. Only a client that calls `traverseByListing()` honors them, so `validateTraversal()` rejects them at startup unless `traversesByListing()` returns `true`. With `threadsPerPath` above `1`:
 
 - `listDirectory()`, `directoryURI()`, `getContentStream()`, and `moveFile()` are called from several threads, so your backend's client must be safe to share, or you must keep one per thread.
 - A `FileStateTracker` passed to `traverse()` must implement `ThreadBoundFileStateTracker`, which opens and closes state for each traversal thread. A plain `FileStateTracker` fails the traversal, since it may not be thread-safe. `FileConnector`'s does.
 - `stop()` interrupts the traversal's threads and waits for them to end, and the traversal fails, since it didn't reach every file.
 
 To visit a single level without descending, call `traverseOneDirectory(prefix, publisher, params, stateMgr)`. It publishes the directory's files and returns its child directories.
+
+### Document Limit
+
+`traverse()` enforces `traversal.maxDocuments` for every subclass of `BaseStorageClient`, whether or not it uses the shared traversal. When a limit is set, the `Publisher` passed to `traverseStorageClient()` throws an unchecked exception once the limit is reached. `processAndPublishFileIfValid()` lets that exception through rather than handling it as a failed file, and `traverse()` then ends the traversal without failing it. If your traversal catches exceptions itself, rethrow unchecked ones (wrapping one is fine) so that the limit can end it. Otherwise every remaining file would fail the same way, and with `moveToErrorFolder` set, be moved to the error folder.
+
+The shared traversal also stops listing once the limit is reached. A client that walks its storage another way stops at the next document it publishes.
+
+A client that implements `StorageClient` directly, rather than extending `BaseStorageClient`, doesn't get this. The interface's default `validateTraversal()` rejects `maxDocuments`, `threadsPerPath` above `1` and `listingMode` at startup, so a setting is either honored or refused, never ignored.
 
 ---
 

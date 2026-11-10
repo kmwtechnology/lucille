@@ -1003,12 +1003,10 @@ public class AzureStorageClientTest {
   }
 
   private static Set<String> publishedFromContainer(BlobContainerClient container, String start, Map<String, Object> connectorConfig,
-      Map<String, Object> azureSettings) throws Exception {
+      Map<String, Object> traversalSettings) throws Exception {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
-    Map<String, Object> azureConfig = new HashMap<>(azureSettings);
-    azureConfig.put("connectionString", "connectionString");
-    AzureStorageClient client = new AzureStorageClient(ConfigFactory.parseMap(azureConfig));
+    AzureStorageClient client = new AzureStorageClient(ConfigFactory.parseMap(Map.of("connectionString", "connectionString")));
 
     BlobServiceClient service = mock(BlobServiceClient.class);
     when(service.getBlobContainerClient(any())).thenReturn(container);
@@ -1017,7 +1015,10 @@ public class AzureStorageClientTest {
 
     Map<String, Object> fullConfig = new HashMap<>(connectorConfig);
     fullConfig.put("fileOptions", Map.of("getFileContent", false));
-    client.traverse(publisher, new TraversalParams(ConfigFactory.parseMap(fullConfig), URI.create(start), ""));
+    fullConfig.put("traversal", traversalSettings);
+    TraversalParams params = new TraversalParams(ConfigFactory.parseMap(fullConfig), URI.create(start), "");
+    client.validateTraversal(params);
+    client.traverse(publisher, params);
 
     Set<String> paths = new HashSet<>();
     messenger.getDocsSentForProcessing().forEach(doc -> paths.add(doc.getString(FILE_PATH)));
@@ -1039,7 +1040,7 @@ public class AzureStorageClientTest {
       }
     });
 
-    Set<String> parallel = publishedFromContainer(container, AZURE_ROOT, Map.of(), Map.of("traversalThreads", 3));
+    Set<String> parallel = publishedFromContainer(container, AZURE_ROOT, Map.of(), Map.of("threadsPerPath", 3));
 
     assertEquals(publishedFromContainer(fakeContainer(NESTED_BLOBS, prefix -> { }), AZURE_ROOT, Map.of(), Map.of()), parallel);
     assertEquals(5, parallel.size());

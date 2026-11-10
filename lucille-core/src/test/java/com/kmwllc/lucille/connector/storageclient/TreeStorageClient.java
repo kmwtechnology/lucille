@@ -54,6 +54,11 @@ public class TreeStorageClient extends BaseStorageClient {
   }
 
   @Override
+  protected boolean traversesByListing() {
+    return true;
+  }
+
+  @Override
   protected Stream<ListingEntry> listDirectory(String prefix, TraversalParams params) {
     listedPrefixes.add(prefix);
     listingThreads.add(Thread.currentThread());

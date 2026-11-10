@@ -535,16 +535,18 @@ public class GoogleStorageClientTest {
     googleStorageClient.stop();
   }
 
-  private Set<String> publishedFromBucket(String start, Map<String, Object> connectorConfig, Map<String, Object> gcpSettings) throws Exception {
+  private Set<String> publishedFromBucket(String start, Map<String, Object> connectorConfig, Map<String, Object> traversalSettings) throws Exception {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
-    Map<String, Object> gcpConfig = new HashMap<>(gcpSettings);
-    gcpConfig.put(GOOGLE_SERVICE_KEY, "validPath");
-    GoogleStorageClient client = new GoogleStorageClient(ConfigFactory.parseMap(gcpConfig));
+    GoogleStorageClient client = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
     client.setStorageForTesting(storage);
     client.initializeForTesting();
 
-    client.traverse(publisher, new TraversalParams(ConfigFactory.parseMap(connectorConfig), URI.create(start), ""));
+    Map<String, Object> fullConfig = new HashMap<>(connectorConfig);
+    fullConfig.put("traversal", traversalSettings);
+    TraversalParams params = new TraversalParams(ConfigFactory.parseMap(fullConfig), URI.create(start), "");
+    client.validateTraversal(params);
+    client.traverse(publisher, params);
 
     Set<String> paths = new HashSet<>();
     messenger.getDocsSentForProcessing().forEach(doc -> paths.add(doc.getString(FILE_PATH)));
@@ -579,7 +581,7 @@ public class GoogleStorageClientTest {
     }).when(storage).list(anyString(), any(BlobListOption[].class));
 
     try {
-      assertEquals(sequential, publishedFromBucket("gs://bucket/", Map.of(), Map.of("traversalThreads", 3)));
+      assertEquals(sequential, publishedFromBucket("gs://bucket/", Map.of(), Map.of("threadsPerPath", 3)));
     } finally {
       storage = realStorage;
     }

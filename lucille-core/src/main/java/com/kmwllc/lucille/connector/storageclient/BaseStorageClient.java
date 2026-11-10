@@ -10,7 +10,8 @@ import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MA
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_RESULTS_PER_PAGE;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_AFTER_PROCESSING;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_ERROR_FOLDER;
-import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.TRAVERSAL_THREADS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.THREADS_PER_PATH;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.TRAVERSAL;
 
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.connector.StatePathTooLongException;
@@ -81,12 +82,6 @@ public abstract class BaseStorageClient implements StorageClient {
   // volatile because stop() can be called while another thread is traversing
   private volatile boolean initialized = false;
 
-  private final int traversalThreads;
-  // null means no limit
-  private final Long maxDocuments;
-  // null means this client's default, see defaultListingMode()
-  private final ListingMode configuredListingMode;
-
   // the multi-threaded traversals running now, which stop() has to end
   private final Set<ParallelDescent> activeDescents = ConcurrentHashMap.newKeySet();
 
@@ -117,22 +112,6 @@ public abstract class BaseStorageClient implements StorageClient {
 
     // only matters for traversals
     this.maxResultsPerPage = ConfigUtils.getIntOrDefault(config, MAX_RESULTS_PER_PAGE, defaultMaxResultsPerPage);
-
-    this.traversalThreads = ConfigUtils.getIntOrDefault(config, TRAVERSAL_THREADS, 1);
-    if (traversalThreads < 1) {
-      throw new IllegalArgumentException(TRAVERSAL_THREADS + " must be at least 1, but was " + traversalThreads);
-    }
-
-    this.maxDocuments = ConfigUtils.getLongOrDefault(config, MAX_DOCUMENTS, null);
-    if (maxDocuments != null && maxDocuments < 1) {
-      throw new IllegalArgumentException(MAX_DOCUMENTS + " must be at least 1, but was " + maxDocuments);
-    }
-
-    this.configuredListingMode = config.hasPath(LISTING_MODE) ? ListingMode.fromString(config.getString(LISTING_MODE)) : null;
-    if (configuredListingMode == ListingMode.FLAT && traversalThreads > 1) {
-      throw new IllegalArgumentException(LISTING_MODE + " '" + ListingMode.FLAT + "' is one listing, which can't be divided among threads, so it can't be "
-          + "combined with " + TRAVERSAL_THREADS + " above 1.");
-    }
   }
 
   /**
@@ -179,39 +158,74 @@ public abstract class BaseStorageClient implements StorageClient {
     traverse(publisher, params, null);
   }
 
+  /**
+   * {@inheritDoc}
+   * <p> Enforces <code>traversal.maxDocuments</code> for every subclass: once the limit is reached, the next document
+   * published ends the traversal, which is not a failure. The file being processed then is left where it is, because
+   * some of its documents weren't published.
+   */
   @Override
   public final void traverse(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws IOException, ConnectorException {
     if (!isInitialized()) {
       throw new IllegalStateException("This StorageClient has not been started. Call start() first.");
     }
 
-    traverseStorageClient(publisher, params, stateMgr);
+    Long maxDocuments = params.getMaxDocuments();
+    if (maxDocuments == null) {
+      traverseStorageClient(publisher, params, stateMgr);
+      return;
+    }
+
+    try {
+      traverseStorageClient(new DocumentLimitPublisher(publisher, maxDocuments), params, stateMgr);
+    } catch (IOException | ConnectorException | RuntimeException e) {
+      // a subclass's own traversal may have wrapped it
+      if (ExceptionUtils.indexOfType(e, DocumentLimitReachedException.class) == -1) {
+        throw e;
+      }
+      log.info("Stopped traversing '{}': reached {}.{} of {}.", params.getURI(), TRAVERSAL, MAX_DOCUMENTS, maxDocuments);
+    }
   }
 
   /**
    * Performs the traversal. A client whose storage has a directory-like listing can implement this by calling
    * {@link #traverseByListing(Publisher, TraversalParams, FileStateTracker)} and overriding {@link #listDirectory(String, TraversalParams)}.
+   * <p> When <code>traversal.maxDocuments</code> is set, the Publisher given here throws once the limit is reached. Let
+   * that exception through rather than handling it as a failure: {@link #processAndPublishFileIfValid} already does.
    */
   protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws IOException, ConnectorException;
 
   /**
+   * Returns whether {@link #traverseStorageClient} traverses with
+   * {@link #traverseByListing(Publisher, TraversalParams, FileStateTracker)}, which honors <code>traversal.threadsPerPath</code>
+   * and <code>traversal.listingMode</code>. When false, the default, {@link #validateTraversal(TraversalParams)} rejects
+   * those settings. Override this to return true if your client traverses by listing.
+   */
+  protected boolean traversesByListing() {
+    return false;
+  }
+
+  /**
    * {@inheritDoc}
-   * <p> Checks the settings {@link #traverseByListing(Publisher, TraversalParams, FileStateTracker)} reads.
+   * <p> Accepts <code>traversal.maxDocuments</code>, which {@link #traverse} enforces for every subclass. Accepts
+   * <code>traversal.threadsPerPath</code> and <code>traversal.listingMode</code> only when {@link #traversesByListing()},
+   * and then checks the combinations a flat listing can't serve.
    */
   @Override
-  public void validateTraversal(TraversalParams params, boolean stateEnabled, boolean collapsing) {
-    // A collapsing Publisher is not safe for concurrent publish() calls - it would merge and drop documents silently
-    if (traversalThreads > 1 && collapsing) {
-      throw new IllegalArgumentException(TRAVERSAL_THREADS + " above 1 can't be combined with collapse.");
+  public void validateTraversal(TraversalParams params) {
+    if (!traversesByListing()) {
+      params.rejectListingSettings(this);
+      return;
     }
 
-    // the files a capped traversal never reaches would look deleted, and be tombstoned and removed from state
-    if (maxDocuments != null && stateEnabled) {
-      throw new IllegalArgumentException(MAX_DOCUMENTS + " can't be combined with state: files the traversal doesn't reach would be treated as deleted.");
+    if (params.getListingMode() == ListingMode.FLAT && params.getThreadsPerPath() > 1) {
+      throw new IllegalArgumentException(TRAVERSAL + "." + LISTING_MODE + " '" + ListingMode.FLAT + "' is one listing, which can't be divided "
+          + "among threads, so it can't be combined with " + TRAVERSAL + "." + THREADS_PER_PATH + " above 1.");
     }
 
-    if (configuredListingMode == ListingMode.FLAT && !params.getPathsToSkip().isEmpty()) {
-      throw new IllegalArgumentException(LISTING_MODE + " '" + ListingMode.FLAT + "' lists no directories, so it can't be combined with filterOptions.pathsToSkip.");
+    if (params.getListingMode() == ListingMode.FLAT && !params.getPathsToSkip().isEmpty()) {
+      throw new IllegalArgumentException(TRAVERSAL + "." + LISTING_MODE + " '" + ListingMode.FLAT + "' lists no directories, so it can't be "
+          + "combined with filterOptions.pathsToSkip.");
     }
   }
 
@@ -235,7 +249,7 @@ public abstract class BaseStorageClient implements StorageClient {
           return mode;
         }
       }
-      throw new IllegalArgumentException("Unknown " + LISTING_MODE + " \"" + name + "\"; expected one of hierarchical, flat");
+      throw new IllegalArgumentException("Unknown " + TRAVERSAL + "." + LISTING_MODE + " \"" + name + "\"; expected one of hierarchical, flat");
     }
   }
 
@@ -283,7 +297,7 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * Lists one directory, without descending into its children. The stream should be lazy, fetching further pages only as
    * it is consumed, because the traversal stops consuming it at <code>maxDocuments</code>. Called from several threads when
-   * <code>traversalThreads</code> is above 1.
+   * <code>threadsPerPath</code> is above 1.
    *
    * @param prefix The directory's key. For the start of a traversal, this is {@link #getStartingDirectory(TraversalParams)},
    *               which may be a raw prefix rather than a directory.
@@ -328,7 +342,7 @@ public abstract class BaseStorageClient implements StorageClient {
 
   /**
    * The listing mode used when <code>listingMode</code> is not configured. A {@link ListingMode#FLAT} default gives way to
-   * a hierarchical listing when <code>pathsToSkip</code> is set or <code>traversalThreads</code> is above 1, which a single
+   * a hierarchical listing when <code>pathsToSkip</code> is set or <code>threadsPerPath</code> is above 1, which a single
    * listing can't serve.
    */
   protected ListingMode defaultListingMode() {
@@ -338,7 +352,7 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * Asked about each directory a hierarchical traversal could descend into, after <code>pathsToSkip</code>. Includes the
    * start of the traversal when its path names a directory, meaning it is empty or ends in '/'. Called from several threads
-   * when <code>traversalThreads</code> is above 1. Not called for a flat listing, which sees no directories.
+   * when <code>threadsPerPath</code> is above 1. Not called for a flat listing, which sees no directories.
    *
    * @param directory The directory's URI.
    * @param params Parameters for the traversal.
@@ -363,51 +377,48 @@ public abstract class BaseStorageClient implements StorageClient {
 
   /**
    * The traversal shared by the cloud clients. Lists the path with {@link #listFlat} or, one directory at a time, with
-   * {@link #listDirectory}, on <code>traversalThreads</code> threads, and stops at <code>maxDocuments</code>. Reaching
-   * <code>maxDocuments</code> is not a failure. Otherwise, the first failure stops the traversal and is thrown.
+   * {@link #listDirectory}, on <code>threadsPerPath</code> threads, and stops listing at <code>maxDocuments</code>.
+   * The first failure stops the traversal and is thrown. A client that calls this should override
+   * {@link #traversesByListing()} to return true, so that its traversal settings are accepted.
    */
   protected final void traverseByListing(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws ConnectorException {
-    validateTraversal(params, stateMgr != null, false);
+    validateTraversal(params);
 
-    if (traversalThreads > 1 && stateMgr != null && !(stateMgr instanceof ThreadBoundFileStateTracker)) {
-      throw new IllegalArgumentException(TRAVERSAL_THREADS + " above 1 requires a " + ThreadBoundFileStateTracker.class.getSimpleName()
+    int threads = params.getThreadsPerPath();
+    if (threads > 1 && stateMgr != null && !(stateMgr instanceof ThreadBoundFileStateTracker)) {
+      throw new IllegalArgumentException(TRAVERSAL + "." + THREADS_PER_PATH + " above 1 requires a " + ThreadBoundFileStateTracker.class.getSimpleName()
           + ", but was given a " + stateMgr.getClass().getName() + ".");
     }
 
-    DocumentLimitPublisher limited = maxDocuments == null ? null : new DocumentLimitPublisher(publisher, maxDocuments);
-    Publisher target = limited == null ? publisher : limited;
-    BooleanSupplier limitReached = limited == null ? () -> false : limited::limitReached;
+    // traverse() wraps the Publisher when there is a limit, so the listing can stop once it's reached
+    BooleanSupplier limitReached = publisher instanceof DocumentLimitPublisher limited ? limited::limitReached : () -> false;
     String start = getStartingDirectory(params);
 
-    try {
-      if (listingModeFor(params) == ListingMode.FLAT) {
-        publishEntries(listFlat(start, params), target, params, stateMgr, limitReached);
-        return;
-      }
+    if (listingModeFor(params) == ListingMode.FLAT) {
+      publishEntries(listFlat(start, params), publisher, params, stateMgr, limitReached);
+      return;
+    }
 
-      // Without a trailing '/' the start is a raw prefix, not a directory: "logs" also covers "logs-old/". A pathsToSkip
-      // entry for "logs/" is applied when the listing returns that as a child, and must not end the whole traversal.
-      if ((start.isEmpty() || start.endsWith("/")) && verdictFor(params.getURI(), params) == DirectoryVerdict.SKIP) {
-        log.info("Not traversing '{}': the directory is skipped.", params.getURI());
-        return;
-      }
+    // Without a trailing '/' the start is a raw prefix, not a directory: "logs" also covers "logs-old/". A pathsToSkip
+    // entry for "logs/" is applied when the listing returns that as a child, and must not end the whole traversal.
+    if ((start.isEmpty() || start.endsWith("/")) && verdictFor(params.getURI(), params) == DirectoryVerdict.SKIP) {
+      log.info("Not traversing '{}': the directory is skipped.", params.getURI());
+      return;
+    }
 
-      if (traversalThreads == 1) {
-        descendSequentially(start, target, params, stateMgr, limitReached);
-      } else {
-        new ParallelDescent(start, target, params, stateMgr, limitReached).run();
-      }
-    } catch (DocumentLimitReachedException e) {
-      log.info("Stopped traversing '{}': reached {} of {}.", params.getURI(), MAX_DOCUMENTS, maxDocuments);
+    if (threads == 1) {
+      descendSequentially(start, publisher, params, stateMgr, limitReached);
+    } else {
+      new ParallelDescent(start, publisher, params, stateMgr, limitReached).run();
     }
   }
 
   private ListingMode listingModeFor(TraversalParams params) {
-    if (configuredListingMode != null) {
-      return configuredListingMode;
+    if (params.getListingMode() != null) {
+      return params.getListingMode();
     }
 
-    return traversalThreads == 1 && params.getPathsToSkip().isEmpty() ? defaultListingMode() : ListingMode.HIERARCHICAL;
+    return params.getThreadsPerPath() == 1 && params.getPathsToSkip().isEmpty() ? defaultListingMode() : ListingMode.HIERARCHICAL;
   }
 
   private DirectoryVerdict verdictFor(URI directory, TraversalParams params) {
@@ -496,7 +507,7 @@ public abstract class BaseStorageClient implements StorageClient {
       this.params = params;
       this.stateMgr = stateMgr;
       this.limitReached = limitReached;
-      this.executor = Executors.newFixedThreadPool(traversalThreads, new BasicThreadFactory.Builder()
+      this.executor = Executors.newFixedThreadPool(params.getThreadsPerPath(), new BasicThreadFactory.Builder()
           .namingPattern(ThreadNameUtils.createName("DirectoryTraversal") + "-%d")
           .build());
 
@@ -516,7 +527,7 @@ public abstract class BaseStorageClient implements StorageClient {
       try {
         List<Future<?>> workers = new ArrayList<>();
         try {
-          for (int i = 0; i < traversalThreads; i++) {
+          for (int i = 0; i < params.getThreadsPerPath(); i++) {
             workers.add(executor.submit(this::work));
           }
         } catch (RejectedExecutionException e) {
@@ -646,13 +657,13 @@ public abstract class BaseStorageClient implements StorageClient {
    */
   private static class DocumentLimitReachedException extends RuntimeException {
     DocumentLimitReachedException() {
-      super("maxDocuments reached.");
+      super(TRAVERSAL + "." + MAX_DOCUMENTS + " reached.");
     }
   }
 
   /**
-   * Publishes at most the given number of documents, counted across all of a traversal's threads. Wraps the Publisher
-   * given to a traversal because FileHandlers publish to it directly.
+   * Publishes at most the given number of documents, counted across all of a traversal's threads. {@link #traverse} wraps
+   * the Publisher given to a traversal with this, because FileHandlers publish to it directly.
    */
   private static final class DocumentLimitPublisher implements Publisher {
 

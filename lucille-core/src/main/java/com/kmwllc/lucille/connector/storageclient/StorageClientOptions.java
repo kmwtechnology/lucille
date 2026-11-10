@@ -4,8 +4,8 @@ import java.util.List;
 
 /**
  * Config keys read by StorageClients, their factories in {@link StorageClient}, and {@link TraversalParams}. The cloud
- * keys are read from a client's own config (for example, the <code>s3</code> block), and the file option keys from
- * <code>fileOptions</code>.
+ * keys are read from a client's own config (for example, the <code>s3</code> block), the traversal keys from the
+ * connector's <code>traversal</code> block, and the file option keys from <code>fileOptions</code>.
  */
 public final class StorageClientOptions {
 
@@ -33,11 +33,18 @@ public final class StorageClientOptions {
   public static final String GOOGLE_SERVICE_KEY = "serviceKeyPath";
   /** Any cloud client: the number of results returned per listing request (page size). */
   public static final String MAX_RESULTS_PER_PAGE = "maxResultsPerPage";
-  /** Any cloud client: the number of threads that traverse one path's directories. Defaults to 1. */
-  public static final String TRAVERSAL_THREADS = "traversalThreads";
-  /** Any cloud client: the most documents to publish per traversed path. No limit by default. */
+
+  // -- traversal keys --
+
+  /** The connector's config block holding the traversal settings below. */
+  public static final String TRAVERSAL = "traversal";
+  /** traversal: the most paths to traverse at once. -1 traverses every path at once. Defaults to 1. */
+  public static final String MAX_CONCURRENT_PATHS = "maxConcurrentPaths";
+  /** traversal: the number of threads that traverse one path's directories. Defaults to 1. */
+  public static final String THREADS_PER_PATH = "threadsPerPath";
+  /** traversal: the most documents to publish per traversed path. No limit by default. */
   public static final String MAX_DOCUMENTS = "maxDocuments";
-  /** Any cloud client: how to list a path, <code>hierarchical</code> or <code>flat</code>. The default depends on the client. */
+  /** traversal: how to list a path, <code>hierarchical</code> or <code>flat</code>. The default depends on the client. */
   public static final String LISTING_MODE = "listingMode";
 
   // -- Custom storage clients --

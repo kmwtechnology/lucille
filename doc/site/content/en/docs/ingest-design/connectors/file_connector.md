@@ -18,7 +18,7 @@ The `FileConnector` traverses one or more paths and publishes a Lucille Document
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `paths` | List\<String\> | Yes | Paths or URIs to traverse. See [Paths](#paths). |
-| `maxThreads` | Integer | No | Number of threads used to traverse `paths`. `1` traverses them in order. A larger value traverses up to that many paths at once, with the rest waiting for a free thread, and `-1` uses one thread per path. Any other value fails at startup. With any value other than `1`, paths on the same storage provider must not overlap, and `collapse` cannot be used (even with a single path); both are checked at startup. Cloud paths overlap when one is a prefix of the other, so `s3://bucket/logs` and `s3://bucket/logs-old` overlap but `s3://bucket/logs/` and `s3://bucket/logs-old/` don't (see [Paths](#paths)). Overlap through symlinks or S3 access point aliases is not detected. If one traversal fails, the others still run to completion before the run fails. See [Concurrent Traversal](#concurrent-traversal). Default: `1`. |
+| `traversal` | Object | No | How many paths and threads to traverse at once, a document limit, and how cloud paths are listed. See [Traversal](#traversal). |
 | `filterOptions` | Object | No | Which files are processed. See [Filter Options](#filter-options). |
 | `fileOptions` | Object | No | How files are handled. See [File Options](#file-options). |
 | `state` | Object | No | JDBC-backed state for incremental runs. See [Incremental Mode and State](#incremental-mode-and-state). |
@@ -40,9 +40,9 @@ The URI scheme of each path selects the storage backend:
 | Azure Blob Storage | `https://{account}.blob.core.windows.net/{container}/prefix`. Other hosts need [`azure.allowedHosts`](#azure-hosts). |
 | Other | Any scheme registered in [`storageClients`](#custom-storage-clients), e.g. `sftp://host/path`. |
 
-A local filesystem client is always available. A path whose provider block (`s3`, `gcp`, `azure`) is missing fails the run when the connector reaches it. An `https` path whose host isn't in `azure.allowedHosts` fails at startup. With `maxThreads: 1` (the default), paths are traversed in order, and a path that fails stops the run before the remaining paths are traversed.
+A local filesystem client is always available. A path whose provider block (`s3`, `gcp`, `azure`) is missing fails the run when the connector reaches it. An `https` path whose host isn't in `azure.allowedHosts` fails at startup. With `traversal.maxConcurrentPaths: 1` (the default), paths are traversed in order, and a path that fails stops the run before the remaining paths are traversed.
 
-On S3, GCS, and Azure, a path is a raw key prefix, so `s3://bucket/data` also traverses keys under `data2/`. End the path with `/` to limit it to one folder. For S3 paths, percent-encode special characters (e.g., `s3://bucket/folder%20with%20spaces`). When no `pathsToSkip` filter is set, S3 paths are listed in one flat listing rather than directory by directory, so files are published in S3 key order (see [Large Traversals](#large-traversals)).
+On S3, GCS, and Azure, a path is a raw key prefix, so `s3://bucket/data` also traverses keys under `data2/`. End the path with `/` to limit it to one folder. For S3 paths, percent-encode special characters (e.g., `s3://bucket/folder%20with%20spaces`). When no `pathsToSkip` filter is set, S3 paths are listed in one flat listing rather than directory by directory, so files are published in S3 key order (see `listingMode` in [Traversal](#traversal)).
 
 ```hocon
 paths: ["file:///local/data", "s3://my-bucket/prefix", "https://myaccount.blob.core.windows.net/container/path"]
@@ -52,7 +52,7 @@ paths: ["file:///local/data", "s3://my-bucket/prefix", "https://myaccount.blob.c
 
 ## Cloud Storage Configuration
 
-When traversing cloud storage, provide credentials in a block named `s3`, `gcp`, or `azure` inside the connector config. Each provider also accepts `maxResultsPerPage`, the number of results returned per listing request (default 100; 1000 for S3, which is also the most S3 returns per request), and the settings in [Large Traversals](#large-traversals).
+When traversing cloud storage, provide credentials in a block named `s3`, `gcp`, or `azure` inside the connector config. Each provider also accepts `maxResultsPerPage`, the number of results returned per listing request (default 100; 1000 for S3, which is also the most S3 returns per request). Thread counts, document limits and listing modes go in the connector's [`traversal`](#traversal) block, not here.
 
 ### azure
 
@@ -163,41 +163,55 @@ The same settings apply to stages that read files by URI, such as `FetchFileCont
 
 ---
 
-## Concurrent Traversal
+## Traversal
 
-Multiple `paths` are traversed one after another by default. Set `maxThreads` (see [Parameters](#parameters)) to traverse several at once. Here, four paths are traversed two at a time:
-
-```hocon
-paths: ["s3://bucket/a", "s3://bucket/b", "s3://bucket/c", "s3://bucket/d"]
-maxThreads: 2
-```
-
-To traverse the directories of one path at once, see [Large Traversals](#large-traversals).
-
-## Large Traversals
-
-These settings go in the `s3`, `gcp`, or `azure` block, or in a [custom client's](#custom-storage-clients) entry in `storageClients` if that client uses the shared traversal. They don't apply to local paths.
+These settings go in a `traversal` block in the connector config. They apply to every entry in `paths`. To tune providers differently, use one connector per provider.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `traversalThreads` | Integer | No | Number of threads that traverse the directories of one path. Must be at least `1`. Above `1`, `collapse` can't be used (checked at startup). Default: `1`. |
-| `maxDocuments` | Long | No | The most documents to publish for each entry in `paths`. Must be at least `1`. Can't be combined with an enabled `state` block (checked at startup). No limit by default. |
-| `listingMode` | String | No | `hierarchical` lists each directory separately. `flat` lists every key under the path at once, in fewer requests. `flat` can't be combined with `traversalThreads` above `1` or with `pathsToSkip` (both checked at startup). Default: `flat` on S3 unless `traversalThreads` is above `1` or `pathsToSkip` is set, and otherwise `hierarchical`. |
+| `maxConcurrentPaths` | Integer | No | The most entries in `paths` to traverse at once. `1` traverses them in order. A larger value traverses up to that many at once, each on its own thread, with the rest waiting for a free thread. `-1` traverses every path at once. Any other value fails at startup. Default: `1`. |
+| `threadsPerPath` | Integer | No | The number of threads that traverse the directories of one path. Must be at least `1`. Only `s3`, `gs` and `https` (Azure) paths, and [custom clients](#custom-storage-clients) that use the shared traversal, support a value above `1`. For any other path, such as a local one, a value above `1` fails at startup. Default: `1`. |
+| `maxDocuments` | Long | No | The most documents to publish for each entry in `paths`. Must be at least `1`. Supported for local and cloud paths. Can't be combined with an enabled `state` block (checked at startup). No limit by default. |
+| `listingMode` | String | No | For `s3`, `gs` and `https` (Azure) paths only; set for any other path, it fails at startup. `hierarchical` lists each directory separately. `flat` lists every key under the path at once, in fewer requests. `flat` can't be combined with `threadsPerPath` above `1` or with `pathsToSkip` (both checked at startup). Default: `flat` on S3 unless `threadsPerPath` is above `1` or `pathsToSkip` is set, and otherwise `hierarchical`. |
 
 ```hocon
 paths: ["s3://bucket/a/", "s3://bucket/b/"]
-maxThreads: 2
+traversal: {
+  maxConcurrentPaths: 2
+  threadsPerPath: 8
+}
 s3: {
   region: "us-east-1"
-  traversalThreads: 8
 }
 ```
 
-**Threads.** `maxThreads` sets how many `paths` run at once, and `traversalThreads` sets how many threads work on each one, so up to `maxThreads` × `traversalThreads` threads can run. The example above can use 16. Each of them makes its own listing and content requests, so size any connection limits to suit. With an enabled `state` block, each also holds its own connection to the state database, and `moveToAfterProcessing` and `moveToErrorFolder` moves happen on these threads.
+### Choosing thread counts
 
-A traversal with several threads publishes the same documents as one with a single thread, but in no fixed order. With one thread, a directory's files are published first, then each of its child directories in listing order. If a thread fails, for example when a listing fails, the others stop and the run fails. Each thread uses its own instances of the configured File Handlers.
+- **One large path:** raise `threadsPerPath`. It splits one path's directories among threads, so it helps when the path has many directories. A path with all of its files in one directory gets little from it.
+- **Several paths:** raise `maxConcurrentPaths`. Each path runs on its own thread, so it helps most when the paths are of similar size. `-1` sets it to the number of paths.
+- **Both:** up to `maxConcurrentPaths` × `threadsPerPath` threads list and process files at once. The example above can use 16.
 
-**`maxDocuments`.** Every published document counts, including each one from a File Handler or archive, so a CSV file can use up many. A document that fails to publish doesn't count. Once the limit is reached, listing stops and the traversal ends without failing; other entries in `paths` still get their own limit. A file whose documents were cut off by the limit isn't moved to `moveToAfterProcessing` or `moveToErrorFolder`. A limit can't be used with `state`, because files the traversal doesn't reach would look deleted and would be tombstoned and removed from state.
+A reasonable starting point for a large cloud path is a `threadsPerPath` of 4 to 8. Raise it while throughput improves and the provider doesn't throttle requests. Every thread makes its own listing and content requests, so size any connection limits (such as a proxy's) to suit.
+
+Concurrency has these requirements, all checked at startup:
+
+- With `maxConcurrentPaths` other than `1`, paths on the same storage provider must not overlap. Cloud paths overlap when one is a prefix of the other, so `s3://bucket/logs` and `s3://bucket/logs-old` overlap but `s3://bucket/logs/` and `s3://bucket/logs-old/` don't (see [Paths](#paths)). Overlap through symlinks or S3 access point aliases is not detected.
+- With `maxConcurrentPaths` other than `1` or `threadsPerPath` above `1`, `collapse` can't be used, even with a single path.
+
+**State connections.** With an enabled `state` block, each path thread and each of its directory threads holds its own connection to the state database, so a run opens up to `maxConcurrentPaths` × (`threadsPerPath` + 1) + 1 connections (with `-1`, count the number of paths). Check this against the database's connection limit. The example above can open up to 19. `moveToAfterProcessing` and `moveToErrorFolder` moves also happen on these threads.
+
+**Order.** A traversal with several threads publishes the same documents as one with a single thread, but in no fixed order. With one thread, a directory's files are published first, then each of its child directories in listing order. Each thread uses its own instances of the configured File Handlers.
+
+### When a traversal fails
+
+- **Across paths:** with `maxConcurrentPaths: 1`, a failed path stops the run before the remaining paths are traversed. With any other value, every path runs to completion even after another fails, and then the run fails with all of the failures. Stopping the others would leave files they hadn't reached unmarked in state, and those would be tombstoned.
+- **Within a path** (`threadsPerPath`): the first failure, such as a failed listing, stops the path's other threads once they finish their current file, and the path fails.
+
+A file that fails to process is skipped (and moved to `moveToErrorFolder`, if set) either way; that doesn't fail the traversal.
+
+### `maxDocuments`
+
+Every published document counts, including each one from a File Handler or archive, so a CSV file can use up many. A document that fails to publish doesn't count. Once the limit is reached, the traversal ends without failing; for cloud paths, listing stops too. Other entries in `paths` still get their own limit. A file whose documents were cut off by the limit isn't moved to `moveToAfterProcessing` or `moveToErrorFolder`. A limit can't be used with `state`, because files the traversal doesn't reach would look deleted and would be tombstoned and removed from state.
 
 ---
 
@@ -596,7 +610,9 @@ The `FileConnector` SPEC demonstrates how to declare a complex, nested configura
 ```java
 public static final Spec SPEC = SpecBuilder.connector()
     .requiredList("paths", new TypeReference<List<String>>(){})
-    .optionalNumber("maxThreads")
+    .optionalParent("traversal", SpecBuilder.withoutDefaults()
+        .optionalNumber("maxConcurrentPaths", "threadsPerPath", "maxDocuments")
+        .optionalString("listingMode").build())
     .optionalParent("filterOptions", SpecBuilder.withoutDefaults()
         .optionalList("includes", new TypeReference<List<String>>(){})
         .optionalList("excludes", new TypeReference<List<String>>(){})

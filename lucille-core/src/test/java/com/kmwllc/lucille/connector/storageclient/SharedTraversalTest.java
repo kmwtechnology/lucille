@@ -5,6 +5,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.withSettings;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
@@ -58,14 +61,12 @@ public class SharedTraversalTest {
     return keys;
   }
 
-  private static Config clientConfig(List<String> keys, Map<String, Object> settings) {
-    Map<String, Object> config = new HashMap<>(settings);
-    config.put("keys", keys);
-    return ConfigFactory.parseMap(config);
+  private static Config clientConfig(List<String> keys) {
+    return ConfigFactory.parseMap(Map.of("keys", keys));
   }
 
-  private static TreeStorageClient client(List<String> keys, Map<String, Object> settings) {
-    return new TreeStorageClient(clientConfig(keys, settings));
+  private static TreeStorageClient client(List<String> keys) {
+    return new TreeStorageClient(clientConfig(keys));
   }
 
   private static TraversalParams params(String path) {
@@ -76,12 +77,30 @@ public class SharedTraversalTest {
     return new TraversalParams(ConfigFactory.parseMap(connectorConfig), URI.create(path), "");
   }
 
+  // params for the root, with the given settings in the connector's traversal block
+  private static TraversalParams traversal(Map<String, Object> settings) {
+    return params(ROOT, Map.of("traversal", settings));
+  }
+
+  private static TraversalParams threads(int threadsPerPath) {
+    return traversal(Map.of("threadsPerPath", threadsPerPath));
+  }
+
+  // with the connector's other settings too
+  private static TraversalParams traversal(String path, Map<String, Object> settings, Map<String, Object> connectorConfig) {
+    Map<String, Object> config = new HashMap<>(connectorConfig);
+    config.put("traversal", settings);
+    return params(path, config);
+  }
+
   private static List<String> traverse(TreeStorageClient client, TraversalParams params) throws Exception {
     return traverse(client, params, null);
   }
 
   private static List<String> traverse(TreeStorageClient client, TraversalParams params, FileStateTracker state) throws Exception {
     TestMessenger messenger = new TestMessenger();
+    // as FileConnector does at startup
+    client.validateTraversal(params);
     client.start();
     try {
       client.traverse(new PublisherImpl(ConfigFactory.empty(), messenger, "run", "pipeline"), params, state);
@@ -105,8 +124,8 @@ public class SharedTraversalTest {
 
   @Test
   public void testParallelPublishesTheSameDocumentsAsSequential() throws Exception {
-    List<String> sequential = traverse(client(manyKeys(), Map.of()), params(ROOT));
-    List<String> parallel = traverse(client(manyKeys(), Map.of("traversalThreads", 4)), params(ROOT));
+    List<String> sequential = traverse(client(manyKeys()), params(ROOT));
+    List<String> parallel = traverse(client(manyKeys()), threads(4));
 
     assertEquals(35, sequential.size());
     // compares lists, so a file published twice fails too
@@ -117,7 +136,7 @@ public class SharedTraversalTest {
   @Test
   public void testDirectoriesAreListedConcurrently() throws Exception {
     CyclicBarrier bothListing = new CyclicBarrier(2);
-    TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("a/1.txt", "b/2.txt"), Map.of("traversalThreads", 2))) {
+    TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("a/1.txt", "b/2.txt"))) {
       @Override
       protected void beforeListing(String prefix) {
         if (!prefix.isEmpty()) {
@@ -130,13 +149,13 @@ public class SharedTraversalTest {
       }
     };
 
-    assertEquals(uris("a/1.txt", "b/2.txt"), sorted(traverse(client, params(ROOT))));
+    assertEquals(uris("a/1.txt", "b/2.txt"), sorted(traverse(client, threads(2))));
     assertEquals(2, client.listingThreads.size());
   }
 
   @Test
   public void testSequentialTraversalStaysOnTheCallingThread() throws Exception {
-    TreeStorageClient client = client(manyKeys(), Map.of());
+    TreeStorageClient client = client(manyKeys());
 
     traverse(client, params(ROOT));
 
@@ -148,16 +167,16 @@ public class SharedTraversalTest {
   public void testSequentialOrder() throws Exception {
     List<String> keys = List.of("b/y/4.txt", "b/3.txt", "a/2.txt", "1.txt");
 
-    assertEquals(uris("1.txt", "a/2.txt", "b/3.txt", "b/y/4.txt"), traverse(client(keys, Map.of()), params(ROOT)));
+    assertEquals(uris("1.txt", "a/2.txt", "b/3.txt", "b/y/4.txt"), traverse(client(keys), params(ROOT)));
   }
 
   @Test
   public void testPathsToSkipAppliesToTheStartDirectory() throws Exception {
     for (int threads : List.of(1, 4)) {
-      TreeStorageClient client = client(manyKeys(), Map.of("traversalThreads", threads));
+      TreeStorageClient client = client(manyKeys());
       Map<String, Object> skip = Map.of("filterOptions", Map.of("pathsToSkip", List.of(ROOT + "a")));
 
-      assertEquals(List.of(), traverse(client, params(ROOT + "a/", skip)));
+      assertEquals(List.of(), traverse(client, traversal(ROOT + "a/", Map.of("threadsPerPath", threads), skip)));
       assertTrue(client.listedPrefixes.isEmpty());
     }
   }
@@ -168,16 +187,16 @@ public class SharedTraversalTest {
     List<String> keys = List.of("logs/1.txt", "logs-old/2.txt", "logs.txt");
     Map<String, Object> skip = Map.of("filterOptions", Map.of("pathsToSkip", List.of(ROOT + "logs/")));
 
-    assertEquals(uris("logs-old/2.txt", "logs.txt"), sorted(traverse(client(keys, Map.of()), params(ROOT + "logs", skip))));
+    assertEquals(uris("logs-old/2.txt", "logs.txt"), sorted(traverse(client(keys), params(ROOT + "logs", skip))));
   }
 
   @Test
   public void testPathsToSkipAppliesAtEveryDepth() throws Exception {
     for (int threads : List.of(1, 4)) {
-      TreeStorageClient client = client(List.of("1.txt", "a/2.txt", "a/x/3.txt", "a/y/4.txt", "b/5.txt"), Map.of("traversalThreads", threads));
+      TreeStorageClient client = client(List.of("1.txt", "a/2.txt", "a/x/3.txt", "a/y/4.txt", "b/5.txt"));
       Map<String, Object> skip = Map.of("filterOptions", Map.of("pathsToSkip", List.of(ROOT + "a/x/", ROOT + "b")));
 
-      assertEquals(uris("1.txt", "a/2.txt", "a/y/4.txt"), sorted(traverse(client, params(ROOT, skip))));
+      assertEquals(uris("1.txt", "a/2.txt", "a/y/4.txt"), sorted(traverse(client, traversal(ROOT, Map.of("threadsPerPath", threads), skip))));
       assertFalse(client.listedPrefixes.contains("a/x/"));
       assertFalse(client.listedPrefixes.contains("b/"));
     }
@@ -186,7 +205,7 @@ public class SharedTraversalTest {
   @Test
   public void testDirectoryCallbackVerdict() throws Exception {
     Set<String> asked = ConcurrentHashMap.newKeySet();
-    TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("start/1.txt", "start/a/2.txt", "start/b/3.txt", "start/c/4.txt"), Map.of())) {
+    TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("start/1.txt", "start/a/2.txt", "start/b/3.txt", "start/c/4.txt"))) {
       @Override
       protected DirectoryVerdict onDirectory(URI directory, TraversalParams params) {
         asked.add(directory.toString());
@@ -202,7 +221,7 @@ public class SharedTraversalTest {
 
   @Test
   public void testStartDirectoryCallbackCanSkipTheTraversal() throws Exception {
-    TreeStorageClient client = new TreeStorageClient(clientConfig(manyKeys(), Map.of())) {
+    TreeStorageClient client = new TreeStorageClient(clientConfig(manyKeys())) {
       @Override
       protected DirectoryVerdict onDirectory(URI directory, TraversalParams params) {
         return DirectoryVerdict.SKIP;
@@ -215,7 +234,7 @@ public class SharedTraversalTest {
   // One step visits one level, publishing its files and returning its children, with no descent.
   @Test
   public void testOneDirectoryStepIsCallableOnItsOwn() throws Exception {
-    TreeStorageClient client = client(List.of("a/1.txt", "a/x/2.txt", "a/y/3.txt", "4.txt"), Map.of());
+    TreeStorageClient client = client(List.of("a/1.txt", "a/x/2.txt", "a/y/3.txt", "4.txt"));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run", "pipeline");
     client.start();
@@ -230,7 +249,7 @@ public class SharedTraversalTest {
 
   @Test
   public void testUnbuildableReferenceSkipsOnlyThatFile() throws Exception {
-    TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("good.txt"), Map.of())) {
+    TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("good.txt"))) {
       @Override
       protected Stream<ListingEntry> listDirectory(String prefix, TraversalParams params) {
         return Stream.concat(
@@ -248,7 +267,7 @@ public class SharedTraversalTest {
   public void testMaxDocumentsIsExactUnderParallelism() throws Exception {
     List<String> keys = IntStream.range(0, 500).mapToObj(i -> "dir" + (i % 25) + "/file" + i + ".txt").collect(Collectors.toList());
 
-    List<String> published = traverse(client(keys, Map.of("traversalThreads", 8, "maxDocuments", 37)), params(ROOT));
+    List<String> published = traverse(client(keys), traversal(Map.of("threadsPerPath", 8, "maxDocuments", 37)));
 
     assertEquals(37, published.size());
     assertEquals(37, new HashSet<>(published).size());
@@ -256,29 +275,29 @@ public class SharedTraversalTest {
 
   @Test
   public void testMaxDocumentsStopsListing() throws Exception {
-    TreeStorageClient client = client(List.of("1.txt", "2.txt", "a/3.txt", "b/4.txt"), Map.of("maxDocuments", 2));
+    TreeStorageClient client = client(List.of("1.txt", "2.txt", "a/3.txt", "b/4.txt"));
 
-    assertEquals(uris("1.txt", "2.txt"), traverse(client, params(ROOT)));
+    assertEquals(uris("1.txt", "2.txt"), traverse(client, traversal(Map.of("maxDocuments", 2))));
     assertEquals(List.of(""), List.copyOf(client.listedPrefixes));
   }
 
   @Test
   public void testMaxDocumentsAboveTheFileCountPublishesEverything() throws Exception {
-    assertEquals(35, traverse(client(manyKeys(), Map.of("maxDocuments", 1000)), params(ROOT)).size());
-    assertEquals(35, traverse(client(manyKeys(), Map.of("maxDocuments", 35, "traversalThreads", 4)), params(ROOT)).size());
+    assertEquals(35, traverse(client(manyKeys()), traversal(Map.of("maxDocuments", 1000))).size());
+    assertEquals(35, traverse(client(manyKeys()), traversal(Map.of("maxDocuments", 35, "threadsPerPath", 4))).size());
   }
 
   @Test
   public void testMaxDocumentsAppliesToAFlatListing() throws Exception {
-    TreeStorageClient client = client(manyKeys(), Map.of("maxDocuments", 3, "listingMode", "flat"));
+    TreeStorageClient client = client(manyKeys());
 
-    assertEquals(3, traverse(client, params(ROOT)).size());
+    assertEquals(3, traverse(client, traversal(Map.of("maxDocuments", 3, "listingMode", "flat"))).size());
   }
 
   // A document that fails to publish only skips its file, so it mustn't use up one of the maxDocuments.
   @Test
   public void testAFailedPublishDoesNotCountTowardMaxDocuments() throws Exception {
-    TreeStorageClient client = client(List.of("1.txt", "2.txt", "3.txt", "4.txt", "5.txt"), Map.of("maxDocuments", 3));
+    TreeStorageClient client = client(List.of("1.txt", "2.txt", "3.txt", "4.txt", "5.txt"));
     TestMessenger messenger = new TestMessenger();
     AtomicBoolean failed = new AtomicBoolean();
     Publisher failsOnce = new PublisherImpl(ConfigFactory.empty(), messenger, "run", "pipeline") {
@@ -293,7 +312,7 @@ public class SharedTraversalTest {
 
     client.start();
     try {
-      client.traverse(failsOnce, params(ROOT), null);
+      client.traverse(failsOnce, traversal(Map.of("maxDocuments", 3)), null);
     } finally {
       client.stop();
     }
@@ -305,13 +324,13 @@ public class SharedTraversalTest {
   // Documents from a file handler count one by one, and a file that was cut off isn't moved as if it had been processed.
   @Test
   public void testMaxDocumentsCountsFileHandlerDocumentsAndLeavesACutOffFile() throws Exception {
-    TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("rows.csv", "other.txt"), Map.of("maxDocuments", 3))) {
+    TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("rows.csv", "other.txt"))) {
       @Override
       protected String contentFor(String key) {
         return "id,value\n1,a\n2,b\n3,c\n4,d\n5,e\n";
       }
     };
-    TraversalParams params = params(ROOT, Map.of(
+    TraversalParams params = traversal(ROOT, Map.of("maxDocuments", 3), Map.of(
         "fileHandlers", Map.of("csv", Map.of("idField", "id")),
         "fileOptions", Map.of("moveToAfterProcessing", ROOT + "done/", "moveToErrorFolder", ROOT + "errors/")));
 
@@ -327,56 +346,71 @@ public class SharedTraversalTest {
   // Ending on the limit exactly is still a complete file, so it is moved.
   @Test
   public void testAFileFinishedAtTheLimitIsMoved() throws Exception {
-    TreeStorageClient client = client(List.of("1.txt", "2.txt"), Map.of("maxDocuments", 1));
-    TraversalParams params = params(ROOT, Map.of("fileOptions", Map.of("moveToAfterProcessing", "other://bucket/done/")));
+    TreeStorageClient client = client(List.of("1.txt", "2.txt"));
+    TraversalParams params = traversal(ROOT, Map.of("maxDocuments", 1), Map.of("fileOptions", Map.of("moveToAfterProcessing", "other://bucket/done/")));
 
     assertEquals(uris("1.txt"), traverse(client, params));
     assertEquals(uris("1.txt"), List.copyOf(client.moves));
   }
 
   @Test
-  public void testMaxDocumentsWithStateIsRejected() {
-    TreeStorageClient client = client(manyKeys(), Map.of("maxDocuments", 1));
-
-    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-        () -> traverse(client, params(ROOT), new InMemoryFileStateTracker()));
-    assertTrue(e.getMessage(), e.getMessage().contains("maxDocuments"));
-  }
-
-  @Test
   public void testInvalidSettingsAreRejected() {
-    assertThrows(IllegalArgumentException.class, () -> client(manyKeys(), Map.of("traversalThreads", 0)));
-    assertThrows(IllegalArgumentException.class, () -> client(manyKeys(), Map.of("maxDocuments", 0)));
-    assertThrows(IllegalArgumentException.class, () -> client(manyKeys(), Map.of("listingMode", "sideways")));
-    assertThrows(IllegalArgumentException.class, () -> client(manyKeys(), Map.of("listingMode", "flat", "traversalThreads", 2)));
+    assertThrows(IllegalArgumentException.class, () -> threads(0));
+    assertThrows(IllegalArgumentException.class, () -> traversal(Map.of("maxDocuments", 0)));
+    assertThrows(IllegalArgumentException.class, () -> traversal(Map.of("listingMode", "sideways")));
   }
 
   @Test
   public void testValidateTraversal() {
-    TraversalParams noSkip = params(ROOT);
-    TraversalParams withSkip = params(ROOT, Map.of("filterOptions", Map.of("pathsToSkip", List.of(ROOT + "a/"))));
+    TreeStorageClient client = client(manyKeys());
+    Map<String, Object> skip = Map.of("filterOptions", Map.of("pathsToSkip", List.of(ROOT + "a/")));
 
-    // defaults accept everything
-    client(manyKeys(), Map.of()).validateTraversal(withSkip, true, true);
+    client.validateTraversal(traversal(ROOT, Map.of("threadsPerPath", 2, "maxDocuments", 2, "listingMode", "hierarchical"), skip));
+    client.validateTraversal(traversal(Map.of("listingMode", "flat")));
 
-    assertThrows(IllegalArgumentException.class,
-        () -> client(manyKeys(), Map.of("traversalThreads", 2)).validateTraversal(noSkip, false, true));
-    client(manyKeys(), Map.of("traversalThreads", 2)).validateTraversal(noSkip, true, false);
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> client.validateTraversal(traversal(Map.of("listingMode", "flat", "threadsPerPath", 2))));
+    assertTrue(e.getMessage(), e.getMessage().contains("traversal.threadsPerPath"));
 
-    assertThrows(IllegalArgumentException.class,
-        () -> client(manyKeys(), Map.of("maxDocuments", 2)).validateTraversal(noSkip, true, false));
-    client(manyKeys(), Map.of("maxDocuments", 2)).validateTraversal(noSkip, false, true);
+    e = assertThrows(IllegalArgumentException.class,
+        () -> client.validateTraversal(traversal(ROOT, Map.of("listingMode", "flat"), skip)));
+    assertTrue(e.getMessage(), e.getMessage().contains("pathsToSkip"));
+  }
 
-    assertThrows(IllegalArgumentException.class,
-        () -> client(manyKeys(), Map.of("listingMode", "flat")).validateTraversal(withSkip, false, false));
-    client(manyKeys(), Map.of("listingMode", "flat")).validateTraversal(noSkip, true, true);
+  // A client that walks its storage itself would ignore the listing settings, so it refuses them. It accepts
+  // maxDocuments, which traverse() enforces for every BaseStorageClient.
+  @Test
+  public void testAClientThatDoesNotTraverseByListingRejectsItsSettings() {
+    MemoryStorageClient client = new MemoryStorageClient(ConfigFactory.parseMap(Map.of("content", "x")));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> client.validateTraversal(threads(2)));
+    assertTrue(e.getMessage(), e.getMessage().contains("traversal.threadsPerPath above 1 isn't supported by " + MemoryStorageClient.class.getName()));
+    e = assertThrows(IllegalArgumentException.class, () -> client.validateTraversal(traversal(Map.of("listingMode", "flat"))));
+    assertTrue(e.getMessage(), e.getMessage().contains("traversal.listingMode"));
+
+    client.validateTraversal(threads(1));
+    client.validateTraversal(traversal(Map.of("maxDocuments", 2)));
+  }
+
+  // The interface's default refuses everything only BaseStorageClient honors, so a limit is never silently ignored.
+  @Test
+  public void testAClientImplementingTheInterfaceDirectlyRejectsTheSettings() {
+    StorageClient direct = mock(StorageClient.class, withSettings().defaultAnswer(CALLS_REAL_METHODS));
+
+    direct.validateTraversal(params(ROOT));
+    for (Map<String, Object> settings : List.<Map<String, Object>>of(Map.of("threadsPerPath", 2), Map.of("listingMode", "hierarchical"),
+        Map.of("maxDocuments", 5))) {
+      String setting = "traversal." + settings.keySet().iterator().next();
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> direct.validateTraversal(traversal(settings)));
+      assertTrue(e.getMessage(), e.getMessage().contains(setting));
+    }
   }
 
   @Test
   public void testExplicitFlatListing() throws Exception {
-    TreeStorageClient client = client(manyKeys(), Map.of("listingMode", "flat"));
+    TreeStorageClient client = client(manyKeys());
 
-    assertEquals(35, traverse(client, params(ROOT)).size());
+    assertEquals(35, traverse(client, traversal(Map.of("listingMode", "flat"))).size());
     assertEquals(List.of("flat:"), List.copyOf(client.listedPrefixes));
   }
 
@@ -384,14 +418,14 @@ public class SharedTraversalTest {
   @Test(timeout = TIMEOUT_SECONDS * 1000)
   public void testLoopGuard() throws Exception {
     for (int threads : List.of(1, 4)) {
-      TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("a/1.txt", "2.txt"), Map.of("traversalThreads", threads))) {
+      TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("a/1.txt", "2.txt"))) {
         @Override
         protected Stream<ListingEntry> listDirectory(String prefix, TraversalParams params) {
           return Stream.concat(super.listDirectory(prefix, params), Stream.of(ListingEntry.directory(prefix), ListingEntry.directory("")));
         }
       };
 
-      assertEquals(uris("2.txt", "a/1.txt"), sorted(traverse(client, params(ROOT))));
+      assertEquals(uris("2.txt", "a/1.txt"), sorted(traverse(client, threads(threads))));
       assertEquals(2, client.listedPrefixes.size());
     }
   }
@@ -399,7 +433,7 @@ public class SharedTraversalTest {
   @Test
   public void testAListingFailureFailsTheTraversal() {
     for (int threads : List.of(1, 4)) {
-      TreeStorageClient client = new TreeStorageClient(clientConfig(manyKeys(), Map.of("traversalThreads", threads))) {
+      TreeStorageClient client = new TreeStorageClient(clientConfig(manyKeys())) {
         @Override
         protected void beforeListing(String prefix) {
           if (prefix.equals("b/")) {
@@ -408,16 +442,16 @@ public class SharedTraversalTest {
         }
       };
 
-      IllegalStateException e = assertThrows(IllegalStateException.class, () -> traverse(client, params(ROOT)));
+      IllegalStateException e = assertThrows(IllegalStateException.class, () -> traverse(client, threads(threads)));
       assertEquals("Listing b/ failed.", e.getMessage());
     }
   }
 
   @Test
   public void testNoThreadsLeftAfterATraversal() throws Exception {
-    TreeStorageClient client = client(manyKeys(), Map.of("traversalThreads", 4));
+    TreeStorageClient client = client(manyKeys());
     client.start();
-    client.traverse(new PublisherImpl(ConfigFactory.empty(), new TestMessenger(), "run", "pipeline"), params(ROOT), null);
+    client.traverse(new PublisherImpl(ConfigFactory.empty(), new TestMessenger(), "run", "pipeline"), threads(4), null);
 
     // no stop() needed: a traversal cleans up after itself
     assertAllEnded(client.listingThreads);
@@ -426,14 +460,14 @@ public class SharedTraversalTest {
 
   @Test
   public void testNoThreadsLeftAfterAFailure() {
-    TreeStorageClient client = new TreeStorageClient(clientConfig(manyKeys(), Map.of("traversalThreads", 4))) {
+    TreeStorageClient client = new TreeStorageClient(clientConfig(manyKeys())) {
       @Override
       protected void beforeListing(String prefix) {
         throw new IllegalStateException("Listing failed.");
       }
     };
 
-    assertThrows(IllegalStateException.class, () -> traverse(client, params(ROOT)));
+    assertThrows(IllegalStateException.class, () -> traverse(client, threads(4)));
     assertAllEnded(client.listingThreads);
   }
 
@@ -454,8 +488,8 @@ public class SharedTraversalTest {
 
     private final CountDownLatch listing = new CountDownLatch(1);
 
-    BlockingTreeClient(Map<String, Object> settings) {
-      super(clientConfig(List.of("a/1.txt", "b/2.txt"), settings));
+    BlockingTreeClient() {
+      super(clientConfig(List.of("a/1.txt", "b/2.txt")));
     }
 
     @Override
@@ -470,11 +504,11 @@ public class SharedTraversalTest {
   }
 
   // Runs the client's traversal on another thread, returning what it threw once it has started listing.
-  private static Thread traverseInBackground(BlockingTreeClient client, AtomicReference<Throwable> thrown) throws Exception {
+  private static Thread traverseInBackground(BlockingTreeClient client, int threadsPerPath, AtomicReference<Throwable> thrown) throws Exception {
     client.start();
     Thread traversal = new Thread(() -> {
       try {
-        client.traverse(new PublisherImpl(ConfigFactory.empty(), new TestMessenger(), "run", "pipeline"), params(ROOT), null);
+        client.traverse(new PublisherImpl(ConfigFactory.empty(), new TestMessenger(), "run", "pipeline"), threads(threadsPerPath), null);
       } catch (Throwable t) {
         thrown.set(t);
       }
@@ -486,9 +520,9 @@ public class SharedTraversalTest {
 
   @Test
   public void testStopEndsARunningTraversalAndItsThreads() throws Exception {
-    BlockingTreeClient client = new BlockingTreeClient(Map.of("traversalThreads", 3));
+    BlockingTreeClient client = new BlockingTreeClient();
     AtomicReference<Throwable> thrown = new AtomicReference<>();
-    Thread traversal = traverseInBackground(client, thrown);
+    Thread traversal = traverseInBackground(client, 3, thrown);
 
     client.stop();
 
@@ -503,9 +537,9 @@ public class SharedTraversalTest {
   @Test
   public void testStopWhileThreadsAreStillStarting() throws Exception {
     for (int i = 0; i < 25; i++) {
-      BlockingTreeClient client = new BlockingTreeClient(Map.of("traversalThreads", 32));
+      BlockingTreeClient client = new BlockingTreeClient();
       AtomicReference<Throwable> thrown = new AtomicReference<>();
-      Thread traversal = traverseInBackground(client, thrown);
+      Thread traversal = traverseInBackground(client, 32, thrown);
 
       client.stop();
 
@@ -517,9 +551,9 @@ public class SharedTraversalTest {
 
   @Test
   public void testInterruptingTheCallerEndsTheTraversalAndItsThreads() throws Exception {
-    BlockingTreeClient client = new BlockingTreeClient(Map.of("traversalThreads", 3));
+    BlockingTreeClient client = new BlockingTreeClient();
     AtomicReference<Throwable> thrown = new AtomicReference<>();
-    Thread traversal = traverseInBackground(client, thrown);
+    Thread traversal = traverseInBackground(client, 3, thrown);
 
     traversal.interrupt();
 
@@ -534,7 +568,7 @@ public class SharedTraversalTest {
   @Test
   public void testStoppingDoesNotMoveTheFileBeingReadToTheErrorFolder() throws Exception {
     CountDownLatch reading = new CountDownLatch(1);
-    TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("a.txt"), Map.of("traversalThreads", 2))) {
+    TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("a.txt"))) {
       @Override
       protected String contentFor(String key) {
         reading.countDown();
@@ -546,7 +580,7 @@ public class SharedTraversalTest {
         return key;
       }
     };
-    TraversalParams params = params(ROOT, Map.of("fileOptions", Map.of("moveToErrorFolder", "other://bucket/errors/")));
+    TraversalParams params = traversal(ROOT, Map.of("threadsPerPath", 2), Map.of("fileOptions", Map.of("moveToErrorFolder", "other://bucket/errors/")));
 
     client.start();
     AtomicReference<Throwable> thrown = new AtomicReference<>();
@@ -620,9 +654,9 @@ public class SharedTraversalTest {
   @Test
   public void testEachThreadOpensAndClosesItsOwnState() throws Exception {
     RecordingTracker tracker = new RecordingTracker();
-    TreeStorageClient client = client(manyKeys(), Map.of("traversalThreads", 4));
+    TreeStorageClient client = client(manyKeys());
 
-    List<String> published = traverse(client, params(ROOT), tracker);
+    List<String> published = traverse(client, threads(4), tracker);
 
     assertEquals(35, published.size());
     assertEquals(Set.copyOf(published), tracker.encountered);
@@ -643,22 +677,22 @@ public class SharedTraversalTest {
         throw failure;
       }
     };
-    TreeStorageClient client = client(manyKeys(), Map.of("traversalThreads", 4));
+    TreeStorageClient client = client(manyKeys());
 
-    ConnectorException e = assertThrows(ConnectorException.class, () -> traverse(client, params(ROOT), tracker));
+    ConnectorException e = assertThrows(ConnectorException.class, () -> traverse(client, threads(4), tracker));
 
     assertSame(failure, e.getCause());
   }
 
   @Test
   public void testATrackerThatIsNotThreadBoundIsRejectedWithThreads() throws Exception {
-    TreeStorageClient parallel = client(manyKeys(), Map.of("traversalThreads", 2));
+    TreeStorageClient parallel = client(manyKeys());
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-        () -> traverse(parallel, params(ROOT), new InMemoryFileStateTracker()));
-    assertTrue(e.getMessage(), e.getMessage().contains("traversalThreads"));
+        () -> traverse(parallel, threads(2), new InMemoryFileStateTracker()));
+    assertTrue(e.getMessage(), e.getMessage().contains("traversal.threadsPerPath"));
 
     // and works with one thread, as it always has
-    assertEquals(35, traverse(client(manyKeys(), Map.of()), params(ROOT), new InMemoryFileStateTracker()).size());
+    assertEquals(35, traverse(client(manyKeys()), params(ROOT), new InMemoryFileStateTracker()).size());
   }
 
   /** A FileHandler that records the threads each instance is used on. */
@@ -688,10 +722,11 @@ public class SharedTraversalTest {
   public void testThreadsDoNotShareFileHandlers() throws Exception {
     ThreadRecordingFileHandler.THREADS_BY_INSTANCE.clear();
     List<String> keys = IntStream.range(0, 40).mapToObj(i -> "dir" + i + "/file.rec").collect(Collectors.toList());
-    TraversalParams params = params(ROOT, Map.of("fileHandlers", Map.of("rec", Map.of("class", ThreadRecordingFileHandler.class.getName()))));
+    TraversalParams params = traversal(ROOT, Map.of("threadsPerPath", 4),
+        Map.of("fileHandlers", Map.of("rec", Map.of("class", ThreadRecordingFileHandler.class.getName()))));
 
     TestMessenger messenger = new TestMessenger();
-    TreeStorageClient client = client(keys, Map.of("traversalThreads", 4));
+    TreeStorageClient client = client(keys);
     client.start();
     client.traverse(new PublisherImpl(ConfigFactory.empty(), messenger, "run", "pipeline"), params, null);
     client.stop();

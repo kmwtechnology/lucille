@@ -84,6 +84,11 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
+  protected boolean traversesByListing() {
+    return true;
+  }
+
+  @Override
   protected Stream<ListingEntry> listDirectory(String prefix, TraversalParams params) {
     return serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
         .listBlobsByHierarchy("/", listOptions(prefix), Duration.ofSeconds(10))
