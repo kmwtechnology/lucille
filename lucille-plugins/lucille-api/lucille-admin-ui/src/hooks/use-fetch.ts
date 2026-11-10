@@ -1,6 +1,9 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useContext } from "react"
 import { errorMessageFrom } from "@/lib/utils"
 import { API_BASE } from "@/lib/constants"
+import { HealthContext } from "./health-context"
+
+const GATEWAY_ERROR_STATUSES = new Set([502, 503, 504])
 
 export type FetchState<T> =
   | { status: "loading" }
@@ -20,14 +23,25 @@ export function useFetch<T>(path: string, options: UseFetchOptions<T> = {}): Fet
   const stopPollingWhenRef = useRef(stopPollingWhen)
   stopPollingWhenRef.current = stopPollingWhen
 
+  const health = useContext(HealthContext)
+  const reportFailureRef = useRef(health?.reportFailure)
+  reportFailureRef.current = health?.reportFailure
+
   useEffect(() => {
     const controller = new AbortController()
     let intervalId: ReturnType<typeof setInterval> | undefined
 
     async function load() {
       try {
-        const res = await fetch(`${API_BASE}${path}`, { signal: controller.signal })
+        let res: Response
+        try {
+          res = await fetch(`${API_BASE}${path}`, { signal: controller.signal })
+        } catch (err) {
+          if (!controller.signal.aborted) reportFailureRef.current?.()
+          throw err
+        }
         if (controller.signal.aborted) return
+        if (GATEWAY_ERROR_STATUSES.has(res.status)) reportFailureRef.current?.()
         if (!res.ok) throw new Error(await errorMessageFrom(res))
         const data: T = await res.json()
         if (controller.signal.aborted) return

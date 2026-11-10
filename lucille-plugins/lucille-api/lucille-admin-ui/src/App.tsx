@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom"
 import { ErrorFallback } from "./components/error-fallback/error-fallback"
+import { HealthProvider } from "./hooks/health-provider"
 import Layout from "./components/layout/layout"
 import Dashboard from "./pages/dashboard/dashboard"
 import Configs from "./pages/configs/configs"
@@ -12,6 +13,7 @@ import NotFound from "./pages/not-found/not-found"
 function App() {
   return (
     <ErrorFallback>
+      <HealthProvider>
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Dashboard />} />
@@ -24,6 +26,7 @@ function App() {
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
+      </HealthProvider>
     </ErrorFallback>
   )
 }
