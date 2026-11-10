@@ -171,7 +171,7 @@ These settings go in a `traversal` block in the connector config. They apply to 
 |---|---|---|---|
 | `maxConcurrentPaths` | Integer | No | The most entries in `paths` to traverse at once. `1` traverses them in order. A larger value traverses up to that many at once, each on its own thread, with the rest waiting for a free thread. `-1` traverses every path at once. Any other value fails at startup. Default: `1`. |
 | `threadsPerPath` | Integer | No | The number of threads that traverse the directories of one path. Must be at least `1`. Only `s3`, `gs` and `https` (Azure) paths, and [custom clients](#custom-storage-clients) that use the shared traversal, support a value above `1`. For any other path, such as a local one, a value above `1` fails at startup. Default: `1`. |
-| `maxDocuments` | Long | No | The most documents to publish for each entry in `paths`. Must be at least `1`. Supported for local and cloud paths. Can't be combined with an enabled `state` block (checked at startup). No limit by default. |
+| `maxDocuments` | Long | No | Once this many documents have been published, no new file is started, so the connector can publish a few more. Counts across all entries in `paths`. Must be at least `1`. For `s3`, `gs` and `https` (Azure) paths only; set for any other path, it fails at startup. Can't be combined with an enabled `state` block (checked at startup). No limit by default. |
 | `listingMode` | String | No | For `s3`, `gs` and `https` (Azure) paths only; set for any other path, it fails at startup. `hierarchical` lists each directory separately. `flat` lists every key under the path at once, in fewer requests. `flat` can't be combined with `threadsPerPath` above `1` or with `pathsToSkip` (both checked at startup). Default: `flat` on S3 unless `threadsPerPath` is above `1` or `pathsToSkip` is set, and otherwise `hierarchical`. |
 
 ```hocon
@@ -211,7 +211,9 @@ A file that fails to process is skipped (and moved to `moveToErrorFolder`, if se
 
 ### `maxDocuments`
 
-Every published document counts, including each one from a File Handler or archive, so a CSV file can use up many. A document that fails to publish doesn't count. Once the limit is reached, the traversal ends without failing; for cloud paths, listing stops too. Other entries in `paths` still get their own limit. A file whose documents were cut off by the limit isn't moved to `moveToAfterProcessing` or `moveToErrorFolder`. A limit can't be used with `state`, because files the traversal doesn't reach would look deleted and would be tombstoned and removed from state.
+`maxDocuments` bounds a trial run, such as a first run against a large bucket. It is a point to stop at, not an exact count. Before starting each file, the traversal checks how many documents the connector has published. Once that reaches the limit, it starts no new file and stops listing, and the traversal ends without failing. Files already started are finished and moved as usual, so the connector can publish more than the limit: up to one file's documents per traversal thread. Every published document counts, including each one from a File Handler or archive, so one CSV file can go well past the limit. A document that fails to publish doesn't count.
+
+The count covers the whole connector, not each entry in `paths`: once it is reached, the paths after it publish nothing. A limit can't be used with `state`, because files the traversal doesn't reach would look deleted and would be tombstoned and removed from state.
 
 ---
 

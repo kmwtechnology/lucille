@@ -73,7 +73,6 @@ public interface StorageClient {
    */
   default void validateTraversal(TraversalParams params) {
     params.rejectListingSettings(this);
-    params.rejectMaxDocuments(this);
   }
 
   /**

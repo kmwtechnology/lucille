@@ -19,7 +19,6 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.filehandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.PublisherException;
 import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.FileUtils.ContentTooLargeException;
 import com.kmwllc.lucille.util.ThreadNameUtils;
@@ -45,7 +44,6 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
@@ -60,7 +58,6 @@ import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.input.CloseShieldInputStream;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -158,40 +155,18 @@ public abstract class BaseStorageClient implements StorageClient {
     traverse(publisher, params, null);
   }
 
-  /**
-   * {@inheritDoc}
-   * <p> Enforces <code>traversal.maxDocuments</code> for every subclass: once the limit is reached, the next document
-   * published ends the traversal, which is not a failure. The file being processed then is left where it is, because
-   * some of its documents weren't published.
-   */
   @Override
   public final void traverse(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws IOException, ConnectorException {
     if (!isInitialized()) {
       throw new IllegalStateException("This StorageClient has not been started. Call start() first.");
     }
 
-    Long maxDocuments = params.getMaxDocuments();
-    if (maxDocuments == null) {
-      traverseStorageClient(publisher, params, stateMgr);
-      return;
-    }
-
-    try {
-      traverseStorageClient(new DocumentLimitPublisher(publisher, maxDocuments), params, stateMgr);
-    } catch (IOException | ConnectorException | RuntimeException e) {
-      // a subclass's own traversal may have wrapped it
-      if (ExceptionUtils.indexOfType(e, DocumentLimitReachedException.class) == -1) {
-        throw e;
-      }
-      log.info("Stopped traversing '{}': reached {}.{} of {}.", params.getURI(), TRAVERSAL, MAX_DOCUMENTS, maxDocuments);
-    }
+    traverseStorageClient(publisher, params, stateMgr);
   }
 
   /**
    * Performs the traversal. A client whose storage has a directory-like listing can implement this by calling
    * {@link #traverseByListing(Publisher, TraversalParams, FileStateTracker)} and overriding {@link #listDirectory(String, TraversalParams)}.
-   * <p> When <code>traversal.maxDocuments</code> is set, the Publisher given here throws once the limit is reached. Let
-   * that exception through rather than handling it as a failure: {@link #processAndPublishFileIfValid} already does.
    */
   protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws IOException, ConnectorException;
 
@@ -207,9 +182,9 @@ public abstract class BaseStorageClient implements StorageClient {
 
   /**
    * {@inheritDoc}
-   * <p> Accepts <code>traversal.maxDocuments</code>, which {@link #traverse} enforces for every subclass. Accepts
-   * <code>traversal.threadsPerPath</code> and <code>traversal.listingMode</code> only when {@link #traversesByListing()},
-   * and then checks the combinations a flat listing can't serve.
+   * <p> Accepts <code>traversal.threadsPerPath</code>, <code>traversal.listingMode</code> and
+   * <code>traversal.maxDocuments</code> only when {@link #traversesByListing()}, and then checks the combinations a flat
+   * listing can't serve.
    */
   @Override
   public void validateTraversal(TraversalParams params) {
@@ -377,7 +352,8 @@ public abstract class BaseStorageClient implements StorageClient {
 
   /**
    * The traversal shared by the cloud clients. Lists the path with {@link #listFlat} or, one directory at a time, with
-   * {@link #listDirectory}, on <code>threadsPerPath</code> threads, and stops listing at <code>maxDocuments</code>.
+   * {@link #listDirectory}, on <code>threadsPerPath</code> threads, and stops starting new files once the Publisher has published
+   * <code>maxDocuments</code>.
    * The first failure stops the traversal and is thrown. A client that calls this should override
    * {@link #traversesByListing()} to return true, so that its traversal settings are accepted.
    */
@@ -390,15 +366,26 @@ public abstract class BaseStorageClient implements StorageClient {
           + ", but was given a " + stateMgr.getClass().getName() + ".");
     }
 
-    // traverse() wraps the Publisher when there is a limit, so the listing can stop once it's reached
-    BooleanSupplier limitReached = publisher instanceof DocumentLimitPublisher limited ? limited::limitReached : () -> false;
+    // Checked before each file, so files already started are finished: the limit can be passed by the documents of up to
+    // threadsPerPath files. The Publisher's count covers the connector's other paths too.
+    Long maxDocuments = params.getMaxDocuments();
+    BooleanSupplier limitReached = maxDocuments == null ? () -> false : () -> publisher.numPublished() >= maxDocuments;
     String start = getStartingDirectory(params);
 
     if (listingModeFor(params) == ListingMode.FLAT) {
       publishEntries(listFlat(start, params), publisher, params, stateMgr, limitReached);
-      return;
+    } else {
+      descend(start, publisher, params, stateMgr, limitReached);
     }
 
+    if (limitReached.getAsBoolean()) {
+      log.info("Stopped traversing '{}': {} documents have been published, reaching {}.{} of {}.", params.getURI(),
+          publisher.numPublished(), TRAVERSAL, MAX_DOCUMENTS, maxDocuments);
+    }
+  }
+
+  private void descend(String start, Publisher publisher, TraversalParams params, FileStateTracker stateMgr, BooleanSupplier limitReached)
+      throws ConnectorException {
     // Without a trailing '/' the start is a raw prefix, not a directory: "logs" also covers "logs-old/". A pathsToSkip
     // entry for "logs/" is applied when the listing returns that as a child, and must not end the whole traversal.
     if ((start.isEmpty() || start.endsWith("/")) && verdictFor(params.getURI(), params) == DirectoryVerdict.SKIP) {
@@ -406,7 +393,7 @@ public abstract class BaseStorageClient implements StorageClient {
       return;
     }
 
-    if (threads == 1) {
+    if (params.getThreadsPerPath() == 1) {
       descendSequentially(start, publisher, params, stateMgr, limitReached);
     } else {
       new ParallelDescent(start, publisher, params, stateMgr, limitReached).run();
@@ -589,8 +576,6 @@ public abstract class BaseStorageClient implements StorageClient {
             processDirectory(prefix, threadParams);
           }
         }
-      } catch (DocumentLimitReachedException e) {
-        finishing = true;
       } catch (Throwable t) {
         // when aborted, this is a consequence of the interrupt, and run() reports the abort
         if (!aborted) {
@@ -648,133 +633,6 @@ public abstract class BaseStorageClient implements StorageClient {
     }
     for (ParallelDescent descent : activeDescents) {
       descent.awaitWorkers();
-    }
-  }
-
-  /**
-   * Thrown by a {@link DocumentLimitPublisher} when a document would exceed the limit. Ends the traversal without failing
-   * it, and leaves the file being processed alone: it isn't moved, because some of its documents weren't published.
-   */
-  private static class DocumentLimitReachedException extends RuntimeException {
-    DocumentLimitReachedException() {
-      super(TRAVERSAL + "." + MAX_DOCUMENTS + " reached.");
-    }
-  }
-
-  /**
-   * Publishes at most the given number of documents, counted across all of a traversal's threads. {@link #traverse} wraps
-   * the Publisher given to a traversal with this, because FileHandlers publish to it directly.
-   */
-  private static final class DocumentLimitPublisher implements Publisher {
-
-    private final Publisher delegate;
-    private final long limit;
-    private final AtomicLong published = new AtomicLong();
-
-    private DocumentLimitPublisher(Publisher delegate, long limit) {
-      this.delegate = delegate;
-      this.limit = limit;
-    }
-
-    private boolean limitReached() {
-      return published.get() >= limit;
-    }
-
-    // A slot is taken before publishing, so threads can't overshoot the limit, and given back if publishing fails: the
-    // failure only skips the file, and the traversal goes on. While a slot is held, another thread at the limit sees it as
-    // taken, so a failure there can end a parallel traversal one document short.
-    @Override
-    public void publish(Document document) throws PublisherException {
-      if (published.incrementAndGet() > limit) {
-        throw new DocumentLimitReachedException();
-      }
-
-      try {
-        delegate.publish(document);
-      } catch (PublisherException | RuntimeException e) {
-        published.decrementAndGet();
-        throw e;
-      }
-    }
-
-    @Override
-    public void flush() throws PublisherException {
-      delegate.flush();
-    }
-
-    @Override
-    public long numPublished() {
-      return delegate.numPublished();
-    }
-
-    @Override
-    public long numReceived() {
-      return delegate.numReceived();
-    }
-
-    @Override
-    public long numPending() {
-      return delegate.numPending();
-    }
-
-    @Override
-    public Integer getMaxPendingDocs() {
-      return delegate.getMaxPendingDocs();
-    }
-
-    @Override
-    public boolean hasPending() {
-      return delegate.hasPending();
-    }
-
-    @Override
-    public long numCreated() {
-      return delegate.numCreated();
-    }
-
-    @Override
-    public long numSucceeded() {
-      return delegate.numSucceeded();
-    }
-
-    @Override
-    public long numFailed() {
-      return delegate.numFailed();
-    }
-
-    @Override
-    public long numDropped() {
-      return delegate.numDropped();
-    }
-
-    @Override
-    public void pause() {
-      delegate.pause();
-    }
-
-    @Override
-    public void resume() {
-      delegate.resume();
-    }
-
-    @Override
-    public boolean isPaused() {
-      return delegate.isPaused();
-    }
-
-    @Override
-    public boolean isPublishingStarted() {
-      return delegate.isPublishingStarted();
-    }
-
-    @Override
-    public boolean isPublishingEnded() {
-      return delegate.isPublishingEnded();
-    }
-
-    @Override
-    public void preClose() {
-      delegate.preClose();
     }
   }
 
@@ -969,8 +827,7 @@ public abstract class BaseStorageClient implements StorageClient {
       // handle file types using fileHandler if needed to the end
       if (params.supportsFileExtension(fileExtension)) {
         // Get a stream for the file content, so we don't have to load it all at once. It is closed before the file is
-        // moved, and when the handler throws, which includes being cut off by maxDocuments: an open stream from a cloud
-        // provider holds an HTTP connection.
+        // moved, and when the handler throws: an open stream from a cloud provider holds an HTTP connection.
         try (InputStream contentStream = fileReference.getContentStream(params)) {
           // get the right FileHandler and publish based on content
           publishUsingFileHandler(publisher, fileExtension, params, contentStream, fullPath);
@@ -1005,12 +862,6 @@ public abstract class BaseStorageClient implements StorageClient {
     } catch (StatePathTooLongException e) {
       throw e;
     } catch (Exception e) {
-      // FileHandlers wrap what publish() throws, so look through the causes
-      int limitIndex = ExceptionUtils.indexOfType(e, DocumentLimitReachedException.class);
-      if (limitIndex != -1) {
-        throw (DocumentLimitReachedException) ExceptionUtils.getThrowables(e)[limitIndex];
-      }
-
       // the interrupt that ends an aborted traversal can surface here as a read failure, which says nothing about the file
       ParallelDescent descent = workerDescent.get();
       if (descent != null && descent.aborted) {

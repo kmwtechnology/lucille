@@ -73,8 +73,7 @@ To create a StorageClient, extend `BaseStorageClient`. The base class manages th
 - **FileHandler delegation** — Routes files to the correct FileHandler based on extension and publishes the resulting Documents.
 - **Incremental mode** — Reads and updates the `FileStateTracker` the `FileConnector` passes to `traverse()`, to track which files have been processed and skip unchanged files on subsequent runs.
 - **Success/error directory handling** — Moves files to configured success or error directories after processing.
-- **`traversal.maxDocuments`** — `traverse()` enforces the connector's document limit for every subclass, however it traverses. See [Document Limit](#document-limit).
-- **Shared traversal** — If your backend has a directory-like listing, `traverseByListing()` handles the descent, `pathsToSkip`, `traversal.threadsPerPath`, and `traversal.listingMode`. See [Using the Shared Traversal](#using-the-shared-traversal).
+- **Shared traversal** — If your backend has a directory-like listing, `traverseByListing()` handles the descent, `pathsToSkip`, `traversal.threadsPerPath`, `traversal.listingMode` and `traversal.maxDocuments`. See [Using the Shared Traversal](#using-the-shared-traversal).
 
 ---
 
@@ -164,11 +163,7 @@ To visit a single level without descending, call `traverseOneDirectory(prefix, p
 
 ### Document Limit
 
-`traverse()` enforces `traversal.maxDocuments` for every subclass of `BaseStorageClient`, whether or not it uses the shared traversal. When a limit is set, the `Publisher` passed to `traverseStorageClient()` throws an unchecked exception once the limit is reached. `processAndPublishFileIfValid()` lets that exception through rather than handling it as a failed file, and `traverse()` then ends the traversal without failing it. If your traversal catches exceptions itself, rethrow unchecked ones (wrapping one is fine) so that the limit can end it. Otherwise every remaining file would fail the same way, and with `moveToErrorFolder` set, be moved to the error folder.
-
-The shared traversal also stops listing once the limit is reached. A client that walks its storage another way stops at the next document it publishes.
-
-A client that implements `StorageClient` directly, rather than extending `BaseStorageClient`, doesn't get this. The interface's default `validateTraversal()` rejects `maxDocuments`, `threadsPerPath` above `1` and `listingMode` at startup, so a setting is either honored or refused, never ignored.
+The shared traversal honors `traversal.maxDocuments`: before starting each file, it checks `Publisher.numPublished()`, and once that reaches the limit it starts no new file and stops listing. Files already started are finished. A client that walks its storage another way, or implements `StorageClient` directly, rejects `maxDocuments` at startup, along with `threadsPerPath` above `1` and `listingMode`, so a setting is either honored or refused, never ignored.
 
 ---
 

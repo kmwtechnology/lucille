@@ -70,8 +70,10 @@ import com.typesafe.config.Config;
  *   <li>traversal.threadsPerPath (Int, Optional) : The number of threads that traverse one path's directories. Only
  *   s3, gs and https (azure) paths support a value above 1. Up to maxConcurrentPaths times this many threads list and
  *   process files at once. Must be at least 1, and can't be above 1 with collapse. Defaults to 1.</li>
- *   <li>traversal.maxDocuments (Long, Optional) : The most documents to publish per path. Counts documents from file
- *   handlers and archives. Must be at least 1. Can't be combined with state. No limit by default.</li>
+ *   <li>traversal.maxDocuments (Long, Optional) : For s3, gs and https (azure) paths only. Once this many
+ *   documents have been published, no new file is started. Files already started are finished, so a few more documents
+ *   can be published. The count includes documents from file handlers and archives, and covers all of the connector's
+ *   paths. Must be at least 1. Can't be combined with state. No limit by default.</li>
  *   <li>traversal.listingMode (String, Optional) : For s3, gs and https (azure) paths only. 'hierarchical' lists each
  *   directory; 'flat' lists every key under the path at once, and can't be combined with threadsPerPath above 1 or
  *   filterOptions.pathsToSkip. Defaults to 'flat' on s3 when neither of those is set, and otherwise to 'hierarchical'.</li>

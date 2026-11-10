@@ -42,7 +42,7 @@ public final class StorageClientOptions {
   public static final String MAX_CONCURRENT_PATHS = "maxConcurrentPaths";
   /** traversal: the number of threads that traverse one path's directories. Defaults to 1. */
   public static final String THREADS_PER_PATH = "threadsPerPath";
-  /** traversal: the most documents to publish per traversed path. No limit by default. */
+  /** traversal: the number of published documents after which no new file is started. No limit by default. */
   public static final String MAX_DOCUMENTS = "maxDocuments";
   /** traversal: how to list a path, <code>hierarchical</code> or <code>flat</code>. The default depends on the client. */
   public static final String LISTING_MODE = "listingMode";

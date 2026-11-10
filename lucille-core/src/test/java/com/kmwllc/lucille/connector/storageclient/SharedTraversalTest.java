@@ -264,14 +264,15 @@ public class SharedTraversalTest {
     assertEquals(uris("good.txt"), traverse(client, params(ROOT)));
   }
 
+  // Each thread finishes the file it started, so the limit can be passed by one document per other thread here.
   @Test
-  public void testMaxDocumentsIsExactUnderParallelism() throws Exception {
+  public void testMaxDocumentsStopsParallelThreadsNearTheLimit() throws Exception {
     List<String> keys = IntStream.range(0, 500).mapToObj(i -> "dir" + (i % 25) + "/file" + i + ".txt").collect(Collectors.toList());
 
     List<String> published = traverse(client(keys), traversal(Map.of("threadsPerPath", 8, "maxDocuments", 37)));
 
-    assertEquals(37, published.size());
-    assertEquals(37, new HashSet<>(published).size());
+    assertTrue(published.size() + " published", published.size() >= 37 && published.size() <= 37 + 7);
+    assertEquals(published.size(), new HashSet<>(published).size());
   }
 
   @Test
@@ -322,10 +323,11 @@ public class SharedTraversalTest {
     assertEquals(3, messenger.getDocsSentForProcessing().size());
   }
 
-  // Documents from a file handler count one by one, and a file that was cut off isn't moved as if it had been processed.
+  // Documents from a file handler count one by one. A file started before the limit is finished and moved, and no new file
+  // is started after it.
   @Test
-  public void testMaxDocumentsCountsFileHandlerDocumentsAndLeavesACutOffFile() throws Exception {
-    TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("rows.csv", "other.txt"))) {
+  public void testMaxDocumentsFinishesTheCurrentFile() throws Exception {
+    TreeStorageClient client = new TreeStorageClient(clientConfig(List.of("a.csv", "b.csv"))) {
       @Override
       protected String contentFor(String key) {
         return "id,value\n1,a\n2,b\n3,c\n4,d\n5,e\n";
@@ -340,18 +342,8 @@ public class SharedTraversalTest {
     client.traverse(new PublisherImpl(ConfigFactory.empty(), messenger, "run", "pipeline"), params, null);
     client.stop();
 
-    assertEquals(3, messenger.getDocsSentForProcessing().size());
-    assertTrue(client.moves.isEmpty());
-  }
-
-  // Ending on the limit exactly is still a complete file, so it is moved.
-  @Test
-  public void testAFileFinishedAtTheLimitIsMoved() throws Exception {
-    TreeStorageClient client = client(List.of("1.txt", "2.txt"));
-    TraversalParams params = traversal(ROOT, Map.of("maxDocuments", 1), Map.of("fileOptions", Map.of("moveToAfterProcessing", "other://bucket/done/")));
-
-    assertEquals(uris("1.txt"), traverse(client, params));
-    assertEquals(uris("1.txt"), List.copyOf(client.moves));
+    assertEquals(5, messenger.getDocsSentForProcessing().size());
+    assertEquals(1, client.moves.size());
   }
 
   @Test
@@ -378,8 +370,7 @@ public class SharedTraversalTest {
     assertTrue(e.getMessage(), e.getMessage().contains("pathsToSkip"));
   }
 
-  // A client that walks its storage itself would ignore the listing settings, so it refuses them. It accepts
-  // maxDocuments, which traverse() enforces for every BaseStorageClient.
+  // A client that walks its storage itself would ignore the listing settings, so it refuses them.
   @Test
   public void testAClientThatDoesNotTraverseByListingRejectsItsSettings() {
     MemoryStorageClient client = new MemoryStorageClient(ConfigFactory.parseMap(Map.of("content", "x")));
@@ -389,8 +380,10 @@ public class SharedTraversalTest {
     e = assertThrows(IllegalArgumentException.class, () -> client.validateTraversal(traversal(Map.of("listingMode", "flat"))));
     assertTrue(e.getMessage(), e.getMessage().contains("traversal.listingMode"));
 
+    e = assertThrows(IllegalArgumentException.class, () -> client.validateTraversal(traversal(Map.of("maxDocuments", 2))));
+    assertTrue(e.getMessage(), e.getMessage().contains("traversal.maxDocuments"));
+
     client.validateTraversal(threads(1));
-    client.validateTraversal(traversal(Map.of("maxDocuments", 2)));
   }
 
   // The interface's default refuses everything only BaseStorageClient honors, so a limit is never silently ignored.
@@ -787,17 +780,6 @@ public class SharedTraversalTest {
     assertEquals(Set.of("bad.lines", "good.lines"), client.closed.keySet());
     assertTrue("the failed file's stream was left open", client.closed.get("bad.lines").get());
     assertTrue(client.closed.get("good.lines").get());
-  }
-
-  @Test
-  public void testAFileHandlerStreamIsClosedWhenMaxDocumentsCutsItOff() throws Exception {
-    ClosingTrackedClient client = new ClosingTrackedClient(List.of("first.lines", "second.lines"));
-
-    List<String> published = traverse(client, lineHandlerParams(Map.of("maxDocuments", 7)));
-
-    assertEquals(7, published.size());
-    assertEquals(Set.of("first.lines", "second.lines"), client.closed.keySet());
-    assertTrue("the cut-off file's stream was left open", client.closed.get("second.lines").get());
   }
 
   @Test

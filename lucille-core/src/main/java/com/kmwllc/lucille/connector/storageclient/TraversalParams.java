@@ -321,8 +321,8 @@ public class TraversalParams {
   }
 
   /**
-   * @return The most documents to publish for this path, from <code>traversal.maxDocuments</code>, or null if there is
-   * no limit.
+   * @return The number of published documents after which the traversal starts no new file, from
+   * <code>traversal.maxDocuments</code>, or null if there is no limit.
    */
   public Long getMaxDocuments() {
     return maxDocuments;
@@ -337,8 +337,8 @@ public class TraversalParams {
   }
 
   /**
-   * Rejects the settings that only {@link BaseStorageClient#traverseByListing} honors: <code>threadsPerPath</code> above 1
-   * and <code>listingMode</code>. For a client that walks its storage another way.
+   * Rejects the settings that only {@link BaseStorageClient#traverseByListing} honors: <code>threadsPerPath</code> above 1,
+   * <code>listingMode</code> and <code>maxDocuments</code>. For a client that walks its storage another way.
    *
    * @param client The client that would ignore them, named in the error.
    */
@@ -349,15 +349,6 @@ public class TraversalParams {
     if (listingMode != null) {
       throw notSupported(LISTING_MODE, client);
     }
-  }
-
-  /**
-   * Rejects <code>maxDocuments</code>, which only {@link BaseStorageClient} enforces. For a client that implements
-   * {@link StorageClient} directly.
-   *
-   * @param client The client that would ignore it, named in the error.
-   */
-  void rejectMaxDocuments(StorageClient client) {
     if (maxDocuments != null) {
       throw notSupported(MAX_DOCUMENTS, client);
     }

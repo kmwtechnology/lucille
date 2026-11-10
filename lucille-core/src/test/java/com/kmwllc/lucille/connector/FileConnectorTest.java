@@ -1531,20 +1531,13 @@ public class FileConnectorTest {
     assertTrue(e.getMessage(), e.getMessage().contains("traversal.listingMode"));
   }
 
-  // maxDocuments is enforced by BaseStorageClient.traverse(), so it applies to the local client too, per path.
   @Test
-  public void testMaxDocumentsAppliesToLocalPaths() throws Exception {
+  public void testMaxDocumentsIsRejectedForALocalPath() {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("paths", ConfigValueFactory.fromIterable(List.of(
-            "./src/test/resources/FileConnectorTest/directory1",
-            "./src/test/resources/FileConnectorTest/directory2")))
         .withValue("traversal.maxDocuments", ConfigValueFactory.fromAnyRef(2));
 
-    List<Document> published = publishedDocuments(config);
-
-    assertEquals(4, published.size());
-    assertEquals(2, published.stream().filter(doc -> doc.getString(FileConnector.FILE_PATH).contains("directory1")).count());
-    assertEquals(2, published.stream().filter(doc -> doc.getString(FileConnector.FILE_PATH).contains("directory2")).count());
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage(), e.getMessage().contains("traversal.maxDocuments isn't supported by " + LocalStorageClient.class.getName()));
   }
 
   private static Config cloudTraversalConfig(Map<String, Object> traversalSettings) {
