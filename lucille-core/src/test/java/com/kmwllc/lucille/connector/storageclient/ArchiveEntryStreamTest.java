@@ -59,12 +59,6 @@ public class ArchiveEntryStreamTest {
       }
       return List.<Document>of().iterator();
     }
-
-    @Override
-    public void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr)
-        throws FileHandlerException {
-      processFile(inputStream, pathStr);
-    }
   }
 
   @Before

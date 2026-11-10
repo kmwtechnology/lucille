@@ -19,26 +19,54 @@ public interface FileHandler {
 
   /**
    * Processes a file given an InputStream of its contents and a representation path String to it, and returns an iterator
-   * of Documents. The Iterator should close all resources when completed (hasNext() is false) or when an exception is thrown.
-   * Path string is used for populating file path field of document and for logging/error/debugging purposes.
+   * of Documents. Path string is used for populating file path field of document and for logging/error/debugging purposes.
+   *
+   * <p>The returned Iterator must follow this contract, which {@link #processFileAndPublish} relies on:
+   * <ul>
+   *   <li><b>A bad record:</b> when one record can't be turned into a Document, <code>next()</code> may throw. The
+   *   Iterator must stay usable afterwards: the caller logs and skips that record, then calls <code>hasNext()</code> again
+   *   to carry on with the next one.</li>
+   *   <li><b>A file that can't be read:</b> when reading can't continue (an I/O error, a file in the wrong format, too
+   *   many bad records in a row), <code>hasNext()</code> throws a RuntimeException, and the caller stops reading the file.</li>
+   *   <li><code>next()</code> may return null, which the caller skips.</li>
+   *   <li>The Iterator closes its resources, including the given InputStream, when <code>hasNext()</code> returns false
+   *   and before <code>hasNext()</code> throws. It keeps them open when <code>next()</code> throws for a bad record,
+   *   because reading carries on.</li>
+   * </ul>
    *
    * @param inputStream An InputStream of the file's contents.
    * @param pathStr A string to the file you're processing, used for logging / debugging.
-   * @return An Iterator of Documents extracted from the file's contents. Closes any resources when hasNext() is false.
+   * @return An Iterator of Documents extracted from the file's contents, following the contract above.
    * @throws FileHandlerException If an error occurs setting up an iterator for the file.
    */
   Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException;
 
   /**
-   * A helper function that processes a file and publishes the documents to a Publisher using the content in the given
-   * InputStream. The given stream should be closed as part of this function's operations (namely the Iterators created)
+   * Processes a file and publishes the documents to a Publisher using the content in the given InputStream.
+   *
+   * <p>The default implementation iterates {@link #processFile} and publishes each Document, following the iterator
+   * contract described there: a record whose <code>next()</code> throws is logged and skipped, and a <code>hasNext()</code>
+   * that throws stops the file. Override it only for a format that is not read through an Iterator, or that has to manage
+   * its resources differently.
    *
    * @param publisher The publisher you want to publish documents to.
    * @param inputStream An InputStream of the file's contents.
    * @param pathStr A string to the file you're processing, used for logging / debugging.
-   * @throws FileHandlerException If an error occurs setting up an iterator for the fiel.
+   * @throws FileHandlerException If an error occurs setting up an iterator for the file, if the file can't be read, or if
+   * publishing a Document fails. The exception thrown by the Iterator or the Publisher is the cause.
    */
-  void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException;
+  default void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException {
+    Iterator<Document> docIterator;
+
+    try {
+      docIterator = processFile(inputStream, pathStr);
+    } catch (Exception e) {
+      // going to skip this file if an error occurs
+      throw new FileHandlerException("Unable to set up iterator for this file " + pathStr, e);
+    }
+
+    DocumentIteratorPublisher.publishAll(publisher, docIterator, pathStr);
+  }
 
   /**
    * From the given Config, returns a map of supported file extensions to their FileHandlers.The returned map is not modifiable.
