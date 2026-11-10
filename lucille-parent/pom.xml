@@ -60,7 +60,7 @@
     <apache-commons-lang3.version>3.18.0</apache-commons-lang3.version>
     <apache-commons-text.version>1.10.0</apache-commons-text.version>
     <protobuf.version>4.33.2</protobuf.version>
-    <netty.version>4.1.138.Final</netty.version>
+    <netty.version>4.2.19.Final</netty.version>
     <grpc.version>1.82.1</grpc.version>
     <!--  TODO: dropwizard-testing-junit4 is currently at 5.0.0 since 5.0.2 did not exist at time of upgrade. Bring back to use ${dropwizard-core.version} -->
     <dropwizard-core.version>5.0.2</dropwizard-core.version>
@@ -199,10 +199,10 @@
 
   <build>
     <plugins>
-      <!-- Guard the Netty classpath: all io.netty artifacts must stay on the 4.1 line. reactor-netty 1.2.x
-           (required by azure-core-http-netty) is built against Netty 4.1; a stray 4.2 artifact reintroduces the
-           split that breaks the Azure storage client at runtime (DefaultLoopResources needs Netty-4.2-only
-           MultiThreadIoEventLoopGroup). This fails the build if any io.netty dependency resolves outside 4.1.x. -->
+      <!-- Guard the Netty classpath: all io.netty artifacts must stay on the 4.2 line. reactor-netty 1.3.x
+           (required by azure-core-http-netty 1.17+) is built against Netty 4.2; a stray 4.1 artifact breaks the
+           Azure storage client at runtime (DefaultLoopResources needs Netty-4.2-only MultiThreadIoEventLoopGroup).
+           This fails the build if any io.netty dependency resolves outside 4.2.x. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
@@ -216,18 +216,18 @@
             <configuration>
               <rules>
                 <bannedDependencies>
-                  <!-- Ban every io.netty artifact, then allow back only the 4.1 line. The netty-tcnative
+                  <!-- Ban every io.netty artifact, then allow back only the 4.2 line. The netty-tcnative
                        native SSL artifacts use an independent 2.0.x versioning scheme (not the 4.1/4.2 core
                        line), so carve them out of the ban entirely. -->
                   <excludes>
                     <exclude>io.netty:*</exclude>
                   </excludes>
                   <includes>
-                    <include>io.netty:*:[4.1.0,4.2.0)</include>
+                    <include>io.netty:*:[4.2.0,4.3.0)</include>
                     <include>io.netty:netty-tcnative-boringssl-static</include>
                     <include>io.netty:netty-tcnative-classes</include>
                   </includes>
-                  <message>All io.netty framework dependencies must resolve to the 4.1.x line. A 4.2.x artifact
+                  <message>All io.netty framework dependencies must resolve to the 4.2.x line. A 4.1.x artifact
                     indicates a reactor-netty (or other) version split that breaks the Azure storage client.
                     Run 'mvn dependency:tree -Dincludes=io.netty' to find the offending path.</message>
                   <searchTransitive>true</searchTransitive>
