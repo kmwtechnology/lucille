@@ -22,3 +22,9 @@ export const SYSTEM_STATS_POLL_INTERVAL_MS = 5000
 
 /** Poll interval (ms) for re-checking API health on the dashboard. */
 export const HEALTH_POLL_INTERVAL_MS = 5000
+
+/**
+ * Max time (ms) a single health probe (livez + readyz) may take before the API is treated as
+ * hung and the probe counts as a failure. Kept below the poll interval so probes don't overlap.
+ */
+export const HEALTH_PROBE_TIMEOUT_MS = 3000
