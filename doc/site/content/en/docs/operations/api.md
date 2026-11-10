@@ -33,6 +33,10 @@ java \
 
 The server listens on port `8080` by default. Swagger UI is available at `http://localhost:8080/swagger`.
 
+### Logging
+
+The API logs through Log4j2 with Lucille's default configuration, the same as the CLI and the `lucille` Docker image: console output plus files under `./log/`, relative to the directory the API was started in. Pipelines started through the API log the same way. To use your own configuration, pass `-Dlog4j2.configurationFile=/path/to/log4j2.xml`; in the `lucille-api` Docker image, edit `/lucille-api/conf/log4j2.xml` or set `LUCILLE_LOG4J_CONF`. See [Logging Setup]({{< relref "docs/operations/logging" >}}).
+
 ### Using a Plugin
 
 The `lucille-api` JAR bundles only `lucille-core`. 

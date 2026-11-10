@@ -123,6 +123,15 @@
         <version>${slf4j.version}</version>
       </dependency>
 
+      <!-- Lucille's logging backend (log4j2) and default config, the same as the CLI and the lucille image use.
+           Logback stays on the classpath below because Dropwizard's classes need it, so APIApplication selects log4j2
+           at startup; the tests select Logback (see surefire below). -->
+      <dependency>
+        <groupId>com.kmwllc</groupId>
+        <artifactId>lucille-logging</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
       <!-- ConfigInfo scans the classpath for components and parses their javadoc. Versions match lucille-core's. -->
       <dependency>
         <groupId>io.github.classgraph</groupId>
@@ -206,6 +215,14 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.2.4</version>
+                <!-- Provides Log4j2PluginCacheFileTransformer (used below) -->
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-transform-maven-shade-plugin-extensions</artifactId>
+                        <version>0.2.0</version>
+                    </dependency>
+                </dependencies>
                 <configuration>
                 <finalName>${project.artifactId}-plugin</finalName>
                     <createDependencyReducedPom>false</createDependencyReducedPom>
@@ -229,6 +246,9 @@
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                                <!-- Merges each log4j2 jar's Log4j2Plugins.dat. Without it only log4j-core's survives, and
+                                     plugins from other jars (JsonTemplateLayout, the OpenSearch appender) are not found. -->
+                                <transformer implementation="org.apache.logging.log4j.maven.plugins.shade.transformer.Log4j2PluginCacheFileTransformer" />
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.kmwllc.lucille.api.APIApplication</mainClass>
                                 </transformer>
@@ -256,6 +276,43 @@
                   </configuration>
                 </execution>
               </executions>
+            </plugin>
+
+            <!-- Copies lucille-logging's default config to target/conf/lucille-log4j2.xml, which the Dockerfile ships as the
+                 editable conf/log4j2.xml (the Docker build context is this module, so it cannot reach lucille-logging). -->
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-resources-plugin</artifactId>
+              <executions>
+                <execution>
+                  <id>copy-log4j2-config</id>
+                  <phase>prepare-package</phase>
+                  <goals><goal>copy-resources</goal></goals>
+                  <configuration>
+                    <outputDirectory>${project.build.directory}/conf</outputDirectory>
+                    <resources>
+                      <resource>
+                        <directory>${project.basedir}/../../lucille-logging/src/main/resources</directory>
+                        <includes>
+                          <include>lucille-log4j2.xml</include>
+                        </includes>
+                      </resource>
+                    </resources>
+                  </configuration>
+                </execution>
+              </executions>
+            </plugin>
+
+            <!-- Dropwizard's test support (ResourceExtension, DropwizardAppExtension) bootstraps Logback directly, so the
+                 tests select Logback as the SLF4J provider. The API itself selects log4j2 (see APIApplication). -->
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-surefire-plugin</artifactId>
+              <configuration>
+                <systemPropertyVariables>
+                  <slf4j.provider>ch.qos.logback.classic.spi.LogbackServiceProvider</slf4j.provider>
+                </systemPropertyVariables>
+              </configuration>
             </plugin>
         </plugins>
     </build>
