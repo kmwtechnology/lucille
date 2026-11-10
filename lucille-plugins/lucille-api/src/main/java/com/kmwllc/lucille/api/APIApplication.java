@@ -53,7 +53,6 @@ import jdk.jfr.Experimental;
  * </pre>
  * @see com.kmwllc.lucille.api.config.LucilleAPIConfiguration
  */
-@Experimental
 public class APIApplication extends Application<LucilleAPIConfiguration> {
 
   // The API logs through log4j2 with Lucille's default config, like the rest of Lucille. Logback is also on the classpath,
