@@ -106,12 +106,17 @@ public class XMLFileHandler extends BaseFileHandler {
 
   @Override
   public void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException {
-    // set up Factory, parser, reader and handler
-    ChunkingXMLHandler xmlHandler = setUpParserReaderAndHandlerIfNeeded(publisher, pathStr);
+    // closed however this ends, including when setting up the parser fails before parsing starts
+    try (inputStream) {
+      // set up Factory, parser, reader and handler
+      ChunkingXMLHandler xmlHandler = setUpParserReaderAndHandlerIfNeeded(publisher, pathStr);
 
-    RecordingInputStream ris = new RecordingInputStream(inputStream, maxRecordBytes);
+      RecordingInputStream ris = new RecordingInputStream(inputStream, maxRecordBytes);
 
-    setEncodingAndParse(xmlHandler, ris, pathStr);
+      setEncodingAndParse(xmlHandler, ris, pathStr);
+    } catch (IOException e) {
+      throw new FileHandlerException(String.format("Error closing file. (%s)", pathStr), e);
+    }
   }
 
   private void setEncodingAndParse(ChunkingXMLHandler xmlHandler, RecordingInputStream ris, String path) throws FileHandlerException {
@@ -192,7 +197,7 @@ public class XMLFileHandler extends BaseFileHandler {
     xmlHandler.setOutputField(outputField);
     xmlHandler.setPublisher(publisher);
     xmlHandler.setDocumentRootPath(xmlRootPath);
-    xmlHandler.setDocIDPrefix(docIdPrefix);
+    xmlHandler.setDocIdCreator(this::createDocId);
     xmlHandler.setSkipEmptyId(skipEmptyId);
 
     xmlReader.setContentHandler(xmlHandler);

@@ -258,7 +258,7 @@ public class VideoFileHandler extends BaseFileHandler {
     String leaf = FilenameUtils.getName(pathStr);
     String stem = FilenameUtils.removeExtension(leaf);
     String raw = (docIdFormat != null) ? String.format(docIdFormat, stem) : stem;
-    return docIdPrefix + raw;
+    return createDocId(raw);
   }
 
   static String formatTimecode(long millis) {

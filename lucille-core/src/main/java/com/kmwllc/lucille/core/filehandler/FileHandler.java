@@ -3,6 +3,7 @@ package com.kmwllc.lucille.core.filehandler;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.util.Collections;
@@ -49,6 +50,9 @@ public interface FileHandler {
    * that throws stops the file. Override it only for a format that is not read through an Iterator, or that has to manage
    * its resources differently.
    *
+   * <p>The given InputStream is closed when this returns or throws, including when the Publisher throws partway through
+   * the file. An override must do the same.
+   *
    * @param publisher The publisher you want to publish documents to.
    * @param inputStream An InputStream of the file's contents.
    * @param pathStr A string to the file you're processing, used for logging / debugging.
@@ -56,16 +60,22 @@ public interface FileHandler {
    * publishing a Document fails. The exception thrown by the Iterator or the Publisher is the cause.
    */
   default void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException {
-    Iterator<Document> docIterator;
+    // the Iterator closes the stream when it finishes, but not when publishing stops partway, such as when the Publisher
+    // throws: an open stream from a cloud provider holds an HTTP connection
+    try (inputStream) {
+      Iterator<Document> docIterator;
 
-    try {
-      docIterator = processFile(inputStream, pathStr);
-    } catch (Exception e) {
-      // going to skip this file if an error occurs
-      throw new FileHandlerException("Unable to set up iterator for this file " + pathStr, e);
+      try {
+        docIterator = processFile(inputStream, pathStr);
+      } catch (Exception e) {
+        // going to skip this file if an error occurs
+        throw new FileHandlerException("Unable to set up iterator for this file " + pathStr, e);
+      }
+
+      DocumentIteratorPublisher.publishAll(publisher, docIterator, pathStr);
+    } catch (IOException e) {
+      throw new FileHandlerException("Error closing file " + pathStr, e);
     }
-
-    DocumentIteratorPublisher.publishAll(publisher, docIterator, pathStr);
   }
 
   /**

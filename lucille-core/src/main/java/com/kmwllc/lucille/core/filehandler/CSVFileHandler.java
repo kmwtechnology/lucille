@@ -248,7 +248,7 @@ public class CSVFileHandler extends BaseFileHandler {
       docId = createDocId(rawId);
     } else {
       // a default unique id for a csv file is filename + line num
-      docId = docIdPrefix + filename + "-" + lineNum;
+      docId = createDocId(filename + "-" + lineNum);
     }
 
     Document doc = Document.create(docId);
@@ -372,11 +372,6 @@ public class CSVFileHandler extends BaseFileHandler {
       // Join the column data with an underscore if no docIdFormat provided.
       return StringUtils.join(idColumnData, "_");
     }
-  }
-
-  // TODO: synchronize with abstractConnector
-  private String createDocId(String id) {
-    return docIdPrefix + id;
   }
 
 }
