@@ -4,12 +4,10 @@ import type { HealthStatus } from "@/pages/dashboard/dashboard.types"
 import { API_BASE, HEALTH_POLL_INTERVAL_MS } from "@/lib/constants"
 import { HealthContext } from "./health-context"
 
+/** Consecutive failed probes required before the API is reported unavailable (1 = no debounce). */
 const FAILURES_BEFORE_UNAVAILABLE = 1
 
-/**
- * Polls API health once for the whole app. A single failed probe is ignored
- * (debounce); the status flips to "unavailable" only on the second consecutive failure.
- */
+/** Polls API health once for the whole app, flipping to "unavailable" after enough failed probes. */
 export function HealthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<HealthStatus>("loading")
   const failures = useRef(0)

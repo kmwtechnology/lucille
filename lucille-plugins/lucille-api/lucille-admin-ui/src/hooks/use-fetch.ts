@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useContext } from "react"
 import { errorMessageFrom } from "@/lib/utils"
 import { API_BASE } from "@/lib/constants"
+import { authHeader, notifyUnauthorized } from "@/lib/auth-token"
 import { HealthContext } from "./health-context"
 
+/** Proxy/gateway statuses that mean the upstream API is unreachable. */
 const GATEWAY_ERROR_STATUSES = new Set([502, 503, 504])
 
 export type FetchState<T> =
@@ -35,12 +37,14 @@ export function useFetch<T>(path: string, options: UseFetchOptions<T> = {}): Fet
       try {
         let res: Response
         try {
-          res = await fetch(`${API_BASE}${path}`, { signal: controller.signal })
+          res = await fetch(`${API_BASE}${path}`, { signal: controller.signal, headers: authHeader() })
         } catch (err) {
+          // fetch rejects with a TypeError on network failure (e.g. connection refused).
           if (!controller.signal.aborted) reportFailureRef.current?.()
           throw err
         }
         if (controller.signal.aborted) return
+        if (res.status === 401) notifyUnauthorized()
         if (GATEWAY_ERROR_STATUSES.has(res.status)) reportFailureRef.current?.()
         if (!res.ok) throw new Error(await errorMessageFrom(res))
         const data: T = await res.json()

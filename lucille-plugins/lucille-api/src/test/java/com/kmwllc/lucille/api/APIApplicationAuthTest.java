@@ -68,8 +68,12 @@ public class APIApplicationAuthTest {
     authConfig.setType(null);
     assertEquals(AuthType.NO_AUTH, authConfig.getType());
 
+    authConfig.setType("basicAndBearer");
+    assertEquals(AuthType.BASIC_AND_BEARER, authConfig.getType());
+
+    // "basicAuth" is kept as a backward-compatible alias for basicAndBearer.
     authConfig.setType("basicAuth");
-    assertEquals(AuthType.BASIC_AUTH, authConfig.getType());
+    assertEquals(AuthType.BASIC_AND_BEARER, authConfig.getType());
 
     assertThrows(IllegalArgumentException.class, () -> authConfig.setType("enhancedAuth"));
   }
