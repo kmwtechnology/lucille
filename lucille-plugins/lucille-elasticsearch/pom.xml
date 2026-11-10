@@ -16,6 +16,19 @@
   <packaging>jar</packaging>
   <name>Lucille Plugins: Lucille Elasticsearch</name>
 
+  <dependencyManagement>
+    <dependencies>
+      <!-- elasticsearch-java 9.0.0 pulls opentelemetry-api 1.29.0, which has CVEs. -->
+      <dependency>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-bom</artifactId>
+        <version>${opentelemetry.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>
     <dependency>
       <groupId>com.kmwllc</groupId>

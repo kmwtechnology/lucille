@@ -16,17 +16,10 @@
   <packaging>jar</packaging>
   <name>Lucille Core</name>
 
-  <properties>
-    <!-- CVE floor: google-cloud-storage pulls OTel 1.62.0 (still true as of 2.78.0), which has a ReDoS in
-    opentelemetry-api fixed in 1.67.0. Whole family via the BOM, not just the API: the 1.62 SDK calls
-    api.internal.ConfigUtil, which 1.67 removed. depMgmt doesn't reach modules that depend on core, so lucille-api
-    imports the same BOM. Not in lucille-parent: Solr 10's embedded test server needs the 1.56 SDK, which also
-    breaks on API 1.67. -->
-    <opentelemetry.version>1.67.0</opentelemetry.version>
-  </properties>
-
   <dependencyManagement>
     <dependencies>
+      <!-- Whole family, not just the API: the 1.62 SDK breaks on API 1.67. Modules depending on core don't get
+      this, so lucille-api imports it too. -->
       <dependency>
         <groupId>io.opentelemetry</groupId>
         <artifactId>opentelemetry-bom</artifactId>

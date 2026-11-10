@@ -20,8 +20,6 @@
            Pin the whole Jetty 12.1.x set to 12.1.13 via the Jetty BOMs (modules must share one version). -->
       <jetty.version>12.1.13</jetty.version>
       <jjwt.version>0.12.6</jjwt.version>
-      <!-- Keep in step with opentelemetry.version in lucille-core (see the note there). -->
-      <opentelemetry.version>1.67.0</opentelemetry.version>
     </properties>
 
     <dependencyManagement>
