@@ -138,16 +138,16 @@ storageClients {
 }
 ```
 
-Or to replace the built-in client for `s3`, `gs`, or `https`, for example with a subclass of `S3StorageClient` adapted for an S3-compatible endpoint. The entry holds both the built-in client's settings (see [s3](#s3), [gcp](#gcp), or [azure](#azure)) and any settings of the subclass's own:
+Or to replace the built-in client for `s3`, `gs`, or `https` with your own `StorageClient`. The entry holds only the settings your client reads; the built-in [s3](#s3), [gcp](#gcp), and [azure](#azure) blocks configure the built-in clients and can't also be given for that scheme:
 
 ```hocon
 paths: ["s3://bucket/prefix/"]
 storageClients {
   s3 {
     class: "com.mycompany.lucille.storage.MyS3StorageClient"
+    # settings read by MyS3StorageClient
+    endpoint: "https://s3.storage.example.internal"
     region: "us-east-1"
-    # read by MyS3StorageClient
-    endpointOverride: "https://s3.storage.example.internal"
   }
 }
 ```
@@ -262,7 +262,7 @@ Extracts one Document per row from a CSV file, read as UTF-8 (a leading byte ord
 | `docIdPrefix` | String | No | Prefix prepended to every Document ID. |
 | `maxRecordBytes` | Integer | No | Maximum size, in bytes (UTF-8), of a single row, including every physical line of a row whose quoted value contains line breaks. Must be positive. If a row is larger, processing of the file stops with an error instead of reading the row into memory; rows before it are still published. No limit by default. |
 
-If neither `idField` nor `idFields` is set, the Document ID is `{docIdPrefix}{filename}-{rowNumber}`. A blank value in one ID column only logs a warning, and the row is still published with the remaining ID parts (e.g. `2_`).
+If neither `idField` nor `idFields` is set, the Document ID is `{docIdPrefix}{pathHash}-{rowNumber}`, where `pathHash` is the MD5 hash of the file's full path (for a file inside an archive, the archive path plus the entry name). Files with the same name in different folders therefore get different IDs, but moving or renaming a file changes its IDs. A blank value in one ID column only logs a warning, and the row is still published with the remaining ID parts (e.g. `2_`).
 
 ```hocon
 fileHandlers: {
@@ -343,7 +343,7 @@ Extracts frames from video files, publishing one Document per sampled frame with
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `frameStride` | Integer | No | Publish every Nth frame. Values below 1 are treated as 1. Default: `1`. |
-| `docIdFormat` | String | No | `String.format` pattern with a single `%s`, applied to the file name without its extension to build the ID base. |
+| `docIdFormat` | String | No | `String.format` pattern with a single `%s`, applied to the file name without its extension to build the ID base. If not set, the base is the MD5 hash of the file's full path. |
 | `filePathField` | String | No | Field for the file path. Default: `source`. |
 | `filenameField` | String | No | Field for the file name. Default: `file_name`. |
 | `frameIndexField` | String | No | Field for the zero-based frame index. Default: `frame_index`. |
@@ -354,7 +354,7 @@ Extracts frames from video files, publishing one Document per sampled frame with
 | `frameImageField` | String | No | Field for the PNG bytes. Set to null if PNG encoding fails for a frame. Default: `frame_image`. |
 | `docIdPrefix` | String | No | Prefix prepended to every Document ID. |
 
-Each Document ID is `{docIdPrefix}{base}-f{frameIndex}`, where `base` is the file name without its extension (or `docIdFormat` applied to it). The frame index counts every frame, including those skipped by `frameStride`. Videos with the same file name in different folders produce the same IDs. If FFmpeg cannot open a file, that file fails; an error while reading frames stops the file after logging, keeping the frames already published.
+Each Document ID is `{docIdPrefix}{base}-f{frameIndex}`, where `base` is the MD5 hash of the file's full path, or, when `docIdFormat` is set, `docIdFormat` applied to the file name without its extension. The frame index counts every frame, including those skipped by `frameStride`. With `docIdFormat`, videos with the same file name in different folders produce the same IDs. If FFmpeg cannot open a file, that file fails; an error while reading frames stops the file after logging, keeping the frames already published.
 
 ```hocon
 fileHandlers: {

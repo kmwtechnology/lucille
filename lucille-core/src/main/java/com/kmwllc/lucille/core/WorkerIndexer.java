@@ -6,12 +6,9 @@ import com.kmwllc.lucille.message.HybridWorkerMessenger;
 import com.kmwllc.lucille.message.LocalMessenger;
 import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -22,8 +19,8 @@ import java.util.concurrent.LinkedBlockingQueue;
  *  1) the Worker reads documents from a source kafka topic
  *  2) the Worker publishes documents to an in-memory queue
  *  3) the Indexer retrieves documents from an in-memory queue
- *  4) the Indexer adds offsets of indexed documents to an in-memory queue
- *  5) the Worker reads offsets from the in-memory queue and commits them
+ *  4) the Indexer reports each completed batch to the Worker's messenger
+ *  5) the Worker commits the offsets of completed batches, never past an unfinished record
  *  6) callbacks are disabled
  *
  *  TODO: document why pairing of one worker with one indexer is necessary for hybrid mode
@@ -60,26 +57,21 @@ public class WorkerIndexer {
     LinkedBlockingQueue<Document> pipelineDest =
         new LinkedBlockingQueue<>(LocalMessenger.DEFAULT_QUEUE_CAPACITY);
 
-    // TODO: should we place a capacity on the offsets queue?
-    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets =
-        new LinkedBlockingQueue<>();
-
-    start(config, pipelineName, pipelineDest, offsets, bypassSearchEngine, idSet);
+    start(config, pipelineName, pipelineDest, bypassSearchEngine, idSet);
   }
 
-  // takes the queues the Worker and Indexer share, so tests can supply queues they inspect
+  // takes the queue the Worker and Indexer share, so tests can supply a queue they inspect
   void start(Config config, String pipelineName, BlockingQueue<Document> pipelineDest,
-      BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
       boolean bypassSearchEngine,
       Set<String> idSet) throws Exception {
 
     log.info("Starting WorkerIndexer for pipeline: {}", pipelineName);
 
     HybridWorkerMessenger workerMessageManager =
-        new HybridWorkerMessenger(config, pipelineName, pipelineDest, offsets);
+        new HybridWorkerMessenger(config, pipelineName, pipelineDest);
 
     HybridIndexerMessenger indexerMessageManager =
-        new HybridIndexerMessenger(config, pipelineDest, offsets, idSet, pipelineName);
+        new HybridIndexerMessenger(config, pipelineDest, workerMessageManager, idSet, pipelineName);
 
     indexer = IndexerFactory.fromConfig(config, indexerMessageManager, bypassSearchEngine, pipelineName, null);
 
@@ -98,7 +90,7 @@ public class WorkerIndexer {
   public void stop() throws Exception {
     // it is important to terminate the indexer wait for its thread to stop
     // before we terminate the worker. This allows the worker to process
-    // any offsets that the indexer added to the offset queue upon termination
+    // the batches the indexer completes upon termination, and commit their offsets
 
     if (indexer != null) {
       indexer.terminate();

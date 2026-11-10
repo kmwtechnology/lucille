@@ -52,6 +52,28 @@ java \
 ```
 ---
 
+## Admin UI (optional)
+
+The `lucille-api` plugin has an optional React admin UI for browsing configs, starting runs, and
+watching run and system status in a browser. It ships as a separate jar, `lucille-admin-ui.jar`, and
+is served at `/admin` whenever that jar is on the API's classpath. The API jar itself never contains
+the UI, and a standard build does not need a Node toolchain.
+
+- **Without the UI**: run the API as shown above. `/admin` is not served.
+- **With the UI**: build with `-Padmin-ui` to also build the UI jar, and put it on the classpath next to the API jar.
+
+```bash
+mvn clean install -Pshaded-plugin-jars -Padmin-ui
+java -cp 'lucille-plugins/lucille-api/target/lucille-api-plugin.jar:lucille-plugins/lucille-api/lucille-admin-ui/target/lucille-admin-ui.jar' \
+  com.kmwllc.lucille.api.APIApplication server lucille-plugins/lucille-api/conf/api.yml
+```
+
+The released `lucille-api` Docker image includes both jars, so the UI is available out of the box.
+Maven users can add the `com.kmwllc:lucille-admin-ui` dependency (version managed by `lucille-bom`) alongside `lucille-api`.
+To work on the UI, run the API on its own and start the UI with `npm run dev`.
+
+---
+
 ## Endpoints
 
 All endpoints are under the `/v1` prefix.

@@ -1,10 +1,12 @@
 ---
 title: Why Lucille
-weight: 1
+weight: 2
 date: 2025-06-09
 description: >
   What Lucille does, what it excels at, and how to know if it's right for your problem.
 ---
+
+Lucille is a search ETL framework. If you're new to the term, start with [What Is Search ETL?]({{< relref "what-is-search-etl" >}}), which explains why getting data into a search engine is a different problem from general-purpose ETL.
 
 ## What Lucille Does
 
@@ -16,7 +18,7 @@ The framework handles the hard parts of production search ingestion — concurre
 
 ## What Lucille Excels At
 
-**Search-native indexing.** Lucille's indexers understand search engine bulk APIs, batching semantics, deletion markers, index routing, and retry logic. The document model represents data the way search engines think about it — typed fields, single-valued and multi-valued, with operations that map directly to search engine semantics. You don't adapt a generic ETL tool to speak search; the framework already does.
+**Search-native indexing.** Lucille's indexers understand search engine bulk APIs, batching semantics, deletion markers, index routing, and retry logic. The document model represents data the way search engines think about it — typed fields, single-valued and multi-valued, with operations that map directly to search engine semantics.
 
 **Inline enrichment.** A large library of built-in stages covers common search ingestion tasks without custom code: text extraction, NLP, entity recognition, language detection, embedding generation, text chunking, database lookups, HTTP enrichment, scripting (JavaScript, Python), and JSONata transformations. Enrichment happens inside the pipeline as documents flow through — not as a separate post-processing step.
 

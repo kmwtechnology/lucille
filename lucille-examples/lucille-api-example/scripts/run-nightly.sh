@@ -19,6 +19,12 @@ fi
 # `docker compose up --abort-on-container-exit`.
 docker compose wait verifier || true
 
+if ! curl -fsS -o /dev/null http://localhost:8080/admin/; then
+  echo "admin UI is not being served at /admin/"
+  docker compose logs api
+  exit 1
+fi
+
 # verifier has already exited, so `-a` is needed for `docker compose ps` to list it.
 EXIT_CODE=$(docker inspect --format='{{.State.ExitCode}}' "$(docker compose ps -aq verifier)")
 echo "verifier exited with code ${EXIT_CODE}"

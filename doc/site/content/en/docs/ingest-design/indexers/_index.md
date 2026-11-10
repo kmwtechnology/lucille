@@ -85,6 +85,7 @@ The generic settings and the backend block are validated when the indexer is con
 | `includeFields` | List\<String\> | No | Only these fields are sent to the destination. Fields in `excludeFields` are still excluded. |
 | `excludeFields` | List\<String\> | No | These fields are never sent to the destination. |
 | `sendEnabled` | Boolean | No | Set to `false` to run without sending anything to the destination. The Solr, OpenSearch, Elasticsearch, Pinecone, and Weaviate indexers then skip creating their client and their connection check, and report every document as succeeded. The CSV indexer writes no file and also reports every document as succeeded. Default: `true`. |
+| `sendFailedDocsToTopic` | Boolean | No | Copy each document that fails to index to the pipeline's fail topic. Only takes effect in Kafka and Hybrid modes. See [The Fail Topic]({{< relref "docs/architecture/internals/error-handling#the-fail-topic-dead-letter-queue" >}}). Default: `false`. |
 | `deletionMarker` | Object | No | Marks documents for deletion. `field` is the document field to check, and `value` the value of that field that marks a document for deletion. The value is compared with the field's value as a string (first value, if multi-valued), so `"true"` matches a boolean `true` field. Both keys are required. |
 | `deleteByQuery` | Object | No | Turns a marked document into a delete-by-query. `fieldNameField` is the document field holding the name of the destination field to match, and `valueField` the document field holding the value to match. Both keys are required, and so is `deletionMarker`. |
 | `maxRetries` | Integer | No | Maximum number of retries for a failed batch, after the first attempt. Must be greater than 0 when set (0 or less fails at startup). Omit it to disable retries. Default: retries disabled. |
@@ -165,7 +166,7 @@ The setting is also rejected at startup for a custom messenger that commits its 
 
 ### Kafka Offset Commits
 
-In distributed mode the indexer reads from Kafka and commits a document's offset only after its batch completes, that is, after its FINISH or FAIL event is sent. (In hybrid mode the indexer likewise hands offsets back for commit only when a batch completes.) A document that failed to index is committed too and is not re-delivered. Offsets are committed up to the oldest document not yet complete in each partition, so a crash re-delivers anything uncommitted (at-least-once delivery).
+In distributed mode the indexer reads from Kafka and commits a document's offset only after its batch completes, that is, after its FINISH or FAIL event is sent. (In hybrid mode the worker commits a source record's offset once the batches holding everything sent for indexing from it have completed.) A document that failed to index is committed too and is not re-delivered. Offsets are committed up to the oldest document not yet complete in each partition, so a crash re-delivers anything uncommitted (at-least-once delivery).
 
 In distributed mode, when a partition is about to be revoked in a consumer-group rebalance, the indexer sends its open batch and waits for in-flight batches before the handoff, so a clean rebalance does not re-deliver them. On a normal stop it also sends the open batch, drains in-flight batches, and commits.
 

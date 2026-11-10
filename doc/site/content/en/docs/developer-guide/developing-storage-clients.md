@@ -8,7 +8,7 @@ description: >
 
 A StorageClient traverses a storage system, discovers files, and provides access to their content. The `FileConnector` uses StorageClients to list and read files from local disk, S3, Azure Blob Storage, and Google Cloud Storage. If you need to read files from a storage system that Lucille doesn't support out of the box (e.g., SFTP, SMB/CIFS, WebDAV), you implement a StorageClient.
 
-Once implemented, you register your StorageClient for a URI scheme in the `storageClients` config; see [Using Your StorageClient](#using-your-storageclient). You can also register a StorageClient for `s3`, `gs`, or `https` in place of the built-in client, for example to adapt one of the built-in cloud clients; see [Extending a Built-in StorageClient](#extending-a-built-in-storageclient).
+Once implemented, you register your StorageClient for a URI scheme in the `storageClients` config; see [Using Your StorageClient](#using-your-storageclient). You can also register your own StorageClient for `s3`, `gs`, or `https`, in place of the built-in client for that scheme. The built-in clients are not meant to be subclassed: they expose the cloud SDKs' types and can change in any release. Write a StorageClient on `BaseStorageClient` instead.
 
 ---
 
@@ -28,37 +28,6 @@ A StorageClient you register in `storageClients` adds a row to this mapping for 
 `StorageClient.createClients()` builds the clients for a config, keyed by scheme, and `StorageClient.clientFor()` looks up the client for a URI in that map. `StorageClient.create()` builds the single client for one URI. All three apply the same rules, and the `FileConnector` and the stages that read files by URI use them.
 
 For `https`, the built-in `AzureStorageClient` only handles URIs whose authority contains one of `azure.allowedHosts` (a substring match), which defaults to `["blob.core.windows.net"]`; `clientFor()` returns null and `create()` throws for any other host. The URI's host only selects the client; `AzureStorageClient` sends requests to the endpoint in its credentials. A StorageClient registered for `https` in `storageClients` handles every `https` URI, so it must apply any host rule of its own.
-
----
-
-## Extending a Built-in StorageClient
-
-To change how S3, Azure, or Google Cloud Storage files are handled, for example to read from an endpoint that is almost, but not quite, S3, extend `S3StorageClient`, `AzureStorageClient`, or `GoogleStorageClient` and register your subclass in `storageClients` under the built-in scheme (`s3`, `https`, or `gs`). It replaces the built-in client for that scheme:
-
-```hocon
-storageClients {
-  s3 {
-    class: "com.mycompany.lucille.storage.MyS3StorageClient"
-    # settings for S3StorageClient
-    region: "us-east-1"
-    # settings of MyS3StorageClient's own
-    endpointOverride: "https://s3.storage.example.internal"
-  }
-}
-```
-
-Your subclass receives the whole entry, so it can read both the built-in client's settings (see the [`FileConnector`]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}) docs) and settings of its own. The built-in client's `validateOptions()` still applies unless you override it. A scheme registered this way can't also have its built-in block: `storageClients.s3` with `s3`, `storageClients.https` with `azure`, or `storageClients.gs` with `gcp` throws an `IllegalArgumentException`. The built-in `s3`, `azure`, and `gcp` blocks only ever configure the built-in clients. For `https`, `azure.allowedHosts` doesn't apply to a registered client, so your client must check the host itself if it should reject some hosts.
-
-```java
-public class MyS3StorageClient extends S3StorageClient {
-
-  public MyS3StorageClient(Config config) {
-    super(config);
-  }
-
-  // override protected methods as needed, reading config.getString("endpointOverride")
-}
-```
 
 ---
 
@@ -417,7 +386,7 @@ connectors: [{
 
 - `class` must implement `StorageClient` (usually by extending `BaseStorageClient`), must not be abstract, and must have a public constructor that takes a `Config`. Your class must be on the classpath.
 - The scheme must be a valid URI scheme of at least two characters. One-letter schemes are read as Windows drive letters (e.g. `C:/data`).
-- A StorageClient for `s3`, `gs`, or `https` replaces the built-in client, and that scheme's built-in block (`s3`, `gcp`, or `azure`) can't also be given. See [Extending a Built-in StorageClient](#extending-a-built-in-storageclient).
+- A StorageClient for `s3`, `gs`, or `https` replaces the built-in client for that scheme, and that scheme's built-in block (`s3`, `gcp`, or `azure`) can't also be given. The built-in blocks only ever configure the built-in clients. For `https`, `azure.allowedHosts` doesn't apply to a registered client, so your client must check the host itself if it should reject some hosts.
 - `file` can't be configured in `storageClients`.
 - Stages that read files by URI, such as `FetchFileContent`, `ApplyFileHandlers`, `ApplyJavascript`, and the dictionary-based stages, accept the same `storageClients` config.
 

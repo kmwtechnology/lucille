@@ -74,8 +74,8 @@ The Worker reads from Kafka and should only commit an offset after the document 
 1. The Worker reads a document from Kafka (noting its topic/partition/offset).
 2. The Worker processes it and places it on the in-memory queue.
 3. The paired Indexer picks it up, batches it, and sends the batch to the search backend.
-4. After the batch succeeds, the Indexer places the offsets of the indexed documents on an in-memory offset queue.
-5. The Worker reads from that offset queue and commits those offsets back to Kafka.
+4. After the batch completes, the Indexer reports its documents back to the Worker.
+5. The Worker commits each partition's offset up to its earliest record that has not completed, so a record still waiting in a batch is never committed past.
 
 This closed loop between one Worker and one Indexer is simple because there's no ambiguity about which Worker should commit which offset. If multiple Workers shared an Indexer, the Indexer would need to route offset information back to the correct Worker — adding coordination complexity.
 
@@ -91,7 +91,7 @@ The 1:1 pairing means you cannot independently scale Workers and Indexers within
 
 ## When Could Ordering Break?
 
-**Consumer group rebalance.** If Kafka triggers a rebalance (e.g., a Worker or Indexer is slow, or a new instance joins the group), partitions may be reassigned. A document that was in-flight on the old consumer might be redelivered to the new consumer. This can cause a duplicate — but not a reordering, because the duplicate appears later in the partition's log than the original. In distributed mode the Indexer completes its open and in-flight batches before a partition is revoked, so a clean rebalance does not redeliver them and redelivery is limited to crashes; WorkerIndexer mode has no such flush. See [Delivery semantics]({{< relref "docs/operations/indexing-throughput#delivery-semantics-kafka-distributed-mode" >}}).
+**Consumer group rebalance.** If Kafka triggers a rebalance (e.g., a Worker or Indexer is slow, or a new instance joins the group), partitions may be reassigned. A document that was in-flight on the old consumer might be redelivered to the new consumer. This can cause a duplicate — but not a reordering, because the duplicate appears later in the partition's log than the original. In distributed mode the Indexer completes its open and in-flight batches before a partition is revoked, so a clean rebalance does not redeliver them and redelivery is limited to crashes; A WorkerIndexer commits the batches already completed and removes the revoked partitions' documents still waiting in its queue, but does not wait for batches in progress, so those can be redelivered. See [Delivery semantics]({{< relref "docs/operations/indexing-throughput#delivery-semantics-kafka-distributed-mode" >}}).
 
 **Topic partition count changes.** Kafka's default partitioner hashes the key modulo the partition count. If the partition count changes mid-ingest, the same document ID might hash to a different partition than before. Operations published before the change and operations published after could end up on different partitions, breaking the ordering guarantee. In practice, partition counts should not be changed during an active ingest.
 

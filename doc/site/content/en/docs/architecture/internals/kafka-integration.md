@@ -220,12 +220,9 @@ kafkaEventProducer.send(
     new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString()));
 ```
 
-The event consumer uses auto-commit for throughput:
-```java
-consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
-```
+The event consumer joins no consumer group and commits no offsets. Each run's event topic has one partition and is read only by that run's Publisher, so the Publisher reads it with `assign()`, from the beginning of the topic. With a fixed `kafka.eventTopic`, it starts at the end of the topic instead, skipping earlier runs' events. Keeping the Publisher out of every group means a run starting or ending does not rebalance the Workers or Indexers.
 
-This is acceptable because event loss is not catastrophic — the worst case is the Publisher waits longer or times out. Duplicate events are handled gracefully by the Publisher's Bag-based accounting.
+Duplicate events are handled gracefully by the Publisher's Bag-based accounting.
 
 Events can be disabled entirely:
 ```hocon
@@ -298,19 +295,13 @@ See [Streaming Mode Configuration]({{< relref "docs/operations/deployment" >}}) 
 
 ## The Fail Topic (Dead Letter Queue)
 
-Documents that exceed retry limits are sent to the fail topic:
+The fail topic (`{pipeline}_fail`) acts as a dead letter queue. Documents here can be inspected, fixed, and replayed. Documents are sent to it in three cases:
 
-```java
-// In KafkaWorkerMessenger:
-public void sendFailed(Document document) throws Exception {
-    ProducerRecord<String, Document> producerRecord =
-        new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
-    kafkaDocumentProducer.send(producerRecord).get();
-    kafkaDocumentProducer.flush();
-}
-```
+- A Worker sends a document whose retry count (tracked in ZooKeeper) exceeds `worker.maxRetries`.
+- With `worker.sendFailedDocsToTopic`, a Worker copies a document that fails during pipeline processing.
+- With `indexer.sendFailedDocsToTopic`, an Indexer copies a document that fails to index.
 
-The fail topic (`{pipeline}_fail`) acts as a dead letter queue. Documents here can be inspected, fixed, and replayed. The Worker sends a document to the fail topic when its retry count (tracked in ZooKeeper) exceeds `worker.maxRetries`.
+Each send waits for the broker to acknowledge the record. See [The Fail Topic]({{< relref "docs/architecture/internals/error-handling#the-fail-topic-dead-letter-queue" >}}) for the failure metadata stamped on each document and for what happens when the fail topic can't take one.
 
 ## Kafka Configuration Options
 
@@ -359,9 +350,9 @@ kafka.producer {
 
 Properties declared here, quoted or not, override the defaults Lucille sets on the client, such as `auto.offset.reset`
 and `max.poll.interval.ms` for consumers. A few values are fixed by Lucille and cannot be changed this way: the value
-serializer and deserializer, `enable.idempotence` on producers, and `enable.auto.commit`, which Lucille sets to `true`
-on the consumer that reads the event topic and requires to be `false` on the consumers that read documents (a config
-that sets it to `true` fails at startup).
+serializer and deserializer, `enable.idempotence` on producers, and `enable.auto.commit`, which Lucille sets to `false`
+on the consumer that reads the event topic (it joins no group and commits nothing) and requires to be `false` on the
+consumers that read documents (a config that sets it to `true` fails at startup).
 
 Setting one property both ways with different values is an error. Keys are passed through to the client as given, so
 serializers, interceptors, and other plugins can read their own; the Kafka client logs any key it does not use.
@@ -428,8 +419,8 @@ Different components use different commit strategies:
 |-----------|----------|-----------|
 | Worker (source) | `commitSync()` after processing | Minimize reprocessing after crash |
 | Indexer (dest) | `commitSync()` when a batch completes, via `OffsetCommitTracker` | At-least-once: a crash redelivers uncommitted documents, which is safe because indexing is idempotent |
-| Publisher (events) | Auto-commit | Throughput; duplicate events are harmless |
-| Hybrid Worker | Deferred commit via offset queue | Only commit after Indexer confirms |
+| Publisher (events) | None; reads its partition with `assign()` and no group | Each run's event topic is read only by its own Publisher |
+| Hybrid Worker | `commitSync()` via `OffsetCommitTracker`, once its paired Indexer has reported everything a record sent for indexing complete (at once, for a record that sent nothing) | Only commit after the Indexer confirms; a rebalance never moves a committed offset back |
 
 The Worker's synchronous commit ensures that if a Worker crashes, the document it was processing will be redelivered to another Worker. Without this, the document could be lost (committed but not processed).
 
@@ -445,7 +436,7 @@ Lucille treats Kafka communication failures as non-recoverable. If the Kafka pro
 - A run that has lost documents to a broken messaging path cannot produce a correct result. Continuing would silently drop data.
 - Simplicity: the framework does not attempt partial recovery or compensating transactions. A failed run is restarted from the beginning.
 
-This policy applies uniformly to all Kafka send paths — publishing documents, forwarding processed documents to the indexer, sending events, and sending to the dead-letter queue.
+There are two exceptions. The first is a record the broker rejects as too large (`RecordTooLargeException`, raised when a serialized document exceeds `kafka.maxRequestSize` or the topic's `max.message.bytes`). That failure belongs to the document, not to the messaging path, and the producer can still send the next record. When it happens on one of the worker's document sends (forwarding a processed document to the indexer, or sending a document to the dead-letter queue), the worker fails that document with a FAIL event, commits its offset, and continues. The second is an Indexer's copy of a failed document to the fail topic, which is best-effort: if that copy fails for any reason, the Indexer logs it and goes on, since the document's FAIL event and the `FailedDocuments` log still record it. See [The Fail Topic]({{< relref "docs/architecture/internals/error-handling#the-fail-topic-dead-letter-queue" >}}). Every other failure, on any send path (publishing documents, forwarding processed documents to the indexer, sending events, and the Worker's sends to the dead-letter queue), aborts the run.
 
 ### Asynchronous vs. Synchronous Send Paths
 
@@ -455,7 +446,7 @@ Not all send paths use the same strategy. The choice depends on volume and wheth
 |------|----------|-----------|
 | `KafkaPublisherMessenger.sendForProcessing` | **Asynchronous** — fire-and-forget with a callback; flushed at end of run | High volume. The publisher can emit thousands of documents per second. Blocking on each broker round trip would cap throughput at ~1 doc per RTT. |
 | `KafkaWorkerMessenger.sendForIndexing` | **Synchronous** — `send().get()` | The source offset must not be committed until the processed document is durably on the dest topic. A synchronous ack guarantees this ordering. |
-| `KafkaWorkerMessenger.sendFailed` | **Synchronous** — `send().get()` | Rare path (retry count exceeded). One record per exhausted-retry document; async provides no meaningful benefit. |
+| Worker/Indexer `sendFailed` | **Synchronous** — `send().get()` | Rare path: only failed documents are sent, so async provides no meaningful benefit. The Worker commits the document's offset only after the copy is acknowledged. |
 | Worker/Indexer `sendEvent` (single) | **Synchronous** — `send().get()` | Used for failure events and per-document cases. Low volume; per-document error attribution is straightforward when each send either succeeds or throws immediately. |
 | Indexer `sendEvents` (batch) | **Asynchronous** — fire all sends with callbacks, flush once at end | After a successful index batch, completion events are sent for all documents in the batch. Sending them one-at-a-time with a broker round trip per event would add latency proportional to batch size. |
 

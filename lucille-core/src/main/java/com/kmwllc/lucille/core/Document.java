@@ -151,12 +151,26 @@ public sealed interface Document permits JsonDocument {
   String DROP_FIELD = "___dropped";
   String SKIP_FIELD = "___skipped";
 
+  /** Why the document failed. Set on a document sent to the fail topic; see {@link #INDEXING_EXCLUDED_FIELDS}. */
+  String FAILURE_REASON_FIELD = "___failure_reason";
+  /** The component where the document failed, "worker" or "indexer". */
+  String FAILURE_COMPONENT_FIELD = "___failure_component";
+  /** When the failure was recorded, as an ISO-8601 instant. */
+  String FAILURE_TIME_FIELD = "___failure_time";
+
+  /**
+   * The reserved fields that are never written to a destination by the indexer. A document replayed from the fail topic
+   * still carries its failure metadata, which must not reach the index.
+   */
+  Set<String> INDEXING_EXCLUDED_FIELDS = Set.of(FAILURE_REASON_FIELD, FAILURE_COMPONENT_FIELD, FAILURE_TIME_FIELD);
+
   /**
    * The reserved field names, which stages and other callers cannot set, rename or remove. The set is immutable.
    * Lucille may add reserved names in a minor release; any it adds will begin with "___", so avoid that prefix in
    * field names of your own. Note that id and run_id are the only reserved names without the "___" prefix.
    */
-  Set<String> RESERVED_FIELDS = Set.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD, SKIP_FIELD);
+  Set<String> RESERVED_FIELDS = Set.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD, SKIP_FIELD,
+      FAILURE_REASON_FIELD, FAILURE_COMPONENT_FIELD, FAILURE_TIME_FIELD);
 
 
   /* --- SINGLE-VALUE GETTERS --- */

@@ -35,6 +35,7 @@ import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import java.nio.file.attribute.FileTime;
 import org.junit.After;
@@ -319,13 +320,19 @@ public class FileConnectorTest {
         d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subdir/e.yaml")).findAny().orElseThrow();
     assertTrue(doc11.getId().startsWith("normal-"));
 
-    Document doc12 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-1")).findAny().orElseThrow();
+    Document doc12 = documentList.stream().filter(d -> d.has("source") &&
+        d.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv") &&
+        d.getId().equals("csvHandled-" + DigestUtils.md5Hex(d.getString("source")) + "-1")).findAny().orElseThrow();
     assertTrue(doc12.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
-    Document doc13 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-2")).findAny().orElseThrow();
+    Document doc13 = documentList.stream().filter(d -> d.has("source") &&
+        d.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv") &&
+        d.getId().equals("csvHandled-" + DigestUtils.md5Hex(d.getString("source")) + "-2")).findAny().orElseThrow();
     assertTrue(doc13.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
-    Document doc14 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-3")).findAny().orElseThrow();
+    Document doc14 = documentList.stream().filter(d -> d.has("source") &&
+        d.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv") &&
+        d.getId().equals("csvHandled-" + DigestUtils.md5Hex(d.getString("source")) + "-3")).findAny().orElseThrow();
     assertTrue(doc14.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
     Document doc15 = documentList.stream().filter(d -> d.getId().equals("xmlHandled-1001")).findAny().orElseThrow();
@@ -861,6 +868,29 @@ public class FileConnectorTest {
     assertEquals(2, docs.stream().filter(doc -> doc.has("csvLineNumber")).count());
     // CSV row docs carry no file_path, so the check must be null-safe and not depend on traversal order
     assertTrue(docs.stream().map(doc -> doc.getString(FILE_PATH)).anyMatch(path -> path != null && path.endsWith("backup.ZIP!inner.txt")));
+  }
+
+  @Test
+  public void testSameNamedCsvFilesInDifferentFoldersGetUniqueIds() throws Exception {
+    File root = tempFolder.newFolder("sameName");
+    File a = new File(root, "a");
+    File b = new File(root, "b");
+    assertTrue(a.mkdir() && b.mkdir());
+    Files.writeString(new File(a, "data.csv").toPath(), "name\nx\ny\n");
+    Files.writeString(new File(b, "data.csv").toPath(), "name\nx\ny\n");
+
+    Config config = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of(root.getPath()),
+        "fileHandlers", Map.of("csv", Map.of())));
+
+    TestMessenger messenger = new TestMessenger();
+    Connector conn = new FileConnector(config);
+    conn.execute(new PublisherImpl(config, messenger, "run", "pipeline1"));
+    conn.close();
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(4, docs.size());
+    assertEquals(4, docs.stream().map(Document::getId).distinct().count());
   }
 
   // A move folder the traversal would visit is rejected at startup, since moved files would be published again.
