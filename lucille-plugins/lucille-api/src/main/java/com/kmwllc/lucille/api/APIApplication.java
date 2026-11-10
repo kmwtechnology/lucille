@@ -130,7 +130,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
    */
   @Override
   public void run(LucilleAPIConfiguration config, Environment env) throws Exception {
-    log.info("starting lucille-api from {} config {} env {}", System.getProperty("user.dir"), config, env);
+    log.info("starting lucille-api from {} env {}", System.getProperty("user.dir"), env);
 
     RunnerManager runnerManager = RunnerManager.getInstance();
 

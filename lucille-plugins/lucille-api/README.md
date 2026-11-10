@@ -61,7 +61,7 @@ the table requires Basic Auth credentials, except the liveness and readiness pro
 If auth is enabled, add `-u <anyuser>:<password>` (the username is not validated, only the password). If HTTPS is enabled with a self-signed cert, also add `-k`:
 
 ```bash
-curl -k -u user:password https://localhost:8443/v1/run
+curl -k -u user:${LUCILLE_API_PASSWORD} https://localhost:8443/v1/run
 ```
 
 ## Configuration
@@ -197,10 +197,11 @@ The `-ext san=...` is necessary, or else Jetty's SNI host check rejects requests
       disableSniHostCheck: true
 ```
 
-Hit endpoints with `-k` (skip cert verification, since the cert isn't in any trust store) and `-u <anyuser>:<password>` if auth is on:
+`conf/https_api.yml` reads the auth password from `LUCILLE_API_PASSWORD`, so export it before starting the server (the API will not start without it). Hit endpoints with `-k` (skip cert verification, since the cert isn't in any trust store) and `-u <anyuser>:<password>`:
 
 ```bash
-curl -k -u user:password https://localhost:8443/v1/config -H "Content-Type: application/json" -d @${LUCILLE_CONF}
+export LUCILLE_API_PASSWORD=<password>
+curl -k -u user:${LUCILLE_API_PASSWORD} https://localhost:8443/v1/config -H "Content-Type: application/json" -d @${LUCILLE_CONF}
 ```
 
 #### Production HTTPS

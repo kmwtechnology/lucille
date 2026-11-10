@@ -6,6 +6,7 @@ import io.dropwizard.core.Configuration;
 import io.federecio.dropwizard.swagger.SwaggerBundleConfiguration;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import java.nio.file.Path;
 
 /**
  * Custom configuration class for the Lucille API service.
@@ -120,5 +121,17 @@ public class LucilleAPIConfiguration extends Configuration {
   @JsonProperty("presetConfig")
   public void setPresetConfigConfiguration(PresetConfigConfiguration presetConfigConfiguration) {
     this.presetConfigConfiguration = presetConfigConfiguration;
+  }
+
+  /**
+   * Describes this configuration for logging. Secrets such as the auth password are not included.
+   * @return a string containing the auth settings, concurrency setting and preset config directory
+   */
+  @Override
+  public String toString() {
+    Path presetDirectory = presetConfigConfiguration == null ? null : presetConfigConfiguration.getConfigDirectoryPath();
+    return "LucilleAPIConfiguration{auth=" + authConfig
+        + ", preventConcurrentRuns=" + preventConcurrentRuns
+        + ", presetConfigDirectory=" + presetDirectory + "}";
   }
 }

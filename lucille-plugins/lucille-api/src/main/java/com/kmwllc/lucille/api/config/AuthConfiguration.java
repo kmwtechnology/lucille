@@ -109,4 +109,13 @@ public final class AuthConfiguration {
   public void setPassword(String password) {
     this.password = password;
   }
+
+  /**
+   * Describes this configuration for logging. The password is deliberately left out.
+   * @return a string containing the auth type and whether auth is enabled
+   */
+  @Override
+  public String toString() {
+    return "AuthConfiguration{type=" + type + ", enabled=" + enabled + "}";
+  }
 }

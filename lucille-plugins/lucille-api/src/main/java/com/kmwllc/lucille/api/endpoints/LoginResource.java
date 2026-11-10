@@ -12,6 +12,8 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,12 +58,23 @@ public class LoginResource {
       description = "Validates the supplied password and returns a short-lived JWT bearer token.")
   public Response login(LoginRequest request) {
     if (request == null || request.getPassword() == null
-        || expectedPassword == null || !expectedPassword.equals(request.getPassword())) {
+        || expectedPassword == null || !passwordMatches(request.getPassword())) {
       return ResponseUtils.buildErrorResponse(Response.Status.UNAUTHORIZED, "Invalid credentials.");
     }
 
     String token = jwtService.issueToken(SUBJECT);
     log.info("Issued an admin token.");
     return Response.ok(new LoginResponse(token)).build();
+  }
+
+  /**
+   * Compares the supplied password to the configured one in constant time, so response timing does
+   * not reveal how much of a guess was correct.
+   * @param supplied the password from the login request
+   * @return true if it matches the configured password
+   */
+  private boolean passwordMatches(String supplied) {
+    return MessageDigest.isEqual(
+        expectedPassword.getBytes(StandardCharsets.UTF_8), supplied.getBytes(StandardCharsets.UTF_8));
   }
 }
