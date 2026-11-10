@@ -7,7 +7,7 @@ The connector logs in with the OAuth client-credentials flow. A Developer Editio
 ## Requirements
 
 - An External Client App in the org, configured as below. New orgs create an External Client App rather than a Connected App.
-- OpenSearch listening at the URL in `conf/contacts.conf`. The default is `https://admin:MultiMeter%402026@localhost:9200`. A local install uses a certificate that is not signed by a public CA, so the config sets `acceptInvalidCert: true`.
+- OpenSearch listening at the URL in `conf/contacts.conf`. A local install uses a certificate that is not signed by a public CA, so the config sets `acceptInvalidCert: true`.
 - `OPENSEARCH_URL` and `OPENSEARCH_INDEX` override those defaults when they are set.
 
 ## Developer org setup
