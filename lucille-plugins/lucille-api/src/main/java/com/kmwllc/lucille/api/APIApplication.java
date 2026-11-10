@@ -87,6 +87,12 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
   }
 
   /**
+   * Disables the default Dropwizard logging configuration so that Log4j2 can take over.
+   */
+  @Override
+  protected void bootstrapLogging() {}
+
+  /**
    * Initializes the Dropwizard application, enabling environment-variable substitution in the
    * configuration file and registering the Swagger bundle. Substitution lets the config reference
    * values such as {@code ${LUCILLE_API_PASSWORD}} that are injected at runtime rather than

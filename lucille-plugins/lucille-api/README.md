@@ -237,33 +237,6 @@ to place these "included" configs in another directory so they are not loaded by
 **Note:** Environment variables for preset configs are resolved _once_ during the initialization of the API. They are not reevaluated 
 while the API is in use.
 
-## Logging
-
-The API logs through Logback, which Dropwizard configures from the `logging` section of the API config file
-(`conf/api.yml`). The default level is `INFO`, written to the console:
-
-```yaml
-logging:
-  level: INFO
-```
-
-To troubleshoot, raise the level for the whole API or for a single logger:
-
-```yaml
-logging:
-  level: INFO
-  loggers:
-    com.kmwllc.lucille: DEBUG
-```
-
-See the logging section of the [Dropwizard configuration reference](https://www.dropwizard.io/en/stable/manual/configuration.html)
-for appenders (files, JSON) and other options.
-
-Avoid setting Jetty (`org.eclipse.jetty`) to `DEBUG` unless you need it. It logs hundreds of lines per request,
-including stack traces such as `caught exception ... java.io.IOException: Parser is terminated` whenever a client
-closes a connection after its response. Those traces are normal. The admin UI dev server's proxy, for example,
-closes the connection after every request.
-
 ## Logging and Integration Testing with Dropwizard
 
 ### Important Notes for Logging Configuration
@@ -279,7 +252,7 @@ The lucille-api module uses Dropwizard, which is tightly coupled with Logback fo
 - Remove all log4j2 dependencies and configuration files from the classpath for tests.
 - Ensure only `logback-classic` is present as a test dependency in your `pom.xml`.
 - Exclude `log4j-slf4j2-impl` from any transitive dependencies (such as lucille-core) to prevent SLF4J provider conflicts.
-- Logback is also the API's runtime backend (see [Logging](#logging)), so don't add `lucille-logging` or another Log4j2 backend to it.
+- If you want to use Log4j2 for production, you can do so in your main application module, but keep Logback for Dropwizard-based tests.
 
 #### **Troubleshooting**
 If you see logger context or SLF4J errors during integration tests:
