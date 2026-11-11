@@ -38,7 +38,7 @@ jobs:
       # -T1 overrides -T1C from .mvn/maven.config: publishing to the shared staging repo stays serial
       - name: Publish package
         run: > 
-          mvn --batch-mode -T1 deploy -Dgpg.passphrase="$MAVEN_GPG_PASSPHRASE" -Ddeploy -Dassembly.skipAssembly=true
+          mvn --batch-mode -T1 deploy -Dgpg.passphrase="$MAVEN_GPG_PASSPHRASE" -Ddeploy -Dassembly.skipAssembly=true -Padmin-ui
         env:
           MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}

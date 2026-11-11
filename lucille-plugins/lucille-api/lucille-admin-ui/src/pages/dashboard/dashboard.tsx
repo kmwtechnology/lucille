@@ -48,9 +48,10 @@ export default function Dashboard() {
       {/* Row 1: Status cards */}
       <div className={styles.statusGrid}>
         {/* API Status */}
-        <Card className={`${styles.statCard} ${status === "unavailable" ? styles.statCardUnhealthy : styles.statCardHealthy}`}>
+        {/* "unavailable" never reaches this card: Layout swaps in the site-wide error screen. */}
+        <Card className={`${styles.statCard} ${styles.statCardHealthy}`}>
           <CardHeader className={styles.statHeader}>
-            <CardTitle className={status === "unavailable" ? styles.statTitleUnhealthy : styles.statTitleHealthy}>
+            <CardTitle className={styles.statTitleHealthy}>
               {status === "loading" ? (
                 <Activity className="h-5 w-5 animate-spin text-teal-500" />
               ) : status === "healthy" ? (
@@ -68,11 +69,6 @@ export default function Dashboard() {
               <>
                 <div className={styles.statValueTeal}>Healthy</div>
                 <div className={styles.statSubtextTeal}>All systems operational</div>
-              </>
-            ) : status === "unavailable" ? (
-              <>
-                <div className={styles.statValueRed}>Unhealthy</div>
-                <div className={styles.statSubtextRed}>Lucille API server is unavailable.</div>
               </>
             ) : (
               <>

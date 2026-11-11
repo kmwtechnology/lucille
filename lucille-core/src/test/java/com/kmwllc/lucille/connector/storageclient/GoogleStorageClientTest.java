@@ -10,7 +10,10 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
@@ -19,6 +22,7 @@ import static org.mockito.Mockito.verify;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.contrib.nio.testing.LocalStorageHelper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -36,6 +40,14 @@ import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Arrays;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -283,15 +295,15 @@ public class GoogleStorageClientTest {
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar
     Document doc1 = docs.get(0);
-    assertEquals("default.csv-1", doc1.getId());
+    assertEquals(DigestUtils.md5Hex(doc1.getString("source")) + "-1", doc1.getId());
     assertEquals("default.csv", doc1.getString("filename"));
     assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc1.getString("source"));
     Document doc2 = docs.get(1);
-    assertEquals("default.csv-2", doc2.getId());
+    assertEquals(DigestUtils.md5Hex(doc2.getString("source")) + "-2", doc2.getId());
     assertEquals("default.csv", doc2.getString("filename"));
     assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc2.getString("source"));
     Document doc3 = docs.get(2);
-    assertEquals("default.csv-3", doc3.getId());
+    assertEquals(DigestUtils.md5Hex(doc3.getString("source")) + "-3", doc3.getId());
     assertEquals("default.csv", doc3.getString("filename"));
     assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc3.getString("source"));
     Document doc4 = docs.get(3);
@@ -311,15 +323,15 @@ public class GoogleStorageClientTest {
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar.gz
     Document doc9 = docs.get(8);
-    assertEquals("default.csv-1", doc9.getId());
+    assertEquals(DigestUtils.md5Hex(doc9.getString("source")) + "-1", doc9.getId());
     assertEquals("default.csv", doc9.getString("filename"));
     assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc9.getString("source"));
     Document doc10 = docs.get(9);
-    assertEquals("default.csv-2", doc10.getId());
+    assertEquals(DigestUtils.md5Hex(doc10.getString("source")) + "-2", doc10.getId());
     assertEquals("default.csv", doc10.getString("filename"));
     assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc10.getString("source"));
     Document doc11 = docs.get(10);
-    assertEquals("default.csv-3", doc11.getId());
+    assertEquals(DigestUtils.md5Hex(doc11.getString("source")) + "-3", doc11.getId());
     assertEquals("default.csv", doc11.getString("filename"));
     assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc11.getString("source"));
     Document doc12 = docs.get(11);
@@ -332,15 +344,15 @@ public class GoogleStorageClientTest {
     assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "FolderWithFooTxt/foo.txt", doc14.getString(FILE_PATH));
     // check documents published from zipped.csv.zip
     Document doc15 = docs.get(14);
-    assertEquals("zipped.csv-1", doc15.getId());
+    assertEquals(DigestUtils.md5Hex(doc15.getString("source")) + "-1", doc15.getId());
     assertEquals("zipped.csv", doc15.getString("filename"));
     assertEquals("gs://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc15.getString("source"));
     Document doc16 = docs.get(15);
-    assertEquals("zipped.csv-2", doc16.getId());
+    assertEquals(DigestUtils.md5Hex(doc16.getString("source")) + "-2", doc16.getId());
     assertEquals("zipped.csv", doc16.getString("filename"));
     assertEquals("gs://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc16.getString("source"));
     Document doc17 = docs.get(16);
-    assertEquals("zipped.csv-3", doc17.getId());
+    assertEquals(DigestUtils.md5Hex(doc17.getString("source")) + "-3", doc17.getId());
     assertEquals("zipped.csv", doc17.getString("filename"));
     assertEquals("gs://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc17.getString("source"));
     // check documents published from zippedFolder.zip
@@ -522,6 +534,89 @@ public class GoogleStorageClientTest {
     assertEquals("gs://bucket/root-file.txt", docs.get(0).getString(FILE_PATH));
 
     googleStorageClient.stop();
+  }
+
+  private Set<String> publishedFromBucket(String start, Map<String, Object> connectorConfig, Map<String, Object> traversalSettings) throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    GoogleStorageClient client = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+    client.setStorageForTesting(storage);
+    client.initializeForTesting();
+
+    Map<String, Object> fullConfig = new HashMap<>(connectorConfig);
+    fullConfig.put("traversal", traversalSettings);
+    TraversalParams params = new TraversalParams(ConfigFactory.parseMap(fullConfig), URI.create(start), "");
+    client.validateTraversal(params);
+    client.traverse(publisher, params);
+
+    Set<String> paths = new HashSet<>();
+    messenger.getDocsSentForProcessing().forEach(doc -> paths.add(doc.getString(FILE_PATH)));
+    assertEquals(paths.size(), messenger.getDocsSentForProcessing().size());
+    return paths;
+  }
+
+  private void createNestedBlobs() {
+    for (String name : List.of("1.txt", "a/2.txt", "a/x/3.txt", "b/4.txt", "c/5.txt")) {
+      storage.create(BlobInfo.newBuilder(BlobId.of("bucket", name)).build(), name.getBytes());
+    }
+  }
+
+  // Sibling listings wait for each other, so this only passes if they run at the same time.
+  @Test
+  public void testTraversalThreadsListDirectoriesInParallel() throws Exception {
+    createNestedBlobs();
+    Set<String> sequential = publishedFromBucket("gs://bucket/", Map.of(), Map.of());
+    assertEquals(5, sequential.size());
+
+    Storage realStorage = storage;
+    CyclicBarrier siblings = new CyclicBarrier(3);
+    AtomicInteger listings = new AtomicInteger();
+    storage = mock(Storage.class, delegatesTo(realStorage));
+    doAnswer(invocation -> {
+      // the root is listed first, and a/x/ only after its parent
+      int listing = listings.incrementAndGet();
+      if (listing >= 2 && listing <= 4) {
+        siblings.await(20, TimeUnit.SECONDS);
+      }
+      return realStorage.list(invocation.<String>getArgument(0), Arrays.copyOfRange(invocation.getArguments(), 1, invocation.getArguments().length, BlobListOption[].class));
+    }).when(storage).list(anyString(), any(BlobListOption[].class));
+
+    try {
+      assertEquals(sequential, publishedFromBucket("gs://bucket/", Map.of(), Map.of("threadsPerPath", 3)));
+    } finally {
+      storage = realStorage;
+    }
+  }
+
+  @Test
+  public void testFlatListing() throws Exception {
+    createNestedBlobs();
+    Set<String> hierarchical = publishedFromBucket("gs://bucket/", Map.of(), Map.of());
+
+    Storage realStorage = storage;
+    storage = mock(Storage.class, delegatesTo(realStorage));
+    try {
+      assertEquals(hierarchical, publishedFromBucket("gs://bucket/", Map.of(), Map.of("listingMode", "flat")));
+      // one listing covers every level
+      verify(storage, times(1)).list(anyString(), any(BlobListOption[].class));
+    } finally {
+      storage = realStorage;
+    }
+  }
+
+  @Test
+  public void testMaxDocuments() throws Exception {
+    createNestedBlobs();
+
+    assertEquals(2, publishedFromBucket("gs://bucket/", Map.of(), Map.of("maxDocuments", 2)).size());
+  }
+
+  // a start directory in pathsToSkip used to be traversed anyway
+  @Test
+  public void testPathsToSkipOnTheStartDirectory() throws Exception {
+    createNestedBlobs();
+
+    assertEquals(Set.of(), publishedFromBucket("gs://bucket/a/", Map.of("filterOptions", Map.of("pathsToSkip", List.of("gs://bucket/a/"))), Map.of()));
   }
 
   @Test

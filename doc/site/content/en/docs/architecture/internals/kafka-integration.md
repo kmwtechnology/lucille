@@ -220,12 +220,9 @@ kafkaEventProducer.send(
     new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString()));
 ```
 
-The event consumer uses auto-commit for throughput:
-```java
-consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
-```
+The event consumer joins no consumer group and commits no offsets. Each run's event topic has one partition and is read only by that run's Publisher, so the Publisher reads it with `assign()`, from the beginning of the topic. With a fixed `kafka.eventTopic`, it starts at the end of the topic instead, skipping earlier runs' events. Keeping the Publisher out of every group means a run starting or ending does not rebalance the Workers or Indexers.
 
-This is acceptable because event loss is not catastrophic — the worst case is the Publisher waits longer or times out. Duplicate events are handled gracefully by the Publisher's Bag-based accounting.
+Duplicate events are handled gracefully by the Publisher's Bag-based accounting.
 
 Events can be disabled entirely:
 ```hocon
@@ -353,9 +350,9 @@ kafka.producer {
 
 Properties declared here, quoted or not, override the defaults Lucille sets on the client, such as `auto.offset.reset`
 and `max.poll.interval.ms` for consumers. A few values are fixed by Lucille and cannot be changed this way: the value
-serializer and deserializer, `enable.idempotence` on producers, and `enable.auto.commit`, which Lucille sets to `true`
-on the consumer that reads the event topic and requires to be `false` on the consumers that read documents (a config
-that sets it to `true` fails at startup).
+serializer and deserializer, `enable.idempotence` on producers, and `enable.auto.commit`, which Lucille sets to `false`
+on the consumer that reads the event topic (it joins no group and commits nothing) and requires to be `false` on the
+consumers that read documents (a config that sets it to `true` fails at startup).
 
 Setting one property both ways with different values is an error. Keys are passed through to the client as given, so
 serializers, interceptors, and other plugins can read their own; the Kafka client logs any key it does not use.
@@ -422,8 +419,8 @@ Different components use different commit strategies:
 |-----------|----------|-----------|
 | Worker (source) | `commitSync()` after processing | Minimize reprocessing after crash |
 | Indexer (dest) | `commitSync()` when a batch completes, via `OffsetCommitTracker` | At-least-once: a crash redelivers uncommitted documents, which is safe because indexing is idempotent |
-| Publisher (events) | Auto-commit | Throughput; duplicate events are harmless |
-| Hybrid Worker | Deferred commit via offset queue | Only commit after Indexer confirms |
+| Publisher (events) | None; reads its partition with `assign()` and no group | Each run's event topic is read only by its own Publisher |
+| Hybrid Worker | `commitSync()` via `OffsetCommitTracker`, once its paired Indexer has reported everything a record sent for indexing complete (at once, for a record that sent nothing) | Only commit after the Indexer confirms; a rebalance never moves a committed offset back |
 
 The Worker's synchronous commit ensures that if a Worker crashes, the document it was processing will be redelivered to another Worker. Without this, the document could be lost (committed but not processed).
 

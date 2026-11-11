@@ -51,7 +51,16 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
@@ -323,15 +332,15 @@ public class AzureStorageClientTest {
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar
     Document doc1 = docs.get(0);
-    assertEquals("default.csv-1", doc1.getId());
+    assertEquals(DigestUtils.md5Hex(doc1.getString("source")) + "-1", doc1.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar"
         + ARCHIVE_FILE_SEPARATOR + "default.csv", doc1.getString("source"));
     Document doc2 = docs.get(1);
-    assertEquals("default.csv-2", doc2.getId());
+    assertEquals(DigestUtils.md5Hex(doc2.getString("source")) + "-2", doc2.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar"
         + ARCHIVE_FILE_SEPARATOR + "default.csv", doc2.getString("source"));
     Document doc3 = docs.get(2);
-    assertEquals("default.csv-3", doc3.getId());
+    assertEquals(DigestUtils.md5Hex(doc3.getString("source")) + "-3", doc3.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar"
         + ARCHIVE_FILE_SEPARATOR + "default.csv", doc3.getString("source"));
     Document doc4 = docs.get(3);
@@ -352,15 +361,15 @@ public class AzureStorageClientTest {
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar.gz
     Document doc9 = docs.get(8);
-    assertEquals("default.csv-1", doc9.getId());
+    assertEquals(DigestUtils.md5Hex(doc9.getString("source")) + "-1", doc9.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar.gz"
         + ARCHIVE_FILE_SEPARATOR + "default.csv", doc9.getString("source"));
     Document doc10 = docs.get(9);
-    assertEquals("default.csv-2", doc10.getId());
+    assertEquals(DigestUtils.md5Hex(doc10.getString("source")) + "-2", doc10.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar.gz"
         + ARCHIVE_FILE_SEPARATOR + "default.csv", doc10.getString("source"));
     Document doc11 = docs.get(10);
-    assertEquals("default.csv-3", doc11.getId());
+    assertEquals(DigestUtils.md5Hex(doc11.getString("source")) + "-3", doc11.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar.gz"
         + ARCHIVE_FILE_SEPARATOR + "default.csv", doc11.getString("source"));
     Document doc12 = docs.get(11);
@@ -374,15 +383,15 @@ public class AzureStorageClientTest {
         + ARCHIVE_FILE_SEPARATOR + "FolderWithFooTxt/foo.txt", doc14.getString(FILE_PATH));
     // check documents published from zipped.csv.zip
     Document doc15 = docs.get(14);
-    assertEquals("zipped.csv-1", doc15.getId());
+    assertEquals(DigestUtils.md5Hex(doc15.getString("source")) + "-1", doc15.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/zipped.csv.zip"
         + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc15.getString("source"));
     Document doc16 = docs.get(15);
-    assertEquals("zipped.csv-2", doc16.getId());
+    assertEquals(DigestUtils.md5Hex(doc16.getString("source")) + "-2", doc16.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/zipped.csv.zip"
         + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc16.getString("source"));
     Document doc17 = docs.get(16);
-    assertEquals("zipped.csv-3", doc17.getId());
+    assertEquals(DigestUtils.md5Hex(doc17.getString("source")) + "-3", doc17.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/zipped.csv.zip"
         + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc17.getString("source"));
     // check documents published from zippedFolder.zip
@@ -941,6 +950,127 @@ public class AzureStorageClientTest {
     ));
 
     pathsToSkipTesting(connectorConfig);
+  }
+
+  private static final String AZURE_ROOT = "https://storagename.blob.core.windows.net/folder/";
+  private static final List<String> NESTED_BLOBS = List.of("1.txt", "a/2.txt", "a/x/3.txt", "b/4.txt", "c/5.txt");
+
+  private static BlobItem fakeBlob(String name, boolean prefix) {
+    BlobItem blob = new BlobItem();
+    blob.setName(name);
+    if (prefix) {
+      blob.setIsPrefix(true);
+    }
+    OffsetDateTime time = OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC"));
+    blob.setProperties(new BlobItemProperties().setCreationTime(time).setLastModified(time).setContentLength(1L));
+    return blob;
+  }
+
+  // A fake container that applies Azure's prefix and delimiter rules to the given names.
+  @SuppressWarnings("unchecked")
+  private static BlobContainerClient fakeContainer(List<String> names, Consumer<String> onList) {
+    BlobContainerClient container = mock(BlobContainerClient.class);
+
+    when(container.listBlobsByHierarchy(any(), any(), any())).thenAnswer(inv -> {
+      String prefix = ((ListBlobsOptions) inv.getArgument(1)).getPrefix();
+      onList.accept(prefix);
+      List<BlobItem> items = new ArrayList<>();
+      Set<String> directories = new TreeSet<>();
+      for (String name : names) {
+        if (name.startsWith(prefix)) {
+          int slash = name.indexOf('/', prefix.length());
+          if (slash >= 0) {
+            directories.add(name.substring(0, slash + 1));
+          } else {
+            items.add(fakeBlob(name, false));
+          }
+        }
+      }
+      directories.forEach(directory -> items.add(fakeBlob(directory, true)));
+      PagedIterable<BlobItem> iterable = mock(PagedIterable.class);
+      when(iterable.stream()).thenReturn(items.stream());
+      return iterable;
+    });
+
+    when(container.listBlobs(any(ListBlobsOptions.class), any())).thenAnswer(inv -> {
+      String prefix = ((ListBlobsOptions) inv.getArgument(0)).getPrefix();
+      onList.accept("flat:" + prefix);
+      PagedIterable<BlobItem> iterable = mock(PagedIterable.class);
+      when(iterable.stream()).thenReturn(names.stream().filter(name -> name.startsWith(prefix)).map(name -> fakeBlob(name, false)));
+      return iterable;
+    });
+
+    return container;
+  }
+
+  private static Set<String> publishedFromContainer(BlobContainerClient container, String start, Map<String, Object> connectorConfig,
+      Map<String, Object> traversalSettings) throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    AzureStorageClient client = new AzureStorageClient(ConfigFactory.parseMap(Map.of("connectionString", "connectionString")));
+
+    BlobServiceClient service = mock(BlobServiceClient.class);
+    when(service.getBlobContainerClient(any())).thenReturn(container);
+    client.setServiceClientForTesting(service);
+    client.initializeForTesting();
+
+    Map<String, Object> fullConfig = new HashMap<>(connectorConfig);
+    fullConfig.put("fileOptions", Map.of("getFileContent", false));
+    fullConfig.put("traversal", traversalSettings);
+    TraversalParams params = new TraversalParams(ConfigFactory.parseMap(fullConfig), URI.create(start), "");
+    client.validateTraversal(params);
+    client.traverse(publisher, params);
+
+    Set<String> paths = new HashSet<>();
+    messenger.getDocsSentForProcessing().forEach(doc -> paths.add(doc.getString(FILE_PATH)));
+    assertEquals(paths.size(), messenger.getDocsSentForProcessing().size());
+    return paths;
+  }
+
+  // Sibling listings wait for each other, so this only passes if they run at the same time.
+  @Test
+  public void testTraversalThreadsListDirectoriesInParallel() throws Exception {
+    CyclicBarrier siblings = new CyclicBarrier(3);
+    BlobContainerClient container = fakeContainer(NESTED_BLOBS, prefix -> {
+      if (Set.of("a/", "b/", "c/").contains(prefix)) {
+        try {
+          siblings.await(20, TimeUnit.SECONDS);
+        } catch (Exception e) {
+          throw new IllegalStateException("The sibling directories weren't listed at the same time.", e);
+        }
+      }
+    });
+
+    Set<String> parallel = publishedFromContainer(container, AZURE_ROOT, Map.of(), Map.of("threadsPerPath", 3));
+
+    assertEquals(publishedFromContainer(fakeContainer(NESTED_BLOBS, prefix -> { }), AZURE_ROOT, Map.of(), Map.of()), parallel);
+    assertEquals(5, parallel.size());
+  }
+
+  // a flat listing doesn't set BlobItem.isPrefix
+  @Test
+  public void testFlatListing() throws Exception {
+    Set<String> prefixes = ConcurrentHashMap.newKeySet();
+    BlobContainerClient container = fakeContainer(NESTED_BLOBS, prefixes::add);
+
+    assertEquals(5, publishedFromContainer(container, AZURE_ROOT, Map.of(), Map.of("listingMode", "flat")).size());
+    assertEquals(Set.of("flat:"), prefixes);
+  }
+
+  @Test
+  public void testMaxDocuments() throws Exception {
+    assertEquals(2, publishedFromContainer(fakeContainer(NESTED_BLOBS, prefix -> { }), AZURE_ROOT, Map.of(), Map.of("maxDocuments", 2)).size());
+  }
+
+  // a start directory in pathsToSkip used to be listed anyway
+  @Test
+  public void testPathsToSkipOnTheStartDirectory() throws Exception {
+    Set<String> prefixes = ConcurrentHashMap.newKeySet();
+    BlobContainerClient container = fakeContainer(NESTED_BLOBS, prefixes::add);
+    Map<String, Object> skip = Map.of("filterOptions", Map.of("pathsToSkip", List.of(AZURE_ROOT + "a/")));
+
+    assertEquals(Set.of(), publishedFromContainer(container, AZURE_ROOT + "a/", skip, Map.of()));
+    assertEquals(Set.of(), prefixes);
   }
 
   private void pathsToSkipTesting(Config connectorConfig) throws Exception {

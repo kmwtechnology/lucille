@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -490,7 +491,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
 
     Config workerConfig = config(pipeline, 1, Map.of("worker.maxRetries", 1));
     HybridWorkerMessenger workerMessenger =
-        new HybridWorkerMessenger(workerConfig, pipeline, new LinkedBlockingQueue<>(), new LinkedBlockingQueue<>());
+        new HybridWorkerMessenger(workerConfig, pipeline, new LinkedBlockingQueue<>());
     try {
       workerMessenger.sendFailed(Document.create("fromWorker", "run"));
     } finally {
@@ -499,8 +500,9 @@ public class KafkaConcurrentIndexerEndToEndTest {
     assertEquals("fromWorker", readFailTopic(workerConfig, failTopic).getId());
 
     Config indexerConfig = config(pipeline, 1, Map.of("indexer.sendFailedDocsToTopic", true));
+    // sendFailed and close don't use the worker messenger
     HybridIndexerMessenger indexerMessenger =
-        new HybridIndexerMessenger(indexerConfig, new LinkedBlockingQueue<>(), new LinkedBlockingQueue<>(), null, pipeline);
+        new HybridIndexerMessenger(indexerConfig, new LinkedBlockingQueue<>(), null, null, pipeline);
     try {
       indexerMessenger.sendFailed(Document.create("fromIndexer", "run"));
     } finally {
@@ -589,6 +591,54 @@ public class KafkaConcurrentIndexerEndToEndTest {
     throw new AssertionError("no event was received");
   }
 
+  /**
+   * An indexer evicted from its group (no poll within max.poll.interval.ms, here because a slow send holds up the batch
+   * waiting for a slot) must not send the batch it dispatches afterwards: the partition may already belong to another
+   * consumer, which may since have deleted the document. The batch is skipped instead, and re-polled and sent once the
+   * consumer rejoins. Before the ownership check, it was sent by the evicted consumer and then again after the re-poll.
+   */
+  @Test
+  public void testEvictedIndexerDoesNotSendBatchDispatchedAfterEviction() throws Exception {
+    String pipeline = newPipeline(1);
+    // One document per batch, never flushed by time; a 2 s poll deadline.
+    Config config = config(pipeline, 2, Map.of("indexer.batchSize", 1, "indexer.batchTimeoutMs", 600000,
+        "kafka.pollIntervalMs", 100, "kafka.maxPollIntervalMs", 2000));
+    String topic = KafkaUtils.getDestTopicName(pipeline);
+    TopicPartition partition = new TopicPartition(topic, 0);
+    // A fifth document, so the fourth is flushed (a batch of one is flushed by the next add).
+    List<String> ids = produce(config, pipeline, 0, 5, "run");
+
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline);
+    GatedIndexer indexer = new GatedIndexer(config.getConfig("indexer"), messenger, ids.get(0));
+    Thread thread = new Thread(indexer);
+    thread.start();
+    try {
+      // Polling doc1 dispatches doc0, whose send is held. Polling doc2 dispatches doc1. Polling doc3 dispatches doc2,
+      // which waits for doc0 (the window is full), so the indexer stops polling and is evicted.
+      waitFor(() -> indexer.gatedSendStarted);
+      waitFor(() -> {
+        try {
+          return groupState(config) == GroupState.EMPTY;
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+      });
+      // doc2 is dispatched only now, after the eviction.
+      indexer.release();
+      waitFor(() -> Map.of(partition, 4L).equals(committed(config)), indexer.sent::toString);
+    } finally {
+      indexer.release();
+      indexer.terminate();
+      thread.join(TIMEOUT_MS);
+    }
+
+    // doc0 and doc1 may be sent twice (doc0 was on the wire at the eviction, and neither commit could succeed after it),
+    // but doc2 and doc3, dispatched after the eviction, are sent once each, after the consumer rejoined.
+    assertEquals(indexer.sent.toString(), 1, Collections.frequency(indexer.sent, ids.get(2)));
+    assertEquals(indexer.sent.toString(), 1, Collections.frequency(indexer.sent, ids.get(3)));
+    assertTrue(indexer.sent.containsAll(ids.subList(0, 4)));
+  }
+
   // --- helpers ---
 
   private static String indexerGroup(Config config) {
@@ -665,10 +715,14 @@ public class KafkaConcurrentIndexerEndToEndTest {
   }
 
   private static void waitFor(BooleanSupplier condition) throws InterruptedException {
+    waitFor(condition, () -> "");
+  }
+
+  private static void waitFor(BooleanSupplier condition, Supplier<String> detail) throws InterruptedException {
     long deadline = System.currentTimeMillis() + TIMEOUT_MS;
     while (!condition.getAsBoolean()) {
       if (System.currentTimeMillis() > deadline) {
-        throw new AssertionError("condition not met within " + TIMEOUT_MS + " ms");
+        throw new AssertionError("condition not met within " + TIMEOUT_MS + " ms " + detail.get());
       }
       Thread.sleep(20);
     }

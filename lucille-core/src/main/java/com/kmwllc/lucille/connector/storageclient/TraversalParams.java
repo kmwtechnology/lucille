@@ -3,10 +3,15 @@ package com.kmwllc.lucille.connector.storageclient;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.GET_FILE_CONTENT;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.HANDLE_ARCHIVED_FILES;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.HANDLE_COMPRESSED_FILES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.LISTING_MODE;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_DOCUMENTS;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_SIZE_BYTES;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_AFTER_PROCESSING;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_ERROR_FOLDER;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.THREADS_PER_PATH;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.TRAVERSAL;
 
+import com.kmwllc.lucille.connector.storageclient.BaseStorageClient.ListingMode;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.filehandler.FileHandler;
 import com.kmwllc.lucille.util.FileUtils;
@@ -60,7 +65,15 @@ public class TraversalParams {
   private final Duration lastPublishedCutoff;
   private final PublishMode publishMode;
 
+  // traversal
+  private final int threadsPerPath;
+  // null means no limit
+  private final Long maxDocuments;
+  // null means the client's default
+  private final ListingMode listingMode;
+
   // FileHandlers
+  private final Config fileHandlersConfig;
   private final Map<String, FileHandler> fileHandlers;
 
   public TraversalParams(Config config, URI pathToStorage, String docIdPrefix) {
@@ -122,9 +135,52 @@ public class TraversalParams {
     this.lastModifiedCutoff = filterOptions.hasPath("lastModifiedCutoff") ? filterOptions.getDuration("lastModifiedCutoff") : null;
     this.lastPublishedCutoff = filterOptions.hasPath("lastPublishedCutoff") ? filterOptions.getDuration("lastPublishedCutoff") : null;
 
+    // traversal options. maxConcurrentPaths is read by FileConnector, which runs the paths.
+    Config traversal = config.hasPath(TRAVERSAL) ? config.getConfig(TRAVERSAL) : ConfigFactory.empty();
+    this.threadsPerPath = ConfigUtils.getIntOrDefault(traversal, THREADS_PER_PATH, 1);
+    if (threadsPerPath < 1) {
+      throw new IllegalArgumentException(TRAVERSAL + "." + THREADS_PER_PATH + " must be at least 1, but was " + threadsPerPath);
+    }
+    this.maxDocuments = ConfigUtils.getLongOrDefault(traversal, MAX_DOCUMENTS, null);
+    if (maxDocuments != null && maxDocuments < 1) {
+      throw new IllegalArgumentException(TRAVERSAL + "." + MAX_DOCUMENTS + " must be at least 1, but was " + maxDocuments);
+    }
+    this.listingMode = traversal.hasPath(LISTING_MODE) ? ListingMode.fromString(traversal.getString(LISTING_MODE)) : null;
+
     // fileHandlers - create a map from fileExtensions to fileHandlers. The method will handle json / jsonl.
-    Config fileHandlersConfig = config.hasPath("fileHandlers") ? config.getConfig("fileHandlers") : ConfigFactory.empty();
+    this.fileHandlersConfig = config.hasPath("fileHandlers") ? config.getConfig("fileHandlers") : ConfigFactory.empty();
     this.fileHandlers = FileHandler.createFromConfig(fileHandlersConfig);
+  }
+
+  // Everything but the FileHandlers is immutable, and so is safe to share across threads.
+  private TraversalParams(TraversalParams other) {
+    this.uri = other.uri;
+    this.docIdPrefix = other.docIdPrefix;
+    this.getFileContent = other.getFileContent;
+    this.handleArchivedFiles = other.handleArchivedFiles;
+    this.handleCompressedFiles = other.handleCompressedFiles;
+    this.maxSizeBytes = other.maxSizeBytes;
+    this.moveToAfterProcessing = other.moveToAfterProcessing;
+    this.moveToErrorFolder = other.moveToErrorFolder;
+    this.excludes = other.excludes;
+    this.includes = other.includes;
+    this.pathsToSkip = other.pathsToSkip;
+    this.lastModifiedCutoff = other.lastModifiedCutoff;
+    this.lastPublishedCutoff = other.lastPublishedCutoff;
+    this.publishMode = other.publishMode;
+    this.threadsPerPath = other.threadsPerPath;
+    this.maxDocuments = other.maxDocuments;
+    this.listingMode = other.listingMode;
+    this.fileHandlersConfig = other.fileHandlersConfig;
+    this.fileHandlers = FileHandler.createFromConfig(fileHandlersConfig);
+  }
+
+  /**
+   * Returns a copy of these params with its own FileHandler instances, for a traversal thread. A FileHandler is not
+   * thread-safe, so threads must not share one.
+   */
+  TraversalParams withOwnFileHandlers() {
+    return new TraversalParams(this);
   }
 
   /**
@@ -255,6 +311,51 @@ public class TraversalParams {
 
   public List<URI> getPathsToSkip() {
     return pathsToSkip;
+  }
+
+  /**
+   * @return The number of threads that traverse this path, from <code>traversal.threadsPerPath</code>. At least 1.
+   */
+  public int getThreadsPerPath() {
+    return threadsPerPath;
+  }
+
+  /**
+   * @return The number of published documents after which the traversal starts no new file, from
+   * <code>traversal.maxDocuments</code>, or null if there is no limit.
+   */
+  public Long getMaxDocuments() {
+    return maxDocuments;
+  }
+
+  /**
+   * @return The listing mode from <code>traversal.listingMode</code>, or null if it isn't set, in which case the client
+   * chooses.
+   */
+  public ListingMode getListingMode() {
+    return listingMode;
+  }
+
+  /**
+   * Rejects the settings that only {@link BaseStorageClient#traverseByListing} honors: <code>threadsPerPath</code> above 1,
+   * <code>listingMode</code> and <code>maxDocuments</code>. For a client that walks its storage another way.
+   *
+   * @param client The client that would ignore them, named in the error.
+   */
+  void rejectListingSettings(StorageClient client) {
+    if (threadsPerPath > 1) {
+      throw notSupported(THREADS_PER_PATH + " above 1", client);
+    }
+    if (listingMode != null) {
+      throw notSupported(LISTING_MODE, client);
+    }
+    if (maxDocuments != null) {
+      throw notSupported(MAX_DOCUMENTS, client);
+    }
+  }
+
+  private static IllegalArgumentException notSupported(String setting, StorageClient client) {
+    return new IllegalArgumentException(TRAVERSAL + "." + setting + " isn't supported by " + client.getClass().getName() + ".");
   }
 
   /**

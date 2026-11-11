@@ -31,7 +31,9 @@ public interface FileHandler {
 
   /**
    * A helper function that processes a file and publishes the documents to a Publisher using the content in the given
-   * InputStream. The given stream should be closed as part of this function's operations (namely the Iterators created)
+   * InputStream. The given stream should be closed as part of this function's operations (namely the Iterators created).
+   * A StorageClient traversal also closes it once this returns or throws, so a handler that stops partway, such as when
+   * the Publisher throws, doesn't leave it open.
    *
    * @param publisher The publisher you want to publish documents to.
    * @param inputStream An InputStream of the file's contents.

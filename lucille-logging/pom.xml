@@ -72,6 +72,39 @@
         <configuration>
           <finalName>lucille-logging</finalName>
         </configuration>
+        <executions>
+          <!-- Maven Central requires sources and javadoc jars for every jar artifact. This module has no Java, so the
+               parent's source/javadoc plugins produce nothing. Attach substitute jars under the same classifiers. -->
+          <execution>
+            <id>sources-jar</id>
+            <phase>package</phase>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+            <configuration>
+              <classifier>sources</classifier>
+              <classesDirectory>${project.basedir}</classesDirectory>
+              <includes>
+                <include>src/**</include>
+                <include>pom.xml</include>
+              </includes>
+            </configuration>
+          </execution>
+          <execution>
+            <id>javadoc-jar</id>
+            <phase>package</phase>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+            <configuration>
+              <classifier>javadoc</classifier>
+              <classesDirectory>${project.basedir}</classesDirectory>
+              <includes>
+                <include>README.md</include>
+              </includes>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <!-- Copy this module's runtime dependencies (the log4j2 backend) into target/lib, so the core Docker
            image / distribution can assemble a working logging runtime from lucille-logging alongside

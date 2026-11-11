@@ -166,7 +166,7 @@ The setting is also rejected at startup for a custom messenger that commits its 
 
 ### Kafka Offset Commits
 
-In distributed mode the indexer reads from Kafka and commits a document's offset only after its batch completes, that is, after its FINISH or FAIL event is sent. (In hybrid mode the indexer likewise hands offsets back for commit only when a batch completes.) A document that failed to index is committed too and is not re-delivered. Offsets are committed up to the oldest document not yet complete in each partition, so a crash re-delivers anything uncommitted (at-least-once delivery).
+In distributed mode the indexer reads from Kafka and commits a document's offset only after its batch completes, that is, after its FINISH or FAIL event is sent. (In hybrid mode the worker commits a source record's offset once the batches holding everything sent for indexing from it have completed.) A document that failed to index is committed too and is not re-delivered. Offsets are committed up to the oldest document not yet complete in each partition, so a crash re-delivers anything uncommitted (at-least-once delivery).
 
 In distributed mode, when a partition is about to be revoked in a consumer-group rebalance, the indexer sends its open batch and waits for in-flight batches before the handoff, so a clean rebalance does not re-deliver them. On a normal stop it also sends the open batch, drains in-flight batches, and commits.
 
