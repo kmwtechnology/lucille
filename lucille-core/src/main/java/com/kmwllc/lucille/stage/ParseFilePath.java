@@ -144,7 +144,7 @@ public class ParseFilePath extends Stage {
     doc.addToField("folder", FilenameUtils.getFullPathNoEndSeparator(filePath));
     doc.addToField("path", filePath);
 
-    String extension = FilenameUtils.getExtension(filePath);
+    String extension = getExtension(filePath);
     if (clearInvalidExtension && isInvalidExtension(extension)) {
       extension = "";
     }
@@ -187,6 +187,17 @@ public class ParseFilePath extends Stage {
     }
 
     return decoded;
+  }
+
+  // Same result as FilenameUtils.getExtension(), except it does not reject ':' after the last separator. On Windows,
+  // FilenameUtils treats that as an NTFS alternate data stream and throws, which breaks drive-relative paths like "C:a.txt".
+  static String getExtension(String path) {
+    if (path == null) {
+      return null;
+    }
+    int dot = path.lastIndexOf('.');
+    int lastSeparator = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+    return dot > lastSeparator ? path.substring(dot + 1) : "";
   }
 
   private static boolean isInvalidExtension(String extension) {
