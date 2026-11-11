@@ -53,8 +53,19 @@ import jdk.jfr.Experimental;
  * </pre>
  * @see com.kmwllc.lucille.api.config.LucilleAPIConfiguration
  */
-@Experimental
 public class APIApplication extends Application<LucilleAPIConfiguration> {
+
+  // The API logs through log4j2 with Lucille's default config, like the rest of Lucille. Logback is also on the classpath,
+  // because Dropwizard's classes need it, so log4j2 is selected explicitly unless the caller chose a provider or config.
+  // This runs before the logger below is created, which is what initializes SLF4J.
+  static {
+    if (System.getProperty("slf4j.provider") == null) {
+      System.setProperty("slf4j.provider", "org.apache.logging.slf4j.SLF4JServiceProvider");
+    }
+    if (System.getProperty("log4j2.configurationFile") == null) {
+      System.setProperty("log4j2.configurationFile", "classpath:lucille-log4j2.xml");
+    }
+  }
 
   /**
    * Logger for the Lucille API application.

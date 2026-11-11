@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.CharUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -46,6 +47,10 @@ import org.slf4j.LoggerFactory;
  * physical lines of a row whose quoted value contains line breaks. If a row exceeds this limit, processing of the file
  * stops with an error instead of reading the row into memory. Documents from earlier rows will already have been
  * published. No limit by default.
+ * <p>
+ * If neither <code>idField</code> nor <code>idFields</code> is set, the Document ID is
+ * <code>{docIdPrefix}{md5 of the full file path}-{rowNumber}</code>. For a file inside an archive, the full path includes
+ * the archive path and the entry name.
  */
 public class CSVFileHandler extends BaseFileHandler {
 
@@ -126,6 +131,7 @@ public class CSVFileHandler extends BaseFileHandler {
       final String[] header = getHeaderFromCSV(csvReader, path);
       final Map<String, Integer> columnIndexMap = getColumnIndexMap(header, path);
       final List<Integer> idColumns = getIdColumns(columnIndexMap, path);
+      final String pathHash = idColumns.isEmpty() ? DigestUtils.md5Hex(path) : null;
       Integer lineNum = 0;
       // read lazily in hasNext(), not with CSVIterator: it reads one row ahead, so a failure on row N would lose row N-1
       String[] nextLine = null;
@@ -188,7 +194,7 @@ public class CSVFileHandler extends BaseFileHandler {
               tracker.bad(lineNum, String.format("row has %d columns but the header has %d", line.length, header.length));
             } else {
               try {
-                Document doc = getDocumentFromLine(idColumns, header, line, filename, path, lineNum);
+                Document doc = getDocumentFromLine(idColumns, header, line, filename, path, pathHash, lineNum);
                 tracker.good();
                 return doc;
               } catch (DocumentException | IllegalArgumentException e) {
@@ -223,7 +229,8 @@ public class CSVFileHandler extends BaseFileHandler {
     };
   }
 
-  private Document getDocumentFromLine(List<Integer> idColumns, String[] header, String[] line, String filename, String path, int lineNum)
+  private Document getDocumentFromLine(List<Integer> idColumns, String[] header, String[] line, String filename, String path,
+      String pathHash, int lineNum)
       throws DocumentException {
     String docId = "";
     if (!idColumns.isEmpty()) {
@@ -248,8 +255,8 @@ public class CSVFileHandler extends BaseFileHandler {
       }
       docId = createDocId(rawId);
     } else {
-      // a default unique id for a csv file is filename + line num
-      docId = createDocId(filename + "-" + lineNum);
+      // hash the full path, not the filename, so same-named files in different folders don't overwrite each other
+      docId = createDocId(pathHash + "-" + lineNum);
     }
 
     Document doc = Document.create(docId);

@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom"
 import { ErrorFallback } from "./components/error-fallback/error-fallback"
+import { HealthProvider } from "./hooks/health-provider"
 import RequireAuth from "./components/require-auth/require-auth"
 import Layout from "./components/layout/layout"
 import Login from "./pages/login/login"
@@ -14,6 +15,7 @@ import NotFound from "./pages/not-found/not-found"
 function App() {
   return (
     <ErrorFallback>
+      <HealthProvider>
       <Routes>
         {/* Public: the login page is reachable without a token. */}
         <Route path="/login" element={<Login />} />
@@ -32,6 +34,7 @@ function App() {
           </Route>
         </Route>
       </Routes>
+      </HealthProvider>
     </ErrorFallback>
   )
 }

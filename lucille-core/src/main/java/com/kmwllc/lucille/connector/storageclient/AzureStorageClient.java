@@ -13,6 +13,7 @@ import com.azure.storage.blob.models.BlobCopyInfo;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.common.StorageSharedKeyCredential;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -21,6 +22,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Objects;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,28 +79,47 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception {
-    traversePrefix(publisher, params, stateMgr, getStartingDirectory(params));
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws ConnectorException {
+    traverseByListing(publisher, params, stateMgr);
   }
 
-  private void traversePrefix(Publisher publisher, TraversalParams params, FileStateTracker stateMgr, String prefix) {
-    serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
-        .listBlobsByHierarchy("/", new ListBlobsOptions().setPrefix(prefix).setMaxResultsPerPage(maxResultsPerPage), Duration.ofSeconds(10))
-        .stream()
-        .forEachOrdered(blob -> {
-          if (blob.isPrefix()) {
-            URI dirUri = uriForDirectory(blob.getName(), params);
+  @Override
+  protected boolean traversesByListing() {
+    return true;
+  }
 
-            if (!isSkippedDirectory(dirUri, params)) {
-              traversePrefix(publisher, params, stateMgr, blob.getName());
-            }
-          } else {
-            FileReference fileRef = buildReferenceOrSkip(blob.getName(), () -> new AzureFileReference(blob, params));
-            if (fileRef != null) {
-              processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
-            }
-          }
-        });
+  @Override
+  protected Stream<ListingEntry> listDirectory(String prefix, TraversalParams params) {
+    return serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
+        .listBlobsByHierarchy("/", listOptions(prefix), Duration.ofSeconds(10))
+        .stream()
+        .map(blob -> isPrefix(blob) ? ListingEntry.directory(blob.getName()) : fileEntry(blob, params));
+  }
+
+  @Override
+  protected Stream<ListingEntry> listFlat(String prefix, TraversalParams params) {
+    return serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
+        .listBlobs(listOptions(prefix), Duration.ofSeconds(10))
+        .stream()
+        .map(blob -> fileEntry(blob, params));
+  }
+
+  private ListBlobsOptions listOptions(String prefix) {
+    return new ListBlobsOptions().setPrefix(prefix).setMaxResultsPerPage(maxResultsPerPage);
+  }
+
+  private ListingEntry fileEntry(BlobItem blob, TraversalParams params) {
+    return ListingEntry.file(blob.getName(), () -> new AzureFileReference(blob, params));
+  }
+
+  // a flat listing doesn't set this
+  private static boolean isPrefix(BlobItem blob) {
+    return Boolean.TRUE.equals(blob.isPrefix());
+  }
+
+  @Override
+  protected URI directoryURI(String prefix, TraversalParams params) {
+    return uriForDirectory(prefix, params);
   }
 
   private URI uriForDirectory(String prefix, TraversalParams params) {
@@ -162,7 +183,8 @@ public class AzureStorageClient extends BaseStorageClient {
     sourceBlobClient.delete();
   }
 
-  private String getStartingDirectory(TraversalParams params) {
+  @Override
+  protected String getStartingDirectory(TraversalParams params) {
     String path = params.getURI().getPath();
     // path is in the format /containerName/folder1/folder2/... so need to return folder1/folder2/...
     String[] subPaths = path.split("/", 3);
@@ -245,7 +267,7 @@ public class AzureStorageClient extends BaseStorageClient {
 
     @Override
     public boolean isValidFile() {
-      return !blobItem.isPrefix();
+      return !isPrefix(blobItem);
     }
 
     @Override

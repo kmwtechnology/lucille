@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.Test;
 
 /**
@@ -128,7 +129,9 @@ public class FileHandlerStreamAndPrefixTest {
   public void testCsvDefaultIdGetsThePrefix() throws Exception {
     FileHandler handler = handler("csv", Map.of("docIdPrefix", "p-"));
 
-    assertEquals(List.of("p-test.csv-1", "p-test.csv-2"), publishedIds(handler, CSV, "test.csv"));
+    String pathHash = DigestUtils.md5Hex("dir/test.csv");
+
+    assertEquals(List.of("p-" + pathHash + "-1", "p-" + pathHash + "-2"), publishedIds(handler, CSV, "dir/test.csv"));
   }
 
   @Test

@@ -41,12 +41,18 @@ import java.io.InputStream;
 import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.TreeSet;
 import java.util.stream.Stream;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.Test;
 import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
@@ -387,13 +393,13 @@ public class S3StorageClientTest {
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar
     Document doc1 = docs.get(0);
-    assertEquals("default.csv-1", doc1.getId());
+    assertEquals(DigestUtils.md5Hex(doc1.getString("file_path")) + "-1", doc1.getId());
     assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc1.getString("file_path"));
     Document doc2 = docs.get(1);
-    assertEquals("default.csv-2", doc2.getId());
+    assertEquals(DigestUtils.md5Hex(doc2.getString("file_path")) + "-2", doc2.getId());
     assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc2.getString("file_path"));
     Document doc3 = docs.get(2);
-    assertEquals("default.csv-3", doc3.getId());
+    assertEquals(DigestUtils.md5Hex(doc3.getString("file_path")) + "-3", doc3.getId());
     assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc3.getString("file_path"));
     Document doc4 = docs.get(3);
     assertEquals("2", doc4.getId());
@@ -414,13 +420,13 @@ public class S3StorageClientTest {
     assertEquals("s3://bucket/textFiles.tar" + ARCHIVE_FILE_SEPARATOR + "goodbye.txt", doc9.getString(FILE_PATH));
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar.gz
     Document doc10 = docs.get(9);
-    assertEquals("default.csv-1", doc10.getId());
+    assertEquals(DigestUtils.md5Hex(doc10.getString("file_path")) + "-1", doc10.getId());
     assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc10.getString("file_path"));
     Document doc11 = docs.get(10);
-    assertEquals("default.csv-2", doc11.getId());
+    assertEquals(DigestUtils.md5Hex(doc11.getString("file_path")) + "-2", doc11.getId());
     assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc11.getString("file_path"));
     Document doc12 = docs.get(11);
-    assertEquals("default.csv-3", doc12.getId());
+    assertEquals(DigestUtils.md5Hex(doc12.getString("file_path")) + "-3", doc12.getId());
     assertEquals("s3://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc12.getString("file_path"));
     Document doc13 = docs.get(12);
     assertEquals("2", doc13.getId());
@@ -435,13 +441,13 @@ public class S3StorageClientTest {
     assertEquals("s3://bucket/zippedFolder.zip" + ARCHIVE_FILE_SEPARATOR + "zippedFolder/foo.txt", doc16.getString(FILE_PATH));
     // check documents published from zipped.csv.zip
     Document doc17 = docs.get(16);
-    assertEquals("zipped.csv-1", doc17.getId());
+    assertEquals(DigestUtils.md5Hex(doc17.getString("file_path")) + "-1", doc17.getId());
     assertEquals("s3://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc17.getString("file_path"));
     Document doc18 = docs.get(17);
-    assertEquals("zipped.csv-2", doc18.getId());
+    assertEquals(DigestUtils.md5Hex(doc18.getString("file_path")) + "-2", doc18.getId());
     assertEquals("s3://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc18.getString("file_path"));
     Document doc19 = docs.get(18);
-    assertEquals("zipped.csv-3", doc19.getId());
+    assertEquals(DigestUtils.md5Hex(doc19.getString("file_path")) + "-3", doc19.getId());
     assertEquals("s3://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc19.getString("file_path"));
 
     s3StorageClient.stop();
@@ -811,6 +817,85 @@ public class S3StorageClientTest {
     ArgumentCaptor<ListObjectsV2Request> captor = ArgumentCaptor.forClass(ListObjectsV2Request.class);
     verify(mockClient, atLeastOnce()).listObjectsV2Paginator(captor.capture());
     return captor.getAllValues();
+  }
+
+  private static final List<String> NESTED_KEYS = List.of("1.txt", "a/2.txt", "a/x/3.txt", "b/4.txt", "b/y/5.txt", "c/6.txt");
+
+  // Sibling listings wait for each other, so this only passes if they run at the same time.
+  @Test
+  public void testTraversalThreadsListDirectoriesInParallel() throws Exception {
+    CyclicBarrier siblings = new CyclicBarrier(3);
+    Set<String> delimiters = ConcurrentHashMap.newKeySet();
+    S3Client mockClient = fakeBucket(NESTED_KEYS, request -> {
+      delimiters.add(String.valueOf(request.delimiter()));
+      if (Set.of("a/", "b/", "c/").contains(request.prefix())) {
+        try {
+          siblings.await(20, TimeUnit.SECONDS);
+        } catch (Exception e) {
+          throw new IllegalStateException("The sibling directories weren't listed at the same time.", e);
+        }
+      }
+    });
+
+    Set<String> published = publishedPathsFromClient(mockClient, "s3://bucket/", ConfigFactory.empty(), Map.of("threadsPerPath", 3));
+
+    assertEquals(publishedPathsFromFakeBucket(NESTED_KEYS, "s3://bucket/", ConfigFactory.empty()), published);
+    assertEquals(Set.of("/"), delimiters);
+  }
+
+  @Test
+  public void testExplicitHierarchicalListing() throws Exception {
+    Set<String> delimiters = ConcurrentHashMap.newKeySet();
+    S3Client mockClient = fakeBucket(NESTED_KEYS, request -> delimiters.add(String.valueOf(request.delimiter())));
+
+    assertEquals(6, publishedPathsFromClient(mockClient, "s3://bucket/", ConfigFactory.empty(), Map.of("listingMode", "hierarchical")).size());
+    assertEquals(Set.of("/"), delimiters);
+  }
+
+  @Test
+  public void testMaxDocuments() throws Exception {
+    assertEquals(2, publishedPathsFromClient(fakeBucket(NESTED_KEYS, request -> { }), "s3://bucket/", ConfigFactory.empty(), Map.of("maxDocuments", 2)).size());
+  }
+
+  // a start directory in pathsToSkip used to be listed anyway
+  @Test
+  public void testPathsToSkipOnTheStartDirectory() throws Exception {
+    Set<String> prefixes = ConcurrentHashMap.newKeySet();
+    S3Client mockClient = fakeBucket(NESTED_KEYS, request -> prefixes.add(request.prefix()));
+    Config skip = ConfigFactory.parseMap(Map.of("filterOptions", Map.of("pathsToSkip", List.of("s3://bucket/a/"))));
+
+    assertEquals(Set.of(), publishedPathsFromClient(mockClient, "s3://bucket/a/", skip, Map.of()));
+    assertEquals(Set.of(), prefixes);
+  }
+
+  private static S3Client fakeBucket(List<String> keys, Consumer<ListObjectsV2Request> onList) {
+    S3Client mockClient = mock(S3Client.class);
+    when(mockClient.listObjectsV2Paginator(any(ListObjectsV2Request.class)))
+        .thenAnswer(inv -> new ListObjectsV2Iterable(mockClient, inv.getArgument(0)));
+    when(mockClient.listObjectsV2(any(ListObjectsV2Request.class))).thenAnswer(inv -> {
+      onList.accept(inv.getArgument(0));
+      return fakeListObjectsV2(keys, inv.getArgument(0));
+    });
+    return mockClient;
+  }
+
+  private Set<String> publishedPathsFromClient(S3Client mockClient, String start, Config connectorConfig, Map<String, Object> traversalSettings) throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    Config fullConnectorConfig = connectorConfig.withFallback(
+        ConfigFactory.parseMap(Map.of("fileOptions", Map.of(GET_FILE_CONTENT, false), "traversal", traversalSettings)));
+
+    S3StorageClient s3StorageClient = new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1")));
+    s3StorageClient.setS3ClientForTesting(mockClient);
+    s3StorageClient.initializeForTesting();
+    TraversalParams params = new TraversalParams(fullConnectorConfig, URI.create(start), "");
+    s3StorageClient.validateTraversal(params);
+    s3StorageClient.traverse(publisher, params);
+
+    Set<String> paths = new HashSet<>();
+    messenger.getDocsSentForProcessing().forEach(doc -> paths.add(doc.getString(FILE_PATH)));
+    assertEquals("duplicate publication from " + start, paths.size(), messenger.getDocsSentForProcessing().size());
+    return paths;
   }
 
   // Traverses a fake bucket that applies S3's prefix and delimiter rules to the given keys.

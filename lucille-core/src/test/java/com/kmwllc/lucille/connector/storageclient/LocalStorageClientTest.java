@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -259,20 +260,20 @@ public class LocalStorageClientTest {
 
     docs.stream().filter(d -> d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("hello.zip!hello")).findAny().orElseThrow();
 
-    Document doc = docs.stream().filter(d -> d.getId().equals("default.csv-1") && d.has("file_path") &&
-        d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar!default.csv")).findAny().orElseThrow();
+    Document doc = docs.stream().filter(d -> d.has("file_path") && d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar!default.csv") &&
+        d.getId().equals(DigestUtils.md5Hex(d.getString("file_path")) + "-1")).findAny().orElseThrow();
     assertEquals("a", doc.getString("field1"));
     assertEquals("b", doc.getString("field2"));
     assertEquals("c", doc.getString("field3"));
 
-    doc = docs.stream().filter(d -> d.getId().equals("default.csv-2") && d.has("file_path") &&
-        d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar!default.csv")).findAny().orElseThrow();
+    doc = docs.stream().filter(d -> d.has("file_path") && d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar!default.csv") &&
+        d.getId().equals(DigestUtils.md5Hex(d.getString("file_path")) + "-2")).findAny().orElseThrow();
     assertEquals("d", doc.getString("field1"));
     assertEquals("e,f", doc.getString("field2"));
     assertEquals("g", doc.getString("field3"));
 
-    doc = docs.stream().filter(d -> d.getId().equals("default.csv-3") && d.has("file_path") &&
-        d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar!default.csv")).findAny().orElseThrow();
+    doc = docs.stream().filter(d -> d.has("file_path") && d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar!default.csv") &&
+        d.getId().equals(DigestUtils.md5Hex(d.getString("file_path")) + "-3")).findAny().orElseThrow();
     assertEquals("x", doc.getString("field1"));
     assertEquals("y", doc.getString("field2"));
     assertEquals("z", doc.getString("field3"));
@@ -290,20 +291,20 @@ public class LocalStorageClientTest {
     docs.stream().filter(d ->
         d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("jsonlCsvAndFolderWithFooTxt.tar!FolderWithFooTxt/foo.txt")).findAny().orElseThrow();
 
-    doc = docs.stream().filter(d -> d.getId().equals("default.csv-1") && d.has("file_path") &&
-        d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!default.csv")).findAny().orElseThrow();
+    doc = docs.stream().filter(d -> d.has("file_path") && d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!default.csv") &&
+        d.getId().equals(DigestUtils.md5Hex(d.getString("file_path")) + "-1")).findAny().orElseThrow();
     assertEquals("a", doc.getString("field1"));
     assertEquals("b", doc.getString("field2"));
     assertEquals("c", doc.getString("field3"));
 
-    doc = docs.stream().filter(d -> d.getId().equals("default.csv-2") && d.has("file_path") &&
-        d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!default.csv")).findAny().orElseThrow();
+    doc = docs.stream().filter(d -> d.has("file_path") && d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!default.csv") &&
+        d.getId().equals(DigestUtils.md5Hex(d.getString("file_path")) + "-2")).findAny().orElseThrow();
     assertEquals("d", doc.getString("field1"));
     assertEquals("e,f", doc.getString("field2"));
     assertEquals("g", doc.getString("field3"));
 
-    doc = docs.stream().filter(d -> d.getId().equals("default.csv-3") && d.has("file_path") &&
-        d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!default.csv")).findAny().orElseThrow();
+    doc = docs.stream().filter(d -> d.has("file_path") && d.getString("file_path").endsWith("jsonlCsvAndFolderWithFooTxt.tar.gz!default.csv") &&
+        d.getId().equals(DigestUtils.md5Hex(d.getString("file_path")) + "-3")).findAny().orElseThrow();
     assertEquals("x", doc.getString("field1"));
     assertEquals("y", doc.getString("field2"));
     assertEquals("z", doc.getString("field3"));
@@ -317,11 +318,14 @@ public class LocalStorageClientTest {
     docs.stream().filter(d ->
         d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("textFiles.tar!goodbye.txt")).findAny().orElseThrow();
 
-    docs.stream().filter(d -> d.getId().equals("zipped.csv-1")).findAny().orElseThrow();
+    docs.stream().filter(d -> d.has("file_path") && d.getString("file_path").endsWith("zipped.csv.zip!zipped.csv") &&
+        d.getId().equals(DigestUtils.md5Hex(d.getString("file_path")) + "-1")).findAny().orElseThrow();
 
-    docs.stream().filter(d -> d.getId().equals("zipped.csv-2")).findAny().orElseThrow();
+    docs.stream().filter(d -> d.has("file_path") && d.getString("file_path").endsWith("zipped.csv.zip!zipped.csv") &&
+        d.getId().equals(DigestUtils.md5Hex(d.getString("file_path")) + "-2")).findAny().orElseThrow();
 
-    docs.stream().filter(d -> d.getId().equals("zipped.csv-3")).findAny().orElseThrow();
+    docs.stream().filter(d -> d.has("file_path") && d.getString("file_path").endsWith("zipped.csv.zip!zipped.csv") &&
+        d.getId().equals(DigestUtils.md5Hex(d.getString("file_path")) + "-3")).findAny().orElseThrow();
 
     docs.stream().filter(d ->
         d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("zippedFolder.zip!zippedFolder/foo.txt")).findAny().orElseThrow();

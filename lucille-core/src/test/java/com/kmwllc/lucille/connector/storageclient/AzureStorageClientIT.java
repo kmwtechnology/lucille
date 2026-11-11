@@ -22,6 +22,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -165,6 +166,58 @@ public class AzureStorageClientIT {
       assertTrue(doc.getId().startsWith("it-"));
       assertNotNull(doc.getString(FILE_PATH));
       assertNotNull(doc.getBytes(CONTENT));
+    }
+  }
+
+  /**
+   * Parallel traversal of a nested container against Azurite. The mocked tests only see prefixes as the fake listing returns
+   * them, so this checks the descent against the prefixes of a real hierarchical listing: every blob is published exactly
+   * once, with its own content, at any depth.
+   */
+  @Test
+  public void testParallelTraversalOfNestedBlobs() throws Exception {
+    List<String> blobNames = List.of("top.txt", "a-sibling.txt", "a/one.txt", "a/b/two.txt", "a/b/c/three.txt", "d/four.txt");
+
+    String nestedContainerName = "lucille-it-" + UUID.randomUUID();
+    BlobContainerClient nestedContainer = adminClient.createBlobContainer(nestedContainerName);
+
+    try {
+      for (String blobName : blobNames) {
+        nestedContainer.getBlobClient(blobName).upload(toStream(blobName), blobName.length(), true);
+      }
+
+      Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", CONNECTION_STRING));
+      TestMessenger messenger = new TestMessenger();
+      Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+      AzureStorageClient client = new AzureStorageClient(cloudOptions);
+      URI containerUri = URI.create("https://devstoreaccount1.blob.core.windows.net/" + nestedContainerName + "/");
+      TraversalParams params = new TraversalParams(ConfigFactory.parseMap(Map.of("traversal", Map.of("threadsPerPath", 4))), containerUri, "it-");
+
+      try {
+        client.start();
+        client.traverse(publisher, params);
+      } finally {
+        client.stop();
+      }
+
+      List<Document> docs = messenger.getDocsSentForProcessing();
+
+      // the size check catches a blob published twice, which the map below would hide
+      assertEquals(blobNames.size(), docs.size());
+
+      Map<String, String> contentByBlobName = new HashMap<>();
+      for (Document doc : docs) {
+        String filePath = doc.getString(FILE_PATH);
+        String blobName = filePath.substring(filePath.indexOf(nestedContainerName + "/") + nestedContainerName.length() + 1);
+        contentByBlobName.put(blobName, new String(doc.getBytes(CONTENT), StandardCharsets.UTF_8));
+      }
+
+      Map<String, String> expected = new HashMap<>();
+      blobNames.forEach(blobName -> expected.put(blobName, blobName));
+      assertEquals(expected, contentByBlobName);
+    } finally {
+      adminClient.deleteBlobContainer(nestedContainerName);
     }
   }
 

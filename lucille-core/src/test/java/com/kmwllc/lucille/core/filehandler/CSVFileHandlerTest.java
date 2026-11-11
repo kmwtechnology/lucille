@@ -28,6 +28,7 @@ import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.Test;
 
 public class CSVFileHandlerTest {
@@ -319,9 +320,9 @@ public class CSVFileHandlerTest {
     Document doc3 = docs.next();
     assertFalse(docs.hasNext());
 
-    assertEquals("csv_defaults.csv-1", doc1.getId());
-    assertEquals("csv_defaults.csv-2", doc2.getId());
-    assertEquals("csv_defaults.csv-3", doc3.getId());
+    assertEquals("csv_" + DigestUtils.md5Hex(filePath) + "-1", doc1.getId());
+    assertEquals("csv_" + DigestUtils.md5Hex(filePath) + "-2", doc2.getId());
+    assertEquals("csv_" + DigestUtils.md5Hex(filePath) + "-3", doc3.getId());
   }
 
   @Test
@@ -437,7 +438,7 @@ public class CSVFileHandlerTest {
 
       // will just put whatever is provided to the method call.
       assertEquals("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv", d.getString("path_to_file"));
-      assertFalse(d.has("source"));
+      assertFalse(d.has("file_path"));
     }
   }
 
@@ -579,7 +580,7 @@ public class CSVFileHandlerTest {
       Document d = docs.next();
       docsCount++;
 
-      assertEquals("defaults.csv-" + docsCount, d.getId());
+      assertEquals(DigestUtils.md5Hex("defaults.csv") + "-" + docsCount, d.getId());
       // was in the headers but shouldn't be placed on document
       assertFalse(d.has(Document.RUNID_FIELD));
       // csv has 1, 2, 3 for "value" :)

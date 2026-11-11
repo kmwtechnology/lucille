@@ -58,7 +58,7 @@ public class VerifyIngestResult {
     assertEquals(12, jsonDoc3.get("my_price").get(0).asInt());
 
     JsonNode csvDoc1 = docs.get(3);
-    assertEquals("source.csv-1", csvDoc1.get("id").asText());
+    assertEquals("abf14f851ada9a573a24048ed9b839de-1", csvDoc1.get("id").asText());
     assertEquals("file:///conf/source.csv", csvDoc1.get("source").get(0).asText());
     assertEquals("source.csv", csvDoc1.get("filename").get(0).asText());
     assertEquals("Italy", csvDoc1.get("my_country").get(0).asText());
@@ -66,7 +66,7 @@ public class VerifyIngestResult {
     assertEquals(30, csvDoc1.get("my_price").get(0).asInt());
 
     JsonNode csvDoc2 = docs.get(4);
-    assertEquals("source.csv-2", csvDoc2.get("id").asText());
+    assertEquals("abf14f851ada9a573a24048ed9b839de-2", csvDoc2.get("id").asText());
     assertEquals("file:///conf/source.csv", csvDoc2.get("source").get(0).asText());
     assertEquals("source.csv", csvDoc2.get("filename").get(0).asText());
     assertEquals("Italy", csvDoc2.get("my_country").get(0).asText());
@@ -74,7 +74,7 @@ public class VerifyIngestResult {
     assertEquals(10, csvDoc2.get("my_price").get(0).asInt());
 
     JsonNode csvDoc3 = docs.get(5);
-    assertEquals("source.csv-3", csvDoc3.get("id").asText());
+    assertEquals("abf14f851ada9a573a24048ed9b839de-3", csvDoc3.get("id").asText());
     assertEquals("file:///conf/source.csv", csvDoc3.get("source").get(0).asText());
     assertEquals("source.csv", csvDoc3.get("filename").get(0).asText());
     assertEquals("Korea", csvDoc3.get("my_country").get(0).asText());

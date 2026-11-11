@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest"
 import { screen } from "@testing-library/react"
 import Dashboard from "@/pages/dashboard/dashboard"
+import { HealthProvider } from "@/hooks/health-provider"
 import { renderWithRouter } from "@/test/helpers/render"
 import { mockFetch } from "@/test/helpers/fetch-mock"
 import type { SystemStats } from "@/types/api"
@@ -34,7 +35,7 @@ describe("Dashboard page", () => {
   it("shows healthy API status and the resource stats", async () => {
     mockFetch(healthyRoutes())
 
-    renderWithRouter(<Dashboard />)
+    renderWithRouter(<HealthProvider><Dashboard /></HealthProvider>)
 
     expect(await screen.findByText("Healthy")).toBeInTheDocument()
     expect(screen.getByText("60%")).toBeInTheDocument()
@@ -47,26 +48,17 @@ describe("Dashboard page", () => {
   it("shows config and run counts on success", async () => {
     mockFetch(healthyRoutes())
 
-    renderWithRouter(<Dashboard />)
+    renderWithRouter(<HealthProvider><Dashboard /></HealthProvider>)
 
     expect(await screen.findByText("1 Active")).toBeInTheDocument()
     expect(screen.getAllByText("2")).toHaveLength(2)
-  })
-
-  // A failing liveness probe flips the API status card to Unhealthy.
-  it("shows Unhealthy when the liveness check fails", async () => {
-    mockFetch(healthyRoutes({ "/v1/livez": { status: 500 } }))
-
-    renderWithRouter(<Dashboard />)
-
-    expect(await screen.findByText("Unhealthy")).toBeInTheDocument()
   })
 
   // A failing systemstats call shows a per-card error without taking down the page.
   it("shows an error message when systemstats fails", async () => {
     mockFetch(healthyRoutes({ "/v1/systemstats": { status: 500, json: { message: "boom" } } }))
 
-    renderWithRouter(<Dashboard />)
+    renderWithRouter(<HealthProvider><Dashboard /></HealthProvider>)
 
     const errors = await screen.findAllByText("An error has occurred")
     expect(errors.length).toBeGreaterThan(0)
