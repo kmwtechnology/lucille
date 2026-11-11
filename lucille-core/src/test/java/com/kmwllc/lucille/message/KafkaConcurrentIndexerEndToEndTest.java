@@ -622,7 +622,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         } catch (Exception e) {
           throw new RuntimeException(e);
         }
-      });
+      }, () -> describeGroupState(config));
       // doc2 is dispatched only now, after the eviction.
       indexer.release();
       waitFor(() -> Map.of(partition, 4L).equals(committed(config)), indexer.sent::toString);
@@ -662,6 +662,15 @@ public class KafkaConcurrentIndexerEndToEndTest {
   private static GroupState groupState(Config config) throws Exception {
     String group = indexerGroup(config);
     return admin.describeConsumerGroups(List.of(group)).all().get().get(group).groupState();
+  }
+
+  // Diagnostic detail for a wait on the indexer group's state; never throws, so it is safe in a failure message.
+  private static String describeGroupState(Config config) {
+    try {
+      return "(indexer group state: " + groupState(config) + ")";
+    } catch (Exception e) {
+      return "(indexer group state unavailable: " + e + ")";
+    }
   }
 
   private static String newPipeline(int partitions) {
