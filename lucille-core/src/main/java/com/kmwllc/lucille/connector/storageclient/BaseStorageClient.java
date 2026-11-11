@@ -19,6 +19,7 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.filehandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.FileUtils.ContentTooLargeException;
 import com.kmwllc.lucille.util.ThreadNameUtils;
@@ -58,6 +59,7 @@ import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.input.CloseShieldInputStream;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -868,6 +870,15 @@ public abstract class BaseStorageClient implements StorageClient {
         throw new IllegalStateException("The traversal was stopped while processing '" + fullPath + "'.", e);
       }
 
+      MessengerException messengerFailure = ExceptionUtils.throwableOfType(e, MessengerException.class);
+      if (messengerFailure != null && !messengerFailure.isDocumentSpecific()) {
+        // the messenger can't send any more documents, so every later file would be skipped the same way. Stop the
+        // traversal, and leave this file where it is: sends are asynchronous, so the failure may belong to an
+        // earlier document rather than this one.
+        throw new TraversalStoppedException("Messenger failure detected while publishing '" + fullPath + "'. The "
+            + "messenger can no longer send documents, so the traversal is stopped.", e);
+      }
+
       try {
         errorProcessingFile(fullPath, params);
       } catch (IOException ex) {
@@ -1101,6 +1112,16 @@ public abstract class BaseStorageClient implements StorageClient {
    */
   private static class MoveNotSupportedException extends UnsupportedOperationException {
     MoveNotSupportedException(String message, Throwable cause) {
+      super(message, cause);
+    }
+  }
+
+  /**
+   * Thrown when publishing a file fails with a {@link MessengerException} that is not specific to the document, so every
+   * later file would fail the same way. Stops the traversal.
+   */
+  private static class TraversalStoppedException extends RuntimeException {
+    TraversalStoppedException(String message, Throwable cause) {
       super(message, cause);
     }
   }
