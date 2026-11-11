@@ -45,7 +45,17 @@ public class SimpleBlobDetectorTest {
 
   @Test
   public void testAreaLimitsDropDisksOutsideTheRange() throws Exception {
-    byte[] png = StageImages.disks(120, 120, 255, new int[][] {{60, 60, 18, 0}});
+    // A full-frame white square is itself a blob: area 14400, circularity about 0.79,
+    // and its centroid falls on the disk, so OpenCV accepts it as dark. The corner cut
+    // keeps that field out of the area window under test.
+    byte[] png = StageImages.gray8(120, 120, (x, y) -> {
+      int dx = x - 95;
+      int dy = y - 95;
+      if (dx * dx + dy * dy <= 16 * 16) {
+        return 0;
+      }
+      return x < 70 && y < 100 ? 0 : 255;
+    });
     Document kept = StageImages.frame(png);
     StageImageDebug.apply(detector(100, 4000, 0.6), kept);
     assertEquals(1, kept.getStringList("opencv_blob").size());
