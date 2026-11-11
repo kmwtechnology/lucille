@@ -130,6 +130,19 @@ public class HybridWorkerMessengerTest {
   }
 
   @Test
+  public void testNullValueRecordIsSkipped() throws Exception {
+    // a null value (a tombstone, for example) holds no document; it is skipped, and the commit moves past it
+    consumer.addRecord(new ConsumerRecord<>(P0.topic(), P0.partition(), 0L, "tombstone", null));
+    assertNull(messenger.pollDocToProcess());
+
+    KafkaDocument offset1 = poll(P0, 1);
+    assertEquals("doc-0-1", offset1.getId());
+    messenger.batchCompleted(List.of(offset1));
+    messenger.commitPendingDocOffsets();
+    assertEquals(Long.valueOf(2L), committed(P0));
+  }
+
+  @Test
   public void testRecordThatSendsNothingIsFinishedByTheCommit() throws Exception {
     // dropped or failed in the pipeline, or sent to the dead letter queue: the worker commits after it, without polling again
     addRecord(P0, 0);

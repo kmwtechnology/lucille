@@ -76,6 +76,35 @@ public class LaunchTest {
   }
 
   @Test
+  public void testValidateExitsWithOneOnAnInvalidConfig() throws Exception {
+    assertEquals(List.of(1), validateExitCodes("ConfigValidationTest/badPipeline.conf", "-validate"));
+    // rendering first does not change the exit code
+    assertEquals(List.of(1), validateExitCodes("ConfigValidationTest/badPipeline.conf", "-render", "-validate"));
+  }
+
+  @Test
+  public void testValidateDoesNotExitOnAValidConfig() throws Exception {
+    // returning without exit() ends the process with status 0
+    assertEquals(List.of(), validateExitCodes("RunnerTest/singleDoc.conf", "-validate"));
+  }
+
+  private static List<Integer> validateExitCodes(String configResource, String... args) throws Exception {
+    Config config = ConfigFactory.load(configResource);
+    List<Integer> exitCodes = new ArrayList<>();
+    try (MockedStatic<Launch.SystemHelper> helper = Mockito.mockStatic(Launch.SystemHelper.class);
+        // validation itself uses ConfigFactory, so only load() is stubbed
+        MockedStatic<ConfigFactory> configFactory = Mockito.mockStatic(ConfigFactory.class, Mockito.CALLS_REAL_METHODS)) {
+      helper.when(() -> Launch.SystemHelper.exit(anyInt())).thenAnswer(invocation -> {
+        exitCodes.add(invocation.getArgument(0));
+        return null;
+      });
+      configFactory.when(ConfigFactory::load).thenReturn(config);
+      Launch.runner(args);
+    }
+    return exitCodes;
+  }
+
+  @Test
   public void testWorkerExitsWithOneWhenAWorkerFails() throws Exception {
     Config config = ConfigFactory.load("WorkerTest/config.conf");
     WorkerMessengerFactory messengerFactory = new WorkerMessengerFactory() {

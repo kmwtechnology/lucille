@@ -174,6 +174,12 @@ public class HybridWorkerMessenger implements WorkerMessenger {
       }
       deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
+      if (doc == null) {
+        // like an undeserializable record that is skipped, it is never recorded as polled, so the commit frontier moves
+        // past it once the surrounding documents complete
+        KafkaUtils.logSkippedNullRecord(record);
+        return null;
+      }
       doc.setKafkaMetadata(record.topic(), record.partition(), record.offset(), record.key());
       offsetCommitTracker.recordPolled(partition, record.offset());
       current = new PolledRecord(partition, record.offset(), epoch(partition));

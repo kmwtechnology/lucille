@@ -194,8 +194,11 @@ class Worker implements Runnable {
             log.debug("Poll ended by shutdown", e);
             break;
           }
+          // the failed poll may have advanced the consumer past records it did not return, so committing on exit could
+          // skip them
           log.error("Worker stopping: error polling for a document to process", e);
           failure = e;
+          commitOnExit = false;
           break;
         }
 

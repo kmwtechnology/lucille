@@ -14,7 +14,7 @@ Config block: `indexer.csv { ... }`
 | `path` | String | Yes | Output CSV file path. The file is opened (and emptied, unless `append` is `true`) as soon as the indexer is created, before the rest of the config is validated. |
 | `columns` | List\<String\> | Yes | Ordered list of document fields to write as columns. |
 | `includeHeader` | Boolean | No | Write a header row of the column names when the indexer's connection is validated at startup. Default: `true`. |
-| `append` | Boolean | No | Append to an existing file instead of overwriting it. Default: `false`. |
+| `append` | Boolean | No | Append to an existing file instead of overwriting it. Default: `false`. With several connectors in one config, an indexer is created for each connector, so without `append` the file is emptied at the start of each connector and holds only the last connector's documents. |
 
 ```hocon
 indexer {

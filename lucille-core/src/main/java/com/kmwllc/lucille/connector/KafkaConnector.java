@@ -172,6 +172,10 @@ public class KafkaConnector extends AbstractConnector {
       }
 
       for (ConsumerRecord<String, Document> record : records) {
+        if (record.value() == null) {
+          KafkaUtils.logSkippedNullRecord(record);
+          continue;
+        }
         handleMessage(record, publisher);
         count++;
         if (maxMessages != null && count >= maxMessages) {

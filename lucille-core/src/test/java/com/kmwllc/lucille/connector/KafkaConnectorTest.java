@@ -134,6 +134,28 @@ public class KafkaConnectorTest {
   }
 
   @Test
+  public void testNullValueRecordIsSkipped() throws Exception {
+    // a null value (a tombstone, for example) holds no document, so nothing is published for it
+    Config config = ConfigFactory.parseMap(new HashMap<>(BASE_CONFIG_MAP));
+    KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
+    Document doc2 = Document.create("doc2");
+    ConsumerRecord<String, Document> nullRecord = new ConsumerRecord<>("test-topic", 0, 0, "key1", null);
+    ConsumerRecord<String, Document> record2 = new ConsumerRecord<>("test-topic", 0, 1, "key2", doc2);
+    ConsumerRecords<String, Document> records =
+        new ConsumerRecords<>(Map.of(new TopicPartition("test-topic", 0), Arrays.asList(nullRecord, record2)));
+    when(mockConsumer.poll(any(Duration.class))).thenReturn(records).thenReturn(ConsumerRecords.empty());
+
+    KafkaConnector connector = spy(new KafkaConnector(config));
+    doReturn(mockConsumer).when(connector).createConsumer(any());
+
+    Publisher mockPublisher = mock(Publisher.class);
+    connector.execute(mockPublisher);
+
+    verify(mockPublisher, times(1)).publish(any(Document.class));
+    verify(mockPublisher).publish(doc2);
+  }
+
+  @Test
   public void testMaxMessagesConfigNotSet() throws Exception {
     Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     Config config = ConfigFactory.parseMap(configMap);

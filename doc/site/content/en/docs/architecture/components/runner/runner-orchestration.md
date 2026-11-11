@@ -249,7 +249,7 @@ Options cliOptions = new Options()
 | (none) | `RunType.LOCAL` — full local execution with in-memory queues |
 | `-distributed` | `RunType.DISTRIBUTED` — only run connectors, assume external workers/indexers |
 | `-external` | `RunType.EXTERNAL` — local workers/indexers but communicate via Kafka |
-| `-validate` | Validate config and exit (no execution) |
+| `-validate` | Validate config and exit (no execution), with status 1 if it has errors |
 | `-render` | Print resolved config as JSON and exit |
 
 The `-validate` and `-render` flags can be combined. `-distributed` and `-external` cannot as they are mutually exclusive, supplying both is rejected. 

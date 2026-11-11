@@ -349,6 +349,38 @@ public class KafkaUtilsTest {
   }
 
   @Test
+  public void testMaxPollRecordsDefaultsToOneWhenUnsetInPropertyFile() {
+    // kafka-clients defaults max.poll.records to 500, so a property file that omits it would return several records per
+    // poll, which Workers and Indexers cannot handle
+    Config unsetInFile = ConfigFactory.parseString("kafka.consumerPropertiesPath: "
+        + "\"classpath:KafkaUtilsTest/consumer-conf/consumer-no-max-poll-records.properties\"");
+    Properties props = KafkaUtils.createConsumerProps(unsetInFile, "test-client");
+    assertNull(props.get("max.poll.records"));
+
+    KafkaUtils.requireOneRecordPerPoll(props);
+    assertEquals("1", String.valueOf(props.get("max.poll.records")));
+    assertEquals("1", String.valueOf(KafkaUtils.createEventConsumerProps(unsetInFile, "test-client")
+        .get("max.poll.records")));
+    KafkaUtils.createDocumentConsumer(unsetInFile, "test-client").close();
+  }
+
+  @Test
+  public void testDocumentConsumerRejectsMaxPollRecordsOtherThanOne() {
+    Config inFile = ConfigFactory.parseString("kafka.consumerPropertiesPath: "
+        + "\"classpath:KafkaUtilsTest/consumer-conf/consumer-max-poll-records-5.properties\"");
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> KafkaUtils.createDocumentConsumer(inFile, "test-client"));
+    assertTrue(e.getMessage().contains("max.poll.records"));
+    assertThrows(IllegalArgumentException.class, () -> KafkaUtils.createIndexerDocumentConsumer(inFile, "test-client"));
+    assertThrows(IllegalArgumentException.class, () -> KafkaUtils.createEventConsumerProps(inFile, "test-client"));
+
+    Config inOverride = ConfigFactory.parseString(
+        "kafka { bootstrapServers: \"localhost:9092\", maxPollIntervalMs: 300000, consumerGroupId: \"test\", "
+        + "consumer { max.poll.records: 5 } }");
+    assertThrows(IllegalArgumentException.class, () -> KafkaUtils.createDocumentConsumer(inOverride, "test-client"));
+  }
+
+  @Test
   public void testToMessengerException() {
     // the Kafka error behind an ExecutionException is the cause; only a record too large is specific to the document
     MessengerException tooLarge = KafkaUtils.toMessengerException("Sending doc1", new ExecutionException(

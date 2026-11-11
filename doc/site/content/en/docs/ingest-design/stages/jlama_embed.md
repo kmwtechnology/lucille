@@ -22,6 +22,20 @@ For each document, the first value of `source` is embedded and each float of the
 </dependency>
 ```
 
+`lucille-jlama` depends on a platform-specific native library selected through `${os.detected.name}`, so a Maven project that depends on it must also add the `os-maven-plugin` build extension:
+
+```xml
+<build>
+  <extensions>
+    <extension>
+      <groupId>kr.motd.maven</groupId>
+      <artifactId>os-maven-plugin</artifactId>
+      <version>1.7.0</version>
+    </extension>
+  </extensions>
+</build>
+```
+
 ```hocon
 {
   name: "embed"
