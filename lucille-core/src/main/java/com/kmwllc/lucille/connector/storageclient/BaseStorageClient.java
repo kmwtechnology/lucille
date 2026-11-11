@@ -15,7 +15,6 @@ import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.TR
 
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.connector.StatePathTooLongException;
-import com.kmwllc.lucille.connector.TraversalStoppedException;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.filehandler.FileHandler;
@@ -1113,6 +1112,16 @@ public abstract class BaseStorageClient implements StorageClient {
    */
   private static class MoveNotSupportedException extends UnsupportedOperationException {
     MoveNotSupportedException(String message, Throwable cause) {
+      super(message, cause);
+    }
+  }
+
+  /**
+   * Thrown when publishing a file fails with a {@link MessengerException} that is not specific to the document, so every
+   * later file would fail the same way. Stops the traversal.
+   */
+  private static class TraversalStoppedException extends RuntimeException {
+    TraversalStoppedException(String message, Throwable cause) {
       super(message, cause);
     }
   }

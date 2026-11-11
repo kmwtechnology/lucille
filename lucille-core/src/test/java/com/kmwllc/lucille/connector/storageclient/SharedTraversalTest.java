@@ -16,6 +16,7 @@ import com.kmwllc.lucille.core.PublisherException;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.core.filehandler.FileHandler;
 import com.kmwllc.lucille.core.filehandler.FileHandlerException;
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -37,10 +38,12 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.junit.Test;
 
 /**
@@ -121,6 +124,45 @@ public class SharedTraversalTest {
 
   private static List<String> uris(String... keys) {
     return Stream.of(keys).map(key -> ROOT + key).collect(Collectors.toList());
+  }
+
+  // Fails every send after the first, as KafkaPublisherMessenger does once a send has failed.
+  private static class FailingAfterFirstSendMessenger extends TestMessenger {
+    final AtomicInteger attempts = new AtomicInteger();
+    final MessengerException failure = new MessengerException("Kafka send failed", new RuntimeException("buffer exhausted"));
+
+    @Override
+    public void sendForProcessing(Document document) throws MessengerException {
+      if (attempts.incrementAndGet() > 1) {
+        throw failure;
+      }
+      super.sendForProcessing(document);
+    }
+  }
+
+  // a messenger that can no longer send stops the shared traversal, on one thread or several, rather than every
+  // remaining file being skipped
+  @Test
+  public void testMessengerFailureStopsTheTraversal() throws Exception {
+    for (int threads : List.of(1, 4)) {
+      TreeStorageClient client = client(manyKeys());
+      TraversalParams params = threads(threads);
+      FailingAfterFirstSendMessenger messenger = new FailingAfterFirstSendMessenger();
+      client.validateTraversal(params);
+      client.start();
+      try {
+        RuntimeException e = assertThrows(RuntimeException.class,
+            () -> client.traverse(new PublisherImpl(ConfigFactory.empty(), messenger, "run", "pipeline"), params, null));
+
+        assertTrue(e.getMessage(), e.getMessage().contains("detected while publishing"));
+        assertTrue("threads=" + threads + ": " + e, ExceptionUtils.getThrowableList(e).contains(messenger.failure));
+        // one successful send, then at most one failing send per thread before each sees the failure
+        assertTrue("threads=" + threads + ": " + messenger.attempts.get() + " sends",
+            messenger.attempts.get() <= 1 + threads);
+      } finally {
+        client.stop();
+      }
+    }
   }
 
   @Test

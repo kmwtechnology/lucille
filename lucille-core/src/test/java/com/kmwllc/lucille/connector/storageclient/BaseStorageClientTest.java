@@ -6,7 +6,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
-import com.kmwllc.lucille.connector.TraversalStoppedException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.MessengerException;
@@ -114,7 +113,7 @@ public class BaseStorageClientTest {
     MessengerException failure = new MessengerException("Kafka send failed", new RuntimeException("buffer exhausted"));
     FailingMessenger messenger = FailingMessenger.afterSends(1, failure);
 
-    TraversalStoppedException e = assertThrows(TraversalStoppedException.class,
+    RuntimeException e = assertThrows(RuntimeException.class,
         () -> traverse(client, config, null, messenger));
 
     assertTrue(e.getMessage(), e.getMessage().contains("detected while publishing 'list://root/b.txt'"));
@@ -189,9 +188,10 @@ public class BaseStorageClientTest {
     MessengerException failure = new MessengerException("Kafka send failed", new RuntimeException("buffer exhausted"));
     FailingMessenger messenger = FailingMessenger.afterSends(1, failure);
 
-    TraversalStoppedException e = assertThrows(TraversalStoppedException.class,
+    RuntimeException e = assertThrows(RuntimeException.class,
         () -> traverse(client, ConfigFactory.parseMap(configMap), null, messenger));
 
+    assertTrue(e.getMessage(), e.getMessage().contains("detected while publishing"));
     assertTrue("expected the messenger's failure in the cause chain of " + e,
         ExceptionUtils.getThrowableList(e).contains(failure));
     assertEquals(List.of("list://root/a.txt"), paths(messenger));
