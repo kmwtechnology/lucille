@@ -17,6 +17,8 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Forwarded to the test JVM. -Dopencv.stage.debug=true opens a desktop preview per stage. -->
+        <opencv.stage.debug>false</opencv.stage.debug>
     </properties>
 
     <dependencies>
@@ -36,6 +38,15 @@
 
     <build>
       <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <configuration>
+            <systemPropertyVariables>
+              <opencv.stage.debug>${opencv.stage.debug}</opencv.stage.debug>
+            </systemPropertyVariables>
+          </configuration>
+        </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-shade-plugin</artifactId>
