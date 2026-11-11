@@ -616,13 +616,11 @@ public class KafkaConcurrentIndexerEndToEndTest {
       // Polling doc1 dispatches doc0, whose send is held. Polling doc2 dispatches doc1. Polling doc3 dispatches doc2,
       // which waits for doc0 (the window is full), so the indexer stops polling and is evicted.
       waitFor(() -> indexer.gatedSendStarted);
-      waitFor(() -> {
-        try {
-          return groupState(config) == GroupState.EMPTY;
-        } catch (Exception e) {
-          throw new RuntimeException(e);
-        }
-      }, () -> describeGroupState(config));
+      // Wait for the messenger's own poll deadline to pass, not for Kafka to drop the consumer from its group: that
+      // deadline is what stops ownership being confirmed, and Kafka's heartbeat-driven leave is not timely on every
+      // platform. With no KafkaDocument, ownsInput() reports only the deadline.
+      Document probe = Document.create("probe");
+      waitFor(() -> !messenger.ownsInput(probe));
       // doc2 is dispatched only now, after the eviction.
       indexer.release();
       waitFor(() -> Map.of(partition, 4L).equals(committed(config)), indexer.sent::toString);
@@ -662,15 +660,6 @@ public class KafkaConcurrentIndexerEndToEndTest {
   private static GroupState groupState(Config config) throws Exception {
     String group = indexerGroup(config);
     return admin.describeConsumerGroups(List.of(group)).all().get().get(group).groupState();
-  }
-
-  // Diagnostic detail for a wait on the indexer group's state; never throws, so it is safe in a failure message.
-  private static String describeGroupState(Config config) {
-    try {
-      return "(indexer group state: " + groupState(config) + ")";
-    } catch (Exception e) {
-      return "(indexer group state unavailable: " + e + ")";
-    }
   }
 
   private static String newPipeline(int partitions) {
