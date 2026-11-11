@@ -616,13 +616,11 @@ public class KafkaConcurrentIndexerEndToEndTest {
       // Polling doc1 dispatches doc0, whose send is held. Polling doc2 dispatches doc1. Polling doc3 dispatches doc2,
       // which waits for doc0 (the window is full), so the indexer stops polling and is evicted.
       waitFor(() -> indexer.gatedSendStarted);
-      waitFor(() -> {
-        try {
-          return groupState(config) == GroupState.EMPTY;
-        } catch (Exception e) {
-          throw new RuntimeException(e);
-        }
-      });
+      // Wait for the messenger's own poll deadline to pass, not for Kafka to drop the consumer from its group: that
+      // deadline is what stops ownership being confirmed, and Kafka's heartbeat-driven leave is not timely on every
+      // platform. With no KafkaDocument, ownsInput() reports only the deadline.
+      Document probe = Document.create("probe");
+      waitFor(() -> !messenger.ownsInput(probe));
       // doc2 is dispatched only now, after the eviction.
       indexer.release();
       waitFor(() -> Map.of(partition, 4L).equals(committed(config)), indexer.sent::toString);
@@ -632,10 +630,11 @@ public class KafkaConcurrentIndexerEndToEndTest {
       thread.join(TIMEOUT_MS);
     }
 
-    // doc0 and doc1 may be sent twice (doc0 was on the wire at the eviction, and neither commit could succeed after it),
-    // but doc2 and doc3, dispatched after the eviction, are sent once each, after the consumer rejoined.
-    assertEquals(indexer.sent.toString(), 1, Collections.frequency(indexer.sent, ids.get(2)));
-    assertEquals(indexer.sent.toString(), 1, Collections.frequency(indexer.sent, ids.get(3)));
+    // A document may be sent more than once: a send that started before the eviction is not recalled, and a document
+    // whose send was skipped is re-polled and sent again after the consumer rejoins. What must never happen is a send
+    // that begins once the messenger has stopped confirming ownership. Checking that on entry to each send does not
+    // depend on whether doc2 or doc3 happened to be dispatched before or after the deadline.
+    assertEquals(indexer.sent.toString(), List.of(), indexer.sentWhileUnowned);
     assertTrue(indexer.sent.containsAll(ids.subList(0, 4)));
   }
 
@@ -776,11 +775,15 @@ public class KafkaConcurrentIndexerEndToEndTest {
     public static final Spec SPEC = SpecBuilder.indexer().build();
 
     volatile boolean gatedSendStarted;
+    // Ids of documents whose send began while the messenger no longer owned their input (checked on entry to sendToIndex).
+    final List<String> sentWhileUnowned = Collections.synchronizedList(new ArrayList<>());
+    private final IndexerMessenger messenger;
     private final String gatedId;
     private final CountDownLatch gate = new CountDownLatch(1);
 
     GatedIndexer(Config config, IndexerMessenger messenger, String gatedId) {
       super(config, messenger);
+      this.messenger = messenger;
       this.gatedId = gatedId;
     }
 
@@ -795,6 +798,11 @@ public class KafkaConcurrentIndexerEndToEndTest {
 
     @Override
     protected List<IndexerFailure> sendToIndex(List<Document> documents) {
+      for (Document doc : documents) {
+        if (!messenger.ownsInput(doc)) {
+          sentWhileUnowned.add(doc.getId());
+        }
+      }
       if (documents.stream().anyMatch(doc -> doc.getId().equals(gatedId))) {
         gatedSendStarted = true;
         try {
