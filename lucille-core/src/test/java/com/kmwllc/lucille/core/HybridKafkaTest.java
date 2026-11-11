@@ -11,6 +11,7 @@ import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.message.HybridWorkerMessenger;
+import com.kmwllc.lucille.message.KafkaConsumerMetrics;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.kmwllc.lucille.message.LocalMessenger;
 import com.kmwllc.lucille.util.LogUtils;
@@ -423,8 +424,8 @@ public class HybridKafkaTest {
     assertNotNull(queueGauge);
     // every document has been indexed, so every pair's indexer queue is empty
     assertEquals(LocalMessenger.DEFAULT_QUEUE_CAPACITY, queueGauge.getValue());
-    assertTrue(metrics.timer("pipeline1" + HybridWorkerMessenger.POLL_TIME_SUFFIX).getCount() > 0);
-    assertTrue(metrics.timer("pipeline1" + HybridWorkerMessenger.COMMIT_TIME_SUFFIX).getCount() > 0);
+    assertTrue(metrics.timer("pipeline1" + KafkaConsumerMetrics.WORKER_POLL_TIME_SUFFIX).getCount() > 0);
+    assertTrue(metrics.timer("pipeline1" + KafkaConsumerMetrics.WORKER_COMMIT_TIME_SUFFIX).getCount() > 0);
 
     pool.stop();
 

@@ -1,8 +1,11 @@
 package com.kmwllc.lucille.core;
 
 import com.codahale.metrics.Gauge;
+import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.kmwllc.lucille.message.HybridWorkerMessenger;
+import com.kmwllc.lucille.message.KafkaConsumerMetrics;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
@@ -31,6 +34,8 @@ public class WorkerIndexerPool {
   private static final Logger log = LoggerFactory.getLogger(WorkerPool.class);
 
   private final List<WorkerIndexer> workerIndexers = new ArrayList<>();
+  // the indexer queue of each pair, read by the remaining-capacity gauge and the status log line
+  private final List<BlockingQueue<Document>> indexerQueues = new ArrayList<>();
 
   private final Config config;
   private final String pipelineName;
@@ -87,13 +92,9 @@ public class WorkerIndexerPool {
     // the Timer should use a daemon thread so it doesn't prevent the jvm from exiting
     logTimer = new Timer("WorkerIndexerPoolTimer", true);
     logTimer.schedule(new TimerTask() {
-      private final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
-      private final com.codahale.metrics.Timer timer = metrics.timer(pipelineName + Worker.METRICS_SUFFIX);
-
       @Override
       public void run() {
-        log.info(String.format("%d docs processed. One minute rate: %.2f docs/sec. Mean pipeline latency: %.2f ms/doc.",
-            timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000));
+        log.info(statusMessage(true));
       }
     }, logSeconds * 1000, logSeconds * 1000);
 
@@ -113,6 +114,10 @@ public class WorkerIndexerPool {
       // completed right before it stopped
       workerIndexer.stop();
     }
+    if (!workerIndexers.isEmpty()) {
+      // a final summary, after the last commits; the queues are no longer in use, so their capacity is left out
+      log.info("WorkerIndexerPool for pipeline {} stopped. {}", pipelineName, statusMessage(false));
+    }
     // tell one of the threads to log its metrics;
     // the output should be the same for any thread;
     // all threads get their metrics via a shared registry using the same naming scheme,
@@ -127,14 +132,39 @@ public class WorkerIndexerPool {
   }
 
   private void registerIndexerQueueGauge() {
-    List<BlockingQueue<Document>> queues = new ArrayList<>();
     for (WorkerIndexer workerIndexer : workerIndexers) {
-      queues.add(workerIndexer.getIndexerQueue());
+      indexerQueues.add(workerIndexer.getIndexerQueue());
     }
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     // registering a name twice throws; replace a gauge left behind by a pool for this pipeline that was not stopped
     metrics.remove(indexerQueueGaugeName());
-    metrics.register(indexerQueueGaugeName(), (Gauge<Integer>) () -> minRemainingCapacity(queues));
+    metrics.register(indexerQueueGaugeName(), (Gauge<Integer>) () -> minRemainingCapacity(indexerQueues));
+  }
+
+  /**
+   * The status line logged every log.intervalSecs and, without the queues' remaining capacity, when the pool stops:
+   * documents processed and pipeline latency, the workers' Kafka poll and commit metrics, and how often the indexer
+   * queue was full. All of it covers every WorkerIndexer pair for the pipeline in this JVM.
+   */
+  String statusMessage(boolean includeRemainingCapacity) {
+    MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+    com.codahale.metrics.Timer timer = metrics.timer(pipelineName + Worker.METRICS_SUFFIX);
+    StringBuilder message = new StringBuilder(String.format(
+        "%d docs processed. One minute rate: %.2f docs/sec. Mean pipeline latency: %.2f ms/doc.",
+        timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000));
+    String kafka = KafkaConsumerMetrics.workerSummary(pipelineName);
+    if (!kafka.isEmpty()) {
+      message.append(' ').append(kafka);
+    }
+    Meter queueFull = metrics.getMeters().get(pipelineName + HybridWorkerMessenger.INDEXER_QUEUE_FULL_SUFFIX);
+    if (queueFull != null) {
+      message.append(String.format(" Indexer queue: %d docs waited for space", queueFull.getCount()));
+      if (includeRemainingCapacity) {
+        message.append(String.format(", lowest remaining capacity %d", minRemainingCapacity(indexerQueues)));
+      }
+      message.append('.');
+    }
+    return message.toString();
   }
 
   /**

@@ -78,26 +78,15 @@ import java.util.regex.Pattern;
  * <p> Internal to Lucille: {@link com.kmwllc.lucille.core.WorkerIndexer} creates it, sharing its document queue with a
  * {@link HybridIndexerMessenger}. It is public only because the two are in different packages.
  *
- * <p> Registers these metrics in the shared registry ({@link LogUtils#METRICS_REG}), named with the pipeline name as
- * prefix. The names are stable; they are shared by every WorkerIndexer pair running the pipeline in this JVM, so the
- * values cover all of them:
- * <ul>
- *   <li>{@code <pipeline>.hybrid.worker.pollTime} (Timer): time spent in each poll of the source topic. A poll that
- *   finds nothing waits for the poll interval, so an idle worker shows poll times close to that interval.</li>
- *   <li>{@code <pipeline>.hybrid.worker.commitTime} (Timer): time spent in each offset commit. Calls with nothing to
- *   commit are not timed.</li>
- *   <li>{@code <pipeline>.hybrid.worker.commitFailures} (Meter): offset commits that threw.</li>
- *   <li>{@code <pipeline>.hybrid.indexerQueue.full} (Meter): documents that found the indexer queue full and had to
- *   wait for space.</li>
- * </ul>
+ * <p> Registers the Worker consumer's poll and commit metrics (see {@link KafkaConsumerMetrics}) and, in the shared
+ * registry ({@link LogUtils#METRICS_REG}), {@code <pipeline>.hybrid.indexerQueue.full} (Meter): documents that found the
+ * indexer queue full and had to wait for space. The name is stable; it is shared by every WorkerIndexer pair running
+ * the pipeline in this JVM, so the value covers all of them.
  */
 public class HybridWorkerMessenger implements WorkerMessenger {
 
   private static final Logger log = LoggerFactory.getLogger(HybridWorkerMessenger.class);
 
-  public static final String POLL_TIME_SUFFIX = ".hybrid.worker.pollTime";
-  public static final String COMMIT_TIME_SUFFIX = ".hybrid.worker.commitTime";
-  public static final String COMMIT_FAILURES_SUFFIX = ".hybrid.worker.commitFailures";
   public static final String INDEXER_QUEUE_FULL_SUFFIX = ".hybrid.indexerQueue.full";
 
   // at most one "indexer queue is full" warning per this interval
@@ -134,9 +123,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   private final EventFieldConfig eventFieldConfig;
   private final DeserializationErrorHandler deserializationErrorHandler;
 
-  private final Timer pollTimer;
-  private final Timer commitTimer;
-  private final Meter commitFailures;
+  private final KafkaConsumerMetrics consumerMetrics;
   private final Meter indexerQueueFull;
   // only the worker thread calls sendForIndexing, so this needs no synchronization
   private long lastQueueFullWarnNanos;
@@ -152,7 +139,8 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     this.pipelineName = pipelineName;
     this.pipelineDest = pipelineDest;
     this.sourceConsumer = sourceConsumer;
-    this.offsetCommitTracker = new OffsetCommitTracker(sourceConsumer);
+    this.consumerMetrics = KafkaConsumerMetrics.forWorker(pipelineName);
+    this.offsetCommitTracker = new OffsetCommitTracker(sourceConsumer, consumerMetrics);
     this.trackerListener = offsetCommitTracker.rebalanceListener();
     sourceConsumer.subscribe(Pattern.compile(KafkaUtils.getSourceTopicName(pipelineName, config)), new RebalanceListener());
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
@@ -162,11 +150,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
         new DeserializationErrorHandler(config, sourceConsumer);
 
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
-    this.pollTimer = metrics.timer(pipelineName + POLL_TIME_SUFFIX);
-    this.commitTimer = metrics.timer(pipelineName + COMMIT_TIME_SUFFIX);
-    this.commitFailures = metrics.meter(pipelineName + COMMIT_FAILURES_SUFFIX);
     this.indexerQueueFull = metrics.meter(pipelineName + INDEXER_QUEUE_FULL_SUFFIX);
-    offsetCommitTracker.setCommitMetrics(commitTimer, commitFailures);
   }
 
   public HybridWorkerMessenger(Config config, String pipelineName, BlockingQueue<Document> pipelineDest) {
@@ -193,7 +177,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     drainBatchResults();
     ConsumerRecords<String, KafkaDocument> consumerRecords;
     long pollStartNanos = System.nanoTime();
-    try (Timer.Context ignored = pollTimer.time()) {
+    try (Timer.Context ignored = consumerMetrics.timePoll()) {
       consumerRecords = sourceConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
       // throws unless configured to skip. The skipped offset is never recorded as polled, so the commit frontier moves
@@ -230,8 +214,8 @@ public class HybridWorkerMessenger implements WorkerMessenger {
    * the last call, once, up to the frontier below which every polled record has finished (see
    * {@link OffsetCommitTracker}). A failed commit is kept and retried on the next call.
    *
-   * <p>The commit is timed (<code>commitTime</code>), and a commit that throws marks <code>commitFailures</code> before
-   * the exception is rethrown.
+   * <p>The commit is timed, and a commit that throws is counted before the exception is rethrown (see
+   * {@link KafkaConsumerMetrics}).
    */
   @Override
   public void commitPendingDocOffsets() {

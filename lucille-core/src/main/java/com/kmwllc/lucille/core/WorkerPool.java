@@ -2,6 +2,7 @@ package com.kmwllc.lucille.core;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.kmwllc.lucille.message.KafkaConsumerMetrics;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.kmwllc.lucille.util.LogUtils;
@@ -252,8 +253,10 @@ public class WorkerPool {
         // log statistics about pipeline rate and latency
         if (lastLogInstant==null || Duration.between(lastLogInstant, Instant.now()).getSeconds() >= logSeconds) {
           lastLogInstant = Instant.now();
-          log.info(String.format("%d docs processed. One minute rate: %.2f docs/sec. Mean pipeline latency: %.2f ms/doc.",
-              timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000));
+          // the Kafka summary is empty unless the workers read from Kafka
+          log.info((String.format("%d docs processed. One minute rate: %.2f docs/sec. Mean pipeline latency: %.2f ms/doc. ",
+              timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000)
+              + KafkaConsumerMetrics.workerSummary(pipelineName)).trim());
 
           // write message to heartbeat log
           if (enableHeartbeat) {

@@ -364,28 +364,28 @@ public class HybridWorkerMessengerTest {
     messenger.pollDocToProcess();
     addRecord(P0, 0);
     messenger.pollDocToProcess();
-    assertEquals(2, metrics.timer(PIPELINE + HybridWorkerMessenger.POLL_TIME_SUFFIX).getCount());
+    assertEquals(2, metrics.timer(PIPELINE + KafkaConsumerMetrics.WORKER_POLL_TIME_SUFFIX).getCount());
   }
 
   @Test
   public void testPollIsTimedWhenItThrows() throws Exception {
     consumer.wakeup();
     assertThrows(WakeupException.class, () -> messenger.pollDocToProcess());
-    assertEquals(1, metrics.timer(PIPELINE + HybridWorkerMessenger.POLL_TIME_SUFFIX).getCount());
+    assertEquals(1, metrics.timer(PIPELINE + KafkaConsumerMetrics.WORKER_POLL_TIME_SUFFIX).getCount());
   }
 
   @Test
   public void testCommitIsTimedOnlyWhenThereIsSomethingToCommit() throws Exception {
     messenger.commitPendingDocOffsets();
-    assertEquals(0, metrics.timer(PIPELINE + HybridWorkerMessenger.COMMIT_TIME_SUFFIX).getCount());
+    assertEquals(0, metrics.timer(PIPELINE + KafkaConsumerMetrics.WORKER_COMMIT_TIME_SUFFIX).getCount());
 
     KafkaDocument offset0 = poll(P0, 0);
     KafkaDocument offset1 = poll(P0, 1);
     messenger.batchCompleted(List.of(offset0));
     messenger.batchCompleted(List.of(offset1));
     messenger.commitPendingDocOffsets();
-    assertEquals(1, metrics.timer(PIPELINE + HybridWorkerMessenger.COMMIT_TIME_SUFFIX).getCount());
-    assertEquals(0, metrics.meter(PIPELINE + HybridWorkerMessenger.COMMIT_FAILURES_SUFFIX).getCount());
+    assertEquals(1, metrics.timer(PIPELINE + KafkaConsumerMetrics.WORKER_COMMIT_TIME_SUFFIX).getCount());
+    assertEquals(0, metrics.meter(PIPELINE + KafkaConsumerMetrics.WORKER_COMMIT_FAILURES_SUFFIX).getCount());
   }
 
   @Test
@@ -397,8 +397,8 @@ public class HybridWorkerMessengerTest {
 
     CommitFailedException thrown = assertThrows(CommitFailedException.class, () -> messenger.commitPendingDocOffsets());
     assertSame(failure, thrown);
-    assertEquals(1, metrics.meter(PIPELINE + HybridWorkerMessenger.COMMIT_FAILURES_SUFFIX).getCount());
-    assertEquals(1, metrics.timer(PIPELINE + HybridWorkerMessenger.COMMIT_TIME_SUFFIX).getCount());
+    assertEquals(1, metrics.meter(PIPELINE + KafkaConsumerMetrics.WORKER_COMMIT_FAILURES_SUFFIX).getCount());
+    assertEquals(1, metrics.timer(PIPELINE + KafkaConsumerMetrics.WORKER_COMMIT_TIME_SUFFIX).getCount());
   }
 
   @Test
@@ -472,5 +472,21 @@ public class HybridWorkerMessengerTest {
     messenger.batchCompleted(List.of(second));
     messenger.commitPendingDocOffsets();
     assertEquals(Long.valueOf(1L), committed(P0));
+  }
+
+  @Test
+  public void testCommitFailureOnRevocationIsCounted() throws Exception {
+    KafkaDocument offset0 = poll(P0, 0);
+    pipelineDest.remove(offset0);   // taken by the Indexer
+    poll(P1, 0);                    // the worker is done with offset 0 once it polls again
+    messenger.batchCompleted(List.of(offset0));
+    commitException = new CommitFailedException();
+
+    // P0 is revoked before the worker commits; the commit made during the revocation fails, and is only logged
+    consumer.rebalance(Set.of(P1));
+
+    assertNull(committed(P0));
+    assertEquals(1, metrics.meter(PIPELINE + KafkaConsumerMetrics.WORKER_COMMIT_FAILURES_SUFFIX).getCount());
+    assertEquals(1, metrics.timer(PIPELINE + KafkaConsumerMetrics.WORKER_COMMIT_TIME_SUFFIX).getCount());
   }
 }
