@@ -53,7 +53,7 @@ import org.slf4j.LoggerFactory;
  *   <li>ignoreCase (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.</li>
  *   <li>updateMode (String, Optional) : Determines how writing will be handled if the destination field is already populated. Can be
  *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
- *   <li>dictsSorted (Boolean, Optional) : If true, assumes dictionary rows are already lexicographically sorted by the key (trimmed and lowercased
+ *   <li>dictionariesSorted (Boolean, Optional) : If true, assumes dictionary rows are already lexicographically sorted by the key (trimmed and lowercased
  *   if ignoreCase=true). Skips sorting to reduce startup time. Defaults to false.</li>
  *   <li>entityField (String, Optional) : When set and usePayloads=true, also writes the matched normalized surface terms to this field.</li>
  *   <li>s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.</li>
@@ -68,10 +68,9 @@ public class ExtractEntitiesFST extends Stage {
       .requiredList("dictionaries", new TypeReference<List<String>>() {})
       .requiredList("source", new TypeReference<List<String>>() {})
       .requiredList("dest", new TypeReference<List<String>>() {})
-      .optionalBoolean("usePayloads", "onlyWholeWords", "ignoreOverlaps", "stopOnHit", "ignoreCase", "dictsSorted")
+      .optionalBoolean("usePayloads", "onlyWholeWords", "ignoreOverlaps", "stopOnHit", "ignoreCase", "dictionariesSorted")
       .optionalString("updateMode", "entityField")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
-      .optionalParent(FileConnector.STORAGE_CLIENTS, FileConnector.STORAGE_CLIENTS_TYPE)
+      .include(FileConnector.STORAGE_SPEC)
       .build();
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -85,7 +84,7 @@ public class ExtractEntitiesFST extends Stage {
   private final boolean ignoreOverlaps;
   private final boolean stopOnHit;
   private final boolean ignoreCase;
-  private final boolean dictsSorted;
+  private final boolean dictionariesSorted;
   private final String entityField;
   private final UpdateMode updateMode;
 
@@ -103,7 +102,7 @@ public class ExtractEntitiesFST extends Stage {
     this.ignoreOverlaps = ConfigUtils.getOrDefault(config, "ignoreOverlaps", false);
     this.stopOnHit = ConfigUtils.getOrDefault(config, "stopOnHit", false);
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignoreCase", false);
-    this.dictsSorted = ConfigUtils.getOrDefault(config, "dictsSorted", false);
+    this.dictionariesSorted = ConfigUtils.getOrDefault(config, "dictionariesSorted", false);
     this.entityField = ConfigUtils.getStringOrDefault(config, "entityField", null);
     this.updateMode = UpdateMode.fromConfig(config);
   }
@@ -192,7 +191,7 @@ public class ExtractEntitiesFST extends Stage {
     // Sort terms lexicographically
     List<String> terms = new ArrayList<>(loadTermsAndPayloads().keySet());
 
-    if (!dictsSorted) {
+    if (!dictionariesSorted) {
       terms.sort(Comparator.naturalOrder());
     }
 
@@ -219,7 +218,7 @@ public class ExtractEntitiesFST extends Stage {
     // Convert map entries into a list and sort lexicographically
     List<Map.Entry<String, String>> rows = new ArrayList<>(loadTermsAndPayloads().entrySet());
 
-    if (!dictsSorted) {
+    if (!dictionariesSorted) {
       rows.sort(Map.Entry.comparingByKey());
     }
 

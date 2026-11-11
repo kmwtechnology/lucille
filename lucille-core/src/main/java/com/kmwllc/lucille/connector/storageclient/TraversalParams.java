@@ -1,23 +1,30 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
-import static com.kmwllc.lucille.connector.FileConnector.HANDLE_ARCHIVED_FILES;
-import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES;
-import static com.kmwllc.lucille.connector.FileConnector.MAX_SIZE_BYTES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.GET_FILE_CONTENT;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.HANDLE_ARCHIVED_FILES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.HANDLE_COMPRESSED_FILES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.LISTING_MODE;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_DOCUMENTS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_SIZE_BYTES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_AFTER_PROCESSING;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_ERROR_FOLDER;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.THREADS_PER_PATH;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.TRAVERSAL;
 
+import com.kmwllc.lucille.connector.storageclient.BaseStorageClient.ListingMode;
 import com.kmwllc.lucille.core.ConfigUtils;
-import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.filehandler.FileHandler;
+import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.InvalidPathException;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -58,7 +65,15 @@ public class TraversalParams {
   private final Duration lastPublishedCutoff;
   private final PublishMode publishMode;
 
+  // traversal
+  private final int threadsPerPath;
+  // null means no limit
+  private final Long maxDocuments;
+  // null means the client's default
+  private final ListingMode listingMode;
+
   // FileHandlers
+  private final Config fileHandlersConfig;
   private final Map<String, FileHandler> fileHandlers;
 
   public TraversalParams(Config config, URI pathToStorage, String docIdPrefix) {
@@ -79,8 +94,8 @@ public class TraversalParams {
     }
 
     try {
-      if (fileOptions.hasPath(FileConnector.MOVE_TO_AFTER_PROCESSING)) {
-        this.moveToAfterProcessing = parsePathOrURI(fileOptions.getString(FileConnector.MOVE_TO_AFTER_PROCESSING));
+      if (fileOptions.hasPath(MOVE_TO_AFTER_PROCESSING)) {
+        this.moveToAfterProcessing = FileUtils.parsePathOrURI(fileOptions.getString(MOVE_TO_AFTER_PROCESSING));
       } else {
         this.moveToAfterProcessing = null;
       }
@@ -89,8 +104,8 @@ public class TraversalParams {
     }
 
     try {
-      if (fileOptions.hasPath(FileConnector.MOVE_TO_ERROR_FOLDER)) {
-        this.moveToErrorFolder = parsePathOrURI(fileOptions.getString(FileConnector.MOVE_TO_ERROR_FOLDER));
+      if (fileOptions.hasPath(MOVE_TO_ERROR_FOLDER)) {
+        this.moveToErrorFolder = FileUtils.parsePathOrURI(fileOptions.getString(MOVE_TO_ERROR_FOLDER));
       } else {
         this.moveToErrorFolder = null;
       }
@@ -120,14 +135,63 @@ public class TraversalParams {
     this.lastModifiedCutoff = filterOptions.hasPath("lastModifiedCutoff") ? filterOptions.getDuration("lastModifiedCutoff") : null;
     this.lastPublishedCutoff = filterOptions.hasPath("lastPublishedCutoff") ? filterOptions.getDuration("lastPublishedCutoff") : null;
 
+    // traversal options. maxConcurrentPaths is read by FileConnector, which runs the paths.
+    Config traversal = config.hasPath(TRAVERSAL) ? config.getConfig(TRAVERSAL) : ConfigFactory.empty();
+    this.threadsPerPath = ConfigUtils.getIntOrDefault(traversal, THREADS_PER_PATH, 1);
+    if (threadsPerPath < 1) {
+      throw new IllegalArgumentException(TRAVERSAL + "." + THREADS_PER_PATH + " must be at least 1, but was " + threadsPerPath);
+    }
+    this.maxDocuments = ConfigUtils.getLongOrDefault(traversal, MAX_DOCUMENTS, null);
+    if (maxDocuments != null && maxDocuments < 1) {
+      throw new IllegalArgumentException(TRAVERSAL + "." + MAX_DOCUMENTS + " must be at least 1, but was " + maxDocuments);
+    }
+    this.listingMode = traversal.hasPath(LISTING_MODE) ? ListingMode.fromString(traversal.getString(LISTING_MODE)) : null;
+
     // fileHandlers - create a map from fileExtensions to fileHandlers. The method will handle json / jsonl.
-    Config fileHandlersConfig = config.hasPath("fileHandlers") ? config.getConfig("fileHandlers") : ConfigFactory.empty();
+    this.fileHandlersConfig = config.hasPath("fileHandlers") ? config.getConfig("fileHandlers") : ConfigFactory.empty();
     this.fileHandlers = FileHandler.createFromConfig(fileHandlersConfig);
+  }
+
+  // Everything but the FileHandlers is immutable, and so is safe to share across threads.
+  private TraversalParams(TraversalParams other) {
+    this.uri = other.uri;
+    this.docIdPrefix = other.docIdPrefix;
+    this.getFileContent = other.getFileContent;
+    this.handleArchivedFiles = other.handleArchivedFiles;
+    this.handleCompressedFiles = other.handleCompressedFiles;
+    this.maxSizeBytes = other.maxSizeBytes;
+    this.moveToAfterProcessing = other.moveToAfterProcessing;
+    this.moveToErrorFolder = other.moveToErrorFolder;
+    this.excludes = other.excludes;
+    this.includes = other.includes;
+    this.pathsToSkip = other.pathsToSkip;
+    this.lastModifiedCutoff = other.lastModifiedCutoff;
+    this.lastPublishedCutoff = other.lastPublishedCutoff;
+    this.publishMode = other.publishMode;
+    this.threadsPerPath = other.threadsPerPath;
+    this.maxDocuments = other.maxDocuments;
+    this.listingMode = other.listingMode;
+    this.fileHandlersConfig = other.fileHandlersConfig;
+    this.fileHandlers = FileHandler.createFromConfig(fileHandlersConfig);
+  }
+
+  /**
+   * Returns a copy of these params with its own FileHandler instances, for a traversal thread. A FileHandler is not
+   * thread-safe, so threads must not share one.
+   */
+  TraversalParams withOwnFileHandlers() {
+    return new TraversalParams(this);
   }
 
   /**
    * Returns whether the filterOptions allow for the publishing / processing of the file, described by its name
    * and the last time it was modified.
+   *
+   * @param fileName The name the includes / excludes patterns are matched against (see {@link FileReference#getFilterName()}).
+   * @param fileLastModified When the file was last modified. May be null, in which case the file passes lastModifiedCutoff
+   *                         and, in incremental mode, is treated as modified since it was last published.
+   * @param fileLastPublished When the file was last published, or null if it hasn't been (or state is not in use).
+   * @return Whether the file should be processed and published.
    */
   public boolean includeFile(String fileName, Instant fileLastModified, Instant fileLastPublished) {
     // file must pass include/exclude path patterns, if specified, to even be a publishing candidate
@@ -154,12 +218,20 @@ public class TraversalParams {
     return applyLastPublishedFilter(fileLastPublished);
   }
 
+  /**
+   * @param fileExtension A file extension, matched without regard to case.
+   * @return Whether a FileHandler is configured for the extension.
+   */
   public boolean supportsFileExtension(String fileExtension) {
-    return fileHandlers.containsKey(fileExtension);
+    return fileExtension != null && fileHandlers.containsKey(fileExtension.toLowerCase(Locale.ROOT));
   }
 
+  /**
+   * @param fileExtension A file extension, matched without regard to case.
+   * @return The FileHandler configured for the extension, or null if there is none.
+   */
   public FileHandler handlerForExtension(String fileExtension) {
-    return fileHandlers.get(fileExtension);
+    return fileExtension == null ? null : fileHandlers.get(fileExtension.toLowerCase(Locale.ROOT));
   }
 
   /**
@@ -171,8 +243,8 @@ public class TraversalParams {
   }
 
   private boolean applyLastModifiedFilter(Instant fileLastModified) {
-    // If lastModifiedCutoff is specified, return false if it is violated
-    if (lastModifiedCutoff != null) {
+    // If lastModifiedCutoff is specified, return false if it is violated. A file with no last-modified time passes.
+    if (lastModifiedCutoff != null && fileLastModified != null) {
       Instant cutoffPoint = Instant.now().minus(lastModifiedCutoff);
 
       // Only want to include files modified within the given duration (for example, within the last hour)
@@ -197,8 +269,9 @@ public class TraversalParams {
     return true;
   }
 
+  // a file with no last-modified time can't be shown to be unchanged, so it is treated as modified
   private boolean modifiedSinceLastPublish(Instant fileLastModified, Instant fileLastPublished) {
-    return fileLastPublished == null || fileLastModified.isAfter(fileLastPublished);
+    return fileLastPublished == null || fileLastModified == null || fileLastModified.isAfter(fileLastPublished);
   }
 
   public URI getURI() {
@@ -241,6 +314,51 @@ public class TraversalParams {
   }
 
   /**
+   * @return The number of threads that traverse this path, from <code>traversal.threadsPerPath</code>. At least 1.
+   */
+  public int getThreadsPerPath() {
+    return threadsPerPath;
+  }
+
+  /**
+   * @return The number of published documents after which the traversal starts no new file, from
+   * <code>traversal.maxDocuments</code>, or null if there is no limit.
+   */
+  public Long getMaxDocuments() {
+    return maxDocuments;
+  }
+
+  /**
+   * @return The listing mode from <code>traversal.listingMode</code>, or null if it isn't set, in which case the client
+   * chooses.
+   */
+  public ListingMode getListingMode() {
+    return listingMode;
+  }
+
+  /**
+   * Rejects the settings that only {@link BaseStorageClient#traverseByListing} honors: <code>threadsPerPath</code> above 1,
+   * <code>listingMode</code> and <code>maxDocuments</code>. For a client that walks its storage another way.
+   *
+   * @param client The client that would ignore them, named in the error.
+   */
+  void rejectListingSettings(StorageClient client) {
+    if (threadsPerPath > 1) {
+      throw notSupported(THREADS_PER_PATH + " above 1", client);
+    }
+    if (listingMode != null) {
+      throw notSupported(LISTING_MODE, client);
+    }
+    if (maxDocuments != null) {
+      throw notSupported(MAX_DOCUMENTS, client);
+    }
+  }
+
+  private static IllegalArgumentException notSupported(String setting, StorageClient client) {
+    return new IllegalArgumentException(TRAVERSAL + "." + setting + " isn't supported by " + client.getClass().getName() + ".");
+  }
+
+  /**
    * Creates a normalized URI for a path to skip.
    * <p>
    * Valid, absolute URIs are used as-is. As a convenience and a fallback, local
@@ -269,34 +387,6 @@ public class TraversalParams {
     }
   }
 
-  /**
-   * Parses a configured path or URI into a URI.
-   * <p>
-   * Strings that are valid URIs are used as-is. Local file system paths that are not valid URIs, such as Windows paths
-   * ("C:\data", "C:/data", "\\server\share"), are converted to an absolute {@code file://} URI.
-   * <p>
-   * Throws a URISyntaxException if the string is neither a valid URI nor a local file system path.
-   */
-  public static URI parsePathOrURI(String s) throws URISyntaxException {
-    try {
-      URI uri = new URI(s);
-
-      if (uri.getScheme() == null || uri.getScheme().length() > 1) {
-        return uri;
-      }
-    } catch (URISyntaxException e) {
-      if (s.contains("://")) {
-        throw e;
-      }
-    }
-
-    try {
-      return Paths.get(s).toUri();
-    } catch (InvalidPathException e) {
-      throw new URISyntaxException(s, e.getReason());
-    }
-  }
-
   public enum PublishMode {
     INCREMENTAL, FULL;
 
@@ -306,8 +396,13 @@ public class TraversalParams {
     }
 
     public static PublishMode fromString(String name) {
-        return PublishMode.valueOf(name.toUpperCase());
-    }    
+      for (PublishMode mode : values()) {
+        if (name != null && mode.name().equalsIgnoreCase(name.trim())) {
+          return mode;
+        }
+      }
+      throw new IllegalArgumentException("Unknown filterOptions.publishMode \"" + name + "\"; expected one of incremental, full");
+    }
   }
 
 }

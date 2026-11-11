@@ -6,7 +6,7 @@ A classic SQL join would expand every parent into one result row per child. That
 
 ## Why a merge join is a good fit for streaming ingest
 
-The connector opens the primary query and each `otherSQLs` query as forward-only JDBC result sets. Because those result sets are already sorted by the join key, the connector never needs to buffer an entire table in memory or look up related rows by key. It only advances each cursor as far as the current parent id:
+The connector opens the primary query and each `otherSqls` query as forward-only JDBC result sets. Because those result sets are already sorted by the join key, the connector never needs to buffer an entire table in memory or look up related rows by key. It only advances each cursor as far as the current parent id:
 
 1. Read the next parent row from the primary result set.
 2. Advance each secondary result set until its join key matches that parent.
@@ -20,7 +20,7 @@ That is the same idea as a sort-merge join in a database engine: once both input
 The merge only works if **every** query is ordered by the same join key, in the same direction.
 
 - The primary `sql` must `ORDER BY` the parent key (`idField` on the primary result set), and that key must be unique.
-- Each statement in `otherSQLs` must `ORDER BY` its corresponding join column from `otherJoinFields`.
+- Each statement in `otherSqls` must `ORDER BY` its corresponding join column from `otherJoinFields`.
 - The join columns must be mutually comparable (integers, strings or dates). A child row whose join key is `NULL` matches no parent and is skipped.
 
 The connector only looks forward, never rewinds. If a result set turns out not to be ordered by its join key, or the primary key repeats, the connector fails the run with a message naming the key, rather than silently dropping or mis-associating child rows.
@@ -39,7 +39,7 @@ Those statements are wired together in `conf/joining-db-connector-example.conf` 
 
 ## Collapsing one-to-many rows into multi-valued fields
 
-Because the child result set is ordered by the join key, all meals for a given animal arrive as a contiguous run of rows. The connector attaches each of those rows as a child document on the parent, with ids of the form `<parentId>_<n>` (`1_0`, `1_1`, ...), numbered across all `otherSQLs`.
+Because the child result set is ordered by the join key, all meals for a given animal arrive as a contiguous run of rows. The connector attaches each of those rows as a child document on the parent, with ids of the form `<parentId>_<n>` (`1_0`, `1_1`, ...), numbered across all `otherSqls`.
 
 The pipeline then uses `CollapseChildrenDocuments` to copy selected child fields onto the parent as **multi-valued** fields and drop the children:
 
@@ -64,7 +64,7 @@ After collapse, a parent document looks like a single search record with multi-v
 }
 ```
 
-You can add more statements to `otherSQLs` (and a matching entry in `otherJoinFields`) for additional one-to-many tables. Each extra result set is merge-joined the same way, as long as it is also ordered by the join key.
+You can add more statements to `otherSqls` (and a matching entry in `otherJoinFields`) for additional one-to-many tables. Each extra result set is merge-joined the same way, as long as it is also ordered by the join key.
 
 ## Requirements
 
@@ -75,7 +75,7 @@ You can add more statements to `otherSQLs` (and a matching entry in `otherJoinFi
 ## Setup
 
 1. Edit `conf/joining-db-connector-example.conf` and set `connectionString`, `jdbcUser`, and `jdbcPassword` for your database.
-2. Point `solr.url` at your Solr collection, or change the indexer block if you want a different destination.
+2. Point `indexer.solr.url` at your Solr collection, or change the indexer block if you want a different destination.
 3. Confirm both SQL statements `ORDER BY` the join key, and that `otherJoinFields` names the child-side join column.
 
 ## Run

@@ -1,18 +1,18 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
-import static com.kmwllc.lucille.connector.FileConnector.S3_ANONYMOUS;
-import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
-import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.S3_ACCESS_KEY_ID;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.S3_ANONYMOUS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.S3_REGION;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.S3_SECRET_ACCESS_KEY;
 
-import com.kmwllc.lucille.connector.FileConnectorStateManager;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Objects;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
@@ -104,31 +104,38 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
-    String startingDirectory = getStartingDirectory(params);
-    if (params.getPathsToSkip().isEmpty()) {
-      // nothing to prune, so a single flat listing of every key under the prefix replaces one listing per directory
-      ListObjectsV2Request request = listRequest(params, startingDirectory).build();
-      s3.listObjectsV2Paginator(request).stream().forEachOrdered(resp -> publishContents(publisher, params, stateMgr, resp));
-    } else {
-      traversePrefix(publisher, params, stateMgr, startingDirectory);
-    }
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws ConnectorException {
+    traverseByListing(publisher, params, stateMgr);
   }
 
-  // Lists one directory level at a time so that skipped directories are never listed.
-  private void traversePrefix(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr, String prefix) {
+  @Override
+  protected boolean traversesByListing() {
+    return true;
+  }
+
+  // One listing of every key under the prefix needs far fewer requests than one listing per directory.
+  @Override
+  protected ListingMode defaultListingMode() {
+    return ListingMode.FLAT;
+  }
+
+  @Override
+  protected Stream<ListingEntry> listDirectory(String prefix, TraversalParams params) {
     ListObjectsV2Request request = listRequest(params, prefix).delimiter("/").build();
 
-    s3.listObjectsV2Paginator(request).stream().forEachOrdered(resp -> {
-      publishContents(publisher, params, stateMgr, resp);
+    return s3.listObjectsV2Paginator(request).stream().flatMap(resp -> Stream.concat(
+        fileEntries(resp, params),
+        resp.commonPrefixes().stream().map(cp -> ListingEntry.directory(cp.prefix()))));
+  }
 
-      resp.commonPrefixes().forEach(cp -> {
-        URI prefixUri = uriForDirectory(cp.prefix(), params);
-        if (!isSkippedDirectory(prefixUri, params)) {
-          traversePrefix(publisher, params, stateMgr, cp.prefix());
-        }
-      });
-    });
+  @Override
+  protected Stream<ListingEntry> listFlat(String prefix, TraversalParams params) {
+    return s3.listObjectsV2Paginator(listRequest(params, prefix).build()).stream().flatMap(resp -> fileEntries(resp, params));
+  }
+
+  @Override
+  protected URI directoryURI(String prefix, TraversalParams params) {
+    return uriForDirectory(prefix, params);
   }
 
   private ListObjectsV2Request.Builder listRequest(TraversalParams params, String prefix) {
@@ -138,18 +145,15 @@ public class S3StorageClient extends BaseStorageClient {
         .maxKeys(maxResultsPerPage);
   }
 
-  private void publishContents(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr,
-      ListObjectsV2Response resp) {
-    resp.contents().forEach(obj -> {
-      S3FileReference fileRef = new S3FileReference(obj, params);
-      processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
-    });
+  private Stream<ListingEntry> fileEntries(ListObjectsV2Response resp, TraversalParams params) {
+    return resp.contents().stream().map(obj -> ListingEntry.file(obj.key(), () -> new S3FileReference(obj, params)));
   }
 
   private URI uriForDirectory(String prefix, TraversalParams params) {
     URI paramsUri = params.getURI();
     try {
-      return new URI(paramsUri.getScheme(), paramsUri.getAuthority(), "/" + prefix, null);
+      // takes the bucket as an authority, not a hostname, which could not contain the '_' older bucket names may
+      return new URI(paramsUri.getScheme(), paramsUri.getAuthority(), "/" + prefix, null, null);
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException("Unable to build S3 URI for prefix: " + prefix, e);
     }
@@ -165,12 +169,17 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
+  public boolean moveTargetInsidePath(URI path, URI folder) {
+    return movedKeyInsideBucketPath(path, folder);
+  }
+
+  @Override
   public void moveFile(URI filePath, URI folder) throws IOException {
     String sourceBucket = filePath.getAuthority();
     String sourceKey = filePath.getPath().substring(1);
 
     String destBucket = folder.getAuthority();
-    String destKey = folder.getPath().substring(1) + sourceKey;
+    String destKey = destinationKey(keyPrefix(folder), sourceKey);
 
     CopyObjectRequest copyRequest = CopyObjectRequest.builder()
         .sourceBucket(sourceBucket).sourceKey(sourceKey)
@@ -183,15 +192,6 @@ public class S3StorageClient extends BaseStorageClient {
 
     s3.copyObject(copyRequest);
     s3.deleteObject(deleteRequest);
-  }
-
-  private String getStartingDirectory(TraversalParams params) {
-    URI pathURI = params.getURI();
-    String startingDirectory = Objects.equals(pathURI.getPath(), "/") ? "" : pathURI.getPath();
-    if (startingDirectory.startsWith("/")) {
-      return startingDirectory.substring(1);
-    }
-    return startingDirectory;
   }
 
   private String getBucketOrContainerName(TraversalParams params) {
@@ -218,6 +218,11 @@ public class S3StorageClient extends BaseStorageClient {
 
     @Override
     public String getName() {
+      return lastSegment(s3Obj.key());
+    }
+
+    @Override
+    public String getFilterName() {
       return s3Obj.key();
     }
 
@@ -244,7 +249,7 @@ public class S3StorageClient extends BaseStorageClient {
       URI paramsURI = params.getURI();
 
       try {
-        return new URI(paramsURI.getScheme(), paramsURI.getAuthority(), "/" + s3Obj.key(), null);
+        return new URI(paramsURI.getScheme(), paramsURI.getAuthority(), "/" + s3Obj.key(), null, null);
       } catch (Exception e) {
         throw new IllegalArgumentException("Unable to build S3 URI for key: " + s3Obj.key(), e);
       }

@@ -7,7 +7,7 @@ description: Configuration reference for the Solr Indexer, for single-node Solr 
 
 `com.kmwllc.lucille.solr.indexer.SolrIndexer`
 
-Config block: `solr { ... }`
+Config block: `indexer.solr { ... }`
 
 **Maven dependency:**
 ```xml
@@ -18,37 +18,39 @@ Config block: `solr { ... }`
 </dependency>
 ```
 
-Selecting the indexer with `indexer.type: "Solr"` works once `lucille-solr` is on the classpath.
+The block selects the indexer once `lucille-solr` is on the classpath.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `url` | String or List\<String\> | No | One or more Solr base URLs (e.g., `http://localhost:8983/solr`). Required unless `useCloudClient` is `true` and `zkHosts` is set: without it the indexer fails at startup (not checked when `indexer.sendEnabled` is `false`). Read only when `useCloudClient` is `true` and `zkHosts` is not set. |
+| `url` | String or List\<String\> | No | One or more Solr base URLs (e.g., `http://localhost:8983/solr`). Required unless `useCloudClient` is `true` and `zkHosts` is set: without it the indexer fails at startup (not checked when `indexer.sendEnabled` is `false`). With `useCloudClient: false`, give a single URL; it is the client's base URL. With `useCloudClient: true`, used only when `zkHosts` is not set. |
 | `useCloudClient` | Boolean | No | Use the SolrCloud client. Default: `false`. |
-| `defaultCollection` | String | No | Collection that documents go to when no index override applies. Read only by the SolrCloud client. |
+| `defaultCollection` | String | No | Collection (or, on a single node, core) that documents go to when no index override applies. |
 | `zkHosts` | List\<String\> | No | ZooKeeper addresses for SolrCloud (e.g., `["zk1:2181", "zk2:2181"]`). Takes precedence over `url` when `useCloudClient` is `true`. |
 | `zkChroot` | String | No | ZooKeeper chroot path for SolrCloud (e.g., `"/solr"`). Used only with `zkHosts`. |
 | `userName` | String | No | HTTP Basic Auth username. Used only when `password` is also set. If only one of the two is set, an error is logged and no authentication is used. |
 | `password` | String | No | HTTP Basic Auth password. Used only when `userName` is also set. |
-| `acceptInvalidCert` | Boolean | No | If `true`, sets the `solr.ssl.checkPeerName` system property to `false`. The `HttpJdkSolrClient` that Lucille builds (also used under the SolrCloud client) does not read that property, so this setting has no effect. Default: `false`. |
-
-When `useCloudClient` is `false`, `url` must still be set, but the client is created without a base URL: `url` and `defaultCollection` are not used in that mode, and no other setting supplies a Solr address.
+| `acceptInvalidCert` | Boolean | No | If `true`, the client trusts any TLS certificate and skips the host name check. For test setups only. A client certificate in `javax.net.ssl.keyStore` is then not sent; to use one, trust the Solr certificate through `javax.net.ssl.trustStore` instead. Default: `false`. |
 
 SolrIndexer supports `indexer.maxConcurrentBatches` greater than 1: concurrent batches share one Solr client.
 
 ```hocon
 # SolrCloud with URL
-solr {
-  useCloudClient: true
-  url: ["http://localhost:8983/solr"]
-  defaultCollection: "my-collection"
+indexer {
+  solr {
+    useCloudClient: true
+    url: ["http://localhost:8983/solr"]
+    defaultCollection: "my-collection"
+  }
 }
 
 # SolrCloud with ZooKeeper
-solr {
-  useCloudClient: true
-  zkHosts: ["zk1:2181", "zk2:2181"]
-  zkChroot: "/solr"
-  defaultCollection: "my-collection"
+indexer {
+  solr {
+    useCloudClient: true
+    zkHosts: ["zk1:2181", "zk2:2181"]
+    zkChroot: "/solr"
+    defaultCollection: "my-collection"
+  }
 }
 ```
 
@@ -56,11 +58,16 @@ solr {
 
 ## SSL
 
-When the client is created, SolrIndexer copies the config keys `javax.net.ssl.keyStore`, `javax.net.ssl.keyStorePassword`, `javax.net.ssl.trustStore`, and `javax.net.ssl.trustStorePassword` into JVM system properties of the same name. A system property that is already set (for example with `-D`) is not overridden. These keys can be set at the root of the config or inside the `solr` block; if a key is set in both, the root value is used.
+When the client is created, SolrIndexer copies the config keys `javax.net.ssl.keyStore`, `javax.net.ssl.keyStorePassword`, `javax.net.ssl.trustStore`, and `javax.net.ssl.trustStorePassword` into JVM system properties of the same name. A system property that is already set (for example with `-D`) is not overridden. Set these keys inside the `solr` block. Keys at the root of the config are not read.
 
 ```hocon
-javax.net.ssl.trustStore: "/path/to/truststore.jks"
-javax.net.ssl.trustStorePassword: ${?TRUSTSTORE_PASSWORD}
+indexer {
+  solr {
+    url: "https://solr-host:8983/solr"
+    javax.net.ssl.trustStore: "/path/to/truststore.jks"
+    javax.net.ssl.trustStorePassword: ${?TRUSTSTORE_PASSWORD}
+  }
+}
 ```
 
 ---
@@ -69,7 +76,7 @@ javax.net.ssl.trustStorePassword: ${?TRUSTSTORE_PASSWORD}
 
 When a document has children (via `doc.addChild()`), they are added to the Solr document as nested child documents. The `___children` field itself is never sent to Solr. Children of children are not sent.
 
-Children respect the configured blacklist and whitelist: filtered fields are removed from child documents before they are added to the Solr parent. Children are sent with their own `id`; `indexer.idOverrideField` is applied only to the parent.
+`includeFields` and `excludeFields` apply to parents and children alike, except for `id`: Solr needs it on every document, so it is always sent. For the parent it is the `indexer.idOverrideField` value when set; children use their own `id`.
 
 ---
 
@@ -91,13 +98,13 @@ Internally, the indexer flushes pending adds before queuing a delete for an ID t
 
 ## Delete-by-Query via Terms Queries
 
-When `deleteByFieldField` and `deleteByFieldValue` are configured, SolrIndexer constructs Solr terms queries rather than issuing individual delete-by-query calls. Values for the same field are combined into a single terms query, and the queries for different fields (plus any pending deletes by ID) are joined with `OR` into one request:
+When `deleteByQuery` is configured, SolrIndexer constructs Solr terms queries rather than issuing individual delete-by-query calls. Values for the same field are combined into a single terms query, and the queries for different fields (plus any pending deletes by ID) are joined with `OR` into one request:
 
 ```
-(+{!terms f='category' v='obsolete,deprecated'})
+(+{!terms f="category" separator="," v="obsolete,deprecated"})
 ```
 
-This reduces the number of round-trips to Solr when many documents are marked for deletion in the same batch. Pending deletes by ID become a terms query on the `id` field. Because values are joined with commas, a value or ID that contains a comma will not match as intended.
+This reduces the number of round-trips to Solr when many documents are marked for deletion in the same batch. Pending deletes by ID become a terms query on the `id` field. Values are quoted and joined with a separator that none of them contains, so values with commas or quotes match exactly.
 
 ---
 

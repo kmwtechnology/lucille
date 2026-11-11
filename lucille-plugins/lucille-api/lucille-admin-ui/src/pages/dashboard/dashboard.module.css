@@ -36,10 +36,6 @@
   @apply border-teal-100;
 }
 
-.statCardUnhealthy {
-  @apply border-red-100 bg-red-50;
-}
-
 .statCardBlue {
   @apply border-blue-100 shadow-sm;
 }
@@ -59,10 +55,6 @@
 
 .statTitleHealthy {
   @apply flex items-center gap-2 text-base sm:text-lg text-teal-700;
-}
-
-.statTitleUnhealthy {
-  @apply flex items-center gap-2 text-base sm:text-lg text-red-700;
 }
 
 .statValue {

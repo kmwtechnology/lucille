@@ -45,8 +45,8 @@ public class JlamaEmbedTest {
   public void setUp() throws Exception {
     Map<String, Object> configValues = new HashMap<>();
     configValues.put("source", "source");
-    configValues.put("pathToStoreModel", "./model");
-    configValues.put("model", "owner/name");
+    configValues.put("modelDownloadPath", "./model");
+    configValues.put("modelName", "owner/name");
     defaultConfig = ConfigFactory.parseMap(configValues);
   }
 
@@ -55,8 +55,8 @@ public class JlamaEmbedTest {
     // create the test config, here DTypes is set to F16 and I16
     Map<String, Object> configValues2 = new HashMap<>();
     configValues2.put("source", "source");
-    configValues2.put("pathToStoreModel", "./model");
-    configValues2.put("model", "owner/name");
+    configValues2.put("modelDownloadPath", "./model");
+    configValues2.put("modelName", "owner/name");
     configValues2.put("workingMemoryType", "F16");
     configValues2.put("workingQuantizationType", "I16");
     Config otherConfig = ConfigFactory.parseMap(configValues2);
@@ -64,8 +64,8 @@ public class JlamaEmbedTest {
     // create the test config, here DTypes is set to U16 and Q5
     Map<String, Object> configValues3 = new HashMap<>();
     configValues3.put("source", "source");
-    configValues3.put("pathToStoreModel", "./model");
-    configValues3.put("model", "owner/name");
+    configValues3.put("modelDownloadPath", "./model");
+    configValues3.put("modelName", "owner/name");
     configValues3.put("workingMemoryType", "U16");
     configValues3.put("workingQuantizationType", "Q5");
     Config thirdConfig = ConfigFactory.parseMap(configValues3);
@@ -106,8 +106,8 @@ public class JlamaEmbedTest {
   public void testInvalidStart() throws StageException {
     Map<String, Object> configValues2 = new HashMap<>();
     configValues2.put("source", "source");
-    configValues2.put("pathToStoreModel", "./model");
-    configValues2.put("model", "ownerName");
+    configValues2.put("modelDownloadPath", "./model");
+    configValues2.put("modelName", "ownerName");
     Config modelNameNotInFormat = ConfigFactory.parseMap(configValues2);
 
     // test model not in format of owner/name
@@ -187,9 +187,9 @@ public class JlamaEmbedTest {
 
     Map<String, Object> configValues = new HashMap<>();
     configValues.put("source", "source");
-    configValues.put("pathToStoreModel", "src/test/resources");
-    configValues.put("model", "owner/name");
-    configValues.put("deleteModelAfter", true);
+    configValues.put("modelDownloadPath", "src/test/resources");
+    configValues.put("modelName", "owner/name");
+    configValues.put("deleteModelOnStop", true);
     Config config = ConfigFactory.parseMap(configValues);
 
     AbstractModel mockModel = mock(AbstractModel.class);
@@ -236,9 +236,9 @@ public class JlamaEmbedTest {
 
     Map<String, Object> configValues = new HashMap<>();
     configValues.put("source", "source");
-    configValues.put("pathToStoreModel", "src/test/resources");
-    configValues.put("model", "NoOwnerOnlyName");
-    configValues.put("deleteModelAfter", true);
+    configValues.put("modelDownloadPath", "src/test/resources");
+    configValues.put("modelName", "NoOwnerOnlyName");
+    configValues.put("deleteModelOnStop", true);
     Config config = ConfigFactory.parseMap(configValues);
 
     AbstractModel mockModel = mock(AbstractModel.class);

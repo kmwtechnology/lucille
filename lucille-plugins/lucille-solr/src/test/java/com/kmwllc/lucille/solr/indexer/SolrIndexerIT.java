@@ -5,6 +5,7 @@ import static org.mockito.Mockito.verify;
 
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -85,16 +86,16 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     JettySolrRunner jetty = cluster.getJettySolrRunners().get(0);
 
     Map<String, Object> map = new HashMap<>();
-    map.put("solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
-    map.put("solr.useCloudClient", true);
-    map.put("solr.defaultCollection", "test");
-    map.put("indexer.batchTimeout", 5000);
+    map.put("indexer.solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
+    map.put("indexer.solr.useCloudClient", true);
+    map.put("indexer.solr.defaultCollection", "test");
+    map.put("indexer.batchTimeoutMs", 5000);
     map.put("indexer.batchSize", 1);
     map.put("indexer.type", "solr");
     map.put("indexer.sendEnabled", true);
     map.put("indexer.indexOverrideField", "collection");
-    map.put("indexer.deletionMarkerField", "is_delete");
-    map.put("indexer.deletionMarkerFieldValue", "true");
+    map.put("indexer.deletionMarker.field", "is_delete");
+    map.put("indexer.deletionMarker.value", "true");
 
     Config config = ConfigFactory.parseMap(map);
 
@@ -102,7 +103,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     IndexerMessenger mockIndexerMessenger = mock(IndexerMessenger.class);
 
     try {
-      indexer = new SolrIndexer(config, mockIndexerMessenger, false, "solr", null);
+      indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(mockIndexerMessenger, false, "solr", null));
       assertTrue(indexer.validateConnection());
 
       SolrQuery qr = new SolrQuery();
@@ -148,25 +149,25 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     JettySolrRunner jetty = cluster.getJettySolrRunners().get(0);
 
     Map<String, Object> map = new HashMap<>();
-    map.put("solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
-    map.put("solr.useCloudClient", true);
-    map.put("solr.defaultCollection", "test");
-    map.put("indexer.batchTimeout", 5000);
+    map.put("indexer.solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
+    map.put("indexer.solr.useCloudClient", true);
+    map.put("indexer.solr.defaultCollection", "test");
+    map.put("indexer.batchTimeoutMs", 5000);
     map.put("indexer.batchSize", 1);
     map.put("indexer.type", "solr");
     map.put("indexer.sendEnabled", true);
     map.put("indexer.indexOverrideField", "collection");
-    map.put("indexer.deletionMarkerField", "is_delete");
-    map.put("indexer.deletionMarkerFieldValue", "true");
+    map.put("indexer.deletionMarker.field", "is_delete");
+    map.put("indexer.deletionMarker.value", "true");
     /*
-    The field on the document referenced by the deleteByFieldField contains the field name in solr that the document
-    is indicating should be used in a delete by query request. The field on the document referenced by the deleteByFieldValue
-    contains the value of the field that should be used in a delete by query request. When a document containing the
-    deletionMarkerField set to the deletionMarkerValue that has a deleteByFieldField and a deleteByFieldValue then all
-    of the documents in solr containing the value for that field will by deleted.
+    The field on the document named by deleteByQuery.fieldNameField contains the field name in solr that the document
+    is indicating should be used in a delete by query request. The field on the document named by deleteByQuery.valueField
+    contains the value of the field that should be used in a delete by query request. When a document has
+    deletionMarker.field set to deletionMarker.value and has both of those fields, then all
+    of the documents in solr containing the value for that field will be deleted.
      */
-    map.put("indexer.deleteByFieldField", "delete.FieldName");
-    map.put("indexer.deleteByFieldValue", "delete.FieldValue");
+    map.put("indexer.deleteByQuery.fieldNameField", "delete.FieldName");
+    map.put("indexer.deleteByQuery.valueField", "delete.FieldValue");
 
     Config config = ConfigFactory.parseMap(map);
 
@@ -174,7 +175,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     IndexerMessenger mockIndexerMessenger = mock(IndexerMessenger.class);
 
     try {
-      indexer = new SolrIndexer(config, mockIndexerMessenger, false, "solr", null);
+      indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(mockIndexerMessenger, false, "solr", null));
       assertTrue(indexer.validateConnection());
 
       SolrQuery qr = new SolrQuery();
@@ -228,25 +229,25 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     JettySolrRunner jetty = cluster.getJettySolrRunners().get(0);
 
     Map<String, Object> map = new HashMap<>();
-    map.put("solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
-    map.put("solr.useCloudClient", true);
-    map.put("solr.defaultCollection", "test");
-    map.put("indexer.batchTimeout", 5000);
+    map.put("indexer.solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
+    map.put("indexer.solr.useCloudClient", true);
+    map.put("indexer.solr.defaultCollection", "test");
+    map.put("indexer.batchTimeoutMs", 5000);
     map.put("indexer.batchSize", 2);
     map.put("indexer.type", "solr");
     map.put("indexer.sendEnabled", true);
     map.put("indexer.indexOverrideField", "collection");
-    map.put("indexer.deletionMarkerField", "is_delete");
-    map.put("indexer.deletionMarkerFieldValue", "true");
+    map.put("indexer.deletionMarker.field", "is_delete");
+    map.put("indexer.deletionMarker.value", "true");
     /*
-    The field on the document referenced by the deleteByFieldField contains the field name in solr that the document
-    is indicating should be used in a delete by query request. The field on the document referenced by the deleteByFieldValue
-    contains the value of the field that should be used in a delete by query request. When a document containing the
-    deletionMarkerField set to the deletionMarkerValue that has a deleteByFieldField and a deleteByFieldValue then all
-    of the documents in solr containing the value for that field will by deleted.
+    The field on the document named by deleteByQuery.fieldNameField contains the field name in solr that the document
+    is indicating should be used in a delete by query request. The field on the document named by deleteByQuery.valueField
+    contains the value of the field that should be used in a delete by query request. When a document has
+    deletionMarker.field set to deletionMarker.value and has both of those fields, then all
+    of the documents in solr containing the value for that field will be deleted.
      */
-    map.put("indexer.deleteByFieldField", "delete.FieldName");
-    map.put("indexer.deleteByFieldValue", "delete.FieldValue");
+    map.put("indexer.deleteByQuery.fieldNameField", "delete.FieldName");
+    map.put("indexer.deleteByQuery.valueField", "delete.FieldValue");
 
     Config config = ConfigFactory.parseMap(map);
 
@@ -254,7 +255,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     IndexerMessenger mockIndexerMessenger = mock(IndexerMessenger.class);
 
     try {
-      indexer = new SolrIndexer(config, mockIndexerMessenger, false, "solr", null);
+      indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(mockIndexerMessenger, false, "solr", null));
       assertTrue(indexer.validateConnection());
 
       SolrQuery qr = new SolrQuery();
@@ -313,26 +314,26 @@ public class SolrIndexerIT extends SolrCloudTestCase {
 
     // Create a HTTP2SolrClient config
     Map<String, Object> mapHttp = new HashMap<>();
-    mapHttp.put("solr.url", List.of(jetty.getBaseUrl().toString() + "/test"));
-    mapHttp.put("indexer.batchTimeout", 5000);
+    mapHttp.put("indexer.solr.url", List.of(jetty.getBaseUrl().toString() + "/test"));
+    mapHttp.put("indexer.batchTimeoutMs", 5000);
     mapHttp.put("indexer.batchSize", 2);
     mapHttp.put("indexer.type", "solr");
     Config configHttp = ConfigFactory.parseMap(mapHttp);
 
     // Create a CloudHTTP2SolrClient config
     Map<String, Object> mapCloud = new HashMap<>();
-    mapCloud.put("solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
-    mapCloud.put("solr.useCloudClient", true);
-    mapCloud.put("solr.defaultCollection", "test");
-    mapCloud.put("indexer.batchTimeout", 5000);
+    mapCloud.put("indexer.solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
+    mapCloud.put("indexer.solr.useCloudClient", true);
+    mapCloud.put("indexer.solr.defaultCollection", "test");
+    mapCloud.put("indexer.batchTimeoutMs", 5000);
     mapCloud.put("indexer.batchSize", 2);
     mapCloud.put("indexer.type", "solr");
     Config configCloud = ConfigFactory.parseMap(mapCloud);
 
     IndexerMessenger mockIndexerMessenger = mock(IndexerMessenger.class);
 
-    SolrIndexer indexer1 = new SolrIndexer(configHttp, mockIndexerMessenger, "solr", mockHttp2Client);
-    SolrIndexer indexer2 = new SolrIndexer(configCloud, mockIndexerMessenger, "solr", mockCloudHttp2Client);
+    SolrIndexer indexer1 = new SolrIndexer(configHttp.getConfig("indexer"), new IndexerContext(mockIndexerMessenger, false, "solr", null), mockHttp2Client);
+    SolrIndexer indexer2 = new SolrIndexer(configCloud.getConfig("indexer"), new IndexerContext(mockIndexerMessenger, false, "solr", null), mockCloudHttp2Client);
 
     indexer1.validateConnection();
     indexer2.validateConnection();
@@ -346,16 +347,16 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     JettySolrRunner jetty = cluster.getJettySolrRunners().get(0);
 
     Map<String, Object> map = new HashMap<>();
-    map.put("solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
-    map.put("solr.useCloudClient", true);
-    map.put("solr.defaultCollection", "test");
-    map.put("indexer.batchTimeout", 5000);
+    map.put("indexer.solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
+    map.put("indexer.solr.useCloudClient", true);
+    map.put("indexer.solr.defaultCollection", "test");
+    map.put("indexer.batchTimeoutMs", 5000);
     map.put("indexer.batchSize", 1);
     map.put("indexer.type", "solr");
     map.put("indexer.sendEnabled", true);
     map.put("indexer.idOverrideField", "other_id");
-    map.put("indexer.deletionMarkerField", "is_delete");
-    map.put("indexer.deletionMarkerFieldValue", "true");
+    map.put("indexer.deletionMarker.field", "is_delete");
+    map.put("indexer.deletionMarker.value", "true");
 
     Config config = ConfigFactory.parseMap(map);
 
@@ -363,7 +364,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
     IndexerMessenger mockIndexerMessenger = mock(IndexerMessenger.class);
 
     try {
-      indexer = new SolrIndexer(config, mockIndexerMessenger, false, "solr", null);
+      indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(mockIndexerMessenger, false, "solr", null));
       assertTrue(indexer.validateConnection());
 
       // Index documents through the indexer with override IDs

@@ -2,13 +2,13 @@ package com.kmwllc.lucille.core.filehandler;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.spec.Spec;
 import com.typesafe.config.Config;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -31,7 +31,9 @@ public interface FileHandler {
 
   /**
    * A helper function that processes a file and publishes the documents to a Publisher using the content in the given
-   * InputStream. The given stream should be closed as part of this function's operations (namely the Iterators created)
+   * InputStream. The given stream should be closed as part of this function's operations (namely the Iterators created).
+   * A StorageClient traversal also closes it once this returns or throws, so a handler that stops partway, such as when
+   * the Publisher throws, doesn't leave it open.
    *
    * @param publisher The publisher you want to publish documents to.
    * @param inputStream An InputStream of the file's contents.
@@ -57,9 +59,17 @@ public interface FileHandler {
   static Map<String, FileHandler> createFromConfig(Config fileHandlersConfig) {
     Map<String, FileHandler> handlerMap = new HashMap<>();
 
-    for (String fileExtension : fileHandlersConfig.root().keySet()) {
-      FileHandler handler = FileHandler.create(fileExtension, fileHandlersConfig);
-      handlerMap.put(fileExtension, handler);
+    // keys are extensions, matched without regard to case, so "CSV" and "csv" name the same handler
+    Map<String, String> configuredKeys = new HashMap<>();
+    for (String configKey : fileHandlersConfig.root().keySet()) {
+      String fileExtension = configKey.toLowerCase(Locale.ROOT);
+      String previousKey = configuredKeys.put(fileExtension, configKey);
+      if (previousKey != null) {
+        throw new IllegalArgumentException("fileHandlers has both \"" + previousKey + "\" and \"" + configKey
+            + "\". Extensions are matched without regard to case, so only one may be configured.");
+      }
+
+      handlerMap.put(fileExtension, FileHandler.create(configKey, fileHandlersConfig));
     }
 
     // only "adding" the other if it wasn't specified in the Config. Allows JSON / JSONL to be handled differently,
@@ -72,9 +82,6 @@ public interface FileHandler {
 
     return Collections.unmodifiableMap(handlerMap);
   }
-
-  /** Returns a Spec describing this FileHandler's required/optional Config properties. */
-  Spec getSpec();
 
   /**
    * Returns a new FileHandler based on the file extension and file options. If the file extension is not a "default" type supported
@@ -106,7 +113,7 @@ public interface FileHandler {
     }
 
     // No class provided, see if it is a supported type, throw an exception if it is not supported
-    switch (fileExtension) {
+    switch (fileExtension.toLowerCase(Locale.ROOT)) {
       case "json", "jsonl" -> {
         return new JsonFileHandler(fileExtensionConfig);
       }

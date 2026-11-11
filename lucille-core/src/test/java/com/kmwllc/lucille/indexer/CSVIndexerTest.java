@@ -1,8 +1,9 @@
 package com.kmwllc.lucille.indexer;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.Event;
-import com.kmwllc.lucille.core.Runner;
+import com.kmwllc.lucille.core.ConfigValidator;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.opencsv.ICSVWriter;
 import com.typesafe.config.Config;
@@ -57,7 +58,7 @@ public class CSVIndexerTest {
     doc2.setField("f1", "456");
     doc2.setField("f2", "def");
 
-    CSVIndexer indexer = new CSVIndexer(config, messenger, false, "testing");
+    CSVIndexer indexer = new CSVIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null));
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -92,7 +93,7 @@ public class CSVIndexerTest {
     CSVIndexer indexer = null;
     List<String> lines;
     try {
-      indexer = new CSVIndexer(config, messenger, false, "testing");
+      indexer = new CSVIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null));
       // uses sendToIndex() rather than run() to demonstrate the flushing behavior before the indexer is shut down.
       indexer.sendToIndex(List.of(doc, doc2));
       lines = Files.readAllLines(outputFile.toPath());
@@ -113,7 +114,25 @@ public class CSVIndexerTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/invalidConfig.conf");
 
     assertThrows(IllegalArgumentException.class,
-        () -> new CSVIndexer(config, messenger, false, "testing"));
+        () -> new CSVIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null)));
+  }
+
+  @Test
+  public void testUnsupportedSettingsAreRejected() {
+    for (String setting : List.of("idOverrideField: \"other_id\"", "includeFields: [\"id\"]", "excludeFields: [\"id\"]",
+        "indexOverrideField: \"index\"", "deletionMarker { field: \"deleted\", value: \"true\" }",
+        "deleteByQuery { fieldNameField: \"field\", valueField: \"value\" }, deletionMarker { field: \"deleted\", value: \"true\" }")) {
+      Config config = ConfigFactory.parseString(setting + ", csv { columns: [\"id\"], path: \"target/unused.csv\" }");
+      Exception exception = assertThrows(IllegalArgumentException.class,
+          () -> new CSVIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null)));
+      assertTrue(exception.getMessage(), exception.getMessage().contains(setting.split("\\W")[0]));
+    }
+  }
+
+  @Test
+  public void testEmptyFilterListsAreAllowed() {
+    Config config = ConfigFactory.parseString("includeFields: [], excludeFields: [], csv { columns: [\"id\"], path: \"target/unused.csv\" }");
+    new CSVIndexer(config, new IndexerContext(new TestMessenger(), false, "testing", null));
   }
 
   @Test
@@ -121,20 +140,20 @@ public class CSVIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/includeHeader.conf");
 
-    CSVIndexer noWriterIndexer = new CSVIndexer(config, messenger, null, false, "testing");
+    CSVIndexer noWriterIndexer = new CSVIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), null);
     assertFalse(noWriterIndexer.validateConnection());
 
     // in bypass mode there is nothing to connect to, and no header is written
-    CSVIndexer bypassIndexer = new CSVIndexer(config, messenger, null, true, "testing");
+    CSVIndexer bypassIndexer = new CSVIndexer(config.getConfig("indexer"), new IndexerContext(messenger, true, "testing", null), null);
     assertTrue(bypassIndexer.validateConnection());
 
-    CSVIndexer indexer = new CSVIndexer(config, messenger, false, "testing");
+    CSVIndexer indexer = new CSVIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null));
     assertTrue(indexer.validateConnection());
     indexer.closeConnection();
 
     // no include header
     config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/config.conf");
-    indexer = new CSVIndexer(config, messenger, false, "testing");
+    indexer = new CSVIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null));
     assertTrue(indexer.validateConnection());
     indexer.closeConnection();
   }
@@ -153,7 +172,7 @@ public class CSVIndexerTest {
 
       TestMessenger messenger = new TestMessenger();
       Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/missingParentConfig.conf");
-      CSVIndexer indexer = new CSVIndexer(config, messenger, false, "testing");
+      CSVIndexer indexer = new CSVIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null));
       // the output file, and its parent directory, are created when the indexer connects
       assertFalse(parentDirFile.exists());
       assertTrue(indexer.validateConnection());
@@ -170,7 +189,7 @@ public class CSVIndexerTest {
   public void testCloseNullWriter() {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/config.conf");
-    CSVIndexer indexer = new CSVIndexer(config, messenger, null, false, "testing");
+    CSVIndexer indexer = new CSVIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), null);
 
     // should not throw an error.
     indexer.closeConnection();
@@ -183,7 +202,7 @@ public class CSVIndexerTest {
 
     ICSVWriter mockWriter = Mockito.mock(ICSVWriter.class);
     Mockito.doThrow(new IOException("Mocked Error")).when(mockWriter).close();
-    CSVIndexer indexer = new CSVIndexer(config, messenger, mockWriter, false, "testing");
+    CSVIndexer indexer = new CSVIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockWriter);
 
     // Again, doesn't throw an error.
     indexer.closeConnection();
@@ -194,9 +213,9 @@ public class CSVIndexerTest {
     Files.writeString(outputFile.toPath(), "existing row\n");
     // append false: opening the file would truncate it
     Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/config.conf")
-        .withValue("csv.append", ConfigValueFactory.fromAnyRef(false));
+        .withValue("indexer.csv.append", ConfigValueFactory.fromAnyRef(false));
 
-    CSVIndexer indexer = new CSVIndexer(config, new TestMessenger(), false, "testing");
+    CSVIndexer indexer = new CSVIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null));
     indexer.closeConnection();
 
     assertEquals(List.of("existing row"), Files.readAllLines(outputFile.toPath()));
@@ -209,10 +228,9 @@ public class CSVIndexerTest {
         "connectors: [{name: \"connector1\", class: \"com.kmwllc.lucille.connector.SequenceConnector\", numDocs: 1, "
             + "pipeline: \"pipeline1\"}]\n"
             + "pipelines: [{name: \"pipeline1\", stages: []}]\n"
-            + "indexer { type: \"CSV\" }\n"
-            + "csv { columns: [\"id\"], path: \"output.csv\" }");
+            + "indexer { csv { columns: [\"id\"], path: \"output.csv\" } }");
 
-    assertTrue(Runner.runInValidationMode(config).isEmpty());
+    assertTrue(ConfigValidator.validate(config).isEmpty());
     assertEquals(List.of("existing row"), Files.readAllLines(outputFile.toPath()));
   }
 
@@ -221,7 +239,7 @@ public class CSVIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/includeHeader.conf");
 
-    CSVIndexer indexer = new CSVIndexer(config, messenger, true, "testing");
+    CSVIndexer indexer = new CSVIndexer(config.getConfig("indexer"), new IndexerContext(messenger, true, "testing", null));
     assertTrue(indexer.validateConnection());
     messenger.sendForIndexing(Document.create("doc1", "test_run"));
     messenger.sendForIndexing(Document.create("doc2", "test_run"));
@@ -240,7 +258,7 @@ public class CSVIndexerTest {
     doc.setField("f1", "123");
     doc.setField("f2", "abc");
 
-    CSVIndexer indexer = new CSVIndexer(config, messenger, false, "testing");
+    CSVIndexer indexer = new CSVIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null));
     List<String> lines;
     try {
       assertTrue(indexer.validateConnection());

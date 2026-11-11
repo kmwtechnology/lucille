@@ -35,11 +35,11 @@ Documents where `source` is missing, null, or blank are skipped. If `source` is 
 | `regex` | String | No | Java regex to split on. Required when `chunkingMethod` is `custom`. Compiled when the stage is created, so a missing or invalid pattern fails at startup. |
 | `lengthToSplit` | Integer | No | Number of characters per initial chunk. Required, and must be positive, when `chunkingMethod` is `fixed`. |
 | `chunksToMerge` | Integer | No | How many initial chunks to merge into one final chunk, joined with a space. Must be at least `1`. Default: `1` (no merging). |
-| `chunksToOverlap` | Integer | No | Number of initial chunks shared between consecutive final chunks. Merging then uses a sliding window of `chunksToMerge` chunks that advances by `chunksToMerge - chunksToOverlap`. Must be smaller than `chunksToMerge`. Cannot be combined with `overlapPercentage`. |
-| `overlapPercentage` | Integer | No | After merging, adds characters from the end of the previous chunk and the start of the next chunk. The number of characters taken from each neighbour is this percentage of the current chunk's length. Cannot be combined with `chunksToOverlap`. Default: `0`. |
+| `chunksToOverlap` | Integer | No | Number of initial chunks shared between consecutive final chunks. Merging then uses a sliding window of `chunksToMerge` chunks that advances by `chunksToMerge - chunksToOverlap`. Must be smaller than `chunksToMerge`. Cannot be combined with `percentOverlap`. |
+| `percentOverlap` | Integer | No | After merging, adds characters from the end of the previous chunk and the start of the next chunk. The number of characters taken from each neighbour is this percentage of the current chunk's length. Cannot be combined with `chunksToOverlap`. Default: `0`. |
 | `characterLimit` | Integer | No | Maximum character count for a final chunk, applied after merging and overlap. Longer chunks are truncated and trimmed. A value below `-1` fails at startup. |
-| `preMergeMinChunkLen` | Integer | No | Before merging, consecutive initial chunks are joined until they reach this many characters. A short final remainder is appended to the previous chunk. Ignored if not positive. |
-| `preMergeMaxChunkLen` | Integer | No | Initial chunks longer than this are truncated (and trimmed) before merging. Ignored if not positive. |
+| `preMergeMinChunkLength` | Integer | No | Before merging, consecutive initial chunks are joined until they reach this many characters. A short final remainder is appended to the previous chunk. Ignored if not positive. |
+| `preMergeMaxChunkLength` | Integer | No | Initial chunks longer than this are truncated (and trimmed) before merging. Ignored if not positive. |
 | `cleanChunks` | Boolean | No | Replace each line break, with its surrounding whitespace, by a single space and trim each initial chunk. Default: `false`. |
 
 ## Chunking Methods
@@ -99,8 +99,8 @@ The Stage applies transformations in this order:
 
 1. **Initial chunking** by the chosen method.
 2. **Cleaning** (if `cleanChunks: true`): replace line breaks with spaces, trim whitespace.
-3. **Pre-merge processing**: join short chunks (`preMergeMinChunkLen`), then truncate long ones (`preMergeMaxChunkLen`).
-4. **Merging and overlap**: with `chunksToOverlap`, merge using an overlapping sliding window. Otherwise merge every `chunksToMerge` chunks, then apply `overlapPercentage` if set.
+3. **Pre-merge processing**: join short chunks (`preMergeMinChunkLength`), then truncate long ones (`preMergeMaxChunkLength`).
+4. **Merging and overlap**: with `chunksToOverlap`, merge using an overlapping sliding window. Otherwise merge every `chunksToMerge` chunks, then apply `percentOverlap` if set.
 5. **Character limiting** (if `characterLimit` set): truncate oversized final chunks.
 
 ## Child Document Fields
@@ -109,7 +109,7 @@ Each final chunk becomes an attached child document with these fields:
 
 | Field | Description |
 |---|---|
-| `id` | `{parent_id}-{chunk_number}` (e.g., `doc-42-1`). |
+| `id` | `{parent_id}-chunk-{chunk_number}` (e.g., `doc-42-chunk-1`). |
 | `parent_id` | ID of the parent document. |
 | `chunk_number` | One-based index of this chunk. |
 | `total_chunks` | Total number of chunks from this parent. |
@@ -117,7 +117,7 @@ Each final chunk becomes an attached child document with these fields:
 | `length` | Number of characters in the final chunk. |
 | `{dest}` | The chunk text (default field name: `text`). |
 
-All other fields from the parent document are **not** copied to child documents. `EmitNestedChildren` can copy parent fields with its `fieldsToCopy` option.
+All other fields from the parent document are **not** copied to child documents. `EmitNestedChildren` can copy parent fields with its `fieldMapping` option.
 
 ## Typical RAG Pipeline
 

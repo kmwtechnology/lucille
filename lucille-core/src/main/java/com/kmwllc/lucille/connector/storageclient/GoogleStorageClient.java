@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.GOOGLE_SERVICE_KEY;
 
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.ReadChannel;
@@ -10,20 +10,22 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.Storage.CopyRequest;
 import com.google.cloud.storage.StorageOptions;
-import com.kmwllc.lucille.connector.FileConnectorStateManager;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.channels.Channels;
-import java.util.Objects;
+import java.nio.file.NoSuchFileException;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A storage client for Google Cloud. Create using a configuration (commonly mapped to <b>gcp</b>) which contains "pathToServiceKey".
+ * A storage client for Google Cloud. Create using a configuration (commonly mapped to <b>gcp</b>) which contains "serviceKeyPath".
  */
 public class GoogleStorageClient extends BaseStorageClient {
 
@@ -56,33 +58,56 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
-    traversePrefix(publisher, params, stateMgr, getStartingDirectory(params));
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws ConnectorException {
+    traverseByListing(publisher, params, stateMgr);
   }
 
-  private void traversePrefix(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr, String prefix) {
-    storage.list(getBucketOrContainerName(params),
+  @Override
+  protected boolean traversesByListing() {
+    return true;
+  }
+
+  @Override
+  protected Stream<ListingEntry> listDirectory(String prefix, TraversalParams params) {
+    return storage.list(getBucketOrContainerName(params),
             BlobListOption.prefix(prefix),
             BlobListOption.currentDirectory(),
             BlobListOption.pageSize(maxResultsPerPage))
         .streamAll()
-        .forEachOrdered(blob -> {
-          if (blob.isDirectory()) {
-            URI dirUri = uriForDirectory(blob.getName(), params);
+        .map(blob -> blob.isDirectory() ? ListingEntry.directory(blob.getName()) : fileEntry(blob, params));
+  }
 
-            if (!isSkippedDirectory(dirUri, params)) {
-              traversePrefix(publisher, params, stateMgr, blob.getName());
-            }
-          } else {
-            GoogleFileReference fileRef = new GoogleFileReference(blob, params);
-            processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
-          }
-        });
+  @Override
+  protected Stream<ListingEntry> listFlat(String prefix, TraversalParams params) {
+    return storage.list(getBucketOrContainerName(params),
+            BlobListOption.prefix(prefix),
+            BlobListOption.pageSize(maxResultsPerPage))
+        .streamAll()
+        .map(blob -> fileEntry(blob, params));
+  }
+
+  private ListingEntry fileEntry(Blob blob, TraversalParams params) {
+    return ListingEntry.file(blob.getName(), () -> new GoogleFileReference(blob, params));
+  }
+
+  @Override
+  protected URI directoryURI(String prefix, TraversalParams params) {
+    return uriForDirectory(prefix, params);
   }
 
   private URI uriForDirectory(String prefix, TraversalParams params) {
-    URI paramsUri = params.getURI();
-    return URI.create(paramsUri.getScheme() + "://" + paramsUri.getAuthority() + "/" + prefix);
+    return buildObjectURI(params.getURI(), prefix);
+  }
+
+  // Builds the gs:// URI for an object name or prefix, percent-encoding any characters that can't appear in a URI
+  // (space, '#', '%', '[', ...), so the name round-trips through URI.getPath(). Uses the constructor that takes an
+  // authority: the four-argument one takes a hostname, which can't contain the '_' that bucket names may.
+  private static URI buildObjectURI(URI paramsUri, String name) {
+    try {
+      return new URI(paramsUri.getScheme(), paramsUri.getAuthority(), "/" + name, null, null);
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Unable to build Google Cloud URI for object: " + name, e);
+    }
   }
 
   @Override
@@ -91,17 +116,12 @@ public class GoogleStorageClient extends BaseStorageClient {
     String objectKey = uri.getPath().substring(1);
 
     Blob blob = storage.get(BlobId.of(bucketName, objectKey));
+    if (blob == null) {
+      throw new NoSuchFileException(uri.toString(), null, "No Google Cloud object exists at this URI.");
+    }
+
     ReadChannel blobReadChannel = blob.reader();
     return Channels.newInputStream(blobReadChannel);
-  }
-
-  private String getStartingDirectory(TraversalParams params) {
-    URI pathURI = params.getURI();
-    String startingDirectory = Objects.equals(pathURI.getPath(), "/") ? "" : pathURI.getPath();
-    if (startingDirectory.startsWith("/")) {
-      return startingDirectory.substring(1);
-    }
-    return startingDirectory;
   }
 
   private String getBucketOrContainerName(TraversalParams params) {
@@ -114,12 +134,17 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
+  public boolean moveTargetInsidePath(URI path, URI folder) {
+    return movedKeyInsideBucketPath(path, folder);
+  }
+
+  @Override
   public void moveFile(URI filePath, URI folder) throws IOException {
     String sourceBucket = filePath.getAuthority();
     String sourceKey = filePath.getPath().substring(1);
 
     String destBucket = folder.getAuthority();
-    String destKey = folder.getPath().substring(1) + sourceKey;
+    String destKey = destinationKey(keyPrefix(folder), sourceKey);
 
     BlobId source = BlobId.of(sourceBucket, sourceKey);
     BlobId target = BlobId.of(destBucket, destKey);
@@ -146,6 +171,11 @@ public class GoogleStorageClient extends BaseStorageClient {
 
     @Override
     public String getName() {
+      return lastSegment(blob.getName());
+    }
+
+    @Override
+    public String getFilterName() {
       return blob.getName();
     }
 
@@ -166,9 +196,7 @@ public class GoogleStorageClient extends BaseStorageClient {
     }
 
     private static URI getFullPathHelper(Blob blob, TraversalParams params) {
-      URI paramsURI = params.getURI();
-      String fullPathStr = paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();
-      return URI.create(fullPathStr);
+      return buildObjectURI(params.getURI(), blob.getName());
     }
   }
 }

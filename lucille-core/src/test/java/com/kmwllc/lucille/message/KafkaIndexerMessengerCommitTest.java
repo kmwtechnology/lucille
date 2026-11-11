@@ -1,12 +1,18 @@
 package com.kmwllc.lucille.message;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -184,11 +190,50 @@ public class KafkaIndexerMessengerCommitTest {
     }
   }
 
+  @Test
+  public void testOwnsInputLapsesWithoutAPollWithinMaxPollInterval() throws Exception {
+    MockConsumer<String, KafkaDocument> consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
+    consumer.setMaxPollRecords(1);
+    KafkaIndexerMessenger messenger =
+        new KafkaIndexerMessenger(config(), "pipeline1", consumer, Duration.ofMillis(200));
+    consumer.rebalance(Set.of(PARTITION_0));
+    consumer.updateBeginningOffsets(Map.of(PARTITION_0, 0L));
+    consumer.addRecord(record(0));
+
+    Document doc = messenger.pollDocToIndex();
+    assertTrue(messenger.ownsInput(doc));
+    // No poll for longer than max.poll.interval.ms: the consumer has left its group, so ownership is not confirmed.
+    Thread.sleep(300);
+    assertFalse(messenger.ownsInput(doc));
+    // A poll that does not report the partition lost restores it.
+    messenger.pollDocToIndex();
+    assertTrue(messenger.ownsInput(doc));
+  }
+
+  @Test
+  public void testRecordFromRewoundPartitionIsNotReturned() throws Exception {
+    MockConsumer<String, KafkaDocument> consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
+    consumer.setMaxPollRecords(1);
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config(), "pipeline1", consumer);
+    consumer.rebalance(Set.of(PARTITION_0));
+    consumer.updateBeginningOffsets(Map.of(PARTITION_0, 0L));
+    consumer.addRecord(record(0));
+    consumer.addRecord(record(1));
+
+    Document first = messenger.pollDocToIndex();
+    // first was not sent, though the partition is still assigned. The next poll seeks back to offset 0, and discards
+    // the record it fetched (offset 1), which will be fetched again after offset 0.
+    messenger.batchNotSent(List.of(first));
+    assertNull(messenger.pollDocToIndex());
+    assertEquals(0, consumer.position(PARTITION_0));
+    assertFalse(messenger.ownsInput(first));
+  }
+
   private static Config config() {
     return ConfigFactory.parseMap(Map.of(
         "kafka.bootstrapServers", "localhost:9092",
         "kafka.consumerGroupId", "test-group",
-        "kafka.maxPollIntervalSecs", 300,
+        "kafka.maxPollIntervalMs", 300000,
         "kafka.maxRequestSize", 1048576,
         "kafka.events", false));
   }
@@ -202,8 +247,8 @@ public class KafkaIndexerMessengerCommitTest {
   private static ConsumerRecord<String, KafkaDocument> record(TopicPartition partition, long offset) {
     String id = "doc-" + partition.partition() + "-" + offset;
     try {
-      KafkaDocument doc = new KafkaDocument(
-          new ConsumerRecord<>(partition.topic(), partition.partition(), offset, id, Document.create(id, "run1").toString()));
+      KafkaDocument doc = new KafkaDocument((ObjectNode) new ObjectMapper().readTree(Document.create(id, "run1").toString()));
+      doc.setKafkaMetadata(partition.topic(), partition.partition(), offset, id);
       return new ConsumerRecord<>(partition.topic(), partition.partition(), offset, id, doc);
     } catch (Exception e) {
       throw new RuntimeException(e);

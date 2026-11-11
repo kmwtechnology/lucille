@@ -2,11 +2,14 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.util.EmbeddedKafkaUtils;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -23,17 +26,20 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.BooleanSupplier;
-import org.apache.commons.lang3.tuple.Pair;
+import java.util.function.Supplier;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
+import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -41,6 +47,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.GroupState;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -99,7 +106,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     String pipeline = newPipeline(2);
     String runId = "run-" + pipeline;
     Config config = config(pipeline, 3, Map.of(
-        "kafka.events", true, "indexer.batchSize", 2, "indexer.batchTimeout", 20, "kafka.pollIntervalMs", 25));
+        "kafka.events", true, "indexer.batchSize", 2, "indexer.batchTimeoutMs", 20, "kafka.pollIntervalMs", 25));
     int perPartition = 15;
 
     Set<String> ids = new HashSet<>();
@@ -112,7 +119,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         new TopicPartition(topic, 1), (long) perPartition);
 
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline);
-    SlowIndexer indexer = new SlowIndexer(config, messenger);
+    SlowIndexer indexer = new SlowIndexer(config.getConfig("indexer"), messenger);
     Thread thread = new Thread(indexer);
     thread.start();
     try {
@@ -157,7 +164,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
   public void testRebalanceDuringBlockedDispatchDoesNotResendOrReorder() throws Exception {
     String pipeline = newPipeline(1);
     // One document per batch, never flushed by time.
-    Config config = config(pipeline, 2, Map.of("indexer.batchSize", 1, "indexer.batchTimeout", 600000,
+    Config config = config(pipeline, 2, Map.of("indexer.batchSize", 1, "indexer.batchTimeoutMs", 600000,
         "indexer.idOverrideField", "destId", "kafka.pollIntervalMs", 100));
     String topic = KafkaUtils.getDestTopicName(pipeline);
     TopicPartition partition = new TopicPartition(topic, 0);
@@ -178,7 +185,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     AtomicInteger pollsSinceRejoin = new AtomicInteger();
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline) {
       @Override
-      public Document pollDocToIndex() {
+      public Document pollDocToIndex() throws MessengerException {
         Document doc = super.pollDocToIndex();
         if (doc != null) {
           polled.incrementAndGet();
@@ -192,7 +199,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         return doc;
       }
     };
-    GatedIndexer indexer = new GatedIndexer(config, messenger, "doc0");
+    GatedIndexer indexer = new GatedIndexer(config.getConfig("indexer"), messenger, "doc0");
     Thread thread = new Thread(indexer);
     thread.start();
     try {
@@ -254,7 +261,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
   public void testRebalanceDoesNotResendBatchedDocuments() throws Exception {
     String pipeline = newPipeline(1);
     // A batch that neither fills nor expires, so every polled document is still in the open batch at the rebalance.
-    Config config = config(pipeline, 1, Map.of("indexer.batchSize", 1000, "indexer.batchTimeout", 600000,
+    Config config = config(pipeline, 1, Map.of("indexer.batchSize", 1000, "indexer.batchTimeoutMs", 600000,
         "kafka.pollIntervalMs", 100));
     int total = 5;
     List<String> ids = produce(config, pipeline, 0, total, "run");
@@ -264,7 +271,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     AtomicInteger pollsSinceRejoin = new AtomicInteger();
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline) {
       @Override
-      public Document pollDocToIndex() {
+      public Document pollDocToIndex() throws MessengerException {
         Document doc = super.pollDocToIndex();
         if (doc != null) {
           polled.incrementAndGet();
@@ -278,7 +285,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         return doc;
       }
     };
-    RecordingIndexer indexer = new RecordingIndexer(config, messenger);
+    RecordingIndexer indexer = new RecordingIndexer(config.getConfig("indexer"), messenger);
     Thread thread = new Thread(indexer);
     thread.start();
     try {
@@ -331,7 +338,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     String pipeline = newPipeline(1);
     String runId = "run-" + pipeline;
     Config config = config(pipeline, 4, Map.of("kafka.events", true, "indexer.batchSize", 4,
-        "indexer.batchTimeout", 20, "indexer.idOverrideField", "destId", "kafka.pollIntervalMs", 25));
+        "indexer.batchTimeoutMs", 20, "indexer.idOverrideField", "destId", "kafka.pollIntervalMs", 25));
     int total = 600;
     String[] destIds = new String[60];
     for (int i = 0; i < destIds.length; i++) {
@@ -359,7 +366,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     List<Document> received = Collections.synchronizedList(new ArrayList<>());
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline) {
       @Override
-      public Document pollDocToIndex() {
+      public Document pollDocToIndex() throws MessengerException {
         Document doc = super.pollDocToIndex();
         if (doc != null) {
           received.add(doc);
@@ -367,7 +374,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
         return doc;
       }
     };
-    DestinationIndexer indexer = new DestinationIndexer(config, messenger);
+    DestinationIndexer indexer = new DestinationIndexer(config.getConfig("indexer"), messenger);
     Map<TopicPartition, Long> expectedCommits = Map.of(new TopicPartition(topic, 0), (long) total);
     Thread thread = new Thread(indexer);
     thread.start();
@@ -413,12 +420,239 @@ public class KafkaConcurrentIndexerEndToEndTest {
     assertEquals(ids, finished);
   }
 
+  @Test
+  public void testRejectedDocumentReachesFailTopic() throws Exception {
+    String pipeline = newPipeline(1);
+    String failTopic = KafkaUtils.getFailTopicName(pipeline);
+    embeddedKafka.addTopics(new NewTopic(failTopic, 1, (short) 1));
+    Config config = config(pipeline, 1, Map.of("indexer.batchTimeoutMs", 100, "indexer.sendFailedDocsToTopic", true));
+    String id = produce(config, pipeline, 0, 1, "run").get(0);
+
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline);
+    RecordingIndexer indexer = new RecordingIndexer(config.getConfig("indexer"), messenger) {
+      @Override
+      protected List<IndexerFailure> sendToIndex(List<Document> documents) {
+        return documents.stream().map(doc -> new IndexerFailure(doc, new IndexerException("rejected"))).toList();
+      }
+    };
+    Thread thread = new Thread(indexer);
+    thread.start();
+    try {
+      Document failed = readFailTopic(config, failTopic);
+      assertEquals(id, failed.getId());
+      assertEquals("indexer", failed.getString(Document.FAILURE_COMPONENT_FIELD));
+      assertTrue(failed.getString(Document.FAILURE_REASON_FIELD).contains("rejected"));
+      assertTrue(failed.has(Document.FAILURE_TIME_FIELD));
+      // the fail-topic write came first, so the offset can now be committed
+      waitFor(() -> Map.of(new TopicPartition(KafkaUtils.getDestTopicName(pipeline), 0), 1L).equals(committed(config)));
+    } finally {
+      indexer.terminate();
+      thread.join(TIMEOUT_MS);
+    }
+  }
+
+  @Test
+  public void testWorkerJoiningDoesNotJoinTheIndexersGroup() throws Exception {
+    String pipeline = newPipeline(1);
+    embeddedKafka.addTopics(new NewTopic(KafkaUtils.getSourceTopicName(pipeline, ConfigFactory.empty()), 1, (short) 1));
+    Config config = config(pipeline, 1, Map.of("indexer.batchTimeoutMs", 100));
+    String id = produce(config, pipeline, 0, 1, "run").get(0);
+
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline);
+    RecordingIndexer indexer = new RecordingIndexer(config.getConfig("indexer"), messenger);
+    Thread thread = new Thread(indexer);
+    thread.start();
+    String workersGroup = config.getString("kafka.consumerGroupId");
+    try (KafkaConsumer<String, String> worker = groupMember(config, workersGroup)) {
+      waitFor(() -> indexer.sent.contains(id));
+
+      worker.subscribe(List.of(KafkaUtils.getSourceTopicName(pipeline, ConfigFactory.empty())));
+      waitFor(() -> {
+        worker.poll(Duration.ofMillis(100));
+        return !worker.assignment().isEmpty();
+      });
+
+      Map<String, ConsumerGroupDescription> groups =
+          admin.describeConsumerGroups(List.of(workersGroup, indexerGroup(config))).all().get();
+      assertEquals(1, groups.get(workersGroup).members().size());
+      assertEquals(1, groups.get(indexerGroup(config)).members().size());
+      assertEquals(GroupState.STABLE, groups.get(indexerGroup(config)).groupState());
+    } finally {
+      indexer.terminate();
+      thread.join(TIMEOUT_MS);
+    }
+  }
+
+  @Test
+  public void testHybridMessengersWriteToFailTopic() throws Exception {
+    String pipeline = newPipeline(1);
+    String failTopic = KafkaUtils.getFailTopicName(pipeline);
+    embeddedKafka.addTopics(new NewTopic(failTopic, 1, (short) 1));
+
+    Config workerConfig = config(pipeline, 1, Map.of("worker.maxRetries", 1));
+    HybridWorkerMessenger workerMessenger =
+        new HybridWorkerMessenger(workerConfig, pipeline, new LinkedBlockingQueue<>());
+    try {
+      workerMessenger.sendFailed(Document.create("fromWorker", "run"));
+    } finally {
+      workerMessenger.close();
+    }
+    assertEquals("fromWorker", readFailTopic(workerConfig, failTopic).getId());
+
+    Config indexerConfig = config(pipeline, 1, Map.of("indexer.sendFailedDocsToTopic", true));
+    // sendFailed and close don't use the worker messenger
+    HybridIndexerMessenger indexerMessenger =
+        new HybridIndexerMessenger(indexerConfig, new LinkedBlockingQueue<>(), null, null, pipeline);
+    try {
+      indexerMessenger.sendFailed(Document.create("fromIndexer", "run"));
+    } finally {
+      indexerMessenger.close();
+    }
+    List<String> ids = new ArrayList<>();
+    try (KafkaConsumer<String, String> consumer = eventConsumer(indexerConfig)) {
+      consumer.subscribe(List.of(failTopic));
+      long deadline = System.currentTimeMillis() + TIMEOUT_MS;
+      while (ids.size() < 2 && System.currentTimeMillis() < deadline) {
+        for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofMillis(200))) {
+          ids.add(record.key());
+        }
+      }
+    }
+    assertEquals(List.of("fromWorker", "fromIndexer"), ids);
+  }
+
+  private static Document readFailTopic(Config config, String failTopic) throws Exception {
+    try (KafkaConsumer<String, String> consumer = eventConsumer(config)) {
+      consumer.subscribe(List.of(failTopic));
+      long deadline = System.currentTimeMillis() + TIMEOUT_MS;
+      while (System.currentTimeMillis() < deadline) {
+        for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofMillis(200))) {
+          return Document.createFromJson(record.value());
+        }
+      }
+    }
+    throw new AssertionError("nothing was written to " + failTopic);
+  }
+
+  @Test
+  public void testPublisherReadsEventsWithoutJoiningAGroup() throws Exception {
+    String pipeline = newPipeline(1);
+    Config config = config(pipeline, 1, Map.of("kafka.events", true));
+
+    KafkaPublisherMessenger publisher = new KafkaPublisherMessenger(config);
+    try (KafkaProducer<String, String> eventProducer = KafkaUtils.createEventProducer(config)) {
+      publisher.initialize("run1", pipeline);
+      String eventTopic = KafkaUtils.getEventTopicName(config, pipeline, "run1");
+      sendEvent(eventProducer, eventTopic, "doc1");
+
+      assertEquals("doc1", pollEvent(publisher).getDocumentId());
+
+      String workersGroup = config.getString("kafka.consumerGroupId");
+      ExecutionException noGroup =
+          assertThrows(ExecutionException.class, () -> admin.describeConsumerGroups(List.of(workersGroup)).all().get());
+      assertTrue(noGroup.getCause() instanceof GroupIdNotFoundException);
+    } finally {
+      publisher.close();
+    }
+  }
+
+  @Test
+  public void testPublisherSkipsEarlierRunsOnAFixedEventTopic() throws Exception {
+    String pipeline = newPipeline(1);
+    String eventTopic = pipeline + "_fixed_events";
+    embeddedKafka.addTopics(new NewTopic(eventTopic, 1, (short) 1));
+    Config config = config(pipeline, 1, Map.of("kafka.events", true, "kafka.eventTopic", eventTopic));
+
+    KafkaPublisherMessenger publisher = new KafkaPublisherMessenger(config);
+    try (KafkaProducer<String, String> eventProducer = KafkaUtils.createEventProducer(config)) {
+      sendEvent(eventProducer, eventTopic, "fromEarlierRun");
+      publisher.initialize("run1", pipeline);
+      sendEvent(eventProducer, eventTopic, "fromThisRun");
+
+      assertEquals("fromThisRun", pollEvent(publisher).getDocumentId());
+    } finally {
+      publisher.close();
+    }
+  }
+
+  private static void sendEvent(KafkaProducer<String, String> producer, String topic, String id) throws Exception {
+    Event event = new Event(Document.create(id, "run1"), "message", Event.Type.FINISH);
+    producer.send(new ProducerRecord<>(topic, id, event.toString())).get();
+  }
+
+  private static Event pollEvent(KafkaPublisherMessenger publisher) throws Exception {
+    long deadline = System.currentTimeMillis() + TIMEOUT_MS;
+    while (System.currentTimeMillis() < deadline) {
+      Event event = publisher.pollEvent();
+      if (event != null) {
+        return event;
+      }
+    }
+    throw new AssertionError("no event was received");
+  }
+
+  /**
+   * An indexer evicted from its group (no poll within max.poll.interval.ms, here because a slow send holds up the batch
+   * waiting for a slot) must not send the batch it dispatches afterwards: the partition may already belong to another
+   * consumer, which may since have deleted the document. The batch is skipped instead, and re-polled and sent once the
+   * consumer rejoins. Before the ownership check, it was sent by the evicted consumer and then again after the re-poll.
+   */
+  @Test
+  public void testEvictedIndexerDoesNotSendBatchDispatchedAfterEviction() throws Exception {
+    String pipeline = newPipeline(1);
+    // One document per batch, never flushed by time; a 2 s poll deadline.
+    Config config = config(pipeline, 2, Map.of("indexer.batchSize", 1, "indexer.batchTimeoutMs", 600000,
+        "kafka.pollIntervalMs", 100, "kafka.maxPollIntervalMs", 2000));
+    String topic = KafkaUtils.getDestTopicName(pipeline);
+    TopicPartition partition = new TopicPartition(topic, 0);
+    // A fifth document, so the fourth is flushed (a batch of one is flushed by the next add).
+    List<String> ids = produce(config, pipeline, 0, 5, "run");
+
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline);
+    GatedIndexer indexer = new GatedIndexer(config.getConfig("indexer"), messenger, ids.get(0));
+    Thread thread = new Thread(indexer);
+    thread.start();
+    try {
+      // Polling doc1 dispatches doc0, whose send is held. Polling doc2 dispatches doc1. Polling doc3 dispatches doc2,
+      // which waits for doc0 (the window is full), so the indexer stops polling and is evicted.
+      waitFor(() -> indexer.gatedSendStarted);
+      waitFor(() -> {
+        try {
+          return groupState(config) == GroupState.EMPTY;
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+      });
+      // doc2 is dispatched only now, after the eviction.
+      indexer.release();
+      waitFor(() -> Map.of(partition, 4L).equals(committed(config)), indexer.sent::toString);
+    } finally {
+      indexer.release();
+      indexer.terminate();
+      thread.join(TIMEOUT_MS);
+    }
+
+    // doc0 and doc1 may be sent twice (doc0 was on the wire at the eviction, and neither commit could succeed after it),
+    // but doc2 and doc3, dispatched after the eviction, are sent once each, after the consumer rejoined.
+    assertEquals(indexer.sent.toString(), 1, Collections.frequency(indexer.sent, ids.get(2)));
+    assertEquals(indexer.sent.toString(), 1, Collections.frequency(indexer.sent, ids.get(3)));
+    assertTrue(indexer.sent.containsAll(ids.subList(0, 4)));
+  }
+
   // --- helpers ---
 
+  private static String indexerGroup(Config config) {
+    return config.getString("kafka.consumerGroupId") + "-indexer";
+  }
+
   private static KafkaConsumer<String, String> groupMember(Config config) {
+    return groupMember(config, indexerGroup(config));
+  }
+
+  private static KafkaConsumer<String, String> groupMember(Config config, String group) {
     Properties props = new Properties();
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
-    props.put(ConsumerConfig.GROUP_ID_CONFIG, config.getString("kafka.consumerGroupId"));
+    props.put(ConsumerConfig.GROUP_ID_CONFIG, group);
     props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
     props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
     props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
@@ -426,7 +660,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
   }
 
   private static GroupState groupState(Config config) throws Exception {
-    String group = config.getString("kafka.consumerGroupId");
+    String group = indexerGroup(config);
     return admin.describeConsumerGroups(List.of(group)).all().get().get(group).groupState();
   }
 
@@ -440,7 +674,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     Map<String, Object> settings = new HashMap<>(Map.of(
         "kafka.bootstrapServers", embeddedKafka.getBrokersAsString(),
         "kafka.consumerGroupId", "group-" + pipeline,
-        "kafka.maxPollIntervalSecs", 300,
+        "kafka.maxPollIntervalMs", 300000,
         "kafka.maxRequestSize", 1048576,
         "kafka.events", false,
         "indexer.maxConcurrentBatches", maxConcurrentBatches));
@@ -466,7 +700,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
   private static Map<TopicPartition, Long> committed(Config config) {
     try {
       Map<TopicPartition, OffsetAndMetadata> offsets = admin
-          .listConsumerGroupOffsets(config.getString("kafka.consumerGroupId"))
+          .listConsumerGroupOffsets(indexerGroup(config))
           .partitionsToOffsetAndMetadata().get();
       Map<TopicPartition, Long> result = new HashMap<>();
       offsets.forEach((partition, offset) -> {
@@ -481,10 +715,14 @@ public class KafkaConcurrentIndexerEndToEndTest {
   }
 
   private static void waitFor(BooleanSupplier condition) throws InterruptedException {
+    waitFor(condition, () -> "");
+  }
+
+  private static void waitFor(BooleanSupplier condition, Supplier<String> detail) throws InterruptedException {
     long deadline = System.currentTimeMillis() + TIMEOUT_MS;
     while (!condition.getAsBoolean()) {
       if (System.currentTimeMillis() > deadline) {
-        throw new AssertionError("condition not met within " + TIMEOUT_MS + " ms");
+        throw new AssertionError("condition not met within " + TIMEOUT_MS + " ms " + detail.get());
       }
       Thread.sleep(20);
     }
@@ -508,7 +746,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     final List<String> sent = Collections.synchronizedList(new ArrayList<>());
 
     RecordingIndexer(Config config, IndexerMessenger messenger) {
-      super(config, messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest");
+      super(config, new IndexerContext(messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest"));
     }
 
     @Override
@@ -517,7 +755,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    public boolean validateConnection() {
+    protected boolean checkConnection() {
       return true;
     }
 
@@ -526,9 +764,9 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) {
+    protected List<IndexerFailure> sendToIndex(List<Document> documents) {
       documents.forEach(doc -> sent.add(doc.getId()));
-      return Collections.emptySet();
+      return List.of();
     }
   }
 
@@ -556,7 +794,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) {
+    protected List<IndexerFailure> sendToIndex(List<Document> documents) {
       if (documents.stream().anyMatch(doc -> doc.getId().equals(gatedId))) {
         gatedSendStarted = true;
         try {
@@ -580,7 +818,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     private final AtomicInteger concurrent = new AtomicInteger();
 
     SlowIndexer(Config config, IndexerMessenger messenger) {
-      super(config, messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest");
+      super(config, new IndexerContext(messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest"));
     }
 
     @Override
@@ -594,7 +832,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    public boolean validateConnection() {
+    protected boolean checkConnection() {
       return true;
     }
 
@@ -603,11 +841,11 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
+    protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
       peakConcurrent.accumulateAndGet(concurrent.incrementAndGet(), Math::max);
       try {
         Thread.sleep(ThreadLocalRandom.current().nextInt(20, 120));
-        return Collections.emptySet();
+        return List.of();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new IndexerException("Interrupted while sending", e);
@@ -630,7 +868,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     private final Map<String, List<String>> applied = new HashMap<>();
 
     DestinationIndexer(Config config, IndexerMessenger messenger) {
-      super(config, messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest");
+      super(config, new IndexerContext(messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest"));
     }
 
     Map<String, String> content() {
@@ -658,7 +896,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    public boolean validateConnection() {
+    protected boolean checkConnection() {
       return true;
     }
 
@@ -667,7 +905,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
+    protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
       peakConcurrent.accumulateAndGet(concurrent.incrementAndGet(), Math::max);
       try {
         Thread.sleep(ThreadLocalRandom.current().nextInt(1, 4));
@@ -682,7 +920,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
             applied.computeIfAbsent(destId, k -> new ArrayList<>()).add(doc.getId());
           }
         }
-        return Collections.emptySet();
+        return List.of();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new IndexerException("Interrupted while sending", e);

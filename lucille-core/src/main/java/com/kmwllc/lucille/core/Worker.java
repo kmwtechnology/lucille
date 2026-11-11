@@ -11,11 +11,11 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.HybridWorkerMessenger;
 import com.kmwllc.lucille.message.KafkaWorkerMessenger;
 import com.kmwllc.lucille.message.MessengerException;
+import com.kmwllc.lucille.message.UndeserializableRecordException;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.util.LogUtils;
 import com.kmwllc.lucille.util.ThrowableUtils;
 import com.typesafe.config.Config;
-import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -51,8 +51,8 @@ class Worker implements Runnable {
   public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .optionalString("pipeline")
       .optionalNumber("threads", "maxProcessingSecs", "maxRetries")
-      .optionalBoolean("exitOnTimeout", "enableHeartbeat")
-      .optionalParent(SpecBuilder.parent("retryCounter").optionalString("class").build()).build();
+      .optionalBoolean("exitOnTimeout", "enableHeartbeat", "sendFailedDocsToTopic")
+      .optionalParent("retryCounter", SpecBuilder.withoutDefaults().optionalString("class").build()).build();
 
   public static final String METRICS_SUFFIX = ".worker.docProcessingTme";
 
@@ -75,6 +75,7 @@ class Worker implements Runnable {
   private boolean trackRetries = false;
   private RetryCounter counter = null;
   private final String metricsPrefix;
+  private final boolean sendFailedDocsToTopic;
 
   public void terminate() {
     log.debug("terminate called");
@@ -101,6 +102,7 @@ class Worker implements Runnable {
     this.pollInstant = new AtomicReference();
     this.pollInstant.set(Instant.now());
     this.metricsPrefix = metricsPrefix;
+    this.sendFailedDocsToTopic = ConfigUtils.getBooleanOrDefault(config, "worker.sendFailedDocsToTopic", false);
   }
 
   /**
@@ -180,10 +182,10 @@ class Worker implements Runnable {
           if (localRunId == null && doc != null) {
             MDC.put(RUNID_FIELD, doc.getRunId());
           }
-        } catch (RecordDeserializationException e) {
-          // already logged with the record's location by the messenger; the offsets of the records before it are
+        } catch (UndeserializableRecordException e) {
+          // already logged in full by the messenger; the offsets of the records before it are
           // committed below, so a restarted worker resumes at the bad record (or past it, if configured to skip)
-          log.error("Worker stopping: could not deserialize record {}@{}", e.topicPartition(), e.offset());
+          log.error("Worker stopping: {}", e.getMessage());
           failure = e;
           break;
         } catch (Exception e) {
@@ -281,6 +283,13 @@ class Worker implements Runnable {
   private void sendToDeadLetterQueue(Document doc) throws MessengerException {
     docLogger.error("Document FAILED: retry count exceeded for {}. Sending to dead letter queue.", doc.getId());
     failedDocLogger.atError().setMessage(() -> doc.toString()).log();
+    sendToFailTopic(doc, "Retry count exceeded");
+    messenger.sendEvent(doc, Event.WORKER_MAX_RETRIES_EXCEEDED, Event.Type.FAIL);
+  }
+
+  private void sendToFailTopic(Document doc, String reason) throws MessengerException {
+    // Document is sealed, so every Document is a JsonDocument
+    ((JsonDocument) doc).setFailureMetadata(reason, "worker", Instant.now());
     try {
       messenger.sendFailed(doc);
     } catch (MessengerException e) {
@@ -289,7 +298,6 @@ class Worker implements Runnable {
       }
       docLogger.error("Document {} could not be sent to the dead letter queue.", doc.getId(), e);
     }
-    messenger.sendEvent(doc, Event.WORKER_MAX_RETRIES_EXCEEDED, Event.Type.FAIL);
   }
 
   /**
@@ -352,13 +360,17 @@ class Worker implements Runnable {
   }
 
   /**
-   * Records that the document failed in the pipeline and sends FAIL events for it and for the given child, if any.
-   * A failure to send those events is a messenger failure and propagates as such.
+   * Records that the document failed in the pipeline, copies it to the fail topic if worker.sendFailedDocsToTopic is
+   * set, and sends FAIL events for it and for the given child, if any. A failure to send those events, or the copy for a
+   * reason other than the document itself, is a messenger failure and propagates as such.
    */
   private void failDocument(Document doc, Document announcedChild, Throwable cause) throws MessengerException {
     docLogger.error("Document FAILED during pipeline processing: {}", doc.getId(), cause);
     failedDocLogger.atError().setMessage(() -> doc.toString()).log();
     String reason = Event.failureMessage(cause);
+    if (sendFailedDocsToTopic) {
+      sendToFailTopic(doc, reason);
+    }
     if (announcedChild != null) {
       Document child = announcedChild;
       docLogger.error("Child document {} of {} FAILED: its parent failed after the child was announced.", child.getId(),
@@ -375,11 +387,17 @@ class Worker implements Runnable {
   private void commitOffsetsAndRemoveCounter(Document doc) {
     try {
       messenger.commitPendingDocOffsets();
-      if (trackRetries && doc != null) {
-        counter.remove(doc);
-      }
     } catch (Exception commitException) {
       log.error("Error committing updated offsets for pending documents", commitException);
+    }
+    // The document was processed whether or not the commit succeeded. A count left behind could send a later, healthy
+    // redelivery of it to the dead letter queue.
+    if (trackRetries && doc != null) {
+      try {
+        counter.remove(doc);
+      } catch (Exception e) {
+        log.error("Error removing the retry count of document {}", doc.getId(), e);
+      }
     }
   }
 

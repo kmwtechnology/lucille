@@ -14,12 +14,14 @@ import com.knuddels.jtokkit.api.ModelType;
 import com.typesafe.config.Config;
 import dev.langchain4j.data.segment.TextSegment;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import dev.langchain4j.model.output.Response;
 import java.util.List;
+import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +33,8 @@ import org.slf4j.LoggerFactory;
  * Config Parameters -
  * <ul>
  *   <li>source (String) : field of which the embedding Stage will retrieve content from</li>
- *   <li>dest (String, Optional) : name of the field that will hold the embeddings, defaults to "embeddings"</li>
+ *   <li>dest (String, Optional) : name of the field that will hold the embeddings, defaults to "embeddings". NOTE: Preexisting
+ *   content in this field is overwritten, as a field with multiple vectors is invalid in most vector engines.</li>
  *   <li>embedDocument (Boolean) : Embeds the document's source if set to true.</li>
  *   <li>embedChildren (Boolean) : Embeds the document's children source if set to true.</li>
  *   <li>apiKey (String) : API key used for OpenAI requests</li>
@@ -117,6 +120,7 @@ public class OpenAIEmbed extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     List<Document> documentsToEmbed = new ArrayList<>();
+    List<Document> children = doc.getChildren();
 
     // send doc for embedding if it does contain textField with nonNull value and that textField is not empty
     if (embedDocument && isValidDocument(doc)) {
@@ -124,23 +128,22 @@ public class OpenAIEmbed extends Stage {
     }
     if (embedChildren && doc.hasChildren()){
       // only way to retrieve children is to call getChildren() which returns a deep copy of current children
-      for (Document childDoc : doc.getChildren()) {
+      for (Document childDoc : children) {
         if (isValidDocument(childDoc)) {
           documentsToEmbed.add(childDoc);
         }
       }
     }
 
-    List<Document> processedDocs = sendForEmbedding(documentsToEmbed, doc);
+    Map<String, Document> processedDocs = sendForEmbedding(documentsToEmbed, doc);
 
     // currently do not support modifying children, so now explicitly cloning (getChildren()), processing and replacing old children
     if (embedChildren && doc.hasChildren()) {
       doc.removeChildren();
-      for (Document processedDoc : processedDocs) {
-        if (processedDoc.getId().equals(doc.getId())) {
-          continue;
-        }
-        doc.addChild(processedDoc);
+      for (Document child : children) {
+        // For each child on the original document, we add the processed doc if it exists. Otherwise, just add the child back in as
+        // is. Children can be un-processed when they are not valid documents per #isValidDocument below.
+        doc.addChild(processedDocs.getOrDefault(child.getId(), child));
       }
     }
 
@@ -151,12 +154,12 @@ public class OpenAIEmbed extends Stage {
     return doc.hasNonNull(source) && !StringUtils.isBlank(doc.getString(source));
   }
 
-  private List<Document> sendForEmbedding(List<Document> docsToEmbed, Document parentDoc) throws StageException {
+  private Map<String, Document> sendForEmbedding(List<Document> docsToEmbed, Document parentDoc) throws StageException {
     // if there is no embedding done on this document, carry on with lucille-run with other documents
     if (docsToEmbed.isEmpty()) {
       log.warn("No documents to embed. Check your source field, embedChildren and embedDocument setting in your config file if you"
           + " expect docid {} or its children to be sent for embedding.", parentDoc.getId());
-      return docsToEmbed;
+      return new HashMap<>();
     }
 
     // ensure all chunks are within OpenAI token limit
@@ -183,15 +186,19 @@ public class OpenAIEmbed extends Stage {
     }
 
     // add embeddings to document
+    Map<String, Document> embeddedResults = new HashMap<>();
     for (int i = 0; i < embeddings.size(); i++) {
       float[] vectors = embeddings.get(i).vector();
       Document doc = docsToEmbed.get(i);
+      // clear any preexisting content once, then append each dimension of the vector
+      doc.removeField(dest);
       for (Float vector : vectors) {
         doc.setOrAdd(dest, vector);
       }
+      embeddedResults.put(doc.getId(), doc);
     }
 
-    return docsToEmbed;
+    return embeddedResults;
   }
 
   private String applyTokenLimit(String content) {

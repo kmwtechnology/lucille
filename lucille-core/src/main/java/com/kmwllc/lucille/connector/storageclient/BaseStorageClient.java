@@ -1,14 +1,19 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
-import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
-import static com.kmwllc.lucille.connector.FileConnector.MAX_RESULTS_PER_PAGE;
-import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
-import static com.kmwllc.lucille.connector.FileConnector.SIZE;
-import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.ARCHIVE_FILE_SEPARATOR;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.CONTENT;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.FILE_PATH;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.MODIFIED;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.SIZE;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.LISTING_MODE;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_DOCUMENTS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_RESULTS_PER_PAGE;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_AFTER_PROCESSING;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_ERROR_FOLDER;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.THREADS_PER_PATH;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.TRAVERSAL;
 
 import com.kmwllc.lucille.core.ConfigUtils;
-import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.connector.StatePathTooLongException;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
@@ -16,13 +21,33 @@ import com.kmwllc.lucille.core.filehandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.FileUtils.ContentTooLargeException;
+import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Instant;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveException;
@@ -32,14 +57,15 @@ import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.input.CloseShieldInputStream;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.slf4j.MDC.MDCCloseable;
 
 /**
- * The base implementation for StorageClients. Must be initialized before traversal / getting a file's contents using
- * {@link BaseStorageClient#init()}. Call {@link BaseStorageClient#traverse(Publisher, TraversalParams)} to process and publish
+ * The base implementation for StorageClients. Must be started before traversal / getting a file's contents using
+ * {@link BaseStorageClient#start()}. Call {@link BaseStorageClient#traverse(Publisher, TraversalParams)} to process and publish
  * Documents. Call {@link BaseStorageClient#getFileContentStream(URI)} to get the contents of a single file at the given URI.
  */
 public abstract class BaseStorageClient implements StorageClient {
@@ -50,7 +76,20 @@ public abstract class BaseStorageClient implements StorageClient {
   protected final Config config;
 
   protected final int maxResultsPerPage;
-  private boolean initialized = false;
+  // volatile because stop() can be called while another thread is traversing
+  private volatile boolean initialized = false;
+
+  // the multi-threaded traversals running now, which stop() has to end
+  private final Set<ParallelDescent> activeDescents = ConcurrentHashMap.newKeySet();
+
+  // the descent a pool thread works for, so that processing a file can tell an aborted traversal from a bad file
+  private final ThreadLocal<ParallelDescent> workerDescent = new ThreadLocal<>();
+
+  // how long to wait for traversal threads to end once they have been interrupted
+  private static final long TRAVERSAL_THREAD_STOP_SECONDS = 10;
+
+  // how often an idle traversal thread checks whether the others have finished
+  private static final long IDLE_POLL_MILLIS = 50;
 
   /**
    * Creates a base implementation of a Storage client from the given config. Validates the provided options, throwing an
@@ -80,29 +119,30 @@ public abstract class BaseStorageClient implements StorageClient {
    */
   protected void validateOptions(Config config) { }
 
-  // Wrapping around init, shutdown, and traverse to manage "initialized" before / after doing the actual operations in a
+  // Wrapping around start, stop, and traverse to manage "initialized" before / after doing the actual operations in a
   // StorageClient-specific way.
 
   @Override
-  public final void init() throws IOException {
+  public final void start() throws IOException {
     if (!initialized) {
       initializeStorageClient();
       initialized = true;
     }
   }
 
-  // StorageClient-specific initialization operations
+  // StorageClient-specific operations for start()
   protected abstract void initializeStorageClient() throws IOException;
 
   @Override
-  public final void shutdown() throws IOException {
+  public final void stop() throws IOException {
     if (initialized) {
       initialized = false;
+      stopActiveDescents();
       shutdownStorageClient();
     }
   }
 
-  // StorageClient-specific shutdown operations
+  // StorageClient-specific operations for stop()
   protected abstract void shutdownStorageClient() throws IOException;
 
   public boolean isInitialized() {
@@ -111,27 +151,497 @@ public abstract class BaseStorageClient implements StorageClient {
 
   // Convenience method for traversing without state.
   @Override
-  public final void traverse(Publisher publisher, TraversalParams params) throws Exception {
+  public final void traverse(Publisher publisher, TraversalParams params) throws IOException, ConnectorException {
     traverse(publisher, params, null);
   }
 
   @Override
-  public final void traverse(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+  public final void traverse(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws IOException, ConnectorException {
     if (!isInitialized()) {
-      throw new IllegalStateException("This StorageClient has not been initialized.");
+      throw new IllegalStateException("This StorageClient has not been started. Call start() first.");
     }
 
     traverseStorageClient(publisher, params, stateMgr);
   }
 
-  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
+  /**
+   * Performs the traversal. A client whose storage has a directory-like listing can implement this by calling
+   * {@link #traverseByListing(Publisher, TraversalParams, FileStateTracker)} and overriding {@link #listDirectory(String, TraversalParams)}.
+   */
+  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws IOException, ConnectorException;
+
+  /**
+   * Returns whether {@link #traverseStorageClient} traverses with
+   * {@link #traverseByListing(Publisher, TraversalParams, FileStateTracker)}, which honors <code>traversal.threadsPerPath</code>
+   * and <code>traversal.listingMode</code>. When false, the default, {@link #validateTraversal(TraversalParams)} rejects
+   * those settings. Override this to return true if your client traverses by listing.
+   */
+  protected boolean traversesByListing() {
+    return false;
+  }
 
   /**
    * {@inheritDoc}
-   * <p> Compares the URIs by path segment, so <code>s3://bucket/data</code> contains <code>s3://bucket/data/2024</code>.
-   * A URI with an empty path is the root of its bucket or container, and contains everything in it.
-   * <p> Object storage prefixes are raw strings rather than path segments, so overlaps that do not fall on a segment
-   * boundary are missed, implementations may override to catch them.
+   * <p> Accepts <code>traversal.threadsPerPath</code>, <code>traversal.listingMode</code> and
+   * <code>traversal.maxDocuments</code> only when {@link #traversesByListing()}, and then checks the combinations a flat
+   * listing can't serve.
+   */
+  @Override
+  public void validateTraversal(TraversalParams params) {
+    if (!traversesByListing()) {
+      params.rejectListingSettings(this);
+      return;
+    }
+
+    if (params.getListingMode() == ListingMode.FLAT && params.getThreadsPerPath() > 1) {
+      throw new IllegalArgumentException(TRAVERSAL + "." + LISTING_MODE + " '" + ListingMode.FLAT + "' is one listing, which can't be divided "
+          + "among threads, so it can't be combined with " + TRAVERSAL + "." + THREADS_PER_PATH + " above 1.");
+    }
+
+    if (params.getListingMode() == ListingMode.FLAT && !params.getPathsToSkip().isEmpty()) {
+      throw new IllegalArgumentException(TRAVERSAL + "." + LISTING_MODE + " '" + ListingMode.FLAT + "' lists no directories, so it can't be "
+          + "combined with filterOptions.pathsToSkip.");
+    }
+  }
+
+  // -- The shared traversal --
+
+  /**
+   * How a traversal lists its path: {@link #HIERARCHICAL}, one listing per directory, or {@link #FLAT}, one listing of
+   * every key under the path.
+   */
+  public enum ListingMode {
+    HIERARCHICAL, FLAT;
+
+    @Override
+    public String toString() {
+      return name().toLowerCase(Locale.ROOT);
+    }
+
+    static ListingMode fromString(String name) {
+      for (ListingMode mode : values()) {
+        if (mode.name().equalsIgnoreCase(name.trim())) {
+          return mode;
+        }
+      }
+      throw new IllegalArgumentException("Unknown " + TRAVERSAL + "." + LISTING_MODE + " \"" + name + "\"; expected one of hierarchical, flat");
+    }
+  }
+
+  /**
+   * What a traversal does with a directory it found: {@link #DESCEND} lists it, and {@link #SKIP} leaves it and everything
+   * under it unvisited.
+   */
+  public enum DirectoryVerdict {
+    DESCEND, SKIP
+  }
+
+  /**
+   * One result of a listing: a file, whose reference is only built when the traversal reaches it, or a child directory.
+   */
+  public static final class ListingEntry {
+
+    private final String name;
+    private final Supplier<FileReference> reference;
+
+    private ListingEntry(String name, Supplier<FileReference> reference) {
+      this.name = name;
+      this.reference = reference;
+    }
+
+    /**
+     * @param name The file's key, used to log an error if its reference can't be built.
+     * @param reference Builds the file's reference. If it throws, the traversal logs the error and skips only this file.
+     */
+    public static ListingEntry file(String name, Supplier<FileReference> reference) {
+      return new ListingEntry(name, reference);
+    }
+
+    /**
+     * @param prefix The child directory's key, as given to {@link #listDirectory(String, TraversalParams)} to list it.
+     */
+    public static ListingEntry directory(String prefix) {
+      return new ListingEntry(prefix, null);
+    }
+
+    private boolean isDirectory() {
+      return reference == null;
+    }
+  }
+
+  /**
+   * Lists one directory, without descending into its children. The stream should be lazy, fetching further pages only as
+   * it is consumed, because the traversal stops consuming it at <code>maxDocuments</code>. Called from several threads when
+   * <code>threadsPerPath</code> is above 1.
+   *
+   * @param prefix The directory's key. For the start of a traversal, this is {@link #getStartingDirectory(TraversalParams)},
+   *               which may be a raw prefix rather than a directory.
+   * @param params Parameters for the traversal.
+   * @return The files and child directories directly under the prefix.
+   */
+  protected Stream<ListingEntry> listDirectory(String prefix, TraversalParams params) {
+    throw new UnsupportedOperationException(getClass().getName() + " does not implement listDirectory.");
+  }
+
+  /**
+   * Lists every file under the prefix in one listing, for {@link ListingMode#FLAT}. Lazy, like {@link #listDirectory}.
+   *
+   * @param prefix The key prefix to list.
+   * @param params Parameters for the traversal.
+   * @return The files under the prefix.
+   */
+  protected Stream<ListingEntry> listFlat(String prefix, TraversalParams params) {
+    throw new UnsupportedOperationException(getClass().getName() + " does not implement listFlat.");
+  }
+
+  /**
+   * Returns the URI of a directory found by {@link #listDirectory}, which <code>pathsToSkip</code> is compared against.
+   *
+   * @param prefix The directory's key.
+   * @param params Parameters for the traversal.
+   * @return The directory's URI.
+   */
+  protected URI directoryURI(String prefix, TraversalParams params) {
+    throw new UnsupportedOperationException(getClass().getName() + " does not implement directoryURI.");
+  }
+
+  /**
+   * Returns the key prefix a traversal starts from: by default, the path of the traversal's URI without its leading '/'.
+   *
+   * @param params Parameters for the traversal.
+   * @return The key prefix to start from. Empty for the root of the bucket or container.
+   */
+  protected String getStartingDirectory(TraversalParams params) {
+    return keyPrefix(params.getURI());
+  }
+
+  /**
+   * The listing mode used when <code>listingMode</code> is not configured. A {@link ListingMode#FLAT} default gives way to
+   * a hierarchical listing when <code>pathsToSkip</code> is set or <code>threadsPerPath</code> is above 1, which a single
+   * listing can't serve.
+   */
+  protected ListingMode defaultListingMode() {
+    return ListingMode.HIERARCHICAL;
+  }
+
+  /**
+   * Asked about each directory a hierarchical traversal could descend into, after <code>pathsToSkip</code>. Includes the
+   * start of the traversal when its path names a directory, meaning it is empty or ends in '/'. Called from several threads
+   * when <code>threadsPerPath</code> is above 1. Not called for a flat listing, which sees no directories.
+   *
+   * @param directory The directory's URI.
+   * @param params Parameters for the traversal.
+   * @return Whether to descend. By default, always {@link DirectoryVerdict#DESCEND}.
+   */
+  protected DirectoryVerdict onDirectory(URI directory, TraversalParams params) {
+    return DirectoryVerdict.DESCEND;
+  }
+
+  /**
+   * Lists one directory and publishes its files, without descending, returning its child directories. Applies the same
+   * per-file handling as a traversal, including skipping a file whose reference can't be built. The descent in
+   * {@link #traverseByListing} is built on this, and it can be called on its own to visit a single level.
+   *
+   * @param prefix The directory's key.
+   * @return The keys of the child directories, in listing order. <code>pathsToSkip</code> and {@link #onDirectory} have not
+   * been applied to them.
+   */
+  protected final List<String> traverseOneDirectory(String prefix, Publisher publisher, TraversalParams params, FileStateTracker stateMgr) {
+    return publishEntries(listDirectory(prefix, params), publisher, params, stateMgr, () -> false);
+  }
+
+  /**
+   * The traversal shared by the cloud clients. Lists the path with {@link #listFlat} or, one directory at a time, with
+   * {@link #listDirectory}, on <code>threadsPerPath</code> threads, and stops starting new files once the Publisher has published
+   * <code>maxDocuments</code>.
+   * The first failure stops the traversal and is thrown. A client that calls this should override
+   * {@link #traversesByListing()} to return true, so that its traversal settings are accepted.
+   */
+  protected final void traverseByListing(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws ConnectorException {
+    validateTraversal(params);
+
+    int threads = params.getThreadsPerPath();
+    if (threads > 1 && stateMgr != null && !(stateMgr instanceof ThreadBoundFileStateTracker)) {
+      throw new IllegalArgumentException(TRAVERSAL + "." + THREADS_PER_PATH + " above 1 requires a " + ThreadBoundFileStateTracker.class.getSimpleName()
+          + ", but was given a " + stateMgr.getClass().getName() + ".");
+    }
+
+    // Checked before each file, so files already started are finished: the limit can be passed by the documents of up to
+    // threadsPerPath files. The Publisher's count covers the connector's other paths too.
+    Long maxDocuments = params.getMaxDocuments();
+    BooleanSupplier limitReached = maxDocuments == null ? () -> false : () -> publisher.numPublished() >= maxDocuments;
+    String start = getStartingDirectory(params);
+
+    if (listingModeFor(params) == ListingMode.FLAT) {
+      publishEntries(listFlat(start, params), publisher, params, stateMgr, limitReached);
+    } else {
+      descend(start, publisher, params, stateMgr, limitReached);
+    }
+
+    if (limitReached.getAsBoolean()) {
+      log.info("Stopped traversing '{}': {} documents have been published, reaching {}.{} of {}.", params.getURI(),
+          publisher.numPublished(), TRAVERSAL, MAX_DOCUMENTS, maxDocuments);
+    }
+  }
+
+  private void descend(String start, Publisher publisher, TraversalParams params, FileStateTracker stateMgr, BooleanSupplier limitReached)
+      throws ConnectorException {
+    // Without a trailing '/' the start is a raw prefix, not a directory: "logs" also covers "logs-old/". A pathsToSkip
+    // entry for "logs/" is applied when the listing returns that as a child, and must not end the whole traversal.
+    if ((start.isEmpty() || start.endsWith("/")) && verdictFor(params.getURI(), params) == DirectoryVerdict.SKIP) {
+      log.info("Not traversing '{}': the directory is skipped.", params.getURI());
+      return;
+    }
+
+    if (params.getThreadsPerPath() == 1) {
+      descendSequentially(start, publisher, params, stateMgr, limitReached);
+    } else {
+      new ParallelDescent(start, publisher, params, stateMgr, limitReached).run();
+    }
+  }
+
+  private ListingMode listingModeFor(TraversalParams params) {
+    if (params.getListingMode() != null) {
+      return params.getListingMode();
+    }
+
+    return params.getThreadsPerPath() == 1 && params.getPathsToSkip().isEmpty() ? defaultListingMode() : ListingMode.HIERARCHICAL;
+  }
+
+  private DirectoryVerdict verdictFor(URI directory, TraversalParams params) {
+    return isSkippedDirectory(directory, params) ? DirectoryVerdict.SKIP : onDirectory(directory, params);
+  }
+
+  // Publishes the files in the listing and returns its directories. A file is reached only if the limit wasn't.
+  private List<String> publishEntries(Stream<ListingEntry> listing, Publisher publisher, TraversalParams params, FileStateTracker stateMgr,
+      BooleanSupplier stop) {
+    List<String> directories = new ArrayList<>();
+
+    try (Stream<ListingEntry> entries = listing) {
+      entries.takeWhile(entry -> !stop.getAsBoolean()).forEachOrdered(entry -> {
+        if (entry.isDirectory()) {
+          directories.add(entry.name);
+        } else {
+          FileReference fileRef = buildReferenceOrSkip(entry.name, entry.reference);
+          if (fileRef != null) {
+            processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+          }
+        }
+      });
+    }
+
+    return directories;
+  }
+
+  // Returns the children to descend into. The visited set guards against a provider returning a prefix as its own descendant.
+  private List<String> childrenToDescend(List<String> children, Set<String> visited, TraversalParams params) {
+    List<String> toDescend = new ArrayList<>();
+
+    for (String child : children) {
+      if (!visited.add(child)) {
+        log.warn("Directory '{}' of '{}' was already visited in this traversal, so it isn't visited again.", child, params.getURI());
+      } else if (verdictFor(directoryURI(child, params), params) == DirectoryVerdict.DESCEND) {
+        toDescend.add(child);
+      }
+    }
+
+    return toDescend;
+  }
+
+  private void descendSequentially(String start, Publisher publisher, TraversalParams params, FileStateTracker stateMgr, BooleanSupplier limitReached) {
+    Set<String> visited = ConcurrentHashMap.newKeySet();
+    visited.add(start);
+
+    Deque<String> stack = new ArrayDeque<>();
+    stack.push(start);
+
+    while (!stack.isEmpty() && !limitReached.getAsBoolean()) {
+      String prefix = stack.pop();
+      List<String> children = publishEntries(listDirectory(prefix, params), publisher, params, stateMgr, limitReached);
+      List<String> toDescend = childrenToDescend(children, visited, params);
+
+      // so that the first child listed is the next one visited
+      for (int i = toDescend.size() - 1; i >= 0; i--) {
+        stack.push(toDescend.get(i));
+      }
+    }
+  }
+
+  /**
+   * Runs the per-directory step on a pool of threads. A pool thread holds its state connection and its own FileHandlers
+   * for as long as it runs, so each one loops over a shared queue rather than running one task per directory.
+   */
+  private final class ParallelDescent {
+
+    private final Publisher publisher;
+    private final TraversalParams params;
+    private final FileStateTracker stateMgr;
+    private final BooleanSupplier limitReached;
+
+    private final Set<String> visited = ConcurrentHashMap.newKeySet();
+    private final LinkedBlockingDeque<String> queue = new LinkedBlockingDeque<>();
+    // directories queued or being processed. A directory's children are counted before it is uncounted, so this is only
+    // zero when the descent is complete.
+    private final AtomicInteger pending = new AtomicInteger();
+    private final AtomicReference<Throwable> failure = new AtomicReference<>();
+    private final ExecutorService executor;
+
+    private volatile boolean finishing = false;
+    private volatile boolean aborted = false;
+
+    private ParallelDescent(String start, Publisher publisher, TraversalParams params, FileStateTracker stateMgr, BooleanSupplier limitReached) {
+      this.publisher = publisher;
+      this.params = params;
+      this.stateMgr = stateMgr;
+      this.limitReached = limitReached;
+      this.executor = Executors.newFixedThreadPool(params.getThreadsPerPath(), new BasicThreadFactory.Builder()
+          .namingPattern(ThreadNameUtils.createName("DirectoryTraversal") + "-%d")
+          .build());
+
+      visited.add(start);
+      pending.incrementAndGet();
+      queue.add(start);
+    }
+
+    private void run() throws ConnectorException {
+      activeDescents.add(this);
+
+      // a stop() from before the line above didn't see this descent
+      if (!initialized) {
+        abort();
+      }
+
+      try {
+        List<Future<?>> workers = new ArrayList<>();
+        try {
+          for (int i = 0; i < params.getThreadsPerPath(); i++) {
+            workers.add(executor.submit(this::work));
+          }
+        } catch (RejectedExecutionException e) {
+          // stop() can arrive while the threads are still being started, once the first of them is listing
+          if (!aborted) {
+            throw e;
+          }
+        }
+        executor.shutdown();
+
+        for (Future<?> worker : workers) {
+          worker.get();
+        }
+      } catch (InterruptedException e) {
+        abort();
+        awaitWorkers();
+        Thread.currentThread().interrupt();
+        throw new ConnectorException("Interrupted while traversing " + params.getURI() + ".", e);
+      } catch (ExecutionException e) {
+        // work() records everything it catches, so this isn't expected
+        failure.compareAndSet(null, e.getCause());
+      } finally {
+        executor.shutdownNow();
+        activeDescents.remove(this);
+      }
+
+      Throwable thrown = failure.get();
+      if (thrown instanceof RuntimeException runtimeException) {
+        throw runtimeException;
+      }
+      if (thrown instanceof Error error) {
+        throw error;
+      }
+      if (thrown != null) {
+        throw new ConnectorException("Error occurred while traversing " + params.getURI() + ".", thrown);
+      }
+      // unfinished directories must fail the run: their files would otherwise look deleted
+      if (aborted) {
+        throw new ConnectorException("The traversal of " + params.getURI() + " was stopped before it finished.");
+      }
+    }
+
+    private void work() {
+      workerDescent.set(this);
+      boolean stateOpen = false;
+
+      try {
+        if (stateMgr != null) {
+          ((ThreadBoundFileStateTracker) stateMgr).openForThread();
+          stateOpen = true;
+        }
+
+        // FileHandlers aren't thread-safe, so each thread gets its own
+        TraversalParams threadParams = params.withOwnFileHandlers();
+
+        while (!finishing && !limitReached.getAsBoolean() && pending.get() > 0) {
+          String prefix = queue.pollFirst(IDLE_POLL_MILLIS, TimeUnit.MILLISECONDS);
+          if (prefix != null) {
+            processDirectory(prefix, threadParams);
+          }
+        }
+      } catch (Throwable t) {
+        // when aborted, this is a consequence of the interrupt, and run() reports the abort
+        if (!aborted) {
+          failure.compareAndSet(null, t);
+        }
+        finishing = true;
+      } finally {
+        if (stateOpen) {
+          ((ThreadBoundFileStateTracker) stateMgr).closeForThread();
+        }
+        workerDescent.remove();
+      }
+    }
+
+    private void processDirectory(String prefix, TraversalParams threadParams) {
+      try {
+        List<String> children = publishEntries(listDirectory(prefix, threadParams), publisher, threadParams, stateMgr,
+            () -> finishing || limitReached.getAsBoolean());
+
+        for (String child : childrenToDescend(children, visited, threadParams)) {
+          pending.incrementAndGet();
+          // at the front, so the queue stays small by finishing a subtree before starting another
+          queue.addFirst(child);
+        }
+      } finally {
+        pending.decrementAndGet();
+      }
+    }
+
+    // Ends the descent now, rather than after each thread finishes its current directory.
+    private void abort() {
+      aborted = true;
+      finishing = true;
+      executor.shutdownNow();
+    }
+
+    private void awaitWorkers() {
+      boolean interrupted = Thread.interrupted();
+      try {
+        if (!executor.awaitTermination(TRAVERSAL_THREAD_STOP_SECONDS, TimeUnit.SECONDS)) {
+          log.error("Traversal threads for '{}' did not stop within {} seconds of being interrupted.", params.getURI(), TRAVERSAL_THREAD_STOP_SECONDS);
+        }
+      } catch (InterruptedException e) {
+        interrupted = true;
+      }
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
+    }
+  }
+
+  private void stopActiveDescents() {
+    for (ParallelDescent descent : activeDescents) {
+      descent.abort();
+    }
+    for (ParallelDescent descent : activeDescents) {
+      descent.awaitWorkers();
+    }
+  }
+
+  /**
+   * {@inheritDoc}
+   * <p> For object stores, where a path is a raw key prefix: the parent contains the child when the child's key prefix
+   * starts with the parent's. So <code>s3://bucket/data</code> contains both <code>s3://bucket/data/2024</code> and
+   * <code>s3://bucket/data2</code>, while <code>s3://bucket/data/</code> contains only the first. A URI with an empty
+   * path is the root of its bucket, and contains everything in it.
    */
   @Override
   public boolean containsPath(URI parent, URI child) {
@@ -143,24 +653,45 @@ public abstract class BaseStorageClient implements StorageClient {
       return false;
     }
 
-    return isUnder(normalizedChild.getPath(), normalizedParent.getPath());
+    return keyPrefix(normalizedChild).startsWith(keyPrefix(normalizedParent));
   }
 
-  // Returns whether the child path is the parent path, or sits underneath it, treating both as '/'-delimited.
-  private static boolean isUnder(String childPath, String parentPath) {
-    String parent = stripTrailingSlash(parentPath);
-    String child = stripTrailingSlash(childPath);
+  /**
+   * Returns the object-store key a URI names: its path without the leading '/'. This is the key prefix a traversal path
+   * lists, or the folder key a move uses (see {@link #destinationKey}). Empty for the root of the bucket or container,
+   * with or without a trailing '/'.
+   */
+  static String keyPrefix(URI uri) {
+    String path = uri.getPath();
 
-    // an empty path is the root of a bucket / container, which contains everything in it
-    return parent.isEmpty() || child.equals(parent) || child.startsWith(parent + "/");
-  }
-
-  private static String stripTrailingSlash(String path) {
     if (path == null || path.isEmpty()) {
       return "";
     }
 
-    return path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+    return path.startsWith("/") ? path.substring(1) : path;
+  }
+
+  /**
+   * Implements {@link #moveTargetInsidePath(URI, URI)} for object stores that move files by {@link #destinationKey}.
+   * Different buckets never overlap.
+   */
+  static boolean movedKeyInsideBucketPath(URI path, URI folder) {
+    URI normalizedPath = path.normalize();
+    URI normalizedFolder = folder.normalize();
+
+    return Objects.equals(normalizedPath.getScheme(), normalizedFolder.getScheme())
+        && Objects.equals(normalizedPath.getAuthority(), normalizedFolder.getAuthority())
+        && movedKeyInsidePrefix(keyPrefix(normalizedPath), keyPrefix(normalizedFolder));
+  }
+
+  /**
+   * Returns whether objects listed under the given key prefix would still be under it after moving to the given folder.
+   * Every listed key starts with the prefix, so the destination of the prefix itself decides for all of them. This covers
+   * a folder under the prefix, the prefix without its trailing '/' (the file lands at <code>incoming/incoming/a.csv</code>)
+   * and the root of the bucket (the file lands on its own key).
+   */
+  static boolean movedKeyInsidePrefix(String prefix, String folderKey) {
+    return destinationKey(folderKey, prefix).startsWith(prefix);
   }
 
   /**
@@ -183,7 +714,7 @@ public abstract class BaseStorageClient implements StorageClient {
   @Override
   public final InputStream getFileContentStream(URI uri) throws IOException {
     if (!isInitialized()) {
-      throw new IllegalStateException("This StorageClient has not been initialized.");
+      throw new IllegalStateException("This StorageClient has not been started. Call start() first.");
     }
 
     return getFileContentStreamFromStorage(uri);
@@ -195,7 +726,7 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * If the file is valid, it will be processed and published. Also, perform any preprocessing, error handling, and post-processing.
    */
-  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, FileConnectorStateManager stateMgr) {
+  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, FileStateTracker stateMgr) {
     URI fullPath = fileReference.getFullPath();
     String fileExtension = fileReference.getFileExtension();
 
@@ -213,7 +744,7 @@ public abstract class BaseStorageClient implements StorageClient {
       }
 
       // Skip files that don't pass the filter options
-      if (!params.includeFile(fileReference.getName(), fileReference.getLastModified(), lastPublished)) {
+      if (!params.includeFile(fileReference.getFilterName(), fileReference.getLastModified(), lastPublished)) {
         // If this is a previously-published archive or compressed file, its entries won't be traversed
         // this run. Mark all entries as encountered so they are not incorrectly marked as tombstones
         if (stateMgr != null && lastPublished != null) {
@@ -295,10 +826,12 @@ public abstract class BaseStorageClient implements StorageClient {
 
       // handle file types using fileHandler if needed to the end
       if (params.supportsFileExtension(fileExtension)) {
-        // Get a stream for the file content, so we don't have to load it all at once.
-        InputStream contentStream = fileReference.getContentStream(params);
-        // get the right FileHandler and publish based on content
-        publishUsingFileHandler(publisher, fileExtension, params, contentStream, fullPath);
+        // Get a stream for the file content, so we don't have to load it all at once. It is closed before the file is
+        // moved, and when the handler throws: an open stream from a cloud provider holds an HTTP connection.
+        try (InputStream contentStream = fileReference.getContentStream(params)) {
+          // get the right FileHandler and publish based on content
+          publishUsingFileHandler(publisher, fileExtension, params, contentStream, fullPath);
+        }
 
         if (stateMgr != null) {
           stateMgr.successfullyPublishedFile(fullPath.toString());
@@ -322,17 +855,59 @@ public abstract class BaseStorageClient implements StorageClient {
       }
 
       afterProcessingFile(fullPath, params);
-    } catch (UnsupportedOperationException e) {
-      throw new UnsupportedOperationException("Encountered unsupported operation", e);
+    } catch (MoveNotSupportedException e) {
+      // every file would fail the same way, so stop the traversal. Any other UnsupportedOperationException is
+      // handled like other errors processing a single file, below.
+      throw e;
     } catch (StatePathTooLongException e) {
       throw e;
     } catch (Exception e) {
+      // the interrupt that ends an aborted traversal can surface here as a read failure, which says nothing about the file
+      ParallelDescent descent = workerDescent.get();
+      if (descent != null && descent.aborted) {
+        throw new IllegalStateException("The traversal was stopped while processing '" + fullPath + "'.", e);
+      }
+
       try {
         errorProcessingFile(fullPath, params);
       } catch (IOException ex) {
         log.error("Error occurred while performing error operations on file '{}'", fullPath, ex);
       }
       log.error("Unable to publish document '{}', SKIPPING", fullPath, e);
+    }
+  }
+
+  /**
+   * Returns the key an object moves to under the given folder key, for object stores: the folder, a '/', then the
+   * object's full key. An empty folder key is the root of the bucket or container. A folder key ending in '/' gets no
+   * second one.
+   *
+   * @param folderKey The destination folder's key, without a leading '/'. May be empty.
+   * @param sourceKey The full key of the object being moved.
+   * @return The destination key.
+   */
+  static String destinationKey(String folderKey, String sourceKey) {
+    if (folderKey.isEmpty()) {
+      return sourceKey;
+    }
+
+    return folderKey.endsWith("/") ? folderKey + sourceKey : folderKey + "/" + sourceKey;
+  }
+
+  /**
+   * Builds the FileReference for one listed object, or returns null, logging the error, if it can't be built (e.g. the
+   * object's name can't form a URI). The caller skips that object, so one bad object doesn't fail the whole traversal.
+   * It is never published or marked encountered in state, because it has no full path to record it under. So if an
+   * object with that name was published by an earlier run, its row is treated like any file not encountered: once it
+   * has gone unencountered for <code>state.runsBeforeExpiration</code> runs, it is tombstoned (with
+   * <code>sendTombstones</code>) and deleted from state.
+   */
+  static FileReference buildReferenceOrSkip(String objectName, Supplier<FileReference> builder) {
+    try {
+      return builder.get();
+    } catch (Exception e) {
+      log.error("Unable to build a reference to '{}', SKIPPING", objectName, e);
+      return null;
     }
   }
 
@@ -352,7 +927,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * @throws IOException If an error regarding file I/O occurs
    * @throws ConnectorException If an error occurs handling subsequent archive entries.
    */
-  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, URI fullPathURI, TraversalParams params, FileConnectorStateManager stateMgr) throws ArchiveException, IOException, ConnectorException {
+  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, URI fullPathURI, TraversalParams params, FileStateTracker stateMgr) throws ArchiveException, IOException, ConnectorException {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
@@ -370,8 +945,10 @@ public abstract class BaseStorageClient implements StorageClient {
         }
 
         Instant archiveLastPublished = stateMgr == null ? null : stateMgr.getLastPublished(entryFullPathStr);
+        // some archive formats and entries have no modification date
+        Instant entryLastModified = entry.getLastModifiedDate() == null ? null : entry.getLastModifiedDate().toInstant();
         // checking validity only for the entries
-        if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant(), archiveLastPublished)) {
+        if (!entry.isDirectory() && params.includeFile(entry.getName(), entryLastModified, archiveLastPublished)) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
           if (params.supportsFileExtension(entryExtension)) {
             handleStreamExtensionFiles(publisher, entryExtension, params, in, entryFullPathStr);
@@ -380,7 +957,9 @@ public abstract class BaseStorageClient implements StorageClient {
             // note that if there exists a file within the same parent directory with the same name as the entries, it will have the same id
             Document doc = Document.create(StorageClient.createDocId(DigestUtils.md5Hex(entryFullPathStr), params));
             doc.setField(FILE_PATH, entryFullPathStr);
-            doc.setField(MODIFIED, entry.getLastModifiedDate().toInstant());
+            if (entryLastModified != null) {
+              doc.setField(MODIFIED, entryLastModified);
+            }
             // entry does not have creation date
             // note that some ArchiveEntry implementations may not have a size so will return -1
             doc.setField(SIZE, entry.getSize());
@@ -489,7 +1068,7 @@ public abstract class BaseStorageClient implements StorageClient {
   private void afterProcessingFile(URI filePath, TraversalParams params) throws IOException {
     if (params.getMoveToAfterProcessing() != null) {
       // move to processed folder
-      moveFile(filePath, params.getMoveToAfterProcessing());
+      moveFileOrFail(filePath, params.getMoveToAfterProcessing(), MOVE_TO_AFTER_PROCESSING);
     }
   }
 
@@ -501,7 +1080,28 @@ public abstract class BaseStorageClient implements StorageClient {
   private void errorProcessingFile(URI filePath, TraversalParams params) throws IOException {
     if (params.getMoveToErrorFolder() != null) {
       // move to error folder
-      moveFile(filePath, params.getMoveToErrorFolder());
+      moveFileOrFail(filePath, params.getMoveToErrorFolder(), MOVE_TO_ERROR_FOLDER);
+    }
+  }
+
+  // Moves the file, throwing a MoveNotSupportedException, which stops the traversal, if this client doesn't support
+  // moving files.
+  private void moveFileOrFail(URI filePath, URI folder, String option) throws IOException {
+    try {
+      moveFile(filePath, folder);
+    } catch (UnsupportedOperationException e) {
+      throw new MoveNotSupportedException(getClass().getName() + " does not support moving files, which fileOptions."
+          + option + " requires.", e);
+    }
+  }
+
+  /**
+   * Thrown when fileOptions.moveToAfterProcessing or fileOptions.moveToErrorFolder is set but this client's
+   * {@link #moveFile(URI, URI)} throws an UnsupportedOperationException. Stops the traversal.
+   */
+  private static class MoveNotSupportedException extends UnsupportedOperationException {
+    MoveNotSupportedException(String message, Throwable cause) {
+      super(message, cause);
     }
   }
 
@@ -510,7 +1110,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
    */
   private boolean isSupportedCompressedFileType(String pathStr) {
-    return pathStr.endsWith(".gz");
+    return pathStr.toLowerCase(Locale.ROOT).endsWith(".gz");
     // string.endsWith(".bz2") ||
     // string.endsWith(".xz") ||
     // string.endsWith(".lzma") ||
@@ -525,8 +1125,9 @@ public abstract class BaseStorageClient implements StorageClient {
    * note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
    */
   private boolean isSupportedArchiveFileType(String pathStr) {
-    return pathStr.endsWith(".tar") ||
-        pathStr.endsWith(".zip");
+    String lowerCasePath = pathStr.toLowerCase(Locale.ROOT);
+    return lowerCasePath.endsWith(".tar") ||
+        lowerCasePath.endsWith(".zip");
     // string.endsWith(".7z") ||
     // string.endsWith(".ar") ||
     // string.endsWith(".arj") ||
@@ -548,9 +1149,10 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * Should only be used for testing. Sets this storage client to be initialized.
+   * Should only be used for testing. Marks this storage client as initialized without calling
+   * {@link #initializeStorageClient()}, for a test that supplies its own mock of the provider's SDK client.
    */
-  void initializeForTesting() {
+  protected void initializeForTesting() {
     this.initialized = true;
   }
 }

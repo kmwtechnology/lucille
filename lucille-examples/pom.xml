@@ -29,6 +29,9 @@
     <module>lucille-api-example</module>
     <module>lucille-simple-csv-solr-example</module>
     <module>lucille-opensearch-ingest-example</module>
+    <module>lucille-opensearch-smoketest-example</module>
+    <module>lucille-elasticsearch-smoketest-example</module>
+    <module>lucille-kafka-multibroker-smoketest-example</module>
     <module>lucille-s3-ingest-example</module>
     <module>lucille-rss-example</module>
     <module>lucille-document-generation-example</module>
@@ -42,6 +45,12 @@
         <type>test-jar</type>
         <version>${project.version}</version>
         <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.kmwllc</groupId>
+        <artifactId>lucille-logging</artifactId>
+        <version>${project.version}</version>
+        <scope>runtime</scope>
       </dependency>
   </dependencies>
 </project>

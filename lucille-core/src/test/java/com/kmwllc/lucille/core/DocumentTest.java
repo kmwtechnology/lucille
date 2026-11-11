@@ -155,6 +155,23 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testIsSupportedValueMatchesSetField() {
+    List<Object> supported = List.of("s", 1L, 1.5, true, 1, 1.5f, Instant.EPOCH, new byte[] {1},
+        JsonNodeFactory.instance.textNode("j"), new Timestamp(0), new Date(0));
+    for (Object value : supported) {
+      assertTrue(value.getClass().getName(), Document.isSupportedValue(value));
+      createDocument("doc").setField("field", value);
+    }
+    assertTrue(Document.isSupportedValue(null));
+
+    // unsupported values are rejected by both
+    for (Object value : List.of(new Object(), (short) 1, new java.math.BigDecimal("1"))) {
+      assertFalse(value.getClass().getName(), Document.isSupportedValue(value));
+      assertThrows(IllegalArgumentException.class, () -> createDocument("doc").setField("field", value));
+    }
+  }
+
+  @Test
   public void testIsValidId() {
     // valid: any id with a visible character, used exactly as given, so surrounding whitespace is not an issue
     assertTrue(Document.isValidId("a"));
@@ -284,6 +301,28 @@ public abstract class DocumentTest {
         // expected
       }
     }
+  }
+
+  @Test
+  public void testFailureFieldsAreReserved() {
+    // The failure-metadata fields are reserved, so setField must reject them; they are only
+    // settable through the dedicated setFailureMetadata method.
+    Document document = createDocument("123");
+    for (String field : Document.INDEXING_EXCLUDED_FIELDS) {
+      assertTrue(field + " should be a reserved field", RESERVED_FIELDS.contains(field));
+      assertThrows(IllegalArgumentException.class, () -> document.setField(field, "x"));
+    }
+  }
+
+  @Test
+  public void testSetFailureMetadata() {
+    Document document = createDocument("123");
+    Instant now = Instant.ofEpochSecond(10000);
+    ((JsonDocument) document).setFailureMetadata("boom", "worker", now);
+
+    assertEquals("boom", document.getString(Document.FAILURE_REASON_FIELD));
+    assertEquals("worker", document.getString(Document.FAILURE_COMPONENT_FIELD));
+    assertEquals(now, document.getInstant(Document.FAILURE_TIME_FIELD));
   }
 
   @Test
@@ -788,7 +827,7 @@ public abstract class DocumentTest {
   @Test
   public void testGetDateMissing() {
     Document document = createDocument("doc");
-    assertNull(document.getDate("field1"));
+    assertNull(document.getInstant("field1"));
   }
 
   @Test
@@ -796,8 +835,8 @@ public abstract class DocumentTest {
     Document document = createDocument("doc");
     document.setField("date", new Date(1L));
     assertFalse(document.isMultiValued("date"));
-    assertEquals(new Date(1L), document.getDate("date"));
-    assertEquals(Collections.singletonList(new Date(1L)), document.getDateList("date"));
+    assertEquals(Instant.ofEpochMilli(1L), document.getInstant("date"));
+    assertEquals(Collections.singletonList(Instant.ofEpochMilli(1L)), document.getInstantList("date"));
     // date is stored as an ISO INSTANT formatted string in JsonDocument, but stored as a date object in HashmapDocument
     // output of getString is thus dependent on type of document
   }
@@ -805,7 +844,7 @@ public abstract class DocumentTest {
   @Test
   public void testGetDateListMissing() {
     Document document = createDocument("doc");
-    assertNull(document.getDateList("field1"));
+    assertNull(document.getInstantList("field1"));
   }
 
   @Test
@@ -816,7 +855,7 @@ public abstract class DocumentTest {
     document.addToField("dates", new Date(2L));
     assertTrue(document.isMultiValued("dates"));
     document.addToField("dates", new Date(3L));
-    assertEquals(Arrays.asList(new Date(1L), new Date(2L), new Date(3L)), document.getDateList("dates"));
+    assertEquals(Arrays.asList(Instant.ofEpochMilli(1L), Instant.ofEpochMilli(2L), Instant.ofEpochMilli(3L)), document.getInstantList("dates"));
   }
 
   @Test
@@ -824,13 +863,13 @@ public abstract class DocumentTest {
     Document document = createDocument("doc");
     document.addToField("field1", new Date(1));
     document.addToField("field1", new Date(2));
-    assertEquals(new Date(1), document.getDate("field1"));
+    assertEquals(Instant.ofEpochMilli(1L), document.getInstant("field1"));
   }
 
   @Test
   public void testGetTimestampMissing() {
     Document document = createDocument("doc");
-    assertNull(document.getTimestamp("field1"));
+    assertNull(document.getInstant("field1"));
   }
 
   @Test
@@ -838,8 +877,8 @@ public abstract class DocumentTest {
     Document document = createDocument("doc");
     document.setField("timestamp", new Timestamp(1L));
     assertFalse(document.isMultiValued("timestamp"));
-    assertEquals(new Timestamp(1L), document.getTimestamp("timestamp"));
-    assertEquals(Collections.singletonList(new Timestamp(1L)), document.getTimestampList("timestamp"));
+    assertEquals(Instant.ofEpochMilli(1L), document.getInstant("timestamp"));
+    assertEquals(Collections.singletonList(Instant.ofEpochMilli(1L)), document.getInstantList("timestamp"));
     // timestamp is stored as an ISO INSTANT formatted string in JsonDocument, but stored as a timestamp object in HashmapDocument
     // output of getString is thus dependent on type of document
   }
@@ -847,7 +886,7 @@ public abstract class DocumentTest {
   @Test
   public void testGetTimestampListMissing() {
     Document document = createDocument("doc");
-    assertNull(document.getTimestampList("field1"));
+    assertNull(document.getInstantList("field1"));
   }
 
   @Test
@@ -858,7 +897,7 @@ public abstract class DocumentTest {
     document.addToField("timestamp", new Timestamp(2L));
     assertTrue(document.isMultiValued("timestamp"));
     document.addToField("timestamp", new Timestamp(3L));
-    assertEquals(Arrays.asList(new Timestamp(1L), new Timestamp(2L), new Timestamp(3L)), document.getTimestampList("timestamp"));
+    assertEquals(Arrays.asList(Instant.ofEpochMilli(1L), Instant.ofEpochMilli(2L), Instant.ofEpochMilli(3L)), document.getInstantList("timestamp"));
   }
 
   @Test
@@ -866,7 +905,7 @@ public abstract class DocumentTest {
     Document document = createDocument("doc");
     document.addToField("field1", new Timestamp(1L));
     document.addToField("field1", new Timestamp(2L));
-    assertEquals(new Timestamp(1L), document.getTimestamp("field1"));
+    assertEquals(Instant.ofEpochMilli(1L), document.getInstant("field1"));
   }
 
   @Test
@@ -925,16 +964,16 @@ public abstract class DocumentTest {
       assertFalse(field, document.hasNonNull(field));
     }
     assertNull(document.getInstant("instant"));
-    assertNull(document.getDate("date"));
-    assertNull(document.getTimestamp("timestamp"));
+    assertNull(document.getInstant("date"));
+    assertNull(document.getInstant("timestamp"));
 
     document.addToField("instant", (Instant) null);
     document.addToField("date", (Date) null);
     document.addToField("timestamp", (Timestamp) null);
     List<Object> twoNulls = Arrays.asList(null, null);
     assertEquals(twoNulls, document.getInstantList("instant"));
-    assertEquals(twoNulls, document.getDateList("date"));
-    assertEquals(twoNulls, document.getTimestampList("timestamp"));
+    assertEquals(twoNulls, document.getInstantList("date"));
+    assertEquals(twoNulls, document.getInstantList("timestamp"));
 
     document.setOrAdd("fresh", (Instant) null);
     assertFalse(document.isMultiValued("fresh"));
@@ -1229,7 +1268,7 @@ public abstract class DocumentTest {
     document.update("myDateField", UpdateMode.APPEND, new Date(3));
     document.update("myDateField", UpdateMode.SKIP, new Date(4));
 
-    assertEquals(List.of(new Date(2), new Date(3)), document.getDateList("myDateField"));
+    assertEquals(List.of(Instant.ofEpochMilli(2L), Instant.ofEpochMilli(3L)), document.getInstantList("myDateField"));
   }
 
   @Test
@@ -1240,7 +1279,7 @@ public abstract class DocumentTest {
     document.update("myDateField", UpdateMode.APPEND, (Object) new Date(3));
     document.update("myDateField", UpdateMode.SKIP, (Object) new Date(4));
 
-    assertEquals(List.of(new Date(2), new Date(3)), document.getDateList("myDateField"));
+    assertEquals(List.of(Instant.ofEpochMilli(2L), Instant.ofEpochMilli(3L)), document.getInstantList("myDateField"));
   }
 
   @Test
@@ -1251,7 +1290,7 @@ public abstract class DocumentTest {
     document.update("myTimestampField", UpdateMode.APPEND, new Timestamp(3));
     document.update("myTimestampField", UpdateMode.SKIP, new Timestamp(4));
 
-    assertEquals(List.of(new Timestamp(2), new Timestamp(3)), document.getTimestampList("myTimestampField"));
+    assertEquals(List.of(Instant.ofEpochMilli(2L), Instant.ofEpochMilli(3L)), document.getInstantList("myTimestampField"));
   }
 
   @Test
@@ -1262,7 +1301,7 @@ public abstract class DocumentTest {
     document.update("myTimestampField", UpdateMode.APPEND, (Object) new Timestamp(3));
     document.update("myTimestampField", UpdateMode.SKIP, (Object) new Timestamp(4));
 
-    assertEquals(List.of(new Timestamp(2), new Timestamp(3)), document.getTimestampList("myTimestampField"));
+    assertEquals(List.of(Instant.ofEpochMilli(2L), Instant.ofEpochMilli(3L)), document.getInstantList("myTimestampField"));
   }
 
   @Test
@@ -1799,20 +1838,24 @@ public abstract class DocumentTest {
       assertNull(d.getLong("empty"));
       assertNull(d.getBoolean("empty"));
       assertNull(d.getInstant("empty"));
-      assertNull(d.getDate("empty"));
-      assertNull(d.getTimestamp("empty"));
+      assertNull(d.getInstant("empty"));
+      assertNull(d.getInstant("empty"));
     }
 
     @Test
     public void testGetInstantFromMalformedValue() throws DocumentException, JsonProcessingException {
       // A value that is not a valid ISO-8601 instant is a data error and still throws, so it is not mistaken for a
       // missing value.
-      Document d = createDocumentFromJson("{\"id\":\"id\",\"date\":\"not-a-date\", \"dates\":[\"2024-03-12T16:09:32Z\",\"not-a-date\"]}");
+      // A number, such as epoch milliseconds, is not converted.
+      Document d = createDocumentFromJson("{\"id\":\"id\",\"date\":\"not-a-date\", \"dates\":[\"2024-03-12T16:09:32Z\",\"not-a-date\"],"
+          + "\"epoch\":1710259772000}");
 
-      assertThrows(java.time.format.DateTimeParseException.class, () -> d.getInstant("date"));
-      assertThrows(java.time.format.DateTimeParseException.class, () -> d.getDate("date"));
-      assertThrows(java.time.format.DateTimeParseException.class, () -> d.getTimestamp("date"));
-      assertThrows(java.time.format.DateTimeParseException.class, () -> d.getInstantList("dates"));
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> d.getInstant("date"));
+      assertTrue(e.getMessage(), e.getMessage().contains("date") && e.getMessage().contains("not-a-date"));
+      assertThrows(IllegalArgumentException.class, () -> d.getInstant("date"));
+      assertThrows(IllegalArgumentException.class, () -> d.getInstant("date"));
+      assertThrows(IllegalArgumentException.class, () -> d.getInstantList("dates"));
+      assertThrows(IllegalArgumentException.class, () -> d.getInstant("epoch"));
     }
 
     @Test

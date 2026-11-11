@@ -1,8 +1,9 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import com.kmwllc.lucille.connector.FileConnectorStateManager;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.PublisherException;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -38,10 +39,14 @@ public class MemoryStorageClient extends BaseStorageClient {
   protected void shutdownStorageClient() { }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws ConnectorException {
     Document doc = Document.create(createDocId(params.getURI().toString(), params));
     doc.setField("content", config.getString("content"));
-    publisher.publish(doc);
+    try {
+      publisher.publish(doc);
+    } catch (PublisherException e) {
+      throw new ConnectorException("Error publishing " + doc.getId(), e);
+    }
   }
 
   @Override

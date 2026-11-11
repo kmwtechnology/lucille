@@ -9,13 +9,13 @@ weight: 20
 **Work in Progress.** This documentation is being actively developed by the Lucille maintainers with AI assistance. Our goal is for every page to be fully shaped by human input, requirements, and feedback. While many pages have undergone extensive human review, others have not and may contain inaccuracies. We're releasing early to get feedback that helps us improve. Let us know if something looks wrong by submitting a PR using the "edit this page" feature or emailing us at info@kmwllc.com.
 {{% /pageinfo %}}
 
-Lucille is a Java-based search ETL framework that reads data from sources, enriches it through configurable pipelines, and delivers it to search engines and vector databases.
+Lucille is a Java-based [search ETL]({{< relref "getting-started/what-is-search-etl" >}}) framework that reads data from sources, enriches it through configurable pipelines, and delivers it to search engines and vector databases.
 
 ## Find Your Section
 
 | Section | Who It's For | What You'll Find |
 |---|---|---|
-| [Getting Started]({{< relref "getting-started" >}}) | Anyone new to Lucille | Installation, first pipeline tutorial, and why Lucille exists. |
+| [Getting Started]({{< relref "getting-started" >}}) | Anyone new to Lucille | What search ETL is, why Lucille exists, installation, and a first pipeline tutorial. |
 | [Architecture]({{< relref "architecture" >}}) | Anyone who wants to understand *why* the system is designed the way it is | Design motivations, guiding principles, component roles and interactions, and deep dives into internal mechanisms. The aim is conceptual understanding. |
 | [Ingest Designer Guide]({{< relref "ingest-design" >}}) | Someone writing Lucille configs to define ingests — no Java required | How to write a config, pipeline definition patterns, the full catalogue of connectors/stages/indexers, conditions reference, and task-oriented cookbooks. |
 | [Component Developer Guide]({{< relref "developer-guide" >}}) | Java developers implementing new Connectors, Stages, or Indexers | What the framework provides vs. what you implement, skeleton code, the SPEC validation system, testing patterns, and API quick reference. |

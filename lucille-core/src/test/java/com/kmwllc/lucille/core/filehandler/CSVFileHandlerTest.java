@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.PublisherException;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
@@ -27,6 +28,7 @@ import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.Test;
 
 public class CSVFileHandlerTest {
@@ -141,7 +143,7 @@ public class CSVFileHandlerTest {
 
   @Test
   public void testSemicolonSeparator() throws Exception {
-    Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("separatorChar",  ";")));
+    Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("separator",  ";")));
     FileHandler handler = FileHandler.create("csv", config);
 
     // contents of FileHandlerTest/CSVFileHandlerTest/semicolons.csv
@@ -192,7 +194,7 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.parseMap(Map.of("csv", Map.of(
         "interpretQuotes", false,
         "useTabs", true,
-        "separatorChar", ";"
+        "separator", ";"
     )));
     FileHandler handler = FileHandler.create("csv", config);
 
@@ -302,9 +304,9 @@ public class CSVFileHandlerTest {
     Document doc3 = docs.next();
     assertFalse(docs.hasNext());
 
-    assertEquals("csv_defaults.csv-1", doc1.getId());
-    assertEquals("csv_defaults.csv-2", doc2.getId());
-    assertEquals("csv_defaults.csv-3", doc3.getId());
+    assertEquals("csv_" + DigestUtils.md5Hex(filePath) + "-1", doc1.getId());
+    assertEquals("csv_" + DigestUtils.md5Hex(filePath) + "-2", doc2.getId());
+    assertEquals("csv_" + DigestUtils.md5Hex(filePath) + "-3", doc3.getId());
   }
 
   @Test
@@ -562,7 +564,7 @@ public class CSVFileHandlerTest {
       Document d = docs.next();
       docsCount++;
 
-      assertEquals("defaults.csv-" + docsCount, d.getId());
+      assertEquals(DigestUtils.md5Hex("defaults.csv") + "-" + docsCount, d.getId());
       // was in the headers but shouldn't be placed on document
       assertFalse(d.has(Document.RUNID_FIELD));
       // csv has 1, 2, 3 for "value" :)
@@ -621,7 +623,7 @@ public class CSVFileHandlerTest {
     Publisher spyPublisher = spy(publisher);
     doCallRealMethod()
         .doCallRealMethod()
-        .doThrow(new Exception("Simulated Kafka failure"))
+        .doThrow(new PublisherException("Simulated Kafka failure"))
         .when(spyPublisher).publish(any(Document.class));
 
     // processFileAndPublish should throw FileHandlerException due to the publish failure

@@ -5,6 +5,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.junit.Test;
 
@@ -35,9 +36,8 @@ public class VideoFileHandlerTest {
     Document first = docs.next();
 
     String leaf = FilenameUtils.getName(filePath);
-    String stem = FilenameUtils.removeExtension(leaf);
 
-    assertEquals(stem + "-f0", first.getId());
+    assertEquals(DigestUtils.md5Hex(filePath) + "-f0", first.getId());
 
     assertEquals(filePath, first.getString("source"));
     assertEquals(leaf, first.getString("file_name"));
@@ -134,8 +134,8 @@ public class VideoFileHandlerTest {
   public void testConfigurableFieldNames() throws Exception {
     // Use non-default field names for every configurable field
     Config config = ConfigFactory.parseMap(Map.of(
-        "sourceField", "src_path",
-        "fileNameField", "fname",
+        "filePathField", "src_path",
+        "filenameField", "fname",
         "frameIndexField", "frame_idx",
         "frameTimeMsField", "frame_ms",
         "frameTimecodeField", "tc",

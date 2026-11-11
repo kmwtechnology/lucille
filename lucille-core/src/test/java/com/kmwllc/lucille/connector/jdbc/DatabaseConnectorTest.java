@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector.jdbc;
 
+import java.time.Instant;
 import java.util.Map;
 
 import com.kmwllc.lucille.core.ConnectorException;
@@ -9,6 +10,7 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -207,9 +209,9 @@ public class DatabaseConnectorTest {
     configValues.put("jdbcPassword", "");
     configValues.put("sql", "select id,int_field,bool_field from mixed order by id");
     configValues.put("idField", "id");
-    configValues.put("connectionRetries", 1);
+    configValues.put("maxConnectionRetries", 1);
     // put sleep to 1 millisecond to avoid too much time for testing
-    configValues.put("connectionRetryPause", 1);
+    configValues.put("connectionRetryWaitDurationMs", 1);
 
     // create a config object off that map
     Config config = ConfigFactory.parseMap(configValues);
@@ -247,6 +249,38 @@ public class DatabaseConnectorTest {
 
 
   @Test
+  public void testZeroConnectionRetriesMakesOneAttempt() throws Exception {
+    Map<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "lousy connection String");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select id,int_field,bool_field from mixed order by id");
+    configValues.put("idField", "id");
+    configValues.put("maxConnectionRetries", 0);
+    Config config = ConfigFactory.parseMap(configValues);
+
+    try (MockedStatic<DriverManager> mockDriverManager = mockStatic(DriverManager.class)) {
+      mockDriverManager.when(() -> DriverManager.getConnection("lousy connection String", "", ""))
+          .thenAnswer(invocation -> {
+            throw new SQLException("Connection failed");
+          });
+
+      DatabaseConnector connector = new DatabaseConnector(config);
+
+      assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+      mockDriverManager.verify(
+          () -> DriverManager.getConnection(eq("lousy connection String"), eq(""), eq("")), times(1));
+      connector.close();
+    }
+
+    Config negative = config.withValue("maxConnectionRetries", ConfigValueFactory.fromAnyRef(-1));
+    assertThrows(IllegalArgumentException.class, () -> new DatabaseConnector(negative));
+  }
+
+  @Test
   public void testDatabaseConnectionRetryAndConnect() throws Exception {
     // Create the test config
     Map<String, Object> configValues = new HashMap<>();
@@ -258,9 +292,9 @@ public class DatabaseConnectorTest {
     configValues.put("jdbcPassword", "");
     configValues.put("sql", "select id,int_field,bool_field from mixed order by id");
     configValues.put("idField", "id");
-    configValues.put("connectionRetries", 1);
+    configValues.put("maxConnectionRetries", 1);
     // put sleep to 1 millisecond to avoid too much time for testing
-    configValues.put("connectionRetryPause", 1);
+    configValues.put("connectionRetryWaitDurationMs", 1);
 
     // create a config object off that map
     Config config = ConfigFactory.parseMap(configValues);
@@ -380,8 +414,8 @@ public class DatabaseConnectorTest {
     assertEquals(true, d1.getBoolean("boolean_col"));
     assertEquals(true, d1.getBoolean("bit_col"));
     // Date & Timestamp
-    assertEquals(Date.valueOf("2024-07-30"), d1.getDate("date_col"));
-    assertEquals(Timestamp.valueOf("1970-01-01 00:00:01.0"), d1.getTimestamp("timestamp_col"));
+    assertEquals(Instant.ofEpochMilli(Date.valueOf("2024-07-30").getTime()), d1.getInstant("date_col"));
+    assertEquals(Timestamp.valueOf("1970-01-01 00:00:01.0").toInstant(), d1.getInstant("timestamp_col"));
 
     // Null (would not be added)
     assertFalse(d1.has("nullable_int"));
@@ -432,8 +466,8 @@ public class DatabaseConnectorTest {
     assertEquals(false, d2.getBoolean("boolean_col"));
     assertEquals(false, d2.getBoolean("bit_col"));
     // Date & Timestamp
-    assertEquals(Date.valueOf("2023-01-01"), d2.getDate("date_col"));
-    assertEquals(Timestamp.valueOf("2038-01-19 03:14:07.0"), d2.getTimestamp("timestamp_col"));
+    assertEquals(Instant.ofEpochMilli(Date.valueOf("2023-01-01").getTime()), d2.getInstant("date_col"));
+    assertEquals(Timestamp.valueOf("2038-01-19 03:14:07.0").toInstant(), d2.getInstant("timestamp_col"));
     // Null (Would not be added to document)
     assertFalse(d2.has("nullable_int"));
     assertNull(d2.getString("nullable_varchar"));
@@ -480,7 +514,7 @@ public class DatabaseConnectorTest {
     // The join fields. id goes to animal_id
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("animal_id");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     configValues.put("otherJoinFields", otherJoinFields);
     // create a config object off that map
     Config config = ConfigFactory.parseMap(configValues);
@@ -527,7 +561,7 @@ public class DatabaseConnectorTest {
     // Ordered by animal_id, the child join-key sequence is: 1, 2, 3, 3.
     List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as meal_id, animal_id, name from meal where id in (1,4,6,7) order by animal_id");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("animal_id");
     configValues.put("otherJoinFields", otherJoinFields);
@@ -578,7 +612,7 @@ public class DatabaseConnectorTest {
     configValues.put("idField", "id");
     List<String> otherSqls = new ArrayList<>();
     otherSqls.add(otherSql);
-    configValues.put("otherSQLs", otherSqls);
+    configValues.put("otherSqls", otherSqls);
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("animal_id");
     configValues.put("otherJoinFields", otherJoinFields);
@@ -693,7 +727,7 @@ public class DatabaseConnectorTest {
     }
   }
 
-  /** Base config for a joining connector; callers add otherSQLs / otherJoinFields and optional preSQL. */
+  /** Base config for a joining connector; callers add otherSqls / otherJoinFields and optional preSql. */
   private Map<String, Object> baseJoinConfig(String sql) {
     Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
@@ -726,7 +760,7 @@ public class DatabaseConnectorTest {
   }
 
   /**
-   * Two otherSQLs merged against one primary result set. Each child query keeps its own cursor and ordering
+   * Two otherSqls merged against one primary result set. Each child query keeps its own cursor and ordering
    * state, the children of a parent are numbered continuously across both queries, and child ids are
    * {@code <parentId>_<n>} so they are unique across the run. Meals come from the seed data; toys are created
    * here so that animal 2 has toys but animal 3 does not.
@@ -734,10 +768,10 @@ public class DatabaseConnectorTest {
   @Test
   public void testJoiningDatabaseConnectorTwoOtherSQLs() throws Exception {
     Map<String, Object> configValues = baseJoinConfig("select id,name from animal order by id");
-    configValues.put("preSQL",
+    configValues.put("preSql",
         "CREATE TABLE toy(id INT, animal_id INT, toy_name VARCHAR(20)); "
             + "INSERT INTO toy VALUES (1, 1, 'ball'), (2, 2, 'mouse'), (3, 2, 'string');");
-    configValues.put("otherSQLs", new ArrayList<>(List.of(
+    configValues.put("otherSqls", new ArrayList<>(List.of(
         "select id as meal_id, animal_id, name from meal order by animal_id, id",
         "select id as toy_id, animal_id, toy_name from toy order by animal_id, id")));
     configValues.put("otherJoinFields", new ArrayList<>(List.of("animal_id", "animal_id")));
@@ -772,10 +806,10 @@ public class DatabaseConnectorTest {
   @Test
   public void testJoiningDatabaseConnectorNullChildJoinKeyIsSkipped() throws Exception {
     Map<String, Object> configValues = baseJoinConfig("select id,name from animal order by id");
-    configValues.put("preSQL",
+    configValues.put("preSql",
         "CREATE TABLE toy(id INT, animal_id INT, toy_name VARCHAR(20)); "
             + "INSERT INTO toy VALUES (1, NULL, 'lost'), (2, 1, 'ball'), (3, NULL, 'unclaimed'), (4, 3, 'bell');");
-    configValues.put("otherSQLs", new ArrayList<>(List.of(
+    configValues.put("otherSqls", new ArrayList<>(List.of(
         "select id as toy_id, animal_id, toy_name from toy order by animal_id, id")));
     configValues.put("otherJoinFields", new ArrayList<>(List.of("animal_id")));
 
@@ -796,10 +830,10 @@ public class DatabaseConnectorTest {
   @Test
   public void testJoiningDatabaseConnectorDuplicatePrimaryKeyFailsTheRun() throws Exception {
     Map<String, Object> configValues = baseJoinConfig("select id,name from dup_animal order by id");
-    configValues.put("preSQL",
+    configValues.put("preSql",
         "CREATE TABLE dup_animal(id INT, name VARCHAR(10)); "
             + "INSERT INTO dup_animal VALUES (1, 'Matt'), (1, 'Matt again'), (2, 'Sonny');");
-    configValues.put("otherSQLs", new ArrayList<>(List.of(
+    configValues.put("otherSqls", new ArrayList<>(List.of(
         "select id as meal_id, animal_id, name from meal order by animal_id, id")));
     configValues.put("otherJoinFields", new ArrayList<>(List.of("animal_id")));
 
@@ -813,12 +847,12 @@ public class DatabaseConnectorTest {
     }
   }
 
-  /** postSQL runs after the primary query, on the same connection, and its effect is visible afterwards. */
+  /** postSql runs after the primary query, on the same connection, and its effect is visible afterwards. */
   @Test
   public void testPostSqlRunsAfterQuery() throws Exception {
     Map<String, Object> configValues = baseJoinConfig("select id,name from animal order by id");
-    configValues.put("preSQL", "CREATE TABLE marker(note VARCHAR(20));");
-    configValues.put("postSQL", "INSERT INTO marker VALUES ('done');");
+    configValues.put("preSql", "CREATE TABLE marker(note VARCHAR(20));");
+    configValues.put("postSql", "INSERT INTO marker VALUES ('done');");
 
     List<Document> docs = runConnector(configValues);
     assertEquals(3, docs.size());
@@ -836,7 +870,7 @@ public class DatabaseConnectorTest {
   public void testIgnoreColumnsOmitsPrimaryColumnOnly() throws Exception {
     Map<String, Object> configValues = baseJoinConfig("select id,name,type from animal order by id");
     configValues.put("ignoreColumns", new ArrayList<>(List.of("TYPE", "name")));
-    configValues.put("otherSQLs", new ArrayList<>(List.of(
+    configValues.put("otherSqls", new ArrayList<>(List.of(
         "select id as meal_id, animal_id, name from meal order by animal_id, id")));
     configValues.put("otherJoinFields", new ArrayList<>(List.of("animal_id")));
 
@@ -868,7 +902,7 @@ public class DatabaseConnectorTest {
     // Child query that is guaranteed to return zero rows.
     List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as meal_id, animal_id, name from meal where 1=0 order by animal_id");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("animal_id");
     configValues.put("otherJoinFields", otherJoinFields);
@@ -905,7 +939,7 @@ public class DatabaseConnectorTest {
     // a list of other sql statements
     List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as network_id,name,friends_with from network order by name");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     // The join fields. id goes to animal_id
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("name");
@@ -940,7 +974,7 @@ public class DatabaseConnectorTest {
     // a list of other sql statements
     List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as _id,name,metadata from nonComparable order by name");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     // The join fields. id goes to animal_id
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("metadata");
@@ -969,7 +1003,7 @@ public class DatabaseConnectorTest {
     // a list of other sql statements
     List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as adoption_id,name,adopted_on from adopted order by adopted_on");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     // The join fields. id goes to animal_id
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("adopted_on");
@@ -993,9 +1027,9 @@ public class DatabaseConnectorTest {
     java.util.Date expectedDate = sdf.parse(expectedDateStr); // this would give a date based on current timezone
 
     // check that parent and children have the same date value used for joining
-    assertEquals(expectedDate, docs.get(0).getDate("birthday"));
-    assertEquals(expectedDate, docs.get(0).getChildren().get(0).getDate("adopted_on"));
-    assertEquals(expectedDate, docs.get(0).getChildren().get(1).getDate("adopted_on"));
+    assertEquals(expectedDate.toInstant(), docs.get(0).getInstant("birthday"));
+    assertEquals(expectedDate.toInstant(), docs.get(0).getChildren().get(0).getInstant("adopted_on"));
+    assertEquals(expectedDate.toInstant(), docs.get(0).getChildren().get(1).getInstant("adopted_on"));
 
     connector.close();
   }
@@ -1243,7 +1277,7 @@ public class DatabaseConnectorTest {
     configValues.put("connectionString", "jdbc:h2:mem:test");
     configValues.put("jdbcUser", "");
     configValues.put("jdbcPassword", "");
-    configValues.put("preSQL", setup);
+    configValues.put("preSql", setup);
     configValues.put("sql",
         "select id, str_col, int_col, long_col, dbl_col, dec_col, flt_col, bool_col, date_col, ts_col, "
             + "bin_col, time_col from typed_parent order by id");
@@ -1251,7 +1285,7 @@ public class DatabaseConnectorTest {
     List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as child_id, parent_id, c_str, c_int, c_long, c_dbl, c_dec, c_flt, c_bool, "
         + "c_date, c_ts, c_bin, c_time from typed_child order by parent_id");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("parent_id");
     configValues.put("otherJoinFields", otherJoinFields);
@@ -1277,8 +1311,8 @@ public class DatabaseConnectorTest {
       assertEquals(Double.valueOf(12.50), parent.getDouble("dec_col"));
       assertEquals(Float.valueOf(1.25f), parent.getFloat("flt_col"));
       assertEquals(Boolean.TRUE, parent.getBoolean("bool_col"));
-      assertEquals(Date.valueOf("2024-07-30"), parent.getDate("date_col"));
-      assertEquals(Timestamp.valueOf("2024-07-30 00:00:01.0"), parent.getTimestamp("ts_col"));
+      assertEquals(Instant.ofEpochMilli(Date.valueOf("2024-07-30").getTime()), parent.getInstant("date_col"));
+      assertEquals(Timestamp.valueOf("2024-07-30 00:00:01.0").toInstant(), parent.getInstant("ts_col"));
       assertArrayEquals(new byte[] {0x0A, 0x0B}, parent.getBytes("bin_col"));
       // plain TIME is lossless as a string and must not be silently dropped
       assertTrue("TIME column must be present on the parent document", parent.has("time_col"));
@@ -1291,8 +1325,8 @@ public class DatabaseConnectorTest {
       assertEquals(Double.valueOf(99.99), child.getDouble("c_dec"));
       assertEquals(Float.valueOf(4.75f), child.getFloat("c_flt"));
       assertEquals(Boolean.FALSE, child.getBoolean("c_bool"));
-      assertEquals(Date.valueOf("2023-01-01"), child.getDate("c_date"));
-      assertEquals(Timestamp.valueOf("2023-01-01 00:00:02.0"), child.getTimestamp("c_ts"));
+      assertEquals(Instant.ofEpochMilli(Date.valueOf("2023-01-01").getTime()), child.getInstant("c_date"));
+      assertEquals(Timestamp.valueOf("2023-01-01 00:00:02.0").toInstant(), child.getInstant("c_ts"));
       assertArrayEquals(new byte[] {0x0C, 0x0D}, child.getBytes("c_bin"));
       assertTrue("TIME column must be present on the child document", child.has("c_time"));
     } finally {
@@ -1323,12 +1357,12 @@ public class DatabaseConnectorTest {
     configValues.put("connectionString", "jdbc:h2:mem:test");
     configValues.put("jdbcUser", "");
     configValues.put("jdbcPassword", "");
-    configValues.put("preSQL", setup);
+    configValues.put("preSql", setup);
     configValues.put("sql", "select id, big_id, amount from dec_parent order by id");
     configValues.put("idField", "id");
     List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as child_id, parent_id, c_big, c_amount from dec_child order by parent_id");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("parent_id");
     configValues.put("otherJoinFields", otherJoinFields);
@@ -1354,7 +1388,7 @@ public class DatabaseConnectorTest {
 
   // --- Unsupported types must throw a ConnectorException, on BOTH paths ---
   // One test per type so that each type's result is visible independently. Each case creates a scratch
-  // table (via preSQL) with an id, an integer join key (animal_id=1 so it joins to seed animal 1), and the
+  // table (via preSql) with an id, an integer join key (animal_id=1 so it joins to seed animal 1), and the
   // unsupported-typed column as a NON-join column - so any thrown exception is attributable to type
   // handling, not to comparing the join keys. Every unsupported type H2 can represent in-memory is covered.
 
@@ -1434,7 +1468,7 @@ public class DatabaseConnectorTest {
       cfg.put("connectionString", "jdbc:h2:mem:test");
       cfg.put("jdbcUser", "");
       cfg.put("jdbcPassword", "");
-      cfg.put("preSQL", setup);
+      cfg.put("preSql", setup);
       cfg.put("sql", "select id, bad_col from unsupported_type_probe order by id");
       cfg.put("idField", "id");
 
@@ -1460,12 +1494,12 @@ public class DatabaseConnectorTest {
       cfg.put("connectionString", "jdbc:h2:mem:test");
       cfg.put("jdbcUser", "");
       cfg.put("jdbcPassword", "");
-      cfg.put("preSQL", setup);
+      cfg.put("preSql", setup);
       cfg.put("sql", "select id, name from animal where id=1 order by id");
       cfg.put("idField", "id");
       List<String> otherSql = new ArrayList<>();
       otherSql.add("select id as probe_id, join_key, bad_col from unsupported_type_probe order by join_key");
-      cfg.put("otherSQLs", otherSql);
+      cfg.put("otherSqls", otherSql);
       List<String> otherJoinFields = new ArrayList<>();
       otherJoinFields.add("join_key");
       cfg.put("otherJoinFields", otherJoinFields);
@@ -1506,7 +1540,7 @@ public class DatabaseConnectorTest {
     // animal_id sequence 3,3,2,2,1,1,1 - i.e. join keys in descending order.
     List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as meal_id, animal_id, name from meal order by id desc");
-    configValues.put("otherSQLs", otherSql);
+    configValues.put("otherSqls", otherSql);
     List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("animal_id");
     configValues.put("otherJoinFields", otherJoinFields);

@@ -4,7 +4,7 @@ Runs the `lucille-api` Docker image (the same Dockerfile published as `kmwtechno
 
 ## How to run the example
 
-1. Run `mvn clean install -DskipTests -Pshaded-plugin-jars` at the top level directory of lucille. `-Pshaded-plugin-jars` ensures the `lucille-api-plugin.jar` is built.
+1. Run `mvn clean install -DskipTests -Pshaded-plugin-jars -Padmin-ui` at the top level directory of lucille. `-Pshaded-plugin-jars` ensures the `lucille-api-plugin.jar` is built, and `-Padmin-ui` builds `lucille-admin-ui.jar`, which the image also ships (needs network access for Node).
 2. Run `mvn verify -Pnightly` in the `lucille-api-example` directory. (`scripts/run-nightly.sh` can also be run directly, but needs `mvn package` to have been run in this directory first.)
 
 ### What it checks

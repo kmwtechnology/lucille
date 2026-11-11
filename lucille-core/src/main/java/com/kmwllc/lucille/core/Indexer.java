@@ -12,14 +12,22 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.MessengerException;
+import com.kmwllc.lucille.message.UndeserializableRecordException;
 import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigList;
+import com.typesafe.config.ConfigValue;
+import com.typesafe.config.ConfigValueType;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,8 +36,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -38,14 +44,15 @@ import org.slf4j.MDC.MDCCloseable;
 /**
  * Indexes documents into a target destination.
  *
- * <p> Indexers have two separate configurations - the generic <code>indexer</code> configuration, and configuration for the
- * specific implementation held under a certain key. For example, <code>solr</code> holds configuration for a SolrIndexer, <code>csv</code>
- * holds configuration for a CSVIndexer, etc.
+ * <p> An Indexer's configuration is the <code>indexer</code> block. It holds generic settings and, nested under a certain key,
+ * configuration for the specific implementation. For example, <code>indexer.solr</code> holds configuration for a SolrIndexer,
+ * <code>indexer.csv</code> holds configuration for a CSVIndexer, etc.
  *
  * <p> All implementations must declare a <code>public static Spec SPEC</code> defining the specific implementation's properties.
  * This Spec will be accessed reflectively in the super constructor, so the Indexer will not function without declaring a Spec.
  * The Config provided to <code>super()</code> will be validated against the Spec. The Indexer superclass will validate the
  * generic <code>indexer</code> configuration and the specific implementation configuration as well.
+ * SPEC is looked up on the implementation class itself, not on its superclasses, so a class extending another Indexer must declare its own.
  *
  * <p> The <code>public static Spec SPEC</code> should <b>not</b> include the config key in your property names. For example, you
  * only write "url", not "solr.url", in a Spec for a SolrIndexer.
@@ -61,24 +68,23 @@ import org.slf4j.MDC.MDCCloseable;
  *   <li>indexer.indexOverrideField (String, Optional) : Name of a document field whose value will be used as the destination
  *   index, overriding the default index specified in the Indexer's configuration. Not supported by CSVIndexer or
  *   ElasticSearchIndexer classes.</li>
- *   <li>indexer.blacklist (List&lt;String&gt;, Optional) : Fields to exclude from the document sent to the destination.</li>
- *   <li>indexer.whitelist (List&lt;String&gt;, Optional) : Only include these fields from the document when sending to the
+ *   <li>indexer.excludeFields (List&lt;String&gt;, Optional) : Fields to exclude from the document sent to the destination.</li>
+ *   <li>indexer.includeFields (List&lt;String&gt;, Optional) : Only include these fields from the document when sending to the
  *   destination.</li>
  *   <li>indexer.batchSize (Integer, Optional) : Number of documents to accumulate before sending to the destination. Defaults to
  *   {@value #DEFAULT_BATCH_SIZE} or {@value #NO_BATCH_SIZE} if batchByteSize is set. If both are set, batches are flushed when
  *   either limit is reached.</li>
  *   <li>indexer.batchByteSize (Long, Optional) : Total size of documents accumulated before sending to the destination. Defaults to
  *   {@value #NO_BATCH_SIZE_BYTES}.</li>
- *   <li>indexer.batchTimeout (Integer, Optional) : the number of milliseconds (since the previous add or flush) beyond which the batch
+ *   <li>indexer.batchTimeoutMs (Integer, Optional) : the number of milliseconds (since the previous add or flush) beyond which the batch
  *   will be considered as expired. Defaults to {@value #DEFAULT_BATCH_TIMEOUT}.</li>
- *   <li>indexer.deletionMarkerField (String, Optional) : Field that, when set to indexer.deletionMarkerFieldValue, marks a document
- *   for deletion. Must be set together with indexer.deletionMarkerFieldValue.</li>
- *   <li>indexer.deletionMarkerFieldValue (String, Optional) : Value of indexer.deletionMarkerField that triggers deletion.
- *   Must be set together with indexer.deletionMarkerField.</li>
- *   <li>indexer.deleteByFieldField (String, Optional) : Field used to identify documents for deletion by query. Must be set
- *   together with indexer.deleteByFieldValue.</li>
- *   <li>indexer.deleteByFieldValue (String, Optional) : Field whose value specifies which documents to delete by query. Must be set
- *   together with indexer.deleteByFieldField.</li>
+ *   <li>indexer.deletionMarker (Map, Optional) : Marks documents for deletion by ID. <code>field</code> (String) is the
+ *   document field to check, and <code>value</code> (String) the value of that field that marks a document for deletion.
+ *   Both are required.</li>
+ *   <li>indexer.deleteByQuery (Map, Optional) : Turns a document marked for deletion into a delete-by-query when it carries
+ *   both of these fields. <code>fieldNameField</code> (String) is the document field holding the name of the destination
+ *   field to match, and <code>valueField</code> (String) the document field holding the value to match. Both are
+ *   required, and so is indexer.deletionMarker.</li>
  *   <li>indexer.maxRetries (Integer, Optional) : Maximum number of times to retry a failed batch before treating all documents
  *   in the batch as failures. Retries are disabled by default; set to a positive integer to opt in. A value of 0 or less
  *   is rejected as invalid — remove the parameter entirely to disable retries.</li>
@@ -97,17 +103,15 @@ import org.slf4j.MDC.MDCCloseable;
  *   failures, will not be retried. Include the sentinel value {@code -1} to also retry failures where no HTTP status code
  *   is available (e.g. network timeouts). When this parameter is omitted, the default {@code [429, 503, -1]} is used.
  *   An empty list is rejected as invalid configuration. Only allowed when maxRetries is also set.</li>
- *   <li>indexer.versionType (String, Optional) : The type of versioning to use for indexing documents. Specific indexer implementations may support different version types. The default version type is implementation-specific.</li>
- *   <li>indexer.versionField (String, Optional) : The field name to use for versioning. This field must be present in the document and must be of a type that supports versioning with that specific indexer implementation (e.g., numeric, string).</li>
  *   <li>indexer.maxConcurrentBatches (Integer, Optional) : Maximum number of batches that may be in flight to the destination
  *   at once. Defaults to {@value #DEFAULT_MAX_CONCURRENT_BATCHES}, which sends each batch synchronously on the indexer thread.
  *   Values greater than 1 are only accepted by implementations whose {@link #supportsConcurrentSends()} returns true.
- *   With a Kafka messenger, kafka.maxPollIntervalSecs must exceed about three times the slowest send, including
+ *   With a Kafka messenger, kafka.maxPollIntervalMs must exceed about three times the slowest send, including
  *   retries (about two when this is 1), since the indexer does not poll while it waits and drains in-flight sends
  *   before rejoining a rebalance.</li>
  * </ul>
  */
-public abstract class Indexer implements Runnable, BatchProcessor {
+public abstract class Indexer implements Runnable {
 
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int NO_BATCH_SIZE = Integer.MAX_VALUE;
@@ -118,6 +122,13 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   public static final double DEFAULT_RETRY_RANDOMIZATION_FACTOR = 0.5;
   public static final List<Integer> DEFAULT_RETRYABLE_STATUS_CODES = List.of(429, 503, IndexerRetryableException.UNKNOWN_STATUS_CODE);
   public static final int DEFAULT_MAX_CONCURRENT_BATCHES = 1;
+
+  private static final Spec DELETION_MARKER_SPEC = SpecBuilder.withoutDefaults()
+      .requiredString("field", "value").build();
+  private static final Spec DELETE_BY_QUERY_SPEC = SpecBuilder.withoutDefaults()
+      .requiredString("fieldNameField", "valueField").build();
+  // generic settings that are blocks, so validateIndexerConfigs does not mistake them for an indexer's own block
+  private static final Set<String> GENERIC_BLOCKS = Set.of("deletionMarker", "deleteByQuery");
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
@@ -133,25 +144,31 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   private final Meter meter;
   private final Histogram histogram;
 
-  protected final String idOverrideField;
-  protected final String indexOverrideField;
+  private final String idOverrideField;
+  private final String indexOverrideField;
 
-  protected final String deletionMarkerField;
-  protected final String deletionMarkerFieldValue;
-  protected final String deleteByFieldField;
-  protected final String deleteByFieldValue;
+  private final String deletionMarkerField;
+  private final String deletionMarkerValue;
+  private final String deleteByQueryFieldNameField;
+  private final String deleteByQueryValueField;
 
-  protected final FieldFilter fieldFilter;
+  private final boolean sendFailedDocsToTopic;
+  // Set when a copy to the fail topic fails for a reason other than the document itself, so the rest of the batch
+  // skips the copy instead of waiting out the same failure once per document. Reset for each batch; indexer thread only.
+  private boolean failTopicUnavailable;
+  private final FieldFilter fieldFilter;
 
   private Instant lastLog = Instant.now();
 
   // A runID for a local (local / test) run. Null if not in one of those modes / started independently.
   private final String localRunId;
 
-  protected final boolean bypass;
+  private final boolean bypass;
 
   // Non-null only when indexer.maxRetries is configured; null means retries are disabled (the default).
   private final Retry retry;
+  // The configured indexer.maxRetries, or 0 when retries are disabled.
+  private final int maxRetries;
   // Empty when retries are disabled; otherwise the set of HTTP status codes (and -1 for no-status) that trigger a retry.
   private final List<Integer> retryableStatusCodes;
 
@@ -173,104 +190,93 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    * <p> All Indexer implementations should declare a <code>public static final Spec SPEC</code> that defines the implementation's
    * specific properties. For example, Elasticsearch needs <code>index</code>, <code>url</code>, etc.
    *
-   * @param config The root config for Lucille. (In other words, should potentially include both "indexer" and specific
-   *               implementation config, like "solr" or "elasticsearch".)
+   * @param config The "indexer" block of Lucille's config, which holds the generic indexer settings and the specific
+   *               implementation's nested block, like "solr" or "elasticsearch".
+   * @param context What the framework provides to this Indexer apart from its config.
    */
-  public Indexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    this.messenger = messenger;
-    this.bypass = bypass;
-    this.idOverrideField = ConfigUtils.getStringOrDefault(config, "indexer.idOverrideField", null);
-    this.indexOverrideField = ConfigUtils.getStringOrDefault(config, "indexer.indexOverrideField", null);
-    this.deletionMarkerField = ConfigUtils.getStringOrDefault(config, "indexer.deletionMarkerField", null);
-    this.deletionMarkerFieldValue = ConfigUtils.getStringOrDefault(config, "indexer.deletionMarkerFieldValue", null);
-    this.deleteByFieldField = ConfigUtils.getStringOrDefault(config, "indexer.deleteByFieldField", null);
-    this.deleteByFieldValue = ConfigUtils.getStringOrDefault(config, "indexer.deleteByFieldValue", null);
+  public Indexer(Config config, IndexerContext context) {
+    // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
+    validateIndexerConfigs(config);
+
+    this.messenger = context.messenger();
+    this.bypass = context.bypass();
+    this.logSeconds = context.logSeconds();
+    this.idOverrideField = ConfigUtils.getStringOrDefault(config, "idOverrideField", null);
+    this.indexOverrideField = ConfigUtils.getStringOrDefault(config, "indexOverrideField", null);
+    boolean hasDeletionMarker = config.hasPath("deletionMarker");
+    this.deletionMarkerField = hasDeletionMarker ? config.getString("deletionMarker.field") : null;
+    this.deletionMarkerValue = hasDeletionMarker ? config.getString("deletionMarker.value") : null;
+    boolean hasDeleteByQuery = config.hasPath("deleteByQuery");
+    this.deleteByQueryFieldNameField = hasDeleteByQuery ? config.getString("deleteByQuery.fieldNameField") : null;
+    this.deleteByQueryValueField = hasDeleteByQuery ? config.getString("deleteByQuery.valueField") : null;
+    if (hasDeleteByQuery && !hasDeletionMarker) {
+      // delete-by-query applies only to documents the marker selects, so without one it would be silently ignored
+      throw new IllegalArgumentException("indexer.deleteByQuery requires indexer.deletionMarker to be set.");
+    }
 
     int batchSize;
     long batchByteSize;
 
-    if (config.hasPath("indexer.batchSize") || config.hasPath("indexer.batchByteSize")) {
+    if (config.hasPath("batchSize") || config.hasPath("batchByteSize")) {
       // when only one is set, the other is disabled so the configured one governs
-      batchSize = ConfigUtils.getIntOrDefault(config, "indexer.batchSize", NO_BATCH_SIZE);
-      batchByteSize = ConfigUtils.getLongOrDefault(config, "indexer.batchByteSize", NO_BATCH_SIZE_BYTES);
+      batchSize = ConfigUtils.getIntOrDefault(config, "batchSize", NO_BATCH_SIZE);
+      batchByteSize = ConfigUtils.getLongOrDefault(config, "batchByteSize", NO_BATCH_SIZE_BYTES);
     } else {
       batchSize = DEFAULT_BATCH_SIZE;
       batchByteSize = NO_BATCH_SIZE_BYTES;
     }
 
-    int batchTimeout = ConfigUtils.getIntOrDefault(config, "indexer.batchTimeout", DEFAULT_BATCH_TIMEOUT);
+    int batchTimeout = ConfigUtils.getIntOrDefault(config, "batchTimeoutMs", DEFAULT_BATCH_TIMEOUT);
     this.batch =
         (indexOverrideField == null)
             ? new SingleBatch(batchSize, batchByteSize, batchTimeout)
             : new MultiBatch(batchSize, batchByteSize, batchTimeout, indexOverrideField);
-    // validate config deletionFields that must be present together
-    if ((deleteByFieldField != null && deleteByFieldValue == null)
-        || (deleteByFieldField == null && deleteByFieldValue != null)) {
-      throw new IllegalArgumentException(
-          "When one of indexer.deleteByFieldField and indexer.deleteByFieldValue are set, both must be set.");
-    }
-    if ((deletionMarkerField != null && deletionMarkerFieldValue == null)
-        || (deletionMarkerField == null && deletionMarkerFieldValue != null)) {
-      throw new IllegalArgumentException(
-          "When one of indexer.deletionMarkerField and indexer.deletionMarkerFieldValue are set, both must be set.");
-    }
-
-    this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
-    this.meter = metrics.meter(metricsPrefix + ".indexer.docsIndexed");
-    this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
-    this.localRunId = localRunId;
+    this.meter = metrics.meter(context.metricsPrefix() + ".indexer.docsIndexed");
+    this.histogram = metrics.histogram(context.metricsPrefix() + ".indexer.batchTimeOverSize");
+    this.localRunId = context.localRunId();
 
-    this.fieldFilter = new FieldFilter(config.getConfig("indexer"));
+    this.fieldFilter = new FieldFilter(config);
+    this.sendFailedDocsToTopic = ConfigUtils.getBooleanOrDefault(config, "sendFailedDocsToTopic", false);
 
-    if (!config.hasPath("indexer.maxRetries")) {
-      if (config.hasPath("indexer.retryWaitDurationMs") || config.hasPath("indexer.retryableStatusCodes")
-          || config.hasPath("indexer.retryMaxWaitDurationMs") || config.hasPath("indexer.retryRandomizationFactor")) {
+    if (!config.hasPath("maxRetries")) {
+      if (config.hasPath("retryWaitDurationMs") || config.hasPath("retryableStatusCodes")
+          || config.hasPath("retryMaxWaitDurationMs") || config.hasPath("retryRandomizationFactor")) {
         throw new IllegalArgumentException(
             "indexer.retryWaitDurationMs, indexer.retryMaxWaitDurationMs, indexer.retryRandomizationFactor, "
                 + "and indexer.retryableStatusCodes require indexer.maxRetries to be set.");
       }
       this.retry = null;
+      this.maxRetries = 0;
       this.retryableStatusCodes = List.of();
     } else {
-      int maxRetries = config.getInt("indexer.maxRetries");
+      this.maxRetries = config.getInt("maxRetries");
       if (maxRetries <= 0) {
         throw new IllegalArgumentException(
             "indexer.maxRetries must be greater than 0 when specified. Remove the parameter to disable retries.");
       }
-      int retryInitialWaitDurationMs = ConfigUtils.getOrDefault(config, "indexer.retryWaitDurationMs", DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS);
-      long retryMaxWaitDurationMs = ConfigUtils.getLongOrDefault(config, "indexer.retryMaxWaitDurationMs", DEFAULT_RETRY_MAX_WAIT_DURATION_MS);
-      double retryRandomizationFactor = ConfigUtils.getDoubleOrDefault(config, "indexer.retryRandomizationFactor", DEFAULT_RETRY_RANDOMIZATION_FACTOR);
-      if (!config.hasPath("indexer.retryableStatusCodes")) {
+      int retryInitialWaitDurationMs = ConfigUtils.getOrDefault(config, "retryWaitDurationMs", DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS);
+      long retryMaxWaitDurationMs = ConfigUtils.getLongOrDefault(config, "retryMaxWaitDurationMs", DEFAULT_RETRY_MAX_WAIT_DURATION_MS);
+      double retryRandomizationFactor = ConfigUtils.getDoubleOrDefault(config, "retryRandomizationFactor", DEFAULT_RETRY_RANDOMIZATION_FACTOR);
+      if (!config.hasPath("retryableStatusCodes")) {
         this.retryableStatusCodes = DEFAULT_RETRYABLE_STATUS_CODES;
       } else {
-        this.retryableStatusCodes = config.getIntList("indexer.retryableStatusCodes");
+        this.retryableStatusCodes = config.getIntList("retryableStatusCodes");
         if (this.retryableStatusCodes.isEmpty()) {
           throw new IllegalArgumentException(
               "indexer.retryableStatusCodes must not be empty when specified. "
                   + "Remove the parameter to use the default, or provide at least one status code.");
         }
       }
-      this.retry = Retry.of("indexer-batch-retry", RetryConfig.<Set<Pair<Document, Exception>>>custom()
+      this.retry = Retry.of("indexer-batch-retry", RetryConfig.<List<IndexerFailure>>custom()
           .maxAttempts(maxRetries + 1) // maxAttempts includes the initial attempt
           .intervalFunction(IntervalFunction.ofExponentialRandomBackoff(
               retryInitialWaitDurationMs, IntervalFunction.DEFAULT_MULTIPLIER,
               retryRandomizationFactor, retryMaxWaitDurationMs))
-          .retryOnResult(result -> {
-            // Retry the batch if any per-document failure has a retryable status code.
-            @SuppressWarnings("unchecked")
-            Set<Pair<Document, Exception>> pairs = (Set<Pair<Document, Exception>>) result;
-            return pairs.stream().anyMatch(p ->
-                p.getRight() instanceof IndexerRetryableException e
-                    && retryableStatusCodes.contains(e.getStatusCode()));
-          })
-          .retryOnException(e -> {
-            if (e instanceof IndexerRetryableException retryable) {
-              return retryableStatusCodes.contains(retryable.getStatusCode());
-            }
-            // Plain IndexerException (non-HTTP failure) — do not retry
-            return false;
-          })
+          // Retry the batch if any per-document failure is retryable.
+          .retryOnResult(failures -> failures.stream().anyMatch(failure -> isRetryable(failure.cause())))
+          // A plain IndexerException (non-HTTP failure), or a status not in retryableStatusCodes, is not retried.
+          .retryOnException(this::isRetryable)
           .build());
       this.retry.getEventPublisher().onRetry(event -> {
         Throwable lastThrowable = event.getLastThrowable();
@@ -294,14 +300,11 @@ public abstract class Indexer implements Runnable, BatchProcessor {
           + "(it must commit its input on batch completion, not at poll); indexer.maxConcurrentBatches must be 1 or unset.");
     }
 
-    // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
-    validateIndexerConfigs(config);
-
-    // This Indexer is the dispatcher's BatchProcessor: it supplies the two steps the dispatcher schedules,
+    // Processor is the dispatcher's BatchProcessor: it supplies the two steps the dispatcher schedules,
     // sendWithRetry (may run on a pool) and completeBatch (indexer thread, in dispatch order).
     this.dispatcher = maxConcurrentBatches == 1
-        ? new SynchronousDispatcher(this)
-        : new ConcurrentDispatcher(maxConcurrentBatches, localRunId, this,
+        ? new SynchronousDispatcher(new Processor())
+        : new ConcurrentDispatcher(maxConcurrentBatches, localRunId, new Processor(),
             this::destinationIds, this::isDeleteByQuery);
 
     // When a partition is about to be revoked in a rebalance, flush the open batch and drain in-flight batches so their
@@ -342,7 +345,7 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    */
   public static int getMaxConcurrentBatches(Config config) {
     // getInt, unlike ConfigUtils.getOrDefault, converts a string value such as an environment substitution.
-    return ConfigUtils.getIntOrDefault(config, "indexer.maxConcurrentBatches", DEFAULT_MAX_CONCURRENT_BATCHES);
+    return ConfigUtils.getIntOrDefault(config, "maxConcurrentBatches", DEFAULT_MAX_CONCURRENT_BATCHES);
   }
 
   /**
@@ -377,30 +380,65 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   protected abstract String getIndexerConfigKey();
 
   /**
+   * The settings of the generic indexer block that this Indexer can't apply, which fail at startup if they are set. An
+   * empty list counts as not set. Called during construction, so an implementation should return a constant.
+   *
+   * @return the names of the unsupported settings, such as "indexOverrideField". By default, none.
+   */
+  protected Set<String> getUnsupportedSettings() {
+    return Set.of();
+  }
+
+  /**
+   * Returns the key of this Indexer's block in the indexer block, as given by {@link #getIndexerConfigKey()}.
+   */
+  public final String getConfigKey() {
+    return getIndexerConfigKey();
+  }
+
+  /**
    * Return true if connection to the destination search engine is valid and the relevant index or
-   * collection exists; false otherwise.
+   * collection exists; false otherwise. Always true in bypass mode, when the destination is not contacted.
    *
    * @return Whether this Indexer has a valid connection to its destination.
    */
-  public abstract boolean validateConnection();
+  public final boolean validateConnection() {
+    return bypass || checkConnection();
+  }
+
+  /**
+   * Return true if connection to the destination search engine is valid and the relevant index or
+   * collection exists; false otherwise. Not called in bypass mode.
+   *
+   * @return Whether this Indexer has a valid connection to its destination.
+   */
+  protected abstract boolean checkConnection();
 
   /**
    * Send a batch of documents to the destination search engine. Implementations should use a single
    * call to the batch API provided by the search engine client, if available, as opposed to sending
    * each document individually.
    *
+   * <p> If retries are configured (indexer.maxRetries), a retry calls this method again with the entire batch, including
+   * documents the destination has already accepted. That is safe for a destination where writing the same document twice
+   * has the same effect as writing it once. An Indexer for an append-only destination or one that uses external versions
+   * must not report retryable failures unless it can handle being sent those documents again.
+   *
+   * <p> Not called in bypass mode.
+   *
    * @param documents The documents to send to the destination.
-   * @return A set of Pairs containing Documents that were not successfully indexed, along with an
-   *     Exception describing the failure. Use {@link IndexerRetryableException} to signal that the
-   *     failure may be transient; the base class will trigger a retry of the entire batch for any
-   *     returned exception whose status code is in the configured retryable set. Use
-   *     {@link IndexerException} for permanent per-document failures. Returns an empty set if all
-   *     documents succeeded or if per-document failure tracking is not supported. Does not return null.
+   * @return The documents that were not successfully indexed, each with the Exception describing its failure, or an empty
+   *     list if all documents succeeded or if per-document failure tracking is not supported. Each failure must hold the
+   *     instance that was passed in, and each instance may be reported only once. A failure that breaks either rule can't
+   *     be matched to a document, so every document in the batch without a failure of its own is failed. Use
+   *     {@link IndexerRetryableException} to signal that the failure may be transient; the base class will retry the
+   *     entire batch for any returned exception whose status code is in the configured retryable set. Use
+   *     {@link IndexerException} for permanent per-document failures. Does not return null.
    * @throws IndexerException for errors that prevent the entire batch from being attempted. Throw an
    *     {@link IndexerRetryableException} when the failure may be transient (for example a transport error), so the
    *     configured retry policy applies to it.
    */
-  protected abstract Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException;
+  protected abstract List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException;
 
   /** Close the client or connection to the destination search engine. */
   public abstract void closeConnection();
@@ -469,9 +507,9 @@ public abstract class Indexer implements Runnable, BatchProcessor {
       // blocking poll with a timeout which we assume to be in the range of
       // several milliseconds to several seconds
       doc = messenger.pollDocToIndex();
-    } catch (RecordDeserializationException e) {
-      // already logged with the record's location by the messenger
-      log.error("Indexer stopping: could not deserialize record {}@{}", e.topicPartition(), e.offset());
+    } catch (UndeserializableRecordException e) {
+      // already logged in full by the messenger
+      log.error("Indexer stopping: {}", e.getMessage());
       terminate();
       return;
     } catch (Exception e) {
@@ -524,23 +562,45 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    * Sends the batch to the destination, applying the retry policy. Never throws: any Throwable is captured in the
    * returned {@link SendOutcome} so that {@link #completeBatch} can handle it.
    */
-  @Override
-  public final SendOutcome sendWithRetry(List<Document> batchedDocs) {
+  private SendOutcome sendWithRetry(List<Document> batchedDocs) {
+    if (bypass) {
+      return new SendOutcome(List.of(), null, 0);
+    }
     long start = System.nanoTime();
     try {
       // Note: the retry wraps the entire sendToIndex() call. If sendToIndex() partially succeeds
       // (e.g. some documents indexed before a subsequent delete-by-query fails), a retry will
-      // re-execute the entire method. This is considered safe because search engine upserts are idempotent —
-      // re-indexing an already-indexed document produces the same result.
+      // re-execute the entire method. sendToIndex's Javadoc states what that requires of an Indexer.
       // When retries are configured, retryOnResult triggers a retry if any per-document failure has a
       // retryable status code. When retries are exhausted, the last result is returned directly —
       // preserving per-document detail for the FAIL event path in completeBatch.
-      Set<Pair<Document, Exception>> failedDocPairs = retry != null
-          ? Retry.decorateCheckedSupplier(retry, () -> sendToIndex(batchedDocs)).get()
-          : sendToIndex(batchedDocs);
-      return new SendOutcome(failedDocPairs, null, System.nanoTime() - start);
+      List<IndexerFailure> failures = retry != null
+          ? Retry.decorateCheckedSupplier(retry, () -> sendIfInputOwned(batchedDocs)).get()
+          : sendIfInputOwned(batchedDocs);
+      return new SendOutcome(failures, null, System.nanoTime() - start);
+    } catch (InputNotOwnedException e) {
+      return SendOutcome.inputNotOwned(System.nanoTime() - start);
     } catch (Throwable t) {
       return new SendOutcome(null, t, System.nanoTime() - start);
+    }
+  }
+
+  // One send attempt, made only if the messenger confirms this indexer still owns every document's input. Checked before
+  // each attempt, retries included, since a send blocked or retrying past the consumer's poll deadline means the consumer
+  // has been evicted and its partitions may be written by a new owner; sending then could overwrite the new owner's
+  // later writes, or restore a document it has since deleted. A request already on the wire cannot be recalled.
+  private List<IndexerFailure> sendIfInputOwned(List<Document> batchedDocs) throws Exception {
+    if (messenger != null && !batchedDocs.stream().allMatch(messenger::ownsInput)) {
+      throw new InputNotOwnedException();
+    }
+    return sendToIndex(batchedDocs);
+  }
+
+  // Thrown by sendIfInputOwned to stop a send and its retries. Not retryable (the retry policy retries only
+  // IndexerRetryableException), so it reaches sendWithRetry directly.
+  private static final class InputNotOwnedException extends Exception {
+    InputNotOwnedException() {
+      super(null, null, false, false);
     }
   }
 
@@ -548,8 +608,21 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    * Records metrics and sends FAIL / FINISH events for a sent batch, then marks it complete. Always runs on the indexer
    * thread.
    */
-  @Override
-  public final void completeBatch(List<Document> batchedDocs, SendOutcome outcome) {
+  private void completeBatch(List<Document> batchedDocs, SendOutcome outcome) {
+    if (outcome.notSent()) {
+      // Not sent (or retries stopped) because this indexer may no longer own the input. Its documents get no events and
+      // the batch is not marked complete: whichever consumer owns the input now re-delivers them and emits their
+      // events. The messenger is told, so it can re-poll them if it turns out to own them still.
+      log.warn("Did not send {} document(s): this indexer may no longer own their input (its consumer was evicted from "
+          + "its group or lost the partition). They are left uncommitted for re-delivery.", batchedDocs.size());
+      try {
+        messenger.batchNotSent(batchedDocs);
+      } catch (Exception e) {
+        restoreInterrupt(e);
+        log.error("Error reporting a batch that was not sent.", e);
+      }
+      return;
+    }
     // An Error (OutOfMemoryError, etc.) means the send did not run to a defined conclusion — the batch's documents were
     // not indexed. Two things must happen on that path, and they are deliberately split:
     //  - FAIL events are still sent for every document, so the run's publisher stops tracking them and does not hang
@@ -558,30 +631,56 @@ public abstract class Indexer implements Runnable, BatchProcessor {
     //    documents that were never indexed; they stay uncommitted and are re-delivered on restart rather than lost.
     //    (markComplete is set false below.)
     boolean markComplete = true;
+    failTopicUnavailable = false;
     try {
       if (outcome.error() != null) {
         throw outcome.error();
       }
-      Set<Pair<Document, Exception>> failedDocPairs = outcome.failedDocPairs();
       // The send's own elapsed time, measured in sendWithRetry. Time spent waiting for a free slot or behind an older
       // batch (see ConcurrentDispatcher) is not included, so this stays a measure of the backend.
       histogram.update(outcome.elapsedNanos() / batchedDocs.size());
-      meter.mark(batchedDocs.size());
 
-      if (!failedDocPairs.isEmpty()) {
-        log.warn("{} Documents were not indexed successfully.", failedDocPairs.size());
+      // Account for documents by identity: two documents with the same content are different documents, and each needs
+      // exactly one FINISH or FAIL event.
+      Set<Document> nonFailedDocs = Collections.newSetFromMap(new IdentityHashMap<>());
+      nonFailedDocs.addAll(batchedDocs);
+
+      IndexerFailure unmatchedFailure = null;
+      for (IndexerFailure failure : outcome.failures()) {
+        Document doc = failure.document();
+        if (nonFailedDocs.remove(doc)) {
+          sendFailEvent(doc, failure.cause());
+        } else {
+          log.error("sendToIndex reported a failure for doc {}, which is not an instance from its batch or was already "
+              + "reported. The rest of the batch will be failed.", doc.getId(), failure.cause());
+          if (unmatchedFailure == null) {
+            unmatchedFailure = failure;
+          }
+        }
       }
 
-      // Mark all the documents in failedDoc as failed
-      for (Pair<Document, Exception> pair : failedDocPairs) {
-        sendFailEvent(pair.getLeft(), pair.getRight());
+      // A document was rejected and there is no telling which one, so none of the rest can be reported as succeeded.
+      if (unmatchedFailure != null) {
+        IndexerException cause = new IndexerException("sendToIndex reported a failure for doc "
+            + unmatchedFailure.document().getId() + " that could not be matched to a document in its batch: "
+            + unmatchedFailure.cause().getMessage(), unmatchedFailure.cause());
+        for (Document doc : batchedDocs) {
+          if (nonFailedDocs.remove(doc)) {
+            sendFailEvent(doc, cause);
+          }
+        }
       }
-
-      Set<Document> failedDocs = failedDocPairs.stream().map(Pair::getLeft).collect(Collectors.toSet());
 
       List<Document> succeededDocs = batchedDocs.stream()
-          .filter(d -> !failedDocs.contains(d))
+          .filter(nonFailedDocs::contains)
           .collect(Collectors.toList());
+
+      int failedCount = batchedDocs.size() - succeededDocs.size();
+      if (failedCount > 0) {
+        log.warn("{} Documents were not indexed successfully.", failedCount);
+      }
+
+      meter.mark(succeededDocs.size());
 
       try {
         messenger.sendEvents(succeededDocs, "SUCCEEDED", Event.Type.FINISH);
@@ -628,10 +727,11 @@ public abstract class Indexer implements Runnable, BatchProcessor {
 
   /**
    * Sends a FAIL event for the given document, with the cause as its reason, setting up MDC context
-   * for structured logging.
+   * for structured logging. When indexer.sendFailedDocsToTopic is set, first copies the document to the fail topic.
    */
   private void sendFailEvent(Document d, Throwable cause) {
     String reason = Event.failureMessage(cause);
+    sendToFailTopic(d, reason);
     try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
       if (d.getRunId() != null) {
         MDC.pushByKey(RUNID_FIELD, d.getRunId());
@@ -649,6 +749,31 @@ public abstract class Indexer implements Runnable, BatchProcessor {
     }
   }
 
+  // The copy is best-effort: the FAIL event and the FailedDocuments log record the failure whether or not the copy is
+  // made, so a failed copy is logged and the batch is still marked complete. Holding back the batch's offsets instead
+  // would stop the commit frontier on the partition until a restart or rebalance.
+  private void sendToFailTopic(Document d, String reason) {
+    if (!sendFailedDocsToTopic) {
+      return;
+    }
+    if (failTopicUnavailable) {
+      docLogger.error("Document {} was not copied to the fail topic: an earlier copy in this batch could not be sent, "
+          + "so the rest of the batch is not copied.", d.getId());
+      return;
+    }
+    try {
+      // Document is sealed, so every Document is a JsonDocument
+      ((JsonDocument) d).setFailureMetadata(reason, "indexer", Instant.now());
+      messenger.sendFailed(d);
+    } catch (Exception e) {
+      restoreInterrupt(e);
+      docLogger.error("Document {} could not be sent to the fail topic.", d.getId(), e);
+      if (!(e instanceof MessengerException messengerException && messengerException.isDocumentSpecific())) {
+        failTopicUnavailable = true;
+      }
+    }
+  }
+
   // Restores the interrupt flag if a messenger call during completion failed because the indexer thread was
   // interrupted. Nothing in Lucille interrupts the indexer thread (the Runner and WorkerIndexer stop it with
   // terminate() and join()), so this only matters when other code embeds Lucille and interrupts the thread itself,
@@ -662,10 +787,93 @@ public abstract class Indexer implements Runnable, BatchProcessor {
     }
   }
 
+  // The two steps of a send, for the dispatcher. A separate class, so that they are not part of the Indexer's public API.
+  private final class Processor implements BatchProcessor {
+
+    @Override
+    public SendOutcome sendWithRetry(List<Document> batchedDocs) {
+      return Indexer.this.sendWithRetry(batchedDocs);
+    }
+
+    @Override
+    public void completeBatch(List<Document> batchedDocs, SendOutcome outcome) {
+      Indexer.this.completeBatch(batchedDocs, outcome);
+    }
+  }
+
+  /**
+   * Whether this Indexer is in bypass mode (test mode, or indexer.sendEnabled: false), when the destination is not
+   * contacted. {@link #sendToIndex} and {@link #checkConnection} are not called, so this matters mainly for not creating
+   * a client.
+   */
+  protected final boolean isBypass() {
+    return bypass;
+  }
+
+  /** The configured indexer.idOverrideField, or null if not set. See {@link #getDocIdOverride}. */
+  protected final String getIdOverrideField() {
+    return idOverrideField;
+  }
+
+  /** The configured indexer.indexOverrideField, or null if not set. See {@link #getIndexOverride}. */
+  protected final String getIndexOverrideField() {
+    return indexOverrideField;
+  }
+
+  /** The configured indexer.deletionMarker.field, or null if not set. See {@link #isMarkedForDeletion}. */
+  protected final String getDeletionMarkerField() {
+    return deletionMarkerField;
+  }
+
+  /** The configured indexer.deletionMarker.value, or null if not set. See {@link #isMarkedForDeletion}. */
+  protected final String getDeletionMarkerValue() {
+    return deletionMarkerValue;
+  }
+
+  /**
+   * The name of the destination field a delete-by-query document matches on: the value of the document field named by
+   * indexer.deleteByQuery.fieldNameField. Call it only for a document where {@link #isDeleteByQuery} is true.
+   */
+  protected final String getDeleteByQueryFieldName(Document doc) {
+    return doc.getString(deleteByQueryFieldNameField);
+  }
+
+  /**
+   * The value a delete-by-query document matches: the value of the document field named by
+   * indexer.deleteByQuery.valueField. Call it only for a document where {@link #isDeleteByQuery} is true.
+   */
+  protected final String getDeleteByQueryValue(Document doc) {
+    return doc.getString(deleteByQueryValueField);
+  }
+
+  /** The filter built from the configured indexer.includeFields and indexer.excludeFields. */
+  protected final FieldFilter getFieldFilter() {
+    return fieldFilter;
+  }
+
+  /**
+   * Whether the retry policy retries a batch when {@link #sendToIndex} throws the given exception or returns it for a
+   * document: it is an {@link IndexerRetryableException} whose status code is in indexer.retryableStatusCodes. Always
+   * false when indexer.maxRetries is not set.
+   */
+  protected final boolean isRetryable(Throwable e) {
+    return e instanceof IndexerRetryableException retryable && retryableStatusCodes.contains(retryable.getStatusCode());
+  }
+
+  /**
+   * Returns the id the given document is written under at the destination: its {@link #getDocIdOverride} value when it
+   * has one, otherwise its document id.
+   */
+  protected final String getDestinationId(Document doc) {
+    String override = getDocIdOverride(doc);
+    return override != null ? override : doc.getId();
+  }
+
   /**
    * Returns the value of the configured idOverrideField on the given document, to be used as the
    * document's ID when sending to the index in place of {@link Document#ID_FIELD}.
-   * Returns null if idOverrideField is not configured, or the document does not have that field.
+   * Returns null if idOverrideField is not configured, or the document does not have that field. To get the id to write
+   * a document under, use {@link #getDestinationId}.
    */
   protected String getDocIdOverride(Document doc) {
     if (idOverrideField != null && doc.has(idOverrideField)) {
@@ -686,7 +894,8 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   }
 
   /**
-   * Returns the document's fields, with the field filter applied and without {@link Document#CHILDREN_FIELD},
+   * Returns the document's fields, with the field filter applied and without {@link Document#CHILDREN_FIELD} or
+   * {@link Document#INDEXING_EXCLUDED_FIELDS},
    * converted to plain Java values (Strings, numbers, booleans, Lists, Maps, byte arrays) by {@link Document#asMap()}.
    * The map is a full copy that callers may modify freely. Children are never included; an indexer that sends them
    * reads them from {@link Document#getChildren()}.
@@ -697,6 +906,7 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   protected final Map<String, Object> getConvertedIndexerDoc(Document doc) {
     Map<String, Object> indexerDoc = doc.asMap();
     indexerDoc.remove(Document.CHILDREN_FIELD);
+    indexerDoc.keySet().removeAll(Document.INDEXING_EXCLUDED_FIELDS);
     if (fieldFilter.isActive()) {
       indexerDoc.keySet().removeIf(key -> !fieldFilter.shouldInclude(key));
     }
@@ -704,7 +914,8 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   }
 
   /**
-   * Returns the document's fields, with the field filter applied and without {@link Document#CHILDREN_FIELD}, for a
+   * Returns the document's fields, with the field filter applied and without {@link Document#CHILDREN_FIELD} or
+   * {@link Document#INDEXING_EXCLUDED_FIELDS}, for a
    * destination client that serializes the map to JSON with Jackson, such as the OpenSearch and Elasticsearch clients.
    * Only the top-level map is new: its values are the document's own JsonNodes, not converted copies, so nothing is
    * converted that the client will serialize again anyway.
@@ -712,23 +923,21 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    * <p>The JSON written for the result is the same as for {@link #getConvertedIndexerDoc}. To keep it
    * so, a value that is or contains a null is converted as getConvertedIndexerDoc converts it, because a mapper may
    * leave out null map values (the OpenSearch and Elasticsearch clients' mappers do) but always writes the nulls inside
-   * a JsonNode. A Document that is not backed by JSON gets getConvertedIndexerDoc's result.
+   * a JsonNode.
    *
    * <p>The map shares state with the Document. Callers may add, remove or replace entries but must not modify the
    * values, and the Document must not be modified until the map has been serialized.
    */
   protected Map<String, Object> getRawIndexerDoc(Document doc) {
-    if (!(doc instanceof JsonDocument jsonDoc)) {
-      return getConvertedIndexerDoc(doc);
-    }
-
-    ObjectNode data = jsonDoc.data;
+    // Document is sealed, so every Document is a JsonDocument
+    ObjectNode data = ((JsonDocument) doc).data;
     Map<String, Object> indexerDoc = new LinkedHashMap<>();
     for (Iterator<Map.Entry<String, JsonNode>> it = data.fields(); it.hasNext(); ) {
       Map.Entry<String, JsonNode> field = it.next();
       String name = field.getKey();
       JsonNode value = field.getValue();
-      if (Document.CHILDREN_FIELD.equals(name) || !fieldFilter.shouldInclude(name)) {
+      if (Document.CHILDREN_FIELD.equals(name) || Document.INDEXING_EXCLUDED_FIELDS.contains(name)
+          || !fieldFilter.shouldInclude(name)) {
         continue;
       }
       indexerDoc.put(name, containsNull(value) ? JsonDocument.MAPPER.convertValue(value, Object.class) : value);
@@ -745,8 +954,7 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   private Set<String> destinationIds(List<Document> batchedDocs) {
     Set<String> ids = new HashSet<>();
     for (Document doc : batchedDocs) {
-      String idOverride = getDocIdOverride(doc);
-      ids.add(idOverride != null ? idOverride : doc.getId());
+      ids.add(getDestinationId(doc));
       addChildIds(doc, ids);
     }
     return ids;
@@ -763,37 +971,27 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   }
 
   /**
-   * Whether the document is a delete-by-query request, which can match documents in any batch and so forces its batch
-   * to be sent alone when maxConcurrentBatches is greater than 1. A document is a delete-by-query when it
-   * {@link #isMarkedForDeletion} and {@link #hasDeleteByFieldValues}; the subclasses branch on those same two checks.
-   */
-  private boolean isDeleteByQuery(Document doc) {
-    return isMarkedForDeletion(doc) && hasDeleteByFieldValues(doc);
-  }
-
-  /**
-   * Whether the document is marked for deletion: the configured deletionMarkerField is present and non-null and equals
-   * the configured deletionMarkerFieldValue. Returns false unless both are configured. Shared by the Solr, OpenSearch,
-   * and Elasticsearch indexers, which use it to decide between uploading a document and deleting it.
+   * Whether the document is marked for deletion: the configured indexer.deletionMarker.field is present and non-null and
+   * equals indexer.deletionMarker.value. Returns false unless deletionMarker is configured. Shared by the Solr,
+   * OpenSearch, Elasticsearch and Pinecone indexers, which use it to decide between uploading a document and deleting it.
    */
   protected boolean isMarkedForDeletion(Document doc) {
     return deletionMarkerField != null
-        && deletionMarkerFieldValue != null
         && doc.hasNonNull(deletionMarkerField)
-        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
+        && doc.getString(deletionMarkerField).equals(deletionMarkerValue);
   }
 
   /**
-   * Whether the document carries the delete-by-query fields (the configured deleteByFieldField naming the field to
-   * query, and deleteByFieldValue naming the field holding the value). Shared by the Solr, OpenSearch, and Elasticsearch
-   * indexers, which call it on a document already known to be marked for deletion to decide between delete-by-query and
-   * delete-by-id. Returns false unless both fields are configured and present.
+   * Whether the document is a delete-by-query: it {@link #isMarkedForDeletion} and carries both fields that
+   * indexer.deleteByQuery names. A marked document without them is deleted by ID instead. Its target is given by
+   * {@link #getDeleteByQueryFieldName} and {@link #getDeleteByQueryValue}. A delete-by-query can match documents in any
+   * batch, so it also forces its batch to be sent alone when maxConcurrentBatches is greater than 1.
    */
-  protected boolean hasDeleteByFieldValues(Document doc) {
-    return deleteByFieldField != null
-        && doc.has(deleteByFieldField)
-        && deleteByFieldValue != null
-        && doc.has(deleteByFieldValue);
+  protected boolean isDeleteByQuery(Document doc) {
+    return isMarkedForDeletion(doc)
+        && deleteByQueryFieldNameField != null
+        && doc.has(deleteByQueryFieldNameField)
+        && doc.has(deleteByQueryValueField);
   }
 
   private static boolean containsNull(JsonNode node) {
@@ -817,35 +1015,63 @@ public abstract class Indexer implements Runnable, BatchProcessor {
     Launch.indexer(args);
   }
 
-  public Spec getImplementationSpec() {
-    try {
-      return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
-    } catch (Exception e) {
-      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
-    }
+  private static boolean isEmptyList(ConfigValue value) {
+    return value instanceof ConfigList list && list.isEmpty();
   }
 
   private void validateIndexerConfigs(Config config) {
     // Validate the general "indexer" entry in the Config. (This Spec is same for all indexers.)
-    Config indexerConfig = config.getConfig("indexer");
+    String indexerConfigKey = getIndexerConfigKey();
+    Config genericConfig = config;
+
+    // Apart from the generic deletionMarker and deleteByQuery blocks, an object is either this indexer's block or another
+    // indexer's, which indexer.type may be choosing among. Anything else is a mistake.
+    for (Map.Entry<String, ConfigValue> entry : config.root().entrySet()) {
+      String key = entry.getKey();
+      if (entry.getValue().valueType() != ConfigValueType.OBJECT || GENERIC_BLOCKS.contains(key)) {
+        continue;
+      }
+      genericConfig = genericConfig.root().withoutKey(key).toConfig();
+      if (key.equals(indexerConfigKey)) {
+        continue;
+      }
+      if (key.equalsIgnoreCase(indexerConfigKey)) {
+        throw new IllegalArgumentException("Config block indexer." + key + " must be named indexer." + indexerConfigKey + ".");
+      }
+      List<String> registeredTypes = IndexerFactory.getRegisteredTypes();
+      if (registeredTypes.stream().noneMatch(key::equalsIgnoreCase)) {
+        throw new IllegalArgumentException("Unknown config block indexer." + key + ", which " + getClass().getSimpleName()
+            + " does not use. Available types on the classpath: " + registeredTypes
+            + ". Remove the block, or ensure the module providing this indexer is on the classpath.");
+      }
+      log.warn("Ignoring config block indexer.{}, which {} does not use.", key, getClass().getSimpleName());
+    }
+
     SpecBuilder.withoutDefaults()
-        .optionalString("type", "class", "pipeline", "idOverrideField", "indexOverrideField", "deletionMarkerField",
-            "deletionMarkerFieldValue", "deleteByFieldField", "deleteByFieldValue", "versionType", "versionField", "routingField")
-        .optionalNumber("batchSize", "batchByteSize", "batchTimeout", "maxRetries", "retryWaitDurationMs",
+        .optionalString("type", "class", "pipeline", "idOverrideField", "indexOverrideField")
+        .optionalParent("deletionMarker", DELETION_MARKER_SPEC)
+        .optionalParent("deleteByQuery", DELETE_BY_QUERY_SPEC)
+        .optionalNumber("batchSize", "batchByteSize", "batchTimeoutMs", "maxRetries", "retryWaitDurationMs",
             "retryMaxWaitDurationMs", "retryRandomizationFactor", "maxConcurrentBatches")
-        .optionalBoolean("sendEnabled")
-        .optionalList("whitelist", new TypeReference<List<String>>(){})
-        .optionalList("blacklist", new TypeReference<List<String>>(){})
+        .optionalBoolean("sendEnabled", "sendFailedDocsToTopic")
+        .optionalList("includeFields", new TypeReference<List<String>>(){})
+        .optionalList("excludeFields", new TypeReference<List<String>>(){})
         .optionalList("retryableStatusCodes", new TypeReference<List<Integer>>(){}).build()
-        .validate(indexerConfig, "Indexer");
+        .validate(genericConfig, "Indexer");
+
+    List<String> unsupported = getUnsupportedSettings().stream()
+        .filter(setting -> config.hasPath(setting) && !isEmptyList(config.getValue(setting)))
+        .sorted()
+        .collect(Collectors.toList());
+    if (!unsupported.isEmpty()) {
+      throw new IllegalArgumentException(getClass().getSimpleName() + " does not support these indexer settings: " + unsupported + ".");
+    }
 
     // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.
     // This spec is unique to the implementation and must be public + static under "SPEC".
-    String indexerConfigKey = getIndexerConfigKey();
-
     if (indexerConfigKey != null && config.hasPath(indexerConfigKey)) {
       Config specificImplConfig = config.getConfig(indexerConfigKey);
-      getImplementationSpec().validate(specificImplConfig, indexerConfigKey);
+      Spec.of(getClass()).validate(specificImplConfig, indexerConfigKey);
     }
   }
 

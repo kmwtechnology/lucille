@@ -54,7 +54,7 @@ public class WorkerIndexerPool {
     if (this.numWorkers == null) {
       this.numWorkers = ConfigUtils.getIntOrDefault(config, "worker.threads", DEFAULT_POOL_SIZE);
     }
-    this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
+    this.logSeconds = ConfigUtils.getOrDefault(config, "log.intervalSecs", LogUtils.DEFAULT_LOG_SECONDS);
     this.idSet = idSet;
   }
 
@@ -109,8 +109,8 @@ public class WorkerIndexerPool {
     for (WorkerIndexer workerIndexer : workerIndexers) {
       // stop each WorkerIndexer, one at a time;
       // make sure the indexer is stopped before the worker, so that the
-      // worker has a chance to commit any final offsets that the indexer
-      // added to the offset queue right before it stopped
+      // worker has a chance to commit the offsets of the batches the indexer
+      // completed right before it stopped
       workerIndexer.stop();
     }
     // tell one of the threads to log its metrics;

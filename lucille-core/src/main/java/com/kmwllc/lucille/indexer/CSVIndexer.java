@@ -5,22 +5,22 @@ import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.message.IndexerMessenger;
 import com.opencsv.CSVWriterBuilder;
 import com.opencsv.ICSVWriter;
 import com.typesafe.config.Config;
 import java.io.File;
-import java.util.Set;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Stores documents in a CSV file by writing selected fields as rows.
@@ -58,34 +58,15 @@ public class CSVIndexer extends Indexer {
   private final boolean includeHeader;
 
   /**
-   * Creates a CSVIndexer from the given arguments.
-   * @param config Configuration for Lucille which should potentially contain "indexer" as well as "csv"
-   *              (Configuration for the CSVIndexer)
-   * @param localRunId The runID for a local run, null otherwise.
+   * Creates a CSVIndexer that writes to the given writer.
+   * @param config The "indexer" block of Lucille's config, which contains "csv" (Configuration for the CSVIndexer)
    */
-  public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix, String localRunId) {
-    this(config, messenger, writer, null, bypass, metricsPrefix, localRunId);
+  public CSVIndexer(Config config, IndexerContext context, ICSVWriter writer) {
+    this(config, context, writer, null);
   }
 
-  private CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, String path, boolean bypass,
-      String metricsPrefix, String localRunId) {
-    super(config, messenger, bypass, metricsPrefix, localRunId);
-    if (this.indexOverrideField != null) {
-      // a writer passed in has already opened its output; close it so the file isn't left locked
-      if (writer != null) {
-        try {
-          writer.close();
-        } catch (IOException e) {
-          log.warn("Error occurred when closing csv indexer writer.", e);
-        }
-      }
-      throw new IllegalArgumentException(
-          "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
-    }
-    if (this.deletionMarkerField != null || this.deleteByFieldField != null) {
-      log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be written as regular rows.");
-    }
-    
+  private CSVIndexer(Config config, IndexerContext context, ICSVWriter writer, String path) {
+    super(config, context);
     this.writer = writer;
     this.path = path;
     this.append = ConfigUtils.getBooleanOrDefault(config, "csv.append", false);
@@ -94,37 +75,22 @@ public class CSVIndexer extends Indexer {
   }
 
   /**
-   * Creates a CSVIndexer from the given arguments.
-   * @param config Configuration for Lucille which should potentially contain "indexer" as well as "csv"
-   *              (Configuration for the CSVIndexer)
-   * @param localRunId The runID for a local run, null otherwise.
+   * Creates a CSVIndexer that writes to the file at the configured path.
+   * @param config The "indexer" block of Lucille's config, which contains "csv" (Configuration for the CSVIndexer)
    */
-  public CSVIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    this(config, messenger, null, config.getString("csv.path"), bypass, metricsPrefix, localRunId);
-  }
-
-  // Convenience Constructors - No localRunId needs to be specified, uses "null".
-
-  /**
-   * Creates a CSVIndexer from the given arguments with no localRunId.
-   * @param config Configuration for Lucille which should potentially contain "indexer" as well as "csv"
-   *              (Configuration for the CSVIndexer)
-   */
-  public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix) {
-    this(config, messenger, writer, bypass, metricsPrefix, null);
-  }
-
-  /**
-   * Creates a CSVIndexer from the given arguments with no localRunId.
-   * @param config Configuration for Lucille which should potentially contain "indexer" as well as "csv"
-   *              (Configuration for the CSVIndexer)
-   */
-  public CSVIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
-    this(config, messenger, null, config.getString("csv.path"), bypass, metricsPrefix, null);
+  public CSVIndexer(Config config, IndexerContext context) {
+    this(config, context, null, ConfigUtils.getStringOrDefault(config, "csv.path", null));
   }
 
   @Override
   protected String getIndexerConfigKey() { return "csv"; }
+
+  // columns decides what is written, so a field filter or id override would have nothing to apply to, and a file can't
+  // delete: a document marked for deletion would be written as a row
+  @Override
+  protected Set<String> getUnsupportedSettings() {
+    return Set.of("indexOverrideField", "idOverrideField", "includeFields", "excludeFields", "deletionMarker", "deleteByQuery");
+  }
 
   /**
    * Returns the writer, opening the output file first if this indexer was created from config and has not opened it
@@ -146,11 +112,7 @@ public class CSVIndexer extends Indexer {
   }
 
   @Override
-  public boolean validateConnection() {
-    // in bypass mode nothing is written, so the output file is never opened
-    if (bypass) {
-      return true;
-    }
+  protected boolean checkConnection() {
     ICSVWriter writer = getOrOpenWriter();
     if (writer == null) {
       return false;
@@ -162,10 +124,7 @@ public class CSVIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
-    if (bypass) {
-      return Set.of();
-    }
+  protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
     ICSVWriter writer = getOrOpenWriter();
     if (writer == null) {
       throw new IndexerException("CSVIndexer could not open its output file: " + path);
@@ -175,7 +134,7 @@ public class CSVIndexer extends Indexer {
     }
     writer.flushQuietly();
 
-    return Set.of();
+    return List.of();
   }
 
   private String[] getLine(Document doc) {

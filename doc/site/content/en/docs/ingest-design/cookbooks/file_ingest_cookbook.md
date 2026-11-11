@@ -44,12 +44,12 @@ pipelines: [
   }
 ]
 
-indexer { type: "opensearch" }
-
-opensearch {
-  url: "https://localhost:9200"
-  index: "my-docs"
-  acceptInvalidCert: true
+indexer {
+  opensearch {
+    url: "https://localhost:9200"
+    index: "my-docs"
+    acceptInvalidCert: true
+  }
 }
 ```
 
@@ -159,7 +159,7 @@ connectors: [
     paths: ["gs://my-bucket/data/"]
 
     gcp {
-      pathToServiceKey: ${?GCP_SERVICE_KEY_PATH}
+      serviceKeyPath: ${?GCP_SERVICE_KEY_PATH}
     }
   }
 ]
@@ -220,8 +220,10 @@ connectors: [
 
 indexer {
   type: "opensearch"
-  deletionMarkerField: "file_expired"
-  deletionMarkerFieldValue: "true"
+  deletionMarker {
+    field: "file_expired"
+    value: "true"
+  }
 }
 ```
 

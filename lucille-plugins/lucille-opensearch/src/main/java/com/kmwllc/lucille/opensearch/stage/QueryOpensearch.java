@@ -62,7 +62,7 @@ import org.slf4j.LoggerFactory;
  *   <li>opensearchResponsePath (String, Optional) : A path to a field in the Opensearch response whose value you want to place on a Lucille Document.
  *   Use JsonPointer notation (separating fields / array indices by a '/'). An IllegalArgumentException will be thrown if the path has invalid formatting.
  *   Defaults to using the entire response.</li>
- *   <li>destinationField (String, Optional): The name of the field you'll write the response value to in a Lucille Document. Defaults to "response".</li>
+ *   <li>dest (String, Optional): The name of the field you'll write the response value to in a Lucille Document. Defaults to "response".</li>
  * </ul>
  * <p> <b>NOTE:</b> If the field names on your Document do not match the parameter names in your search template, use the
  * <b>RenameFields</b> stage to match them.
@@ -73,8 +73,8 @@ import org.slf4j.LoggerFactory;
 public class QueryOpensearch extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredParentWithDescription(OpenSearchUtils.OPENSEARCH_PARENT_SPEC, "Configuration for your OpenSearch instance.")
-      .optionalString("templateName", "searchTemplate", "opensearchResponsePath", "destinationField")
+      .requiredParent("opensearch", OpenSearchUtils.OPENSEARCH_PARENT_SPEC)
+      .optionalString("templateName", "searchTemplate", "opensearchResponsePath", "dest")
       .optionalList("requiredParamNames", new TypeReference<List<String>>(){})
       .optionalList("optionalParamNames", new TypeReference<List<String>>(){}).build();
 
@@ -117,7 +117,7 @@ public class QueryOpensearch extends Stage {
       this.opensearchResponsePath = JsonPointer.empty();
     }
 
-    this.destinationField = ConfigUtils.getOrDefault(config, "destinationField", "response");
+    this.destinationField = ConfigUtils.getOrDefault(config, "dest", "response");
   }
 
   void setClient(OpenSearchClient client) {

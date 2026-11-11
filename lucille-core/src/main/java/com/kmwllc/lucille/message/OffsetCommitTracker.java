@@ -1,13 +1,19 @@
 package com.kmwllc.lucille.message;
 
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
+import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -16,19 +22,28 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Tracks and commits destination-topic offsets for {@link KafkaIndexerMessenger}, committing each batch's offsets when
+ * Tracks and commits a consumer's offsets for the documents it hands to an Indexer, committing each batch's offsets when
  * the batch completes (at-least-once) rather than when its documents were polled. This is what makes a crash re-deliver
- * documents rather than lose them.
+ * documents rather than lose them. {@link KafkaIndexerMessenger} uses it for the destination topic, and
+ * {@link HybridWorkerMessenger} for the source topic, on behalf of its paired Indexer.
  *
  * <p> Correctness:
  * <ul>
- *   <li><b>No lost document.</b> Per partition, the committed offset is a <i>frontier</i> that advances only across the
- *   polled offsets that have completed, in order, so every record below it has been indexed. It never passes an
- *   uncompleted earlier record — which can arise from out-of-order completion generally, and specifically from
- *   MultiBatch, where per-index sub-batches let a higher-offset record complete while a lower-offset one is still
- *   unflushed. The frontier advances across the <i>sequence of offsets actually polled</i>, not by {@code offset + 1},
- *   so a gap between polled offsets (a transaction marker, or a record removed by compaction) does not stall it. A
- *   crash re-reads from the frontier and loses nothing. (This holds independently of the order batches complete in.)</li>
+ *   <li><b>No lost document: frontier, not highest offset.</b> Records can complete out of order: with MultiBatch,
+ *   per-index sub-batches let a higher-offset record complete while a lower-offset one is still unflushed, and
+ *   concurrent batches can complete in any order. Two strategies for choosing the offset to commit differ here:
+ *   <ul>
+ *     <li><i>Highest offset</i> commits one past the highest offset that has completed. It never re-delivers a
+ *     completed record, but it can pass one that has not completed, which a crash then loses.</li>
+ *     <li><i>Frontier</i>, the strategy used here, commits one past the last offset of the leading run of completed
+ *     polled offsets: it advances only across completed offsets, in order, so every record below it has been
+ *     indexed. A crash loses nothing, but re-delivers the completed records above the frontier.</li>
+ *   </ul>
+ *   For example, if offsets 10 to 14 were polled and all but 12 have completed, highest offset commits 15 and a crash
+ *   loses 12; the frontier commits 12, and a crash re-delivers 12, 13 and 14. Lucille's delivery is at-least-once, and
+ *   re-indexing a document is idempotent, so the frontier trades duplicates for no loss. It advances across the
+ *   <i>sequence of offsets actually polled</i>, not by {@code offset + 1}, so a gap between polled offsets (a
+ *   transaction marker, or a record removed by compaction) does not stall it.</li>
  *   <li><b>No rewind, no stall across rebalances.</b> The frontier advances only across offsets polled since the
  *   partition was last assigned to this consumer: revoking or losing a partition drops all of its tracked offsets, and a
  *   partition that comes back is polled again from its committed offset. So a commit never goes below the committed
@@ -37,15 +52,24 @@ import org.slf4j.LoggerFactory;
  *   offset polled again since (the same record, since Kafka records never change) and counts as completing it: that
  *   record was processed by the earlier send, so the frontier may pass it (Indexer.completeBatch calls batchComplete only
  *   for a batch whose documents were all processed, indexed or failed with FAIL events, and never after an Error), and
- *   the re-polled copy's later completion is redundant. Either way a stale completion can only move the frontier forward, never hold it back, so an eager
- *   revoke-and-reassign to the <i>same</i> consumer cannot stall it. (With the Indexer's pre-revocation drain, a clean
- *   revoke leaves no batch in flight, so stale completions arise only after a partition is lost.)</li>
+ *   the re-polled copy's later completion is redundant. Either way a stale completion can only move the frontier
+ *   forward, never hold it back, so an eager revoke-and-reassign to the <i>same</i> consumer cannot stall it. (In
+ *   KafkaIndexerMessenger, the pre-revocation drain leaves no batch in flight at a clean revoke, so stale completions
+ *   arise only after a partition is lost. HybridWorkerMessenger does not wait for batches in progress, so they also
+ *   arise after a clean revoke.)</li>
  *   <li><b>No lost commit on failure.</b> A failed commit is retained and retried on the next completed batch, on
  *   revocation, and on close.</li>
  * </ul>
  *
- * <p> All methods, and the {@link ConsumerRebalanceListener} this exposes, run on the indexer thread (the listener is
- * invoked by the consumer from within poll() or close()), so the state here needs no synchronization.
+ * <p> It also answers whether a polled document is still owned ({@link #isOutstanding}), for the Indexer's check before
+ * each send (see {@link IndexerMessenger#ownsInput}), and re-polls documents whose send was skipped although the
+ * partition turned out to be still owned ({@link #rewindUnsent}).
+ *
+ * <p> All methods except {@link #isOutstanding}, and the {@link ConsumerRebalanceListener} this exposes, run on the
+ * thread that owns the consumer: the indexer thread for KafkaIndexerMessenger, the worker thread for
+ * HybridWorkerMessenger (the listener is invoked by the consumer from within poll() or close()). {@link #isOutstanding}
+ * is called from send threads, so the polled offsets it reads are held in concurrent collections; the rest of the state
+ * is confined to the consumer's thread and needs no synchronization.
  */
 class OffsetCommitTracker {
 
@@ -58,17 +82,34 @@ class OffsetCommitTracker {
   // off. Null until the Indexer registers it (and when there is no Indexer, e.g. in some tests).
   private Runnable preRevocationHook;
 
+  // Optional, see setCommitMetrics.
+  private Timer commitTimer;
+  private Meter commitFailures;
+
   // Per partition, the offsets polled since it was last assigned and not yet absorbed into the commit frontier. The
-  // frontier advances across this set (not by offset+1), so gaps between polled offsets never stall it.
-  private final Map<TopicPartition, NavigableSet<Long>> polled = new HashMap<>();
+  // frontier advances across this set (not by offset+1), so gaps between polled offsets never stall it. Concurrent, since
+  // isOutstanding reads it from send threads.
+  private final Map<TopicPartition, NavigableSet<Long>> polled = new ConcurrentHashMap<>();
   // Per partition, polled offsets whose batch has completed, not yet absorbed into the frontier.
   private final Map<TopicPartition, NavigableSet<Long>> completed = new HashMap<>();
   // Offsets of completed batches not yet committed successfully; retained and retried if a commit fails. The value is
   // the next offset to read (exclusive upper bound), matching Kafka's committed-offset semantics.
   private final Map<TopicPartition, OffsetAndMetadata> pendingOffsets = new HashMap<>();
+  // Per partition, polled offsets in batches the Indexer did not send because it could not confirm ownership. Checked,
+  // then cleared, after the next poll by rewindUnsent.
+  private final Map<TopicPartition, Set<Long>> notSent = new HashMap<>();
 
   OffsetCommitTracker(Consumer<?, ?> consumer) {
     this.consumer = consumer;
+  }
+
+  /**
+   * Times each commit made by {@link #commitPending} (those that reach the consumer, not calls with nothing to commit)
+   * and marks the given meter when one throws. Either may be null. The commit made on revocation is not included.
+   */
+  void setCommitMetrics(Timer commitTimer, Meter commitFailures) {
+    this.commitTimer = commitTimer;
+    this.commitFailures = commitFailures;
   }
 
   /** The rebalance listener to register with the consumer's subscription, so revocations are handled here. */
@@ -88,7 +129,65 @@ class OffsetCommitTracker {
 
   /** Records that the given offset was polled on the given partition, so the frontier can advance across it. */
   void recordPolled(TopicPartition partition, long offset) {
-    polled.computeIfAbsent(partition, p -> new TreeSet<>()).add(offset);
+    polled.computeIfAbsent(partition, p -> new ConcurrentSkipListSet<>()).add(offset);
+  }
+
+  /**
+   * Whether the given offset was polled since the partition was last assigned to this consumer and has not completed:
+   * that is, whether a send of that record is still this consumer's to make. False once the partition is revoked or
+   * lost (its polled offsets are dropped), so a document polled before then is not sent after it. Thread-safe.
+   */
+  boolean isOutstanding(TopicPartition partition, long offset) {
+    NavigableSet<Long> polledOffsets = polled.get(partition);
+    return polledOffsets != null && polledOffsets.contains(offset);
+  }
+
+  /** Records the offsets of a batch the Indexer did not send, for {@link #rewindUnsent} to check after the next poll. */
+  void batchNotSent(List<Document> batch) {
+    for (Document doc : batch) {
+      if (doc instanceof KafkaDocument kafkaDoc) {
+        recordNotSent(new TopicPartition(kafkaDoc.getTopic(), kafkaDoc.getPartition()), kafkaDoc.getOffset());
+      }
+    }
+  }
+
+  /** Records one offset of a batch the Indexer did not send. See {@link #batchNotSent}. */
+  void recordNotSent(TopicPartition partition, long offset) {
+    notSent.computeIfAbsent(partition, p -> new HashSet<>()).add(offset);
+  }
+
+  /**
+   * Called after each poll, once any rebalance callback has run. A batch is not sent when ownership cannot be confirmed,
+   * usually because the consumer was evicted, in which case the poll that follows reports the partition lost and its
+   * offsets are already dropped here. But the check is conservative (the Indexer's poll deadline runs slightly ahead of
+   * the consumer's own), so the consumer may still own a partition whose documents were not sent. Their offsets are
+   * still outstanding and would stall the frontier forever, so the partition is rewound: seeked back to its frontier,
+   * the lowest outstanding polled offset, with its polled state dropped, so every uncompleted record from there is
+   * polled and sent again in order. Batches of that partition still in flight then complete as stale (see the class
+   * javadoc). Returns the partitions rewound, so the caller can discard a record it just polled from one of them.
+   */
+  Set<TopicPartition> rewindUnsent() {
+    if (notSent.isEmpty()) {
+      return Set.of();
+    }
+    Set<TopicPartition> rewound = new HashSet<>();
+    for (Map.Entry<TopicPartition, Set<Long>> entry : notSent.entrySet()) {
+      TopicPartition partition = entry.getKey();
+      NavigableSet<Long> polledOffsets = polled.get(partition);
+      if (polledOffsets == null || entry.getValue().stream().noneMatch(polledOffsets::contains)) {
+        // Lost or revoked since (state dropped), or already completed by a re-polled copy: nothing to redo.
+        continue;
+      }
+      long frontier = polledOffsets.first();
+      log.warn("Partition {} is still assigned, but documents polled from it were not sent; re-polling from offset {}.",
+          partition, frontier);
+      consumer.seek(partition, frontier);
+      polled.remove(partition);
+      completed.remove(partition);
+      rewound.add(partition);
+    }
+    notSent.clear();
+    return rewound;
   }
 
   /**
@@ -107,10 +206,12 @@ class OffsetCommitTracker {
     commitPending();
   }
 
-  // Marks one polled offset complete and advances the partition's frontier across the leading run of polled offsets
-  // that have now completed. The frontier walks the polled sequence rather than offset+1, so a gap between polled
-  // offsets (compaction, transaction markers) does not stall it.
-  private void recordCompleted(TopicPartition partition, long offset) {
+  /**
+   * Marks one polled offset complete and advances the partition's frontier across the leading run of polled offsets
+   * that have now completed, without committing: {@link #commitPending} commits it. The frontier walks the polled
+   * sequence rather than offset+1, so a gap between polled offsets (compaction, transaction markers) does not stall it.
+   */
+  void recordCompleted(TopicPartition partition, long offset) {
     NavigableSet<Long> polledOffsets = polled.get(partition);
     if (polledOffsets == null || !polledOffsets.contains(offset)) {
       // Not an outstanding polled offset (already absorbed, or polled before a revoke and not polled again): nothing to
@@ -149,15 +250,32 @@ class OffsetCommitTracker {
     }
   }
 
-  // Commits pending offsets for partitions still assigned, dropping the rest. Keeps them if the commit fails, so they
-  // are retried later.
-  private void commitPending() {
+  /**
+   * Commits pending offsets for partitions still assigned, dropping the rest. Keeps them if the commit fails, so they are
+   * retried later.
+   */
+  void commitPending() {
+    if (pendingOffsets.isEmpty()) {
+      return;
+    }
     pendingOffsets.keySet().retainAll(consumer.assignment());
     if (pendingOffsets.isEmpty()) {
       return;
     }
     Map<TopicPartition, OffsetAndMetadata> toCommit = new HashMap<>(pendingOffsets);
-    consumer.commitSync(toCommit);
+    Timer.Context timing = commitTimer != null ? commitTimer.time() : null;
+    try {
+      consumer.commitSync(toCommit);
+    } catch (RuntimeException e) {
+      if (commitFailures != null) {
+        commitFailures.mark();
+      }
+      throw e;
+    } finally {
+      if (timing != null) {
+        timing.stop();
+      }
+    }
     toCommit.forEach(pendingOffsets::remove);
   }
 
@@ -215,6 +333,7 @@ class OffsetCommitTracker {
         polled.remove(partition);
         completed.remove(partition);
         pendingOffsets.remove(partition);
+        notSent.remove(partition);
       }
     }
   }

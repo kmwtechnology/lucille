@@ -1,5 +1,11 @@
 package com.kmwllc.lucille.connector;
 
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.LISTING_MODE;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_CONCURRENT_PATHS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_DOCUMENTS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.THREADS_PER_PATH;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.TRAVERSAL;
+
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import java.io.IOException;
@@ -21,10 +27,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.kmwllc.lucille.util.ThreadNameUtils;
+import com.kmwllc.lucille.util.FileUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.storageclient.BaseFileReference;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
+import com.kmwllc.lucille.connector.storageclient.StorageClientFields;
+import com.kmwllc.lucille.connector.storageclient.StorageClientOptions;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams.PublishMode;
 import com.kmwllc.lucille.core.ConnectorException;
@@ -54,10 +63,20 @@ import com.typesafe.config.Config;
  * <ul>
  *   <li>paths (List&lt;String&gt;, Required) : Paths or URIs to traverse (local paths or cloud storage URIs). s3 URIs must be
  *   percent-encoded; unencoded spaces or special characters will not be recognized. For example, use s3://test/folder%20with%20spaces.</li>
- *   <li>maxThreads (Int, Optional) : Number of threads to traverse the paths on. 1 traverses them sequentially.
- *   A larger value traverses them concurrently on up to that many threads, with paths beyond the cap waiting for a free
- *   thread. -1 uses one thread per path. Concurrent traversal requires that the paths do not overlap. Must be -1 or at
- *   least 1. Defaults to 1.</li>
+ *   <li>traversal.maxConcurrentPaths (Int, Optional) : The most paths to traverse at once. 1 traverses them one after
+ *   another. A larger value traverses them concurrently, each on its own thread, with paths beyond the cap waiting for a
+ *   free thread. -1 traverses every path at once. Concurrent traversal requires that the paths do not overlap, and can't
+ *   be combined with collapse. Must be -1 or at least 1. Defaults to 1.</li>
+ *   <li>traversal.threadsPerPath (Int, Optional) : The number of threads that traverse one path's directories. Only
+ *   s3, gs and https (azure) paths support a value above 1. Up to maxConcurrentPaths times this many threads list and
+ *   process files at once. Must be at least 1, and can't be above 1 with collapse. Defaults to 1.</li>
+ *   <li>traversal.maxDocuments (Long, Optional) : For s3, gs and https (azure) paths only. Once this many
+ *   documents have been published, no new file is started. Files already started are finished, so a few more documents
+ *   can be published. The count includes documents from file handlers and archives, and covers all of the connector's
+ *   paths. Must be at least 1. Can't be combined with state. No limit by default.</li>
+ *   <li>traversal.listingMode (String, Optional) : For s3, gs and https (azure) paths only. 'hierarchical' lists each
+ *   directory; 'flat' lists every key under the path at once, and can't be combined with threadsPerPath above 1 or
+ *   filterOptions.pathsToSkip. Defaults to 'flat' on s3 when neither of those is set, and otherwise to 'hierarchical'.</li>
  *   <li>filterOptions.includes (List&lt;String&gt;, Optional) : Regex patterns to include files.</li>
  *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
  *   <li>filterOptions.pathsToSkip (List&lt;String&gt;, Optional) : URIs of paths to directories that should be skipped and not traversed.</li>
@@ -79,12 +98,12 @@ import com.typesafe.config.Config;
  *   <li>state.connectionString (String, Optional) : JDBC connection string. Defaults to "jdbc:h2:./state/{CONNECTOR_NAME}".</li>
  *   <li>state.jdbcUser (String, Optional) : Database username. Defaults to "".</li>
  *   <li>state.jdbcPassword (String, Optional) : Database password. Defaults to "".</li>
- *   <li>state.tableName (String, Optional) : Table name for state. Defaults to the connector name.</li>
+ *   <li>state.tableName (String, Optional) : Table name for state. Defaults to a valid SQL table name generated from the connector name: it starts with STATE_, ends with a hash of the exact connector name, and contains the name with other characters replaced by underscores (for example, connector "file" uses STATE_FILE_ followed by its hash).</li>
  *   <li>state.performDeletions (Boolean, Optional) : Delete rows for files removed from storage. Defaults to true.</li>
  *   <li>state.runsBeforeExpiration (Int, Optional) : After a file is not encountered for this number of runs, it will be marked
  *   as expired. Must be at least 1. Defaults to 1.</li>
  *   <li>state.pathLength (Int, Optional) : Max length for stored file paths when Lucille creates the table. Defaults to 768. A longer path fails the run.</li>
- *   <li>gcp.pathToServiceKey (String, Required) : Path to the Google Cloud service key JSON.</li>
+ *   <li>gcp.serviceKeyPath (String, Required) : Path to the Google Cloud service key JSON.</li>
  *   <li>gcp.maxResultsPerPage (Int, Optional) : Maximum number of results returned per listing request (page size). Defaults to 100.</li>
  *   <li>s3.accessKeyId (String, Optional) : AWS access key ID (omit to use default credentials).</li>
  *   <li>s3.secretAccessKey (String, Optional) : AWS secret access key (omit to use default credentials).</li>
@@ -116,77 +135,86 @@ import com.typesafe.config.Config;
  */
 public class FileConnector extends AbstractConnector {
 
-  public static final String FILE_PATH = "file_path";
-  public static final String MODIFIED = "file_modification_date";
-  public static final String CREATED = "file_creation_date";
-  public static final String SIZE = "file_size_bytes";
-  public static final String CONTENT = "file_content";
-  public static final String EXPIRED = "file_expired";
-  public static final String ARCHIVE_FILE_SEPARATOR = "!";
+  // The document field names and config keys below are aliases. They are defined on StorageClientFields and
+  // StorageClientOptions, which a StorageClient should import instead of FileConnector.
+  public static final String FILE_PATH = StorageClientFields.FILE_PATH;
+  public static final String MODIFIED = StorageClientFields.MODIFIED;
+  public static final String CREATED = StorageClientFields.CREATED;
+  public static final String SIZE = StorageClientFields.SIZE;
+  public static final String CONTENT = StorageClientFields.CONTENT;
+  public static final String EXPIRED = StorageClientFields.EXPIRED;
+  public static final String ARCHIVE_FILE_SEPARATOR = StorageClientFields.ARCHIVE_FILE_SEPARATOR;
 
   // cloudOption Keys
-  public static final String AZURE_CONNECTION_STRING = "connectionString";
-  public static final String AZURE_ACCOUNT_NAME = "accountName";
-  public static final String AZURE_ACCOUNT_KEY = "accountKey";
-  public static final String AZURE_ALLOWED_HOSTS = "allowedHosts";
-  public static final List<String> DEFAULT_AZURE_ALLOWED_HOSTS = List.of("blob.core.windows.net");
-  public static final String S3_REGION = "region";
-  public static final String S3_ACCESS_KEY_ID = "accessKeyId";
-  public static final String S3_SECRET_ACCESS_KEY = "secretAccessKey";
-  public static final String S3_ANONYMOUS = "anonymous";
-  public static final String GOOGLE_SERVICE_KEY = "pathToServiceKey";
-  public static final String MAX_RESULTS_PER_PAGE = "maxResultsPerPage";
-  public static final String STORAGE_CLIENT_CLASS = "class";
-  public static final String STORAGE_CLIENTS = "storageClients";
+  public static final String AZURE_CONNECTION_STRING = StorageClientOptions.AZURE_CONNECTION_STRING;
+  public static final String AZURE_ACCOUNT_NAME = StorageClientOptions.AZURE_ACCOUNT_NAME;
+  public static final String AZURE_ACCOUNT_KEY = StorageClientOptions.AZURE_ACCOUNT_KEY;
+  public static final String AZURE_ALLOWED_HOSTS = StorageClientOptions.AZURE_ALLOWED_HOSTS;
+  public static final List<String> DEFAULT_AZURE_ALLOWED_HOSTS = StorageClientOptions.DEFAULT_AZURE_ALLOWED_HOSTS;
+  public static final String S3_REGION = StorageClientOptions.S3_REGION;
+  public static final String S3_ACCESS_KEY_ID = StorageClientOptions.S3_ACCESS_KEY_ID;
+  public static final String S3_SECRET_ACCESS_KEY = StorageClientOptions.S3_SECRET_ACCESS_KEY;
+  public static final String S3_ANONYMOUS = StorageClientOptions.S3_ANONYMOUS;
+  public static final String GOOGLE_SERVICE_KEY = StorageClientOptions.GOOGLE_SERVICE_KEY;
+  public static final String MAX_RESULTS_PER_PAGE = StorageClientOptions.MAX_RESULTS_PER_PAGE;
+  public static final String STORAGE_CLIENT_CLASS = StorageClientOptions.STORAGE_CLIENT_CLASS;
+  public static final String STORAGE_CLIENTS = StorageClientOptions.STORAGE_CLIENTS;
 
   // fileOption Config Options
-  public static final String GET_FILE_CONTENT = "getFileContent";
-  public static final String MAX_SIZE_BYTES = "maxSizeBytes";
-  public static final String HANDLE_ARCHIVED_FILES = "handleArchivedFiles";
-  public static final String HANDLE_COMPRESSED_FILES = "handleCompressedFiles";
-  public static final String MOVE_TO_AFTER_PROCESSING = "moveToAfterProcessing";
-  public static final String MOVE_TO_ERROR_FOLDER = "moveToErrorFolder";
+  public static final String GET_FILE_CONTENT = StorageClientOptions.GET_FILE_CONTENT;
+  public static final String MAX_SIZE_BYTES = StorageClientOptions.MAX_SIZE_BYTES;
+  public static final String HANDLE_ARCHIVED_FILES = StorageClientOptions.HANDLE_ARCHIVED_FILES;
+  public static final String HANDLE_COMPRESSED_FILES = StorageClientOptions.HANDLE_COMPRESSED_FILES;
+  public static final String MOVE_TO_AFTER_PROCESSING = StorageClientOptions.MOVE_TO_AFTER_PROCESSING;
+  public static final String MOVE_TO_ERROR_FOLDER = StorageClientOptions.MOVE_TO_ERROR_FOLDER;
 
   // parent specs for cloud provider configs
-  public static final Spec GCP_PARENT_SPEC = SpecBuilder.parent("gcp")
-      .requiredString("pathToServiceKey")
+  private static final Spec GCP_PARENT_SPEC = SpecBuilder.withoutDefaults()
+      .requiredString("serviceKeyPath")
       .optionalNumber(MAX_RESULTS_PER_PAGE).build();
-  public static final Spec S3_PARENT_SPEC = SpecBuilder.parent("s3")
+  private static final Spec S3_PARENT_SPEC = SpecBuilder.withoutDefaults()
       .optionalString("accessKeyId", "secretAccessKey", "region")
       .optionalBoolean("anonymous")
       .optionalNumber(MAX_RESULTS_PER_PAGE).build();
-  public static final Spec AZURE_PARENT_SPEC = SpecBuilder.parent("azure")
+  private static final Spec AZURE_PARENT_SPEC = SpecBuilder.withoutDefaults()
       .optionalString("connectionString", "accountName", "accountKey")
       .optionalList(AZURE_ALLOWED_HOSTS, new TypeReference<List<String>>(){})
       .optionalNumber(MAX_RESULTS_PER_PAGE).build();
-  // custom storage clients, keyed by URI scheme. Each client's settings are not validated here.
-  public static final TypeReference<Map<String, Map<String, Object>>> STORAGE_CLIENTS_TYPE = new TypeReference<Map<String, Map<String, Object>>>(){};
+
+  /**
+   * The storage configuration accepted by every component that reads files through StorageClients: the gcp, azure,
+   * and s3 blocks, and storageClients (custom storage clients, keyed by URI scheme, whose settings are not validated
+   * here). Add it to a component's Spec with {@link SpecBuilder#include(Spec)}.
+   */
+  public static final Spec STORAGE_SPEC = SpecBuilder.withoutDefaults()
+      .optionalParent("gcp", GCP_PARENT_SPEC)
+      .optionalParent("azure", AZURE_PARENT_SPEC)
+      .optionalParent("s3", S3_PARENT_SPEC)
+      .optionalParent(STORAGE_CLIENTS, new TypeReference<Map<String, Map<String, Object>>>(){}).build();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredList("paths", new TypeReference<List<String>>(){})
-      .optionalNumber("maxThreads")
-      .optionalParent(
-          SpecBuilder.parent("filterOptions")
-              .optionalList("includes", new TypeReference<List<String>>(){})
-              .optionalList("excludes", new TypeReference<List<String>>(){})
-              .optionalList("pathsToSkip", new TypeReference<List<String>>(){})
-              // durations are strings.
-              .optionalString("lastModifiedCutoff", "lastPublishedCutoff", "publishMode")
-              .optionalBoolean("sendTombstones").build(),
-          SpecBuilder.parent("fileOptions")
-              .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
-              .optionalNumber(MAX_SIZE_BYTES)
-              .optionalString("moveToAfterProcessing", "moveToErrorFolder").build(),
-          SpecBuilder.parent("state")
-              .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")
-              .optionalBoolean("performDeletions", "enabled")
-              .optionalNumber("pathLength", "runsBeforeExpiration").build(),
-          GCP_PARENT_SPEC,
-          AZURE_PARENT_SPEC,
-          S3_PARENT_SPEC)
-      .optionalParent(STORAGE_CLIENTS, STORAGE_CLIENTS_TYPE)
+      .optionalParent(TRAVERSAL, SpecBuilder.withoutDefaults()
+          .optionalNumber(MAX_CONCURRENT_PATHS, THREADS_PER_PATH, MAX_DOCUMENTS)
+          .optionalString(LISTING_MODE).build())
+      .optionalParent("filterOptions", SpecBuilder.withoutDefaults()
+          .optionalList("includes", new TypeReference<List<String>>(){})
+          .optionalList("excludes", new TypeReference<List<String>>(){})
+          .optionalList("pathsToSkip", new TypeReference<List<String>>(){})
+          // durations are strings.
+          .optionalString("lastModifiedCutoff", "lastPublishedCutoff", "publishMode")
+          .optionalBoolean("sendTombstones").build())
+      .optionalParent("fileOptions", SpecBuilder.withoutDefaults()
+          .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
+          .optionalNumber(MAX_SIZE_BYTES)
+          .optionalString("moveToAfterProcessing", "moveToErrorFolder").build())
+      .optionalParent("state", SpecBuilder.withoutDefaults()
+          .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")
+          .optionalBoolean("performDeletions", "enabled")
+          .optionalNumber("pathLength", "runsBeforeExpiration").build())
+      .include(STORAGE_SPEC)
       .optionalParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){}).build();
 
   private final List<URI> storageURIs;
@@ -194,26 +222,31 @@ public class FileConnector extends AbstractConnector {
 
   private final FileConnectorStateManager stateManager;
 
-  private final int maxThreads;
+  private final int maxConcurrentPaths;
   private final boolean concurrent;
+
+  // Built at startup so that invalid fileOptions, filterOptions and fileHandlers fail there rather than when a
+  // traversal begins. Tombstones use it for the docIdPrefix. Each traversal builds its own, so that concurrent
+  // traversals don't share FileHandler instances.
+  private final TraversalParams startupParams;
 
   public FileConnector(Config config) throws ConnectorException {
     super(config);
 
-    this.maxThreads = ConfigUtils.getIntOrDefault(config, "maxThreads", 1);
+    this.maxConcurrentPaths = ConfigUtils.getIntOrDefault(config, TRAVERSAL + "." + MAX_CONCURRENT_PATHS, 1);
 
-    if (maxThreads < 1 && maxThreads != -1) {
-      throw new IllegalArgumentException("maxThreads must be -1 or >= 1.");
+    if (maxConcurrentPaths < 1 && maxConcurrentPaths != -1) {
+      throw new IllegalArgumentException(TRAVERSAL + "." + MAX_CONCURRENT_PATHS + " must be -1 or at least 1, but was " + maxConcurrentPaths + ".");
     }
 
-    this.concurrent = maxThreads != 1;
+    this.concurrent = maxConcurrentPaths != 1;
 
     List<String> paths = config.getStringList("paths");
     this.storageURIs = new ArrayList<>();
 
     for (String path : paths) {
       try {
-        URI newStorageURI = TraversalParams.parsePathOrURI(path);
+        URI newStorageURI = FileUtils.parsePathOrURI(path);
         storageURIs.add(newStorageURI);
         log.debug("FileConnector to use path {} with scheme {}", path, newStorageURI.getScheme());
       } catch (URISyntaxException e) {
@@ -228,6 +261,10 @@ public class FileConnector extends AbstractConnector {
 
     this.storageClientMap = StorageClient.createClients(config);
 
+    // validates the traversal options for every path; they differ only in the path itself, which validation and
+    // tombstones never read, so with no paths there is none to give
+    this.startupParams = buildTraversalParams(storageURIs.isEmpty() ? null : storageURIs.get(0));
+
     // an https path on a host outside azure.allowedHosts would otherwise only fail once traversal starts
     for (URI uri : storageURIs) {
       if (StorageClient.clientFor(uri, storageClientMap, config) == null && storageClientMap.containsKey(clientKeyFor(uri))) {
@@ -240,8 +277,8 @@ public class FileConnector extends AbstractConnector {
     // incremental mode requires state tracking in order to function correctly
     if (config.hasPath("filterOptions.publishMode")) {
       PublishMode mode = PublishMode.fromString(config.getString("filterOptions.publishMode"));
-      if (mode == PublishMode.INCREMENTAL && !config.hasPath("state")) {
-        throw new IllegalArgumentException("filterOptions.publishMode of 'incremental' requires state configuration.");
+      if (mode == PublishMode.INCREMENTAL && stateManager == null) {
+        throw new IllegalArgumentException("filterOptions.publishMode of 'incremental' requires state to be configured and enabled.");
       }
     }
 
@@ -256,19 +293,44 @@ public class FileConnector extends AbstractConnector {
       throw new IllegalArgumentException("FileConnector does not support multiple paths and moveToAfterProcessing / moveToErrorFolder. Create individual FileConnectors.");
     }
 
+    validateMoveTargetOutsidePath(MOVE_TO_AFTER_PROCESSING);
+    validateMoveTargetOutsidePath(MOVE_TO_ERROR_FOLDER);
+
     // A collapsing Publisher is not safe for concurrent publish() calls - it would merge and drop documents silently
     if (concurrent && requiresCollapsingPublisher()) {
-      throw new IllegalArgumentException("FileConnector does not support concurrent traversal and collapse. Set maxThreads to 1 or disable collapse.");
+      throw new IllegalArgumentException("FileConnector does not support concurrent traversal and collapse. Set "
+          + TRAVERSAL + "." + MAX_CONCURRENT_PATHS + " to 1 or disable collapse.");
+    }
+    if (startupParams.getThreadsPerPath() > 1 && requiresCollapsingPublisher()) {
+      throw new IllegalArgumentException("FileConnector does not support concurrent traversal and collapse. Set "
+          + TRAVERSAL + "." + THREADS_PER_PATH + " to 1 or disable collapse.");
+    }
+
+    // the files a capped traversal never reaches would look deleted, and be tombstoned and removed from state
+    if (startupParams.getMaxDocuments() != null && stateManager != null) {
+      throw new IllegalArgumentException(TRAVERSAL + "." + MAX_DOCUMENTS + " can't be combined with state: files the traversal "
+          + "doesn't reach would be treated as deleted.");
     }
 
     if (concurrent) {
       validateNonOverlappingPaths();
     }
 
+    for (URI uri : storageURIs) {
+      StorageClient client = StorageClient.clientFor(uri, storageClientMap, config);
+      if (client != null) {
+        try {
+          client.validateTraversal(startupParams);
+        } catch (IllegalArgumentException e) {
+          throw new IllegalArgumentException("Can't traverse " + uri + ": " + e.getMessage(), e);
+        }
+      }
+    }
+
     // lastPublishedCutoff is only applied in incremental mode with state; anywhere else it would be silently ignored
     if (config.hasPath("filterOptions.lastPublishedCutoff")) {
-      if (!config.hasPath("state")) {
-        throw new IllegalArgumentException("filterOptions.lastPublishedCutoff requires state configuration.");
+      if (stateManager == null) {
+        throw new IllegalArgumentException("filterOptions.lastPublishedCutoff requires state to be configured and enabled.");
       }
       if (!config.hasPath("filterOptions.publishMode")
           || PublishMode.fromString(config.getString("filterOptions.publishMode")) == PublishMode.FULL) {
@@ -280,6 +342,21 @@ public class FileConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
+    boolean finished = false;
+
+    try {
+      runTraversalsAndTombstones(publisher);
+      finished = true;
+    } finally {
+      // A run that didn't finish deletes nothing at close, including rows an earlier run kept because their tombstones
+      // could not be published. Those tombstones are still owed.
+      if (!finished && stateManager != null) {
+        stateManager.retainExpiredRows();
+      }
+    }
+  }
+
+  private void runTraversalsAndTombstones(Publisher publisher) throws ConnectorException {
     initialize();
 
     // discover and publish all valid file candidates
@@ -320,37 +397,40 @@ public class FileConnector extends AbstractConnector {
       return;
     }
 
-    List<URI> expiredFileUris = null;
+    List<String> expiredFiles;
     try {
-      expiredFileUris = stateManager.listExpiredFiles();
+      expiredFiles = stateManager.listExpiredFiles();
     } catch (SQLException e) {
-      log.warn("Error occurred while publishing missing document tombstones.", e);
+      // keep the expired rows, so their tombstones are published next run rather than deleted without one
+      stateManager.retainExpiredRows();
+      log.warn("Error occurred while listing expired files. Their tombstones will be published on the next run.", e);
       return;
     }
 
-    if (expiredFileUris.isEmpty()) {
+    if (expiredFiles.isEmpty()) {
       return;
     }
-    int expiredFileCount = expiredFileUris.size();
+
+    int expiredFileCount = expiredFiles.size();
     int publishedTombstoneCount = 0;
     log.info("{} previously published files now missing/expired, publishing document tombstones...", expiredFileCount);
-    for (URI uri : expiredFileUris) {
-      Document doc = buildTombstoneDoc(uri);
+
+    for (String expiredFile : expiredFiles) {
+      Document doc = buildTombstoneDoc(expiredFile, startupParams);
       try {
         publisher.publish(doc);
         publishedTombstoneCount++;
       } catch (Exception e) {
-        throw new ConnectorException("Error publishing document tombstone for file: " + uri, e);
+        throw new ConnectorException("Error publishing document tombstone for file: " + expiredFile, e);
       }
     }
     log.info("Published {} of {} document tombstones for tracking and index removal", publishedTombstoneCount, expiredFileCount);
-
   }
 
   private void initialize() throws ConnectorException {
     try {
       for (StorageClient client : storageClientMap.values()) {
-        client.init();
+        client.start();
       }
     } catch (IOException e) {
       throw new ConnectorException("Error initializing a StorageClient.", e);
@@ -375,7 +455,7 @@ public class FileConnector extends AbstractConnector {
     }
     for (StorageClient client : storageClientMap.values()) {
       try {
-        client.shutdown();
+        client.stop();
       } catch (IOException e) {
         log.warn("Error shutting down StorageClient.", e);
       }
@@ -383,7 +463,7 @@ public class FileConnector extends AbstractConnector {
   }
 
   /**
-   * Traverses the storage paths concurrently, on up to maxThreads threads. Requires the paths to not overlap, so that
+   * Traverses the storage paths concurrently, up to maxConcurrentPaths at once. Requires the paths to not overlap, so that
    * concurrent traversals never touch the same row of the state database.
    */
   private void traversePathsConcurrently(Publisher publisher) throws ConnectorException {
@@ -391,7 +471,7 @@ public class FileConnector extends AbstractConnector {
         .namingPattern(ThreadNameUtils.createName("PathTraversal") + "-%d")
         .build();
     // -1 means one thread per path
-    int poolSize = maxThreads == -1 ? storageURIs.size() : Math.min(maxThreads, storageURIs.size());
+    int poolSize = maxConcurrentPaths == -1 ? storageURIs.size() : Math.min(maxConcurrentPaths, storageURIs.size());
     ExecutorService executor = Executors.newFixedThreadPool(poolSize, threadFactory);
 
     try {
@@ -480,6 +560,37 @@ public class FileConnector extends AbstractConnector {
     }
   }
 
+  /**
+   * Rejects a fileOptions move folder that the traversal itself would visit. Files moved there during a run would be
+   * found again by the same traversal and published twice (an S3 flat listing finds them on later pages).
+   */
+  private void validateMoveTargetOutsidePath(String option) {
+    String key = "fileOptions." + option;
+    if (!config.hasPath(key) || storageURIs.size() != 1) {
+      return;
+    }
+
+    URI path = storageURIs.get(0);
+    URI target;
+    try {
+      target = FileUtils.parsePathOrURI(config.getString(key));
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Invalid " + key + ": " + config.getString(key), e);
+    }
+
+    StorageClient client = StorageClient.clientFor(path, storageClientMap, config);
+
+    // a folder on another provider can't sit under the path
+    if (client == null || client != StorageClient.clientFor(target, storageClientMap, config)) {
+      return;
+    }
+
+    if (client.moveTargetInsidePath(path, target)) {
+      throw new IllegalArgumentException(key + " (" + target + ") would put moved files back inside the path being traversed ("
+          + path + "), so they would be traversed again or overwrite themselves. Choose a folder outside it.");
+    }
+  }
+
   private static String clientKeyFor(URI pathToTraverse) {
     return pathToTraverse.getScheme() != null ? pathToTraverse.getScheme() : "file";
   }
@@ -506,15 +617,16 @@ public class FileConnector extends AbstractConnector {
   }
 
   /**
-   * Builds a tombstone Document for the given URI. The document is marked as expired and skipped,
+   * Builds a tombstone Document for the given file. The document is marked as expired and skipped,
    * so it bypasses pipeline stages and signals downstream indexers to delete the corresponding entry.
    *
-   * @param uri the URI of the file that is no longer present in storage
+   * @param fullPath the full path of the file that is no longer present in storage, as stored in state
+   * @param params the parameters supplying the docIdPrefix
    * @return a Document with {@link #EXPIRED} set to {@code true} and marked as skipped
    */
-  private Document buildTombstoneDoc(URI uri) {
+  private static Document buildTombstoneDoc(String fullPath, TraversalParams params) {
     Instant now = Instant.now();
-    Document doc = BaseFileReference.buildBaseDoc(uri.toString(), now, 0L, now, buildTraversalParams(uri));
+    Document doc = BaseFileReference.buildBaseDoc(fullPath, now, 0L, now, params);
     doc.setField(EXPIRED, true);
     doc.setSkipped(true);
     return doc;

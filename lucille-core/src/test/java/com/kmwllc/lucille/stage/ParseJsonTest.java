@@ -33,7 +33,7 @@ public class ParseJsonTest {
       doc.setField("json", IOUtils.toString(in, StandardCharsets.UTF_8));
       stage.processDocument(doc);
 
-      assertTrue(doc.has("json")); // ParseJson should not delete the designated src field
+      assertTrue(doc.has("json")); // ParseJson should not delete the designated source field
 
       // Get the map so we can assert on type
       Map<String, Object> docMap = doc.asMap();
@@ -127,7 +127,7 @@ public class ParseJsonTest {
       doc.setField("file_content", Base64.getEncoder().encodeToString(IOUtils.toByteArray(in)));
       stage.processDocument(doc);
 
-      assertTrue(doc.has("file_content")); // ParseJson should not delete the designated src field
+      assertTrue(doc.has("file_content")); // ParseJson should not delete the designated source field
 
       // Get the map so we can assert on type
       Map<String, Object> docMap = doc.asMap();
@@ -226,7 +226,7 @@ public class ParseJsonTest {
       doc.setField("json", IOUtils.toString(in, StandardCharsets.UTF_8));
       stage.processDocument(doc);
 
-      assertTrue(doc.has("json")); // ParseJson should not delete the designated src field
+      assertTrue(doc.has("json")); // ParseJson should not delete the designated source field
       assertTrue(doc.has("id"));
 
       // document should skip empty keys in json and null values
@@ -250,7 +250,7 @@ public class ParseJsonTest {
 
       stage.processDocument(doc);
 
-      // child document has null in src field. should throw a StageException (we catch + change the message).
+      // child document has null in source field. should throw a StageException (we catch + change the message).
       // would normally be IllegalArgument.
       assertThrows(StageException.class, () -> stage.processDocument(childDoc));
     }
@@ -259,7 +259,7 @@ public class ParseJsonTest {
   @Test
   public void testSpec() throws StageException {
     Stage stage = factory.get("ParseJson/config.conf");
-    assertEquals(Set.of("src", "sourceIsBase64", "jsonFieldPaths", "updateMode"),
+    assertEquals(Set.of("source", "sourceIsBase64", "jsonFieldPaths", "updateMode"),
         stage.getNonDefaultLegalProperties());
   }
 
@@ -278,7 +278,7 @@ public class ParseJsonTest {
     doc.setField("json", json);
     doc.setField("field5", "existingContent");
     stage.processDocument(doc);
-    assertTrue(doc.has("json")); // ParseJson should not delete the designated src field
+    assertTrue(doc.has("json")); // ParseJson should not delete the designated source field
     assertEquals(true, doc.getBoolean("field1").booleanValue());
     assertEquals(1, doc.getInt("field2").intValue());
     assertEquals(List.of(1, 2, 3, 4), doc.getIntList("field3"));

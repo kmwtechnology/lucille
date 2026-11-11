@@ -42,10 +42,10 @@ import com.typesafe.config.ConfigBeanFactory;
  * Config Parameters -
  * <br>
  * <p>
- * <b>lang</b> (String) : The language to use for OCR.
+ * <b>language</b> (String) : The language to use for OCR.
  * </p>
  * <p>
- * <b>pathField</b> (String, Required) : Field on document containing a path to the image used for extraction. The
+ * <b>filePathField</b> (String, Required) : Field on document containing a path to the image used for extraction. The
  * extension is used to determine if the image is a pdf. If the document does not contain this field it is skipped.
  *  </p>
  * <p>
@@ -90,7 +90,7 @@ import com.typesafe.config.ConfigBeanFactory;
 public class ApplyOCR extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("lang", "pathField")
+      .requiredString("language", "filePathField")
       .optionalString("pagesField", "extractAllDest")
       .optionalList("extractionTemplates", SpecBuilder.withoutDefaults()
           .requiredString("name")
@@ -103,9 +103,9 @@ public class ApplyOCR extends Stage {
   public static final int SOURCE_RESOLUTION = 300;
   private static final Logger log = LoggerFactory.getLogger(ApplyOCR.class);
 
-  private final String lang;
+  private final String language;
   private transient TessBaseAPI api = null;
-  private final String pathField;
+  private final String filePathField;
   private final String pagesField;
   private final Map<Integer, String> pages;
   private final Map<String, FormTemplate> extractionTemplates;
@@ -115,8 +115,8 @@ public class ApplyOCR extends Stage {
   public ApplyOCR(Config config) throws StageException {
     super(config);
 
-    lang = config.getString("lang");
-    pathField = ConfigUtils.getStringOrDefault(config, "pathField", null);
+    language = config.getString("language");
+    filePathField = ConfigUtils.getStringOrDefault(config, "filePathField", null);
     pagesField = ConfigUtils.getStringOrDefault(config, "pagesField", null);
     extractAllDest = ConfigUtils.getStringOrDefault(config, "extractAllDest", null);
 
@@ -151,8 +151,8 @@ public class ApplyOCR extends Stage {
     api = new TessBaseAPI();
     String tessData = "TesseractOcr";
     // load the models
-    if (api.Init(tessData, lang) != 0) {
-      throw new StageException(String.format("Unable to load tesseract model: %s", lang));
+    if (api.Init(tessData, language) != 0) {
+      throw new StageException(String.format("Unable to load tesseract model: %s", language));
     }
   }
 
@@ -239,11 +239,11 @@ public class ApplyOCR extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    if (!doc.has(pathField)) {
-      log.warn("Document with id: {} does not have field: {}", doc.getId(), pathField);
+    if (!doc.has(filePathField)) {
+      log.warn("Document with id: {} does not have field: {}", doc.getId(), filePathField);
       return null;
     }
-    String path = doc.getString(pathField);
+    String path = doc.getString(filePathField);
     String type = FilenameUtils.getExtension(path);
 
 

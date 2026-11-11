@@ -7,7 +7,7 @@ description: Configuration reference for the Weaviate Indexer, which indexes doc
 
 `com.kmwllc.lucille.weaviate.indexer.WeaviateIndexer`
 
-Indexes documents into [Weaviate](https://weaviate.io/). Config block: `weaviate { ... }`
+Indexes documents into [Weaviate](https://weaviate.io/). Config block: `indexer.weaviate { ... }`
 
 **Maven dependency:**
 ```xml
@@ -28,21 +28,19 @@ Indexes documents into [Weaviate](https://weaviate.io/). Config block: `weaviate
 
 ```hocon
 indexer {
-  class: "com.kmwllc.lucille.weaviate.indexer.WeaviateIndexer"
-}
-
-weaviate {
-  apiKey: ${WEAVIATE_API_KEY}
-  host: "my-cluster.weaviate.network"
-  className: "Article"
-  idDestinationName: "lucille_id"
-  vectorField: "content_vector"
+  weaviate {
+    apiKey: ${WEAVIATE_API_KEY}
+    host: "my-cluster.weaviate.network"
+    className: "Article"
+    idDestinationName: "lucille_id"
+    vectorField: "content_vector"
+  }
 }
 ```
 
 **Note on IDs:** Weaviate requires UUIDs for its internal `id` field. The WeaviateIndexer generates a UUID from the document's Lucille ID (or from `indexer.idOverrideField` when it is set and present) and stores that ID under `idDestinationName` so it can be retrieved later.
 
-The generic `indexer.whitelist` and `indexer.blacklist` options control which fields are sent as object properties. `indexer.indexOverrideField` is not supported and fails at startup.
+The generic `indexer.includeFields` and `indexer.excludeFields` options control which fields are sent as object properties. `indexer.indexOverrideField` is not supported and fails at startup.
 
 ---
 
@@ -57,7 +55,7 @@ Weaviate requires UUIDs for its internal `id` field. The WeaviateIndexer generat
 
 ## Properties Sent
 
-Every document field except `id` (and the vector field, see below) is sent as an object property, after `indexer.whitelist` and `indexer.blacklist` are applied. This includes `run_id` unless the filter excludes it. Child documents are not sent, either as a property or as separate objects.
+Every document field except `id` (and the vector field, see below) is sent as an object property, after `indexer.includeFields` and `indexer.excludeFields` are applied. This includes `run_id` unless the filter excludes it. Child documents are not sent, either as a property or as separate objects.
 
 WeaviateIndexer does not support `indexer.maxConcurrentBatches` greater than 1; setting it fails at startup.
 
@@ -65,7 +63,7 @@ WeaviateIndexer does not support `indexer.maxConcurrentBatches` greater than 1; 
 
 ## Deletion Not Supported
 
-WeaviateIndexer logs a warning if `deletionMarkerField` or `deleteByFieldField` are configured but does not perform deletions. Documents marked for deletion are indexed as regular objects. This is a known limitation.
+WeaviateIndexer fails at startup if `deletionMarker` or `deleteByQuery` is set. To leave documents out of the destination, drop them earlier in the pipeline. This is a known limitation.
 
 ---
 

@@ -22,6 +22,8 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,6 +35,7 @@ import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import java.nio.file.attribute.FileTime;
 import org.junit.After;
@@ -107,9 +110,9 @@ public class FileConnectorTest {
       Connector conn = new FileConnector(config);
       conn.execute(publisher);
       conn.close();
-      verify(mockCloudClient, times(1)).init();
+      verify(mockCloudClient, times(1)).start();
       verify(mockCloudClient, times(1)).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
-      verify(mockCloudClient, times(1)).shutdown();
+      verify(mockCloudClient, times(1)).stop();
     }
   }
 
@@ -132,14 +135,14 @@ public class FileConnectorTest {
       Connector conn = new FileConnector(config);
       conn.execute(publisher);
       conn.close();
-      verify(mockForGoogle, times(1)).init();
+      verify(mockForGoogle, times(1)).start();
       verify(mockForGoogle, times(1)).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
-      verify(mockForGoogle, times(1)).shutdown();
+      verify(mockForGoogle, times(1)).stop();
 
       // Azure will get started / shutdown, but not traversed
-      verify(mockForAzure, times(1)).init();
+      verify(mockForAzure, times(1)).start();
       verify(mockForAzure, times(0)).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
-      verify(mockForAzure, times(1)).shutdown();
+      verify(mockForAzure, times(1)).stop();
     }
   }
 
@@ -168,7 +171,7 @@ public class FileConnectorTest {
       connector = new FileConnector(config);
 
       // nothing takes place if a client fails to initialize
-      doThrow(new IOException("Failed to initialize client")).when(mockCloudClient).init();
+      doThrow(new IOException("Failed to initialize client")).when(mockCloudClient).start();
       assertThrows(ConnectorException.class, () -> connector.execute(publisher));
     }
   }
@@ -189,11 +192,11 @@ public class FileConnectorTest {
 
       Connector conn = new FileConnector(config);
       // the try catch block in FileConnector will catch any Exception class and throw a ConnectorException
-      doThrow(new Exception("Failed to publish files")).when(mockCloudClient).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
+      doThrow(new IOException("Failed to publish files")).when(mockCloudClient).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
       assertThrows(ConnectorException.class, () -> conn.execute(publisher));
       conn.close();
       // verify that shutdown is called, even after a traversal fails
-      verify(mockCloudClient, times(1)).shutdown();
+      verify(mockCloudClient, times(1)).stop();
     }
   }
 
@@ -317,13 +320,19 @@ public class FileConnectorTest {
         d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subdir/e.yaml")).findAny().orElseThrow();
     assertTrue(doc11.getId().startsWith("normal-"));
 
-    Document doc12 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-1")).findAny().orElseThrow();
+    Document doc12 = documentList.stream().filter(d -> d.has("source") &&
+        d.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv") &&
+        d.getId().equals("csvHandled-" + DigestUtils.md5Hex(d.getString("source")) + "-1")).findAny().orElseThrow();
     assertTrue(doc12.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
-    Document doc13 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-2")).findAny().orElseThrow();
+    Document doc13 = documentList.stream().filter(d -> d.has("source") &&
+        d.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv") &&
+        d.getId().equals("csvHandled-" + DigestUtils.md5Hex(d.getString("source")) + "-2")).findAny().orElseThrow();
     assertTrue(doc13.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
-    Document doc14 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-3")).findAny().orElseThrow();
+    Document doc14 = documentList.stream().filter(d -> d.has("source") &&
+        d.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv") &&
+        d.getId().equals("csvHandled-" + DigestUtils.md5Hex(d.getString("source")) + "-3")).findAny().orElseThrow();
     assertTrue(doc14.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
     Document doc15 = documentList.stream().filter(d -> d.getId().equals("xmlHandled-1001")).findAny().orElseThrow();
@@ -422,7 +431,16 @@ public class FileConnectorTest {
         .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"));
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
     assertTrue(e.getMessage().contains("incremental"));
-    assertTrue(e.getMessage().contains("state configuration"));
+    assertTrue(e.getMessage().contains("requires state to be configured and enabled"));
+  }
+
+  @Test
+  public void testUnknownPublishModeFailsFast() {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/example.conf")
+        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("partial"));
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage().contains("\"partial\""));
+    assertTrue(e.getMessage().contains("incremental, full"));
   }
 
   @Test
@@ -431,7 +449,7 @@ public class FileConnectorTest {
         .withValue("filterOptions.lastPublishedCutoff", ConfigValueFactory.fromAnyRef("1h"));
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
     assertTrue(e.getMessage().contains("lastPublishedCutoff"));
-    assertTrue(e.getMessage().contains("state configuration"));
+    assertTrue(e.getMessage().contains("requires state to be configured and enabled"));
   }
 
   @Test
@@ -792,6 +810,318 @@ public class FileConnectorTest {
     }
   }
 
+  // state { enabled: false } turns state off, so options that need state fail at startup instead of being ignored
+  @Test
+  public void testDisabledStateRejectsOptionsThatNeedState() {
+    Config base = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of("src/test/resources/FileConnectorTest/example"),
+        "state", Map.of("enabled", false),
+        "filterOptions", Map.of("publishMode", "incremental")));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(base));
+    assertTrue(e.getMessage().contains("enabled"));
+
+    Config cutoff = base.withValue("filterOptions.lastPublishedCutoff", ConfigValueFactory.fromAnyRef("1h"));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(cutoff));
+  }
+
+  // Every fileHandlers block, and the other traversal options, are validated at startup, even for an extension that no
+  // file in the traversal has.
+  @Test
+  public void testTraversalOptionsValidatedAtStartup() {
+    Config base = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of("src/test/resources/FileConnectorTest/example")));
+
+    // the xml handler requires xmlRootPath
+    Config badHandler = base.withValue("fileHandlers.xml", ConfigValueFactory.fromMap(Map.of("xmlIdPath", "/id")));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(badHandler));
+
+    Config unknownClass = base.withValue("fileHandlers.foo", ConfigValueFactory.fromMap(Map.of("class", "com.example.NoSuchHandler")));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(unknownClass));
+
+    Config badMaxSize = base.withValue("fileOptions.maxSizeBytes", ConfigValueFactory.fromAnyRef(0));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(badMaxSize));
+  }
+
+  // Extensions are matched without regard to case: DATA.CSV goes through the csv handler and backup.ZIP is unpacked.
+  @Test
+  public void testUpperCaseExtensions() throws Exception {
+    File root = tempFolder.newFolder("upper");
+    Files.writeString(new File(root, "DATA.CSV").toPath(), "id,name\n1,a\n2,b\n");
+    try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(new File(root, "backup.ZIP").toPath()))) {
+      zip.putNextEntry(new ZipEntry("inner.txt"));
+      zip.write("inner".getBytes());
+    }
+
+    Config config = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of(root.getPath()),
+        "fileOptions", Map.of("handleArchivedFiles", true),
+        "fileHandlers", Map.of("CSV", Map.of())));
+
+    TestMessenger messenger = new TestMessenger();
+    Connector conn = new FileConnector(config);
+    conn.execute(new PublisherImpl(config, messenger, "run", "pipeline1"));
+    conn.close();
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(3, docs.size());
+    assertEquals(2, docs.stream().filter(doc -> doc.has("csvLineNumber")).count());
+    // CSV row docs carry no file_path, so the check must be null-safe and not depend on traversal order
+    assertTrue(docs.stream().map(doc -> doc.getString(FILE_PATH)).anyMatch(path -> path != null && path.endsWith("backup.ZIP!inner.txt")));
+  }
+
+  @Test
+  public void testSameNamedCsvFilesInDifferentFoldersGetUniqueIds() throws Exception {
+    File root = tempFolder.newFolder("sameName");
+    File a = new File(root, "a");
+    File b = new File(root, "b");
+    assertTrue(a.mkdir() && b.mkdir());
+    Files.writeString(new File(a, "data.csv").toPath(), "name\nx\ny\n");
+    Files.writeString(new File(b, "data.csv").toPath(), "name\nx\ny\n");
+
+    Config config = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of(root.getPath()),
+        "fileHandlers", Map.of("csv", Map.of())));
+
+    TestMessenger messenger = new TestMessenger();
+    Connector conn = new FileConnector(config);
+    conn.execute(new PublisherImpl(config, messenger, "run", "pipeline1"));
+    conn.close();
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(4, docs.size());
+    assertEquals(4, docs.stream().map(Document::getId).distinct().count());
+  }
+
+  // A move folder the traversal would visit is rejected at startup, since moved files would be published again.
+  @Test
+  public void testMoveTargetInsideTraversedPathRejected() throws Exception {
+    File root = tempFolder.newFolder("incoming");
+    Config local = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of(root.getPath())));
+
+    for (String option : List.of("moveToAfterProcessing", "moveToErrorFolder")) {
+      Config inside = local.withValue("fileOptions." + option, ConfigValueFactory.fromAnyRef(new File(root, "done").getPath()));
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(inside));
+      assertTrue(e.getMessage().contains(option));
+
+      Config outside = local.withValue("fileOptions." + option,
+          ConfigValueFactory.fromAnyRef(new File(tempFolder.getRoot(), "done").getPath()));
+      new FileConnector(outside).close();
+    }
+
+    Config s3 = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of("s3://b/incoming"), "s3", Map.of("region", "us-east-1")));
+    // a raw prefix: s3://b/incoming also lists incoming-done/
+    for (String inside : List.of("s3://b/incoming/done/", "s3://b/incoming-done/")) {
+      Config config = s3.withValue("fileOptions.moveToAfterProcessing", ConfigValueFactory.fromAnyRef(inside));
+      assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    }
+    new FileConnector(s3.withValue("fileOptions.moveToAfterProcessing", ConfigValueFactory.fromAnyRef("s3://b/done/"))).close();
+    new FileConnector(s3.withValue("fileOptions.moveToAfterProcessing", ConfigValueFactory.fromAnyRef("s3://other/incoming/"))).close();
+
+    // The folder itself is outside the path, but the moved key isn't: s3://b/incoming lands a file at
+    // incoming/incoming/a.csv, and s3://b lands it on its own key.
+    Config slashed = s3.withValue("paths", ConfigValueFactory.fromIterable(List.of("s3://b/incoming/")));
+    for (String landsInside : List.of("s3://b/incoming", "s3://b", "s3://b/")) {
+      for (String option : List.of("moveToAfterProcessing", "moveToErrorFolder")) {
+        Config config = slashed.withValue("fileOptions." + option, ConfigValueFactory.fromAnyRef(landsInside));
+        assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+      }
+    }
+    new FileConnector(slashed.withValue("fileOptions.moveToAfterProcessing", ConfigValueFactory.fromAnyRef("s3://b/done"))).close();
+  }
+
+  // Cloud paths are raw key prefixes: s3://b/logs also traverses s3://b/logs-old, so concurrent traversal of the two is
+  // rejected. With trailing slashes they are separate folders.
+  @Test
+  public void testOverlappingCloudPrefixesRejectedForConcurrentTraversal() throws Exception {
+    Config base = ConfigFactory.parseMap(Map.of(
+        "name", "file-connector", "pipeline", "pipeline1", "traversal", Map.of("maxConcurrentPaths", 2),
+        "s3", Map.of("region", "us-east-1")));
+
+    Config overlapping = base.withValue("paths", ConfigValueFactory.fromIterable(List.of("s3://b/logs", "s3://b/logs-old")));
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(overlapping));
+    assertTrue(e.getMessage().contains("overlapping"));
+
+    Config separate = base.withValue("paths", ConfigValueFactory.fromIterable(List.of("s3://b/logs/", "s3://b/logs-old/")));
+    new FileConnector(separate).close();
+  }
+
+  // A root that is missing on one run (e.g. an unmounted share) fails that run without publishing tombstones or deleting
+  // state, so the next run sees the files as unchanged rather than re-publishing them.
+  @Test
+  public void testMissingRootDoesNotTombstoneOrDeleteState() throws Exception {
+    File root = tempFolder.newFolder("mount");
+    File unmounted = new File(tempFolder.getRoot(), "unmounted");
+    Files.writeString(new File(root, "file1.txt").toPath(), "Content 1");
+    Files.writeString(new File(root, "file2.txt").toPath(), "Content 2");
+
+    try {
+      Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")
+          .withValue("paths", ConfigValueFactory.fromIterable(List.of(root.toURI().toString())))
+          .withValue("state.connectionString", ConfigValueFactory.fromAnyRef(STATE_CONNECTION_STRING))
+          .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
+          .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"));
+
+      TestMessenger messenger1 = new TestMessenger();
+      Connector conn = new FileConnector(config);
+      conn.execute(new PublisherImpl(config, messenger1, "run1", "pipeline1"));
+      conn.close();
+      assertEquals(2, messenger1.getDocsSentForProcessing().size());
+
+      // the share is unmounted for the second run
+      assertTrue(root.renameTo(unmounted));
+      TestMessenger messenger2 = new TestMessenger();
+      Connector failingConn = new FileConnector(config);
+      assertThrows(ConnectorException.class, () -> failingConn.execute(new PublisherImpl(config, messenger2, "run2", "pipeline1")));
+      failingConn.close();
+      assertEquals(0, messenger2.getDocsSentForProcessing().size());
+
+      // remounted: nothing changed, so nothing is published and nothing is tombstoned
+      assertTrue(unmounted.renameTo(root));
+      TestMessenger messenger3 = new TestMessenger();
+      conn = new FileConnector(config);
+      conn.execute(new PublisherImpl(config, messenger3, "run3", "pipeline1"));
+      conn.close();
+      assertEquals(0, messenger3.getDocsSentForProcessing().size());
+    } finally {
+      FileUtils.deleteDirectory(STATE_DIR);
+    }
+  }
+
+  // An archive entry whose name is not a valid URI (here, it contains a space) is tombstoned like any other file once the
+  // archive is deleted. It used to make listing the expired files throw, and every tombstone of that run was then lost.
+  @Test
+  public void testArchiveEntryWithSpaceIsTombstoned() throws Exception {
+    File root = tempFolder.newFolder("archives");
+    File zipFile = new File(root, "a.zip");
+    try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(zipFile.toPath()))) {
+      zip.putNextEntry(new ZipEntry("my file.txt"));
+      zip.write("spaced".getBytes());
+      zip.putNextEntry(new ZipEntry("100%[x]#.txt"));
+      zip.write("special".getBytes());
+    }
+    File plainFile = new File(root, "plain.txt");
+    Files.writeString(plainFile.toPath(), "plain");
+
+    try {
+      Config config = tombstoneConfig(root)
+          .withValue("fileOptions.handleArchivedFiles", ConfigValueFactory.fromAnyRef(true));
+
+      assertEquals(3, runOnce(config, new TestMessenger()).size());
+
+      Files.delete(zipFile.toPath());
+      Files.delete(plainFile.toPath());
+
+      Set<String> tombstonePaths = runOnce(config, new TestMessenger()).stream()
+          .filter(doc -> Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
+          .map(doc -> doc.getString(FILE_PATH))
+          .collect(Collectors.toSet());
+
+      String zipPath = zipFile.toPath().toUri().toString();
+      assertTrue(tombstonePaths.contains(zipPath + "!my file.txt"));
+      assertTrue(tombstonePaths.contains(zipPath + "!100%[x]#.txt"));
+      assertTrue(tombstonePaths.contains(plainFile.toPath().toUri().toString()));
+
+      // the expired rows were deleted after their tombstones were published
+      assertEquals(0, runOnce(config, new TestMessenger()).size());
+    } finally {
+      FileUtils.deleteDirectory(STATE_DIR);
+    }
+  }
+
+  // If a tombstone can't be published, the expired rows are kept, and their tombstones are published on the next run
+  // rather than the rows being deleted with no tombstone sent.
+  @Test
+  public void testFailedTombstonesArePublishedNextRun() throws Exception {
+    File root = tempFolder.newFolder("tombstone-retry");
+    File file1 = new File(root, "file1.txt");
+    Files.writeString(file1.toPath(), "Content 1");
+    Files.writeString(new File(root, "file2.txt").toPath(), "Content 2");
+
+    try {
+      Config config = tombstoneConfig(root);
+      assertEquals(2, runOnce(config, new TestMessenger()).size());
+
+      Files.delete(file1.toPath());
+
+      Publisher failingPublisher = mock(Publisher.class);
+      doThrow(new RuntimeException("index unavailable")).when(failingPublisher).publish(any());
+      Connector failingConn = new FileConnector(config);
+      assertThrows(ConnectorException.class, () -> failingConn.execute(failingPublisher));
+      failingConn.close();
+
+      List<Document> retried = runOnce(config, new TestMessenger());
+      assertEquals(1, retried.size());
+      assertTrue(retried.get(0).getBoolean(FileConnector.EXPIRED));
+      assertEquals(file1.toPath().toUri().toString(), retried.get(0).getString(FILE_PATH));
+    } finally {
+      FileUtils.deleteDirectory(STATE_DIR);
+    }
+  }
+
+  // A run that fails doesn't delete the rows an earlier run kept: their tombstones are still published by the next run
+  // that finishes.
+  @Test
+  public void testFailedRunKeepsRowsAwaitingTombstones() throws Exception {
+    File root = tempFolder.newFolder("tombstone-then-outage");
+    File unmounted = new File(tempFolder.getRoot(), "tombstone-then-outage-unmounted");
+    File file1 = new File(root, "file1.txt");
+    Files.writeString(file1.toPath(), "Content 1");
+    Files.writeString(new File(root, "file2.txt").toPath(), "Content 2");
+
+    try {
+      Config config = tombstoneConfig(root);
+      assertEquals(2, runOnce(config, new TestMessenger()).size());
+
+      // the tombstone can't be published, so its row is kept
+      Files.delete(file1.toPath());
+      Publisher failingPublisher = mock(Publisher.class);
+      doThrow(new RuntimeException("index unavailable")).when(failingPublisher).publish(any());
+      Connector failingPublish = new FileConnector(config);
+      assertThrows(ConnectorException.class, () -> failingPublish.execute(failingPublisher));
+      failingPublish.close();
+
+      // the next run fails during traversal
+      assertTrue(root.renameTo(unmounted));
+      Connector failingTraversal = new FileConnector(config);
+      assertThrows(ConnectorException.class, () -> failingTraversal.execute(mock(Publisher.class)));
+      failingTraversal.close();
+
+      assertTrue(unmounted.renameTo(root));
+      List<Document> retried = runOnce(config, new TestMessenger());
+      assertEquals(1, retried.size());
+      assertTrue(retried.get(0).getBoolean(FileConnector.EXPIRED));
+      assertEquals(file1.toPath().toUri().toString(), retried.get(0).getString(FILE_PATH));
+
+      // published, so the row is deleted now
+      assertEquals(0, runOnce(config, new TestMessenger()).size());
+    } finally {
+      FileUtils.deleteDirectory(STATE_DIR);
+    }
+  }
+
+  // an on-disk state database, in incremental mode with tombstones
+  private static Config tombstoneConfig(File root) {
+    return ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")
+        .withValue("paths", ConfigValueFactory.fromIterable(List.of(root.toURI().toString())))
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef(STATE_CONNECTION_STRING))
+        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
+        .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"));
+  }
+
+  // runs a new FileConnector built from the config once, returning the documents it published
+  private static List<Document> runOnce(Config config, TestMessenger messenger) throws Exception {
+    Connector conn = new FileConnector(config);
+    try {
+      conn.execute(new PublisherImpl(config, messenger, "run", "pipeline1"));
+    } finally {
+      conn.close();
+    }
+    return messenger.getDocsSentForProcessing();
+  }
+
   // Verifies that files generate tombstones and modified files are re-published in the same incremental run (when configured). Uses
   // an empty state to trigger a database being created on disk to replicate a production environment
   @Test
@@ -1075,7 +1405,7 @@ public class FileConnectorTest {
   @Test
   public void testConcurrentTraversal() throws Exception {
     Config sequentialConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf");
-    Config concurrentConfig = sequentialConfig.withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1));
+    Config concurrentConfig = sequentialConfig.withValue("traversal.maxConcurrentPaths", ConfigValueFactory.fromAnyRef(-1));
 
     List<Document> sequentialDocs = publishedDocuments(sequentialConfig);
     List<Document> concurrentDocs = publishedDocuments(concurrentConfig);
@@ -1092,7 +1422,7 @@ public class FileConnectorTest {
   @Test
   public void testConcurrentTraversalsOverlap() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1));
+        .withValue("traversal.maxConcurrentPaths", ConfigValueFactory.fromAnyRef(-1));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
@@ -1124,11 +1454,189 @@ public class FileConnectorTest {
   @Test
   public void testPreventConcurrentAndCollapse() {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))
+        .withValue("traversal.maxConcurrentPaths", ConfigValueFactory.fromAnyRef(-1))
         .withValue("collapse", ConfigValueFactory.fromAnyRef(true));
 
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
     assertTrue(e.getMessage().contains("collapse"));
+  }
+
+  // threadsPerPath uses concurrent publish() calls just as maxConcurrentPaths does, even with a single path
+  @Test
+  public void testPreventThreadsPerPathAndCollapse() {
+    Config config = cloudTraversalConfig(Map.of("threadsPerPath", 2)).withValue("collapse", ConfigValueFactory.fromAnyRef(true));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage(), e.getMessage().contains("collapse"));
+  }
+
+  // A capped traversal doesn't reach every file, and the rest would be tombstoned and removed from state.
+  @Test
+  public void testPreventMaxDocumentsAndState() {
+    Config config = cloudTraversalConfig(Map.of("maxDocuments", 10))
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:maxDocumentsAndState"));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage(), e.getMessage().contains("traversal.maxDocuments can't be combined with state"));
+  }
+
+  @Test
+  public void testMaxDocumentsAllowedWithDisabledState() throws Exception {
+    new FileConnector(cloudTraversalConfig(Map.of("maxDocuments", 10)).withValue("state.enabled", ConfigValueFactory.fromAnyRef(false))).close();
+  }
+
+  @Test
+  public void testPreventFlatListingAndPathsToSkip() {
+    Config config = cloudTraversalConfig(Map.of("listingMode", "flat"))
+        .withValue("filterOptions.pathsToSkip", ConfigValueFactory.fromIterable(List.of("s3://bucket/data/skip/")));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage(), e.getMessage().contains("pathsToSkip"));
+  }
+
+  @Test
+  public void testPreventFlatListingAndThreadsPerPath() {
+    Config config = cloudTraversalConfig(Map.of("listingMode", "flat", "threadsPerPath", 2));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage(), e.getMessage().contains("can't be divided among threads"));
+  }
+
+  @Test
+  public void testTraversalSettingsAreAcceptedInTheTraversalBlock() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("name", "connector", "pipeline", "pipeline", "class", FileConnector.class.getName(),
+        "paths", List.of("/tmp/local"),
+        "traversal", Map.of("maxConcurrentPaths", 2, "threadsPerPath", 2, "maxDocuments", 10, "listingMode", "hierarchical")));
+
+    FileConnector.SPEC.validate(config, "FileConnector");
+  }
+
+  // The settings moved from the provider blocks to the traversal block, and under their old names they are rejected
+  // rather than ignored.
+  @Test
+  public void testTraversalSettingsAreRejectedOutsideTheTraversalBlock() {
+    Map<String, Map<String, Object>> blocks = Map.of(
+        "s3", Map.of("region", "us-east-1"),
+        "gcp", Map.of("serviceKeyPath", "key.json"),
+        "azure", Map.of("connectionString", "connectionString"));
+    Map<String, Object> base = Map.of("name", "connector", "pipeline", "pipeline", "class", FileConnector.class.getName(),
+        "paths", List.of("/tmp/local"));
+
+    for (Map.Entry<String, Map<String, Object>> block : blocks.entrySet()) {
+      for (Map.Entry<String, Object> setting : Map.<String, Object>of("threadsPerPath", 2, "traversalThreads", 2, "maxDocuments", 10,
+          "listingMode", "hierarchical").entrySet()) {
+        Map<String, Object> options = new HashMap<>(block.getValue());
+        options.put(setting.getKey(), setting.getValue());
+        Map<String, Object> config = new HashMap<>(base);
+        config.put(block.getKey(), options);
+
+        assertThrows(block.getKey() + "." + setting.getKey(), IllegalArgumentException.class,
+            () -> FileConnector.SPEC.validate(ConfigFactory.parseMap(config), "FileConnector"));
+      }
+    }
+
+    Map<String, Object> config = new HashMap<>(base);
+    config.put("maxThreads", 2);
+    assertThrows(IllegalArgumentException.class, () -> FileConnector.SPEC.validate(ConfigFactory.parseMap(config), "FileConnector"));
+  }
+
+  // The local client walks the file tree itself, so it refuses threadsPerPath rather than ignoring it, and names the path.
+  @Test
+  public void testThreadsPerPathIsRejectedForALocalPath() {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("traversal.threadsPerPath", ConfigValueFactory.fromAnyRef(2));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage(), e.getMessage().contains("directory1"));
+    assertTrue(e.getMessage(), e.getMessage().contains("traversal.threadsPerPath above 1 isn't supported by "
+        + LocalStorageClient.class.getName()));
+  }
+
+  @Test
+  public void testListingModeIsRejectedForALocalPath() {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("traversal.listingMode", ConfigValueFactory.fromAnyRef("flat"));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage(), e.getMessage().contains("traversal.listingMode"));
+  }
+
+  @Test
+  public void testMaxDocumentsIsRejectedForALocalPath() {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("traversal.maxDocuments", ConfigValueFactory.fromAnyRef(2));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage(), e.getMessage().contains("traversal.maxDocuments isn't supported by " + LocalStorageClient.class.getName()));
+  }
+
+  private static Config cloudTraversalConfig(Map<String, Object> traversalSettings) {
+    return ConfigFactory.parseMap(Map.of("name", "connector", "pipeline", "pipeline", "paths", List.of("s3://bucket/data/"),
+        "s3", Map.of("region", "us-east-1"), "traversal", traversalSettings));
+  }
+
+  private static Config treeStateConfig(List<String> keys, List<String> paths, Map<String, Object> traversalSettings, String database) {
+    return ConfigFactory.parseMap(Map.of(
+        "name", "connector",
+        "pipeline", "pipeline",
+        "paths", paths,
+        "traversal", traversalSettings,
+        "filterOptions", Map.of("publishMode", "incremental", "sendTombstones", true),
+        "state", Map.of("connectionString", "jdbc:h2:mem:" + database + ";DB_CLOSE_DELAY=-1"),
+        "storageClients", Map.of("tree", Map.of(
+            "class", "com.kmwllc.lucille.connector.storageclient.TreeStorageClient",
+            "keys", keys))));
+  }
+
+  // Each pool thread needs its own connection to the real state database. If per-file calls failed on those threads, they
+  // would be swallowed per file: the first run would publish nothing, or the second would publish everything again.
+  @Test
+  public void testThreadsPerPathWithState() throws Exception {
+    List<String> keys = new ArrayList<>();
+    for (int i = 0; i < 20; i++) {
+      keys.add("dir" + (i % 5) + "/file" + i + ".txt");
+    }
+    List<String> paths = List.of("tree://bucket/");
+    Map<String, Object> settings = Map.of("threadsPerPath", 4);
+
+    List<Document> firstRun = publishedDocuments(treeStateConfig(keys, paths, settings, "threadsPerPathState"));
+    assertEquals(20, firstRun.size());
+    assertEquals(20, documentIds(firstRun).size());
+
+    // every file is unchanged and known, so nothing is republished and nothing is tombstoned
+    assertEquals(List.of(), publishedDocuments(treeStateConfig(keys, paths, settings, "threadsPerPathState")));
+
+    // only the file that went away is tombstoned
+    List<Document> thirdRun = publishedDocuments(treeStateConfig(keys.subList(1, 20), paths, settings, "threadsPerPathState"));
+    assertEquals(1, thirdRun.size());
+    assertTrue(thirdRun.get(0).getBoolean(FileConnector.EXPIRED));
+    assertEquals("tree://bucket/" + keys.get(0), thirdRun.get(0).getString(FileConnector.FILE_PATH));
+  }
+
+  // Both kinds of threads at once: path threads, each with its own pool of directory threads, and each of those threads
+  // with its own connection to the state database.
+  @Test
+  public void testConcurrentPathsAndThreadsPerPathWithState() throws Exception {
+    List<String> keys = new ArrayList<>();
+    for (int i = 0; i < 60; i++) {
+      keys.add("p" + (i % 3) + "/dir" + (i % 4) + "/file" + i + ".txt");
+    }
+    List<String> paths = List.of("tree://bucket/p0/", "tree://bucket/p1/", "tree://bucket/p2/");
+    Map<String, Object> settings = Map.of("maxConcurrentPaths", 2, "threadsPerPath", 3);
+
+    List<Document> firstRun = publishedDocuments(treeStateConfig(keys, paths, settings, "concurrentPathsAndThreadsState"));
+    assertEquals(60, firstRun.size());
+    assertEquals(60, documentIds(firstRun).size());
+
+    assertEquals(List.of(), publishedDocuments(treeStateConfig(keys, paths, settings, "concurrentPathsAndThreadsState")));
+
+    // one file from each path goes away, and only those are tombstoned
+    List<String> remaining = keys.subList(3, 60);
+    List<Document> thirdRun = publishedDocuments(treeStateConfig(remaining, paths, settings, "concurrentPathsAndThreadsState"));
+    assertEquals(3, thirdRun.size());
+    assertTrue(thirdRun.stream().allMatch(doc -> doc.getBoolean(FileConnector.EXPIRED)));
+    assertEquals(Set.of("tree://bucket/" + keys.get(0), "tree://bucket/" + keys.get(1), "tree://bucket/" + keys.get(2)),
+        thirdRun.stream().map(doc -> doc.getString(FileConnector.FILE_PATH)).collect(Collectors.toSet()));
   }
 
   // Verifies that overlapping paths are rejected for a concurrent traversal, but still allowed for a sequential one.
@@ -1140,7 +1648,7 @@ public class FileConnectorTest {
             "./src/test/resources/FileConnectorTest/directory1/nested")));
 
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-        () -> new FileConnector(config.withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))));
+        () -> new FileConnector(config.withValue("traversal.maxConcurrentPaths", ConfigValueFactory.fromAnyRef(-1))));
     assertTrue(e.getMessage().contains("overlapping"));
 
     // sequential traversals of overlapping paths already worked before concurrency was an option, so they still do
@@ -1151,7 +1659,7 @@ public class FileConnectorTest {
   @Test
   public void testConcurrentPathsSharingNamePrefixAllowed() {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))
+        .withValue("traversal.maxConcurrentPaths", ConfigValueFactory.fromAnyRef(-1))
         .withValue("paths", ConfigValueFactory.fromIterable(List.of(
             "./src/test/resources/FileConnectorTest/directory1",
             "./src/test/resources/FileConnectorTest/directory1-archive")));
@@ -1163,7 +1671,7 @@ public class FileConnectorTest {
   @Test
   public void testConcurrentTraversalNoPaths() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))
+        .withValue("traversal.maxConcurrentPaths", ConfigValueFactory.fromAnyRef(-1))
         .withValue("paths", ConfigValueFactory.fromIterable(List.of()));
 
     assertEquals(0, publishedDocuments(config).size());
@@ -1180,7 +1688,7 @@ public class FileConnectorTest {
         .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:sequentialRun")));
 
     List<Document> concurrentDocs = publishedDocuments(baseConfig
-        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))
+        .withValue("traversal.maxConcurrentPaths", ConfigValueFactory.fromAnyRef(-1))
         .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:concurrentRun")));
 
     assertFalse(concurrentDocs.isEmpty());
@@ -1194,7 +1702,7 @@ public class FileConnectorTest {
   public void testConcurrentTraversalWithStateExecuteAndCloseOnDifferentThreads() throws Exception {
     // DB_CLOSE_DELAY=-1 keeps the in-memory database between runs, so the second run sees the first run's state
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf")
-        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))
+        .withValue("traversal.maxConcurrentPaths", ConfigValueFactory.fromAnyRef(-1))
         .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
         .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:executeAndCloseThreads;DB_CLOSE_DELAY=-1"));
 
@@ -1209,7 +1717,7 @@ public class FileConnectorTest {
   // Verifies that with fewer threads than paths, the queued paths are still traversed, and a thread reused for a second
   // path can open state again.
   @Test
-  public void testConcurrentTraversalWithMaxThreads() throws Exception {
+  public void testConcurrentTraversalWithMaxConcurrentPaths() throws Exception {
     Config baseConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf")
         .withValue("paths", ConfigValueFactory.fromIterable(List.of(
             "./src/test/resources/FileConnectorTest/example",
@@ -1217,25 +1725,25 @@ public class FileConnectorTest {
             "./src/test/resources/FileConnectorTest/directory1")));
 
     List<Document> sequentialDocs = publishedDocuments(baseConfig
-        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:maxThreadsSequentialRun")));
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:maxConcurrentPathsSequentialRun")));
 
     // three paths on two threads
     List<Document> cappedDocs = publishedDocuments(baseConfig
-        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(2))
-        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:maxThreadsCappedRun")));
+        .withValue("traversal.maxConcurrentPaths", ConfigValueFactory.fromAnyRef(2))
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:maxConcurrentPathsCappedRun")));
 
     assertFalse(cappedDocs.isEmpty());
     assertEquals(sequentialDocs.size(), cappedDocs.size());
     assertEquals(documentIds(sequentialDocs), documentIds(cappedDocs));
   }
 
-  // Verifies that maxThreads sets the pool size. A fixed pool starts a new thread for each task until it is
+  // Verifies that maxConcurrentPaths sets the pool size. A fixed pool starts a new thread for each task until it is
   // full, so the number of distinct threads that traverse is exactly the pool size: one would mean sequential, three
-  // would mean maxThreads was ignored.
+  // would mean maxConcurrentPaths was ignored.
   @Test
-  public void testMaxThreadsCapsPoolSize() throws Exception {
+  public void testMaxConcurrentPathsCapsPoolSize() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(2));
+        .withValue("traversal.maxConcurrentPaths", ConfigValueFactory.fromAnyRef(2));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
@@ -1263,22 +1771,22 @@ public class FileConnectorTest {
   @Test
   public void testInvalidMaxThreads() {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(0));
+        .withValue("traversal.maxConcurrentPaths", ConfigValueFactory.fromAnyRef(0));
 
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
-    assertTrue(e.getMessage().contains("maxThreads"));
+    assertTrue(e.getMessage().contains("traversal.maxConcurrentPaths"));
 
     // -1 is the only negative value accepted
     e = assertThrows(IllegalArgumentException.class,
-        () -> new FileConnector(config.withValue("maxThreads", ConfigValueFactory.fromAnyRef(-2))));
-    assertTrue(e.getMessage().contains("maxThreads"));
+        () -> new FileConnector(config.withValue("traversal.maxConcurrentPaths", ConfigValueFactory.fromAnyRef(-2))));
+    assertTrue(e.getMessage().contains("traversal.maxConcurrentPaths"));
   }
 
   // Verifies that a failed traversal does not stop the others, and that the resulting exception names the failed path.
   @Test
   public void testConcurrentTraversalContinuesAfterFailure() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1));
+        .withValue("traversal.maxConcurrentPaths", ConfigValueFactory.fromAnyRef(-1));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
@@ -1301,7 +1809,7 @@ public class FileConnectorTest {
   @Test
   public void testConcurrentTraversalMultipleFailures() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1));
+        .withValue("traversal.maxConcurrentPaths", ConfigValueFactory.fromAnyRef(-1));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 

@@ -9,8 +9,6 @@ import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.core.filehandler.FileHandler;
 import com.kmwllc.lucille.core.filehandler.FileHandlerException;
-import com.kmwllc.lucille.core.spec.Spec;
-import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -67,11 +65,6 @@ public class ArchiveEntryStreamTest {
         throws FileHandlerException {
       processFile(inputStream, pathStr);
     }
-
-    @Override
-    public Spec getSpec() {
-      return SpecBuilder.fileHandler().build();
-    }
   }
 
   @Before
@@ -86,9 +79,9 @@ public class ArchiveEntryStreamTest {
         "fileHandlers", Map.of("dat", Map.of("class", RecordingFileHandler.class.getName())),
         "fileOptions", Map.of("handleArchivedFiles", true, "handleCompressedFiles", true)));
     LocalStorageClient client = new LocalStorageClient();
-    client.init();
+    client.start();
     client.traverse(publisher, new TraversalParams(config, dir.toUri(), ""));
-    client.shutdown();
+    client.stop();
   }
 
   @Test

@@ -72,7 +72,7 @@ In both cases the document still flows to the indexer.
 
 **Code approach:** From inside `processDocument()`, call `doc.setDropped(true)`. The document will not be processed by any subsequent stage and will not be sent to the indexer. Lucille records it as a dropped document in the run summary.
 
-`DropDocument` also accepts an optional `percentage` parameter (a value between 0.0 and 1.0) that drops documents probabilistically. This is primarily useful for testing to simulate document loss in a non-deterministic way.
+`DropDocument` also accepts an optional `percentToDrop` parameter (a percentage from 0 to 100) that drops documents probabilistically. This is primarily useful for testing to simulate document loss in a non-deterministic way.
 
 ---
 
@@ -148,13 +148,13 @@ Attached children are stored inside the parent under the reserved `___children` 
 
 **Config + Code** | **When to use:** You want to produce additional documents that flow through the remaining pipeline stages independently and are indexed as separate records. The canonical use case is chunking: a single large document is split into many smaller chunks, each of which needs to be embedded and indexed on its own. More generally, any time a stage produces attached children (via `doc.addChild()`) and you want those children to become independent pipeline documents, you need to emit them.
 
-**Config approach:** Add an `EmitNestedChildren` stage to your pipeline after any stage that attaches children. It detaches the children from the parent and emits them as independent documents. If the parent document itself should not be indexed, set `dropParent: true`. Use `fieldsToCopy` to copy fields from the parent to each child before they separate — useful for propagating metadata like a title or source URL.
+**Config approach:** Add an `EmitNestedChildren` stage to your pipeline after any stage that attaches children. It detaches the children from the parent and emits them as independent documents. If the parent document itself should not be indexed, set `dropParent: true`. Use `fieldMapping` to copy fields from the parent to each child before they separate — useful for propagating metadata like a title or source URL.
 
 ```hocon
 {
   class: "com.kmwllc.lucille.stage.EmitNestedChildren"
   dropParent: true
-  fieldsToCopy: {
+  fieldMapping: {
     "title": "parent_title"
     "source_url": "source_url"
   }
@@ -259,7 +259,7 @@ Keep resource cleanup (closing connections, releasing file handles) in `close()`
 
 **Config + Code** | **When to use:** You need to perform preparatory work — creating a collection, running a database migration, clearing an index, calling an external API — before a publishing connector runs. You want this work to be part of the run so that failures prevent downstream connectors from executing.
 
-**How it works:** Omit the `pipeline` field from the connector config. When a connector has no pipeline, the framework skips creating a Publisher, WorkerPool, and Indexer. It calls `execute()` synchronously with a `null` publisher. The connector's `execute()` method performs its work and returns. If it throws, the run is aborted and subsequent connectors do not execute.
+**How it works:** Omit the `pipeline` field from the connector config. When a connector has no pipeline, the framework skips creating a Publisher, WorkerPool, and Indexer. It calls `execute()` synchronously with a `null` publisher. The connector's `execute()` method performs its work and returns. If it throws, the run is aborted and subsequent connectors do not execute. A config where no connector has a pipeline doesn't need to select an indexer.
 
 ```hocon
 connectors: [
@@ -303,7 +303,7 @@ Use `start()` for:
 
 - **Opening connections** — database connections, HTTP clients, external service clients. `QueryDatabase` opens its JDBC connection and prepares its SQL statement here; `FetchUri` builds its `CloseableHttpClient` here.
 - **Loading or compiling resources** — parsing expressions, loading NLP models, reading lookup files. `ApplyJSONata` compiles its JSONata expression here; `ChunkText` loads its OpenNLP sentence model here.
-- **Runtime config validation** — checks that can't be done in the constructor because they depend on the interaction of multiple config values, or because they involve I/O. `FetchUri` validates its `statusCodeRetryList` here and throws `StageException` if the configuration would cause infinite retries. `RenameFields` throws if `fieldMapping` is empty.
+- **Runtime config validation** — checks that can't be done in the constructor because they depend on the interaction of multiple config values, or because they involve I/O. `FetchUri` validates its `retryableStatusCodes` here and throws `StageException` if the configuration would cause infinite retries. `RenameFields` throws if `fieldMapping` is empty.
 
 Throwing `StageException` from `start()` prevents the pipeline from starting at all for that worker thread, which is the right behavior when the stage cannot function without the resource it failed to acquire.
 

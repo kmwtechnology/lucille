@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Collections;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
@@ -244,6 +245,32 @@ public class WorkerTest {
   private static WorkerThread startWorkerWithCounter(TestMessenger messenger, RetryCounter counter) throws Exception {
     Worker worker = new Worker(PIPELINES, messenger, "run1", "nop", "metrics", counter);
     return Worker.startThread(worker, "Lucille-Test-Worker-dlq");
+  }
+
+  @Test
+  public void testRetryCountIsRemovedWhenTheCommitFails() throws Exception {
+    // the document was processed, so a count left behind could send a later, healthy redelivery to the dead letter queue
+    TestMessenger messenger = Mockito.spy(new TestMessenger());
+    Mockito.doThrow(new MessengerException("Simulated commit failure", null)).when(messenger).commitPendingDocOffsets();
+    List<String> removed = Collections.synchronizedList(new ArrayList<>());
+    RetryCounter counter = new RetryCounter() {
+      @Override
+      public boolean add(Document document) {
+        return false;
+      }
+
+      @Override
+      public void remove(Document document) {
+        removed.add(document.getId());
+      }
+    };
+    WorkerThread thread = startWorkerWithCounter(messenger, counter);
+    messenger.sendForProcessing(Document.create("doc1"));
+
+    waitUntil(() -> removed.contains("doc1"));
+
+    thread.terminate();
+    thread.join(5000);
   }
 
   @Test

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.TestMessenger;
@@ -124,12 +125,12 @@ public class OpenSearchIndexerBulkBodyTest {
 
     assertEquals("{\"index\":{\"_id\":\"doc1\",\"_index\":\"lucille-default\"}}\n"
         + "{\"str\":\"s\",\"bytes\":\"AQID/w==\"}\n",
-        bulkBody(config("indexer.whitelist: [\"str\", \"bytes\", \"nullField\"]"), doc));
+        bulkBody(config("indexer.includeFields: [\"str\", \"bytes\", \"nullField\"]"), doc));
 
     assertEquals("{\"index\":{\"_id\":\"doc1\",\"_index\":\"lucille-default\"}}\n"
         + "{\"id\":\"doc1\",\"int\":1,\"long\":1234567890123,\"double\":1.5,\"float\":1.1,\"bool\":true,"
         + "\"multi\":[\"v1\",\"v2\"]}\n",
-        bulkBody(config("indexer.blacklist: [\"str\", \"bytes\", \"nullField\"]"), doc));
+        bulkBody(config("indexer.excludeFields: [\"str\", \"bytes\", \"nullField\"]"), doc));
   }
 
   @Test
@@ -146,12 +147,12 @@ public class OpenSearchIndexerBulkBodyTest {
     // id filtered out: the id field is not added back
     assertEquals("{\"index\":{\"_id\":\"other1\",\"_index\":\"lucille-default\"}}\n"
         + "{\"other_id\":\"other1\",\"field1\":\"value1\"}\n",
-        bulkBody(config("indexer.idOverrideField: \"other_id\"\nindexer.blacklist: [\"id\"]"), doc));
+        bulkBody(config("indexer.idOverrideField: \"other_id\"\nindexer.excludeFields: [\"id\"]"), doc));
 
     // id and override both filtered out
     assertEquals("{\"index\":{\"_id\":\"other1\",\"_index\":\"lucille-default\"}}\n"
         + "{\"field1\":\"value1\"}\n",
-        bulkBody(config("indexer.idOverrideField: \"other_id\"\nindexer.blacklist: [\"id\", \"other_id\"]"), doc));
+        bulkBody(config("indexer.idOverrideField: \"other_id\"\nindexer.excludeFields: [\"id\", \"other_id\"]"), doc));
 
     // override configured but absent from the document
     Document noOverride = Document.create("doc2");
@@ -182,7 +183,7 @@ public class OpenSearchIndexerBulkBodyTest {
         + "{\"id\":\"parent1\",\"parent_field\":\"p\",\"after_children\":\"a\",\"kids\":["
         + "{\"id\":\"child1\",\"child_field\":\"c1\",\"child_float\":2.2,\"child_bytes\":\"BAU=\"},"
         + "{\"id\":\"child2\"}]}\n",
-        bulkBody(config("opensearch.childDocumentsField: \"kids\"\nindexer.blacklist: [\"ignored\"]"), parent));
+        bulkBody(config("indexer.opensearch.childDocumentsField: \"kids\"\nindexer.excludeFields: [\"ignored\"]"), parent));
 
     // without childDocumentsField the children are dropped
     assertEquals("{\"index\":{\"_id\":\"parent1\",\"_index\":\"lucille-default\"}}\n"
@@ -196,7 +197,7 @@ public class OpenSearchIndexerBulkBodyTest {
     populateScalars(doc);
 
     assertEquals("{\"update\":{\"_id\":\"doc1\",\"_index\":\"lucille-default\"}}\n"
-        + "{\"doc\":" + SCALARS_BODY + "}\n", bulkBody(config("opensearch.update: true"), doc));
+        + "{\"doc_as_upsert\":true,\"doc\":" + SCALARS_BODY + "}\n", bulkBody(config("indexer.opensearch.update: true"), doc));
   }
 
   // nullField is absent: the client's JacksonJsonpMapper leaves out null map values, at any depth, while
@@ -234,7 +235,7 @@ public class OpenSearchIndexerBulkBodyTest {
     Document before = doc.deepCopy();
 
     TestMessenger messenger = new TestMessenger();
-    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 

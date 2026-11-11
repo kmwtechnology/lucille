@@ -12,20 +12,22 @@ resources:
 
 ## Lucille Logs
 
-Lucille uses Log4j2 (via SLF4J) for all logging. A default `log4j2.xml` is included in `lucille-core/src/main/resources/`.
+Lucille uses Log4j2 (via SLF4J) for all logging. `lucille-core` itself ships only the SLF4J API, not a logging backend or configuration.
+The Log4j2 backend and the default configuration live in the `lucille-logging` module, which Lucille's runnable artifacts (the Docker images and the examples) depend on. 
+The default configuration is shipped as `lucille-log4j2.xml` on `lucille-logging`'s classpath. It is intentionally **not** named `log4j2.xml`, so it is not auto-discovered just because the jar is present.
 
 ### Using a Custom Log4j2 Configuration
 
-To override the default logging configuration, pass the standard Log4j2 system property on the Java command line:
+Lucille's Docker entrypoint and example run scripts point Log4j2 at a configuration file with the standard system property; you can do the same, or override it to use your own file:
 
 ```bash
-java -Dlog4j.configurationFile=/path/to/my-log4j2.xml \
+java -Dlog4j2.configurationFile=/path/to/my-log4j2.xml \
      -Dconfig.file=my-pipeline.conf \
      -cp 'target/lib/*' \
      com.kmwllc.lucille.core.Runner
 ```
 
-This applies to all Lucille components (Runner, Worker, Indexer, WorkerIndexer). If you don't provide this property, Log4j2 uses whatever `log4j2.xml` it finds on the classpath.
+This applies to all Lucille components (Runner, Worker, Indexer, WorkerIndexer) and to the Lucille API, which logs through the same Log4j2 backend and default configuration. The API uses the bundled default when the property is not set, and its Docker image ships an editable copy at `/lucille-api/conf/log4j2.xml` (set `LUCILLE_LOG4J_CONF` to use another file). To use the bundled default instead of your own file, point the property at `classpath:lucille-log4j2.xml`. If you provide no configuration at all, Log4j2 falls back to its own built-in default (status messages to the console), since Lucille's config is not auto-discovered.
 
 Common reasons to provide a custom configuration:
 - Route the DocLogger to a separate file (to avoid mixing per-document lifecycle events with operational logs)
@@ -188,14 +190,15 @@ Here are some queries you might run (using curl):
 curl -XGET "http://localhost:9200/logs/_search" -H 'Content-Type: application/json' -d '{
   "query": {
     "term": {
-      "id.keyword": "songs.csv-1"
+      "id.keyword": "<pathHash>-1"
     }
   }
 }'
 ```
 
-This query will only return log statements where the id of the Document being processed is "songs.csv-1", a Document ID
-from the Lucille Simple CSV example. This allows you to easily track the lifecycle of the Document as it was processed and published.
+This query will only return log statements where the id of the Document being processed is `<pathHash>-1`, the Document ID
+of the first row in the Lucille Simple CSV example. `<pathHash>` is the MD5 hash of the full path of `songs.csv`, so copy it
+from the `id` of any Document in your logs. This allows you to easily track the lifecycle of the Document as it was processed and published.
 
 ```
 curl -XGET "http://localhost:9200/logs/_search" -H 'Content-Type: application/json' -d '{
@@ -231,7 +234,7 @@ At the top right of the screen, you'll see a time range. Only logs within this t
 logs within the last 15 minutes, so you'll likely need to change it. Set **absolute** time ranges that cover your Lucille run. (The UI
 for setting these times can be a bit finicky, but keep trying.)
 
-Like before, we can trace the entire lifecycle of a single Document. In the search bar, type in: `id:"songs.csv-1"`. Now, you
+Like before, we can trace the entire lifecycle of a single Document. In the search bar, type in: `id:"<pathHash>-1"`. Now, you
 should only see the log statements relevant to this Document. Each entry will be a large blob of text representing the entire Document.
 You can select certain fields on the left side of your screen to get a more focused view of each statement. 
 

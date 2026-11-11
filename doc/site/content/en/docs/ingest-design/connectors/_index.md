@@ -35,7 +35,7 @@ These parameters are available on all Connectors via `AbstractConnector`:
 
 ### Collapsing
 
-With `collapse: true`, the Publisher holds each published document until it sees a document with a different ID (or the connector finishes). Each following document with the same ID is merged into the held one: every field it carries is appended to the held document's field, which becomes multi-valued (a field the held document lacks is copied as is). Reserved fields (`id`, `run_id`, children and the drop/skip markers) of the later documents are not copied, so their children are lost; the first document keeps its own. Only consecutive documents are merged; the same ID appearing later is sent as a separate document. A collapsing Publisher is not safe for concurrent `publish()` calls, so `FileConnector` rejects `collapse` together with concurrent traversal (`maxThreads` other than `1`) at startup.
+With `collapse: true`, the Publisher holds each published document until it sees a document with a different ID (or the connector finishes). Each following document with the same ID is merged into the held one: every field it carries is appended to the held document's field, which becomes multi-valued (a field the held document lacks is copied as is). Reserved fields (`id`, `run_id`, children and the drop/skip markers) of the later documents are not copied, so their children are lost; the first document keeps its own. Only consecutive documents are merged; the same ID appearing later is sent as a separate document. A collapsing Publisher is not safe for concurrent `publish()` calls, so `FileConnector` rejects `collapse` together with concurrent traversal (`traversal.maxConcurrentPaths` other than `1`, or `traversal.threadsPerPath` above `1`) at startup.
 
 ### Sequencing Multiple Connectors
 
@@ -59,7 +59,7 @@ connectors: [
 | [Kafka Connector]({{< relref "docs/ingest-design/connectors/kafka_connector" >}}) | Reads documents from a Kafka topic as a data source. |
 | [RSS Connector]({{< relref "docs/ingest-design/connectors/rss_connector" >}}) | Publishes documents from an RSS feed, with optional incremental refresh. |
 | [Sequence Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SequenceConnector.java) *(source only)* | Generates `numDocs` (required) empty Documents with numeric IDs `0`, `1`, ..., offset by `startWith` (integer, default `0`) and prefixed with `docIdPrefix`. Requires a `pipeline`. Useful for testing. |
-| [Sleep Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SleepConnector.java) *(source only)* | Sleeps for `duration` (required) milliseconds and publishes nothing, so it can run without a `pipeline`. Useful for testing. |
+| [Sleep Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SleepConnector.java) *(source only)* | Sleeps for `durationMs` (required) milliseconds and publishes nothing, so it can run without a `pipeline`. Useful for testing. |
 
 ## Lucille Connectors (Plugins)
 

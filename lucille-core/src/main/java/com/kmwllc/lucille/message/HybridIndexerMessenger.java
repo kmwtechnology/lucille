@@ -3,26 +3,22 @@ package com.kmwllc.lucille.message;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.EventFieldConfig;
-import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import java.util.concurrent.ExecutionException;
-import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * An IndexerMessenger for hybrid mode: takes documents from the in-memory queue a co-located Worker fills, and queues
- * the offsets of completed batches back for the Worker to commit.
+ * An IndexerMessenger for hybrid mode: takes documents from the in-memory queue a co-located Worker fills, and reports
+ * completed batches, and batches it did not send, to that Worker's {@link HybridWorkerMessenger}, which owns the Kafka
+ * consumer and commits its offsets. Ownership checks before each send are answered there too.
  *
  * <p> Internal to Lucille: {@link com.kmwllc.lucille.core.WorkerIndexer} creates it, sharing its queues with a
  * {@link HybridWorkerMessenger}. It is public only because the two are in different packages.
@@ -32,8 +28,10 @@ public class HybridIndexerMessenger implements IndexerMessenger {
   private static final Logger log = LoggerFactory.getLogger(HybridIndexerMessenger.class);
 
   private final BlockingQueue<Document> pipelineDest;
-  private final BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
+  private final HybridWorkerMessenger workerMessenger;
   private final KafkaProducer<String, String> kafkaEventProducer;
+  // only created when the fail topic is enabled, so an indexer that doesn't use it needs no document producer config
+  private final KafkaProducer<String, Document> failTopicProducer;
   private final String pipelineName;
   private final Config config;
   private final EventFieldConfig eventFieldConfig;
@@ -48,13 +46,14 @@ public class HybridIndexerMessenger implements IndexerMessenger {
 
   public HybridIndexerMessenger(Config config,
       BlockingQueue<Document> pipelineDest,
-      BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
+      HybridWorkerMessenger workerMessenger,
       Set<String> idSet,
       String pipelineName) {
     this.pipelineDest = pipelineDest;
-    this.offsets = offsets;
+    this.workerMessenger = workerMessenger;
     this.idSet = idSet;
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    this.failTopicProducer = KafkaUtils.indexerFailTopicEnabled(config) ? KafkaUtils.createDocumentProducer(config) : null;
     this.pipelineName = pipelineName;
     this.config = config;
     this.eventFieldConfig = EventFieldConfig.fromConfig(config);
@@ -139,43 +138,36 @@ public class HybridIndexerMessenger implements IndexerMessenger {
   }
 
   @Override
+  public void sendFailed(Document document) throws MessengerException {
+    KafkaUtils.sendToFailTopic(failTopicProducer, pipelineName, document);
+  }
+
+  @Override
   public void close() {
     if (kafkaEventProducer != null) {
       kafkaEventProducer.close();
     }
+    if (failTopicProducer != null) {
+      failTopicProducer.close();
+    }
   }
 
-  // TODO document assumptions about ordering of documents in batch
   @Override
-  public void batchComplete(List<Document> batch) throws MessengerException {
-    if (batch.isEmpty()) {
-      return;
-    }
-    Map<TopicPartition, OffsetAndMetadata> batchOffsets = new HashMap<>();
-    for (Document doc : batch) {
-
-      if (!(doc instanceof KafkaDocument kDoc)) {
-        continue;
-      }
-
-      TopicPartition topicPartition = new TopicPartition(kDoc.getTopic(), kDoc.getPartition());
-      // per the kafka docs:
-      // "Note: The committed offset should always be the offset of the next message that your application will read.
-      // Thus, when calling commitSync(offsets) you should add one to the offset of the last message processed."
-      OffsetAndMetadata offset = new OffsetAndMetadata(kDoc.getOffset() + 1);
-      batchOffsets.put(topicPartition, offset);
-    }
-    if (!batchOffsets.isEmpty()) {
-      try {
-        offsets.put(batchOffsets);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new MessengerException("Interrupted while queueing the offsets of a completed batch", e);
-      }
-    }
+  public void batchComplete(List<Document> batch) {
+    workerMessenger.batchCompleted(batch);
   }
 
-  // Queues offsets on batch completion (not at poll), so it is safe for concurrent batches.
+  @Override
+  public boolean ownsInput(Document doc) {
+    return workerMessenger.ownsInput(doc);
+  }
+
+  @Override
+  public void batchNotSent(List<Document> batch) {
+    workerMessenger.batchNotSent(batch);
+  }
+
+  // Reports batches on completion (not at poll), so it is safe for concurrent batches.
   @Override
   public boolean commitsOnBatchCompletion() {
     return true;

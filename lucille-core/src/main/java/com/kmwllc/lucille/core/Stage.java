@@ -4,13 +4,8 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.kmwllc.lucille.core.spec.BooleanProperty;
-import com.kmwllc.lucille.core.spec.ListProperty;
-import com.kmwllc.lucille.core.spec.Property;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.core.spec.StringProperty;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import java.lang.reflect.Constructor;
@@ -33,6 +28,7 @@ import java.util.stream.Collectors;
  * <p> All implementations must declare a <code>public static Spec SPEC</code> defining the Stage's properties. This Spec will be accessed
  * reflectively in the super constructor, so the Stage will not function without declaring a Spec. The Config provided
  * to <code>super()</code> will be validated against the Spec. Validation errors will reference the Stage's <code>name</code>.
+ * SPEC is looked up on the implementation class itself, not on its superclasses, so a class extending another Stage must declare its own.
  *
  * <p> A {@link SpecBuilder#stage()} always has "name", "class", "conditions", "enabled", and "conditionPolicy" as legal properties.
  *
@@ -68,18 +64,6 @@ public abstract class Stage {
 
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
-  public static final Set<Property> DEFAULT_LEGAL_PROPERTIES = Set.of(
-      new StringProperty("name", false),
-      new StringProperty("class", false),
-      new BooleanProperty("enabled", false),
-      new ListProperty("conditions", false, SpecBuilder.withoutDefaults()
-          .optionalString("operator")
-          .optionalString("valuesPath")
-          .optionalList("values", new TypeReference<List<String>>(){})
-          .requiredList("fields", new TypeReference<List<String>>(){}).build()),
-      new StringProperty("conditionPolicy", false)
-  );
-
   protected final Config config;
   private final Predicate<Document> condition;
   private String name;
@@ -103,7 +87,7 @@ public abstract class Stage {
     this.config = config;
 
     // A spec.stage() validates the stage config AND the conditions as well
-    getSpec().validate(config, getDisplayName());
+    Spec.of(getClass()).validate(config, getDisplayName());
 
     this.condition = getMergedConditions();
   }
@@ -128,14 +112,6 @@ public abstract class Stage {
       return conditions.stream().reduce(c -> true, Predicate::and);
     } else {
       throw new IllegalArgumentException("Unsupported condition policy: " + conditionPolicy);
-    }
-  }
-
-  public Spec getSpec() {
-    try {
-      return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
-    } catch (Exception e) {
-      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
     }
   }
 
@@ -394,10 +370,9 @@ public abstract class Stage {
    * for a Stage (such as "name" and "conditions").
    */
   public final Set<String> getNonDefaultLegalProperties() {
-    Set<String> propNames = getSpec().getLegalProperties();
+    Set<String> propNames = Spec.of(getClass()).getLegalProperties();
 
-    Set<String> defaultPropNames = DEFAULT_LEGAL_PROPERTIES.stream().map(Property::getName).collect(Collectors.toSet());
-    propNames.removeAll(defaultPropNames);
+    propNames.removeAll(SpecBuilder.stage().build().getLegalProperties());
 
     return propNames;
   }

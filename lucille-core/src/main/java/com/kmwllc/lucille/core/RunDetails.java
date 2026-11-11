@@ -3,47 +3,30 @@ package com.kmwllc.lucille.core;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.kmwllc.lucille.core.Runner.RunType;
-import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(
-    description = "Details about a specific run, including metadata, start time, and processing stats.")
+/**
+ * Details about a run started by the {@link RunnerManager}. Static access only, since only the RunnerManager
+ * creates and updates RunDetails.
+ */
 public class RunDetails {
 
   private static final Logger log = LoggerFactory.getLogger(RunDetails.class);
 
-  @Schema(description = "Unique identifier for the run.", example = "run123")
   private final String runId;
-
-  @Schema(description = "Configuration ID for the run.")
-  private String configId;
-
-  @Schema(description = "Start time of the run in ISO-8601 format.",
-      example = "2023-12-20T14:48:00.000Z")
+  private final String configId;
   private final Instant startTime;
 
-  @Schema(
-      description = "End time of the run in ISO-8601 format. Null if the run has not completed.",
-      example = "2023-12-20T15:48:00.000Z")
   private Instant endTime;
-
-  @Schema(hidden = true)
-  private transient CompletableFuture<Void> future;
-
-  @Schema(description = "Run result")
+  private CompletableFuture<Void> future;
   private RunResult runResult;
-
-  @Schema(description = "Run type")
   private RunType runType;
-
-  @Schema(description = "Exception of run")
   private Throwable throwable;
 
-
-  public RunDetails(String runId, String configId) {
+  RunDetails(String runId, String configId) {
     this.runId = runId;
     this.configId = configId;
     this.startTime = Instant.now();
@@ -51,10 +34,6 @@ public class RunDetails {
 
   public String getConfigId() {
     return configId;
-  }
-
-  public void setConfigId(String configId) {
-    this.configId = configId;
   }
 
   public String getRunId() {
@@ -69,15 +48,15 @@ public class RunDetails {
     return endTime;
   }
 
-  public CompletableFuture<Void> getFuture() {
+  CompletableFuture<Void> getFuture() {
     return future;
   }
 
-  public void setFuture(CompletableFuture<Void> future) {
+  void setFuture(CompletableFuture<Void> future) {
     this.future = future;
   }
 
-  public void setThrowable(Throwable ex) {
+  void setThrowable(Throwable ex) {
     this.endTime = Instant.now();
     this.throwable = ex;
   }
@@ -90,7 +69,7 @@ public class RunDetails {
     return runResult;
   }
 
-  public void setRunResult(RunResult runResult) {
+  void setRunResult(RunResult runResult) {
     this.endTime = Instant.now();
     log.info("==completed run {} took {} ms==", runId, Duration.between(startTime, endTime));
     this.runResult = runResult;
@@ -100,12 +79,21 @@ public class RunDetails {
     return runType;
   }
 
-  public void setRunType(RunType runType) {
+  void setRunType(RunType runType) {
     this.runType = runType;
   }
-  
+
   public boolean hasThrowable() {
     return throwable != null;
+  }
+
+  /**
+   * @return The Throwable that ended this run before it produced a RunResult, or null if there was none.
+   */
+  // never serialized: it would expose the full stack trace and cause chain. The API reports it as a RunError.
+  @JsonIgnore
+  public Throwable getThrowable() {
+    return throwable;
   }
 
   @Override

@@ -21,17 +21,19 @@ or provide a System Prompt in the Stage Config that is tailored to your pipeline
 We _strongly_ recommend you have the LLM output only a JSON object for two main reasons: Firstly, LLMs tend to follow instructions better when 
 instructed to do so. Secondly, Lucille can then parse the JSON response and fully integrate it into your Document. 
 
-If the response is a JSON object, each of its top-level keys is written to the Document according to `updateMode`; a key that is a reserved field name, such as `id`, fails the document. A response that is valid JSON but not an object (for example, `true` or `42`) adds nothing to the Document. If the response is not valid JSON, the raw text is written to the `ollamaResponse` field (always overwriting), unless `requireJSON` is `true`, in which case the document fails.
+If the response is a JSON object, each of its top-level keys is written to the Document according to `updateMode`, except reserved field names such as `id`, which are skipped. If the response is not a JSON object (it is invalid JSON, or valid JSON such as `true`, `42`, or an array), the raw text is written to the `ollamaResponse` field (always overwriting), unless `requireJson` is `true`, in which case the document fails.
+
+Each Document gets its own request, built from the `systemPrompt` and that Document alone, so no conversation state carries over between Documents.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `hostURL` | String | Yes | URL of the Ollama server, for example `http://localhost:11434`. |
+| `hostUrl` | String | Yes | URL of the Ollama server, for example `http://localhost:11434`. |
 | `modelName` | String | Yes | Name of the Ollama model to use. |
 | `systemPrompt` | String | No | System prompt sent with each request. Not needed if your model's Modelfile already sets one. |
 | `fields` | List\<String\> | No | Fields sent to the LLM, as a JSON object of field name to value. If empty or not set, the entire Document is sent. |
-| `requireJSON` | Boolean | No | When `true`, the request asks Ollama for JSON output, and a non-JSON response fails the document. When `false`, a non-JSON response is written to `ollamaResponse`. Default: `false`. |
+| `requireJson` | Boolean | No | When `true`, the request asks Ollama for JSON output, and a response that is not a JSON object fails the document. When `false`, such a response is written to `ollamaResponse`. Default: `false`. |
 | `updateMode` | String | No | How fields from a JSON response are written: `overwrite`, `append`, or `skip`. Does not apply to `ollamaResponse`. Default: `overwrite`. |
-| `timeout` | Long | No | Request timeout in seconds. Default: `10`. Consider raising it when using multiple worker threads against a local Ollama server. |
+| `timeoutSecs` | Long | No | Request timeout in seconds. Default: `10`. Consider raising it when using multiple worker threads against a local Ollama server. |
 
 ##### Example
 
@@ -46,7 +48,7 @@ Your Stage would be configured like so:
 {
   name: "Ollama-Fraud"
   class: "com.kmwllc.lucille.stage.PromptOllama"
-  hostURL: "http://localhost:11434"
+  hostUrl: "http://localhost:11434"
   modelName: "fraud_detector"
   fields: ["email_text"]
 }
@@ -58,7 +60,7 @@ Your Stage would be configured like so:
 {
   name: "Ollama-Fraud"
   class: "com.kmwllc.lucille.stage.PromptOllama"
-  hostURL: "http://localhost:11434"
+  hostUrl: "http://localhost:11434"
   modelName: "gemma3"
   systemPrompt: """
     You are to read the text inside "email_text" and output a JSON object
