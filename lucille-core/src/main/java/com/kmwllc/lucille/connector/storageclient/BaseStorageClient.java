@@ -11,6 +11,7 @@ import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MO
 
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.connector.StatePathTooLongException;
+import com.kmwllc.lucille.connector.TraversalStoppedException;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.filehandler.FileHandler;
@@ -36,6 +37,7 @@ import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.input.CloseShieldInputStream;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -354,12 +356,13 @@ public abstract class BaseStorageClient implements StorageClient {
     } catch (StatePathTooLongException e) {
       throw e;
     } catch (Exception e) {
-      MessengerException messengerFailure = messengerFailureIn(e);
+      MessengerException messengerFailure = ExceptionUtils.throwableOfType(e, MessengerException.class);
       if (messengerFailure != null && !messengerFailure.isDocumentSpecific()) {
         // the messenger can't send any more documents, so every later file would be skipped the same way. Stop the
-        // traversal, and leave this file where it is: it isn't the file that failed.
-        throw new MessengerFailedException("Unable to publish document '" + fullPath + "'. The messenger can no "
-            + "longer send documents, so the traversal is stopped.", e);
+        // traversal, and leave this file where it is: sends are asynchronous, so the failure may belong to an
+        // earlier document rather than this one.
+        throw new TraversalStoppedException("Messenger failure detected while publishing '" + fullPath + "'. The "
+            + "messenger can no longer send documents, so the traversal is stopped.", e);
       }
       try {
         errorProcessingFile(fullPath, params);
@@ -585,25 +588,6 @@ public abstract class BaseStorageClient implements StorageClient {
     } catch (UnsupportedOperationException e) {
       throw new MoveNotSupportedException(getClass().getName() + " does not support moving files, which fileOptions."
           + option + " requires.", e);
-    }
-  }
-
-  private static MessengerException messengerFailureIn(Throwable e) {
-    for (Throwable t = e; t != null; t = t.getCause()) {
-      if (t instanceof MessengerException messengerException) {
-        return messengerException;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Thrown when publishing a file fails with a {@link MessengerException} that is not specific to the document, such
-   * as a Kafka send that failed after its retries. Stops the traversal.
-   */
-  private static class MessengerFailedException extends RuntimeException {
-    MessengerFailedException(String message, Throwable cause) {
-      super(message, cause);
     }
   }
 

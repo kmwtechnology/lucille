@@ -1,10 +1,12 @@
 package com.kmwllc.lucille.connector.storageclient;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
+import com.kmwllc.lucille.connector.TraversalStoppedException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.MessengerException;
@@ -12,6 +14,7 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -21,6 +24,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.zip.GZIPOutputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.junit.Test;
 
 /**
@@ -105,12 +112,14 @@ public class BaseStorageClientTest {
     Config config = ConfigFactory.parseMap(Map.of("fileOptions", Map.of("moveToErrorFolder", "list://root/errors/")));
     // how KafkaPublisherMessenger reports a send that failed after its retries: on every later send
     MessengerException failure = new MessengerException("Kafka send failed", new RuntimeException("buffer exhausted"));
-    FailingMessenger messenger = new FailingMessenger(path -> !path.endsWith("a.txt"), failure);
+    FailingMessenger messenger = FailingMessenger.afterSends(1, failure);
 
-    RuntimeException e = assertThrows(RuntimeException.class, () -> traverse(client, config, null, messenger));
+    TraversalStoppedException e = assertThrows(TraversalStoppedException.class,
+        () -> traverse(client, config, null, messenger));
 
-    assertTrue(e.getMessage(), e.getMessage().contains("list://root/b.txt"));
-    assertTrue("expected the messenger's failure in the cause chain of " + e, hasCause(e, failure));
+    assertTrue(e.getMessage(), e.getMessage().contains("detected while publishing 'list://root/b.txt'"));
+    assertTrue("expected the messenger's failure in the cause chain of " + e,
+        ExceptionUtils.getThrowableList(e).contains(failure));
     // c.txt is never tried, and b.txt isn't moved to the error folder, since it isn't the file that failed
     assertEquals(List.of("list://root/a.txt", "list://root/b.txt"), messenger.attempted);
     assertEquals(List.of("list://root/a.txt"), paths(messenger));
@@ -122,38 +131,120 @@ public class BaseStorageClientTest {
     ListStorageClient client = new ListStorageClient(List.of(
         new TestFileReference("a.txt"), new TestFileReference("b.txt"), new TestFileReference("c.txt")));
     Config config = ConfigFactory.parseMap(Map.of("fileOptions", Map.of("moveToErrorFolder", "list://root/errors/")));
-    FailingMessenger messenger = new FailingMessenger(path -> path.endsWith("b.txt"),
+    FailingMessenger messenger = new FailingMessenger(doc -> "list://root/b.txt".equals(pathOf(doc)),
         new MessengerException("b.txt is too large", new RuntimeException("record too large"), true));
 
     assertEquals(List.of("list://root/a.txt", "list://root/c.txt"), traverse(client, config, null, messenger));
     assertEquals(List.of("list://root/b.txt -> list://root/errors/"), client.moves);
   }
 
-  private static boolean hasCause(Throwable e, Throwable cause) {
-    for (Throwable t = e; t != null; t = t.getCause()) {
-      if (t == cause) {
-        return true;
-      }
-    }
-    return false;
+  // The messenger failure reaches processAndPublishFileIfValid wrapped more deeply when a file handler, an archive
+  // entry or a compressed file publishes the document; each case must still stop the traversal.
+
+  @Test
+  public void testMessengerFailureFromCsvFileHandlerStopsTraversal() {
+    assertMessengerFailureStopsTraversal(new TestFileReference("b.csv").withContent("name\nx\ny\n".getBytes(UTF_8)),
+        Map.of("fileHandlers", Map.of("csv", Map.of())));
   }
 
-  /** A TestMessenger whose sendForProcessing throws the given exception for the matching file paths. */
+  @Test
+  public void testMessengerFailureFromXmlFileHandlerStopsTraversal() {
+    // the publish failure crosses the SAX parser, wrapped in a SAXException
+    byte[] xml = "<root><item><id>1</id></item><item><id>2</id></item></root>".getBytes(UTF_8);
+    assertMessengerFailureStopsTraversal(new TestFileReference("b.xml").withContent(xml),
+        Map.of("fileHandlers", Map.of("xml", Map.of("xmlRootPath", "/root/item", "xmlIdPath", "/root/item/id"))));
+  }
+
+  @Test
+  public void testMessengerFailureFromArchiveEntryStopsTraversal() throws IOException {
+    assertMessengerFailureStopsTraversal(
+        new TestFileReference("b.zip").withContent(zip("inner1.txt", "one", "inner2.txt", "two")),
+        Map.of("fileOptions", Map.of("handleArchivedFiles", true)));
+  }
+
+  @Test
+  public void testMessengerFailureFromFileHandlerInArchiveEntryStopsTraversal() throws IOException {
+    assertMessengerFailureStopsTraversal(new TestFileReference("b.zip").withContent(zip("inner.csv", "name\nx\ny\n")),
+        Map.of("fileOptions", Map.of("handleArchivedFiles", true), "fileHandlers", Map.of("csv", Map.of())));
+  }
+
+  @Test
+  public void testMessengerFailureFromCompressedFileStopsTraversal() throws IOException {
+    assertMessengerFailureStopsTraversal(new TestFileReference("b.txt.gz").withContent(gzip("compressed")),
+        Map.of("fileOptions", Map.of("handleCompressedFiles", true)));
+  }
+
+  // a.txt publishes, every later send fails, as KafkaPublisherMessenger's do after one fails: the first document from
+  // the middle file fails, the traversal stops there, and c.txt is never tried.
+  private static void assertMessengerFailureStopsTraversal(TestFileReference middle, Map<String, Object> options) {
+    ListStorageClient client = new ListStorageClient(List.of(new TestFileReference("a.txt"), middle,
+        new TestFileReference("c.txt")));
+    Map<String, Object> configMap = new java.util.HashMap<>(options);
+    Map<String, Object> fileOptions = new java.util.HashMap<>();
+    if (options.get("fileOptions") instanceof Map<?, ?> given) {
+      given.forEach((k, v) -> fileOptions.put((String) k, v));
+    }
+    fileOptions.put("moveToErrorFolder", "list://root/errors/");
+    configMap.put("fileOptions", fileOptions);
+    MessengerException failure = new MessengerException("Kafka send failed", new RuntimeException("buffer exhausted"));
+    FailingMessenger messenger = FailingMessenger.afterSends(1, failure);
+
+    TraversalStoppedException e = assertThrows(TraversalStoppedException.class,
+        () -> traverse(client, ConfigFactory.parseMap(configMap), null, messenger));
+
+    assertTrue("expected the messenger's failure in the cause chain of " + e,
+        ExceptionUtils.getThrowableList(e).contains(failure));
+    assertEquals(List.of("list://root/a.txt"), paths(messenger));
+    // one document from the middle file was tried, and nothing after it
+    assertEquals(2, messenger.attempted.size());
+    assertEquals(List.of(), client.moves);
+  }
+
+  private static byte[] zip(String... namesAndContents) throws IOException {
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
+      for (int i = 0; i < namesAndContents.length; i += 2) {
+        zip.putNextEntry(new ZipEntry(namesAndContents[i]));
+        zip.write(namesAndContents[i + 1].getBytes(UTF_8));
+        zip.closeEntry();
+      }
+    }
+    return bytes.toByteArray();
+  }
+
+  private static byte[] gzip(String content) throws IOException {
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    try (GZIPOutputStream gzip = new GZIPOutputStream(bytes)) {
+      gzip.write(content.getBytes(UTF_8));
+    }
+    return bytes.toByteArray();
+  }
+
+  private static String pathOf(Document doc) {
+    return doc.getString(StorageClientFields.FILE_PATH);
+  }
+
+  /** A TestMessenger whose sendForProcessing throws the given exception for the matching documents. */
   private static class FailingMessenger extends TestMessenger {
-    private final java.util.function.Predicate<String> failsFor;
+    private final java.util.function.Predicate<Document> failsFor;
     private final MessengerException failure;
     private final List<String> attempted = new ArrayList<>();
 
-    FailingMessenger(java.util.function.Predicate<String> failsFor, MessengerException failure) {
+    FailingMessenger(java.util.function.Predicate<Document> failsFor, MessengerException failure) {
       this.failsFor = failsFor;
       this.failure = failure;
     }
 
+    /** Sends the first {@code okSends} documents, then fails every later send. */
+    static FailingMessenger afterSends(int okSends, MessengerException failure) {
+      java.util.concurrent.atomic.AtomicInteger sends = new java.util.concurrent.atomic.AtomicInteger();
+      return new FailingMessenger(doc -> sends.incrementAndGet() > okSends, failure);
+    }
+
     @Override
     public void sendForProcessing(Document document) throws MessengerException {
-      String path = document.getString(StorageClientFields.FILE_PATH);
-      attempted.add(path);
-      if (failsFor.test(path)) {
+      attempted.add(pathOf(document));
+      if (failsFor.test(document)) {
         throw failure;
       }
       super.sendForProcessing(document);
@@ -228,11 +319,17 @@ public class BaseStorageClientTest {
 
     private final String key;
     private Exception failure;
+    private byte[] content;
     private Instant lastModified = Instant.parse("2026-01-01T00:00:00Z");
 
     TestFileReference(String key) {
       super(ROOT.resolve(key), null, null, null);
       this.key = key;
+    }
+
+    TestFileReference withContent(byte[] content) {
+      this.content = content;
+      return this;
     }
 
     TestFileReference failingWith(Exception failure) {
@@ -273,7 +370,7 @@ public class BaseStorageClientTest {
       if (failure instanceof RuntimeException runtimeException) {
         throw runtimeException;
       }
-      return new ByteArrayInputStream(key.getBytes(StandardCharsets.UTF_8));
+      return new ByteArrayInputStream(content != null ? content : key.getBytes(StandardCharsets.UTF_8));
     }
 
     @Override
