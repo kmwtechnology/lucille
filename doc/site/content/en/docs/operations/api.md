@@ -72,6 +72,8 @@ The released `lucille-api` Docker image includes both jars, so the UI is availab
 Maven users can add the `com.kmwllc:lucille-admin-ui` dependency (version managed by `lucille-bom`) alongside `lucille-api`.
 To work on the UI, run the API on its own and start the UI with `npm run dev`.
 
+For setting the admin password, signing in, and running with Docker, see [UI]({{< relref "docs/operations/deployment/ui" >}}).
+
 ---
 
 ## Endpoints
