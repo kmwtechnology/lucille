@@ -55,11 +55,24 @@
     </dependencyManagement>
 
     <dependencies>
+      <!-- Declared directly (not just via lucille-all) because lucille-all is optional below, so this is the
+           dependency projects using lucille-api actually inherit. -->
+      <dependency>
+        <groupId>com.kmwllc</groupId>
+        <artifactId>lucille-core</artifactId>
+        <version>${project.version}</version>
+        <scope>compile</scope>
+      </dependency>
+
+      <!-- Bundles every plugin into this module's own build (the shaded lucille-api-plugin.jar and the Docker image).
+           Optional because lucille-all isn't published (maven.deploy.skip): projects that depend on lucille-api don't
+           inherit it, so they can still resolve it from Maven Central and get lucille-core only, as before. -->
       <dependency>
         <groupId>com.kmwllc</groupId>
         <artifactId>lucille-all</artifactId>
         <version>${project.version}</version>
         <scope>compile</scope>
+        <optional>true</optional>
       </dependency>
 
       <!-- Dropwizard Core dependency for Lucille Admin API -->
