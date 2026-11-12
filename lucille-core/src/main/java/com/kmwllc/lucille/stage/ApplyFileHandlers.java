@@ -166,9 +166,25 @@ public class ApplyFileHandlers extends Stage {
   }
 
   /**
-   * Applies the FileHandler Iterator contract for the Worker, which expects every child to be a Document and fails the
-   * parent for any exception: skips a record whose <code>next()</code> throws, and a null, and lets a
-   * <code>hasNext()</code> that throws stop the file.
+   * Wraps the Iterator that {@link FileHandler#processFile} returns, so that the handler's records are skipped or stop the
+   * file as the Iterator contract says, before the Worker sees them.
+   *
+   * <p>This is needed because this stage returns the handler's Iterator to the Worker, and the Worker does not apply the
+   * contract. It expects every element to be a Document, and fails the parent Document on any exception. A handler that
+   * follows the contract can throw from <code>next()</code> for one bad record, or return null, and the Worker would fail
+   * the parent or receive a null child. {@link FileHandler#processFileAndPublish} applies the contract itself, so a
+   * handler behaves the same wherever it is used only if this stage applies it too.
+   *
+   * <p>What it does, per the contract (see {@link FileHandler#processFile}):
+   * <ul>
+   *   <li>A record whose <code>next()</code> throws a RuntimeException is logged and skipped, and so is a null.</li>
+   *   <li>A <code>hasNext()</code> that throws means the file can't be read any further. It is rethrown as an
+   *   IllegalStateException, which fails the parent. The wrapped Iterator has already closed its resources, as the
+   *   contract requires; this class closes nothing.</li>
+   * </ul>
+   *
+   * <p>This Iterator reads one record ahead: {@link #hasNext()} calls the wrapped <code>next()</code> to find the next
+   * record that can be returned. It is used by one thread, and is not thread-safe.
    */
   private static final class SkippingIterator implements Iterator<Document> {
 
