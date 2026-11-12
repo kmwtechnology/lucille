@@ -162,7 +162,8 @@ public class CSVFileHandler extends BaseFileHandler {
           }
         } catch (RuntimeException e) {
           // too many bad rows in a row, a row over maxRecordBytes, or an error reading the file: it can't continue
-          log.error("Error reading CSV row {}. ({})", lineNum + 1, path, e);
+          // the exception's message gives the row: the one being read, or the last of the bad rows
+          log.error("Can't continue reading CSV file. ({})", path, e);
           finish();
           throw e;
         }
