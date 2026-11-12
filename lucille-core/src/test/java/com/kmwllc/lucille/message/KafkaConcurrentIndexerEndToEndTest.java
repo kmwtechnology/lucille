@@ -10,6 +10,7 @@ import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerFailure;
+import com.kmwllc.lucille.core.PendingSend;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -431,7 +432,8 @@ public class KafkaConcurrentIndexerEndToEndTest {
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline);
     RecordingIndexer indexer = new RecordingIndexer(config.getConfig("indexer"), messenger) {
       @Override
-      protected List<IndexerFailure> sendToIndex(List<Document> documents) {
+      protected List<IndexerFailure> sendToIndex(PendingSend send) {
+        List<Document> documents = send.documents();
         return documents.stream().map(doc -> new IndexerFailure(doc, new IndexerException("rejected"))).toList();
       }
     };
@@ -763,7 +765,8 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected List<IndexerFailure> sendToIndex(List<Document> documents) {
+    protected List<IndexerFailure> sendToIndex(PendingSend send) {
+      List<Document> documents = send.documents();
       documents.forEach(doc -> sent.add(doc.getId()));
       return List.of();
     }
@@ -797,7 +800,8 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected List<IndexerFailure> sendToIndex(List<Document> documents) {
+    protected List<IndexerFailure> sendToIndex(PendingSend send) {
+      List<Document> documents = send.documents();
       for (Document doc : documents) {
         if (!messenger.ownsInput(doc)) {
           sentWhileUnowned.add(doc.getId());
@@ -812,7 +816,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
           throw new IllegalStateException(e);
         }
       }
-      return super.sendToIndex(documents);
+      return super.sendToIndex(send);
     }
   }
 
@@ -849,7 +853,8 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
+    protected List<IndexerFailure> sendToIndex(PendingSend send) throws IndexerException {
+      List<Document> documents = send.documents();
       peakConcurrent.accumulateAndGet(concurrent.incrementAndGet(), Math::max);
       try {
         Thread.sleep(ThreadLocalRandom.current().nextInt(20, 120));
@@ -913,7 +918,8 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
+    protected List<IndexerFailure> sendToIndex(PendingSend send) throws IndexerException {
+      List<Document> documents = send.documents();
       peakConcurrent.accumulateAndGet(concurrent.incrementAndGet(), Math::max);
       try {
         Thread.sleep(ThreadLocalRandom.current().nextInt(1, 4));

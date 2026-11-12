@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerFailure;
+import com.kmwllc.lucille.core.PendingSend;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
@@ -44,7 +45,7 @@ public class NopIndexer extends Indexer {
   }
 
   @Override
-  protected List<IndexerFailure> sendToIndex(List<Document> documents) {
+  protected List<IndexerFailure> sendToIndex(PendingSend send) {
     // no-op
     return List.of();
   }

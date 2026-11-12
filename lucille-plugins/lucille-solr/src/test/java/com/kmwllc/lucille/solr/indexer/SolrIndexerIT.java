@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.PendingSend;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -117,7 +118,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
       Document delete = Document.create("id_1");
       delete.setField("is_delete", "true");
       delete.setField("collection", COL);
-      indexer.sendToIndex(List.of(delete));
+      indexer.sendToIndex(PendingSend.of(List.of(delete)));
 
       cluster.getSolrClient().commit(COL);
       assertEquals(
@@ -191,7 +192,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
       delete.setField("delete.FieldName", "myField");
       delete.setField("delete.FieldValue", "123");
       delete.setField("collection", COL);
-      indexer.sendToIndex(List.of(delete));
+      indexer.sendToIndex(PendingSend.of(List.of(delete)));
 
       cluster.getSolrClient().commit(COL);
       assertEquals(
@@ -278,7 +279,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
       delete2.setField("delete.FieldValue", "234");
       delete2.setField("collection", COL);
 
-      indexer.sendToIndex(List.of(delete1, delete2));
+      indexer.sendToIndex(PendingSend.of(List.of(delete1, delete2)));
 
       cluster.getSolrClient().commit(COL);
       QueryResponse response = cluster.getSolrClient().query(COL, qr);
@@ -381,7 +382,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
       Document doc3 = Document.create("doc3");
       doc3.setField("content", "Third document");
 
-      indexer.sendToIndex(List.of(doc1, doc2, doc3));
+      indexer.sendToIndex(PendingSend.of(List.of(doc1, doc2, doc3)));
 
       cluster.getSolrClient().commit(COL);
 
@@ -396,7 +397,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
       // Delete document 2 using the override ID mechanism
       Document deleteDoc = Document.create("override2");
       deleteDoc.setField("is_delete", "true");
-      indexer.sendToIndex(List.of(deleteDoc));
+      indexer.sendToIndex(PendingSend.of(List.of(deleteDoc)));
       cluster.getSolrClient().commit(COL);
 
       // Verify only 2 documents remain

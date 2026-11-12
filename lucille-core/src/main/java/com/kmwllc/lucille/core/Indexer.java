@@ -25,6 +25,7 @@ import com.typesafe.config.ConfigValueType;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -268,13 +269,14 @@ public abstract class Indexer implements Runnable {
                   + "Remove the parameter to use the default, or provide at least one status code.");
         }
       }
-      this.retry = Retry.of("indexer-batch-retry", RetryConfig.<List<IndexerFailure>>custom()
+      // The retried call is one attempt (see attemptSend); its result is whether that attempt left a retryable failure.
+      this.retry = Retry.of("indexer-batch-retry", RetryConfig.<Boolean>custom()
           .maxAttempts(maxRetries + 1) // maxAttempts includes the initial attempt
           .intervalFunction(IntervalFunction.ofExponentialRandomBackoff(
               retryInitialWaitDurationMs, IntervalFunction.DEFAULT_MULTIPLIER,
               retryRandomizationFactor, retryMaxWaitDurationMs))
-          // Retry the batch if any per-document failure is retryable.
-          .retryOnResult(failures -> failures.stream().anyMatch(failure -> isRetryable(failure.cause())))
+          // Retry if any per-document failure is retryable.
+          .retryOnResult(Boolean::booleanValue)
           // A plain IndexerException (non-HTTP failure), or a status not in retryableStatusCodes, is not retried.
           .retryOnException(this::isRetryable)
           .build());
@@ -349,7 +351,7 @@ public abstract class Indexer implements Runnable {
   }
 
   /**
-   * Whether this Indexer's {@link #sendToIndex(List)} may be called from several threads at once. Implementations that
+   * Whether this Indexer's {@link #sendToIndex(PendingSend)} may be called from several threads at once. Implementations that
    * return true accept indexer.maxConcurrentBatches greater than 1 and so may have several sends in flight.
    *
    * <p> This is the premise the whole concurrent-send feature rests on. An implementation holds a single destination
@@ -415,30 +417,52 @@ public abstract class Indexer implements Runnable {
   protected abstract boolean checkConnection();
 
   /**
-   * Send a batch of documents to the destination search engine. Implementations should use a single
-   * call to the batch API provided by the search engine client, if available, as opposed to sending
-   * each document individually.
+   * Send documents to the destination search engine. Implementations should use a single call to the batch API provided
+   * by the search engine client, if available, as opposed to sending each document individually.
    *
-   * <p> If retries are configured (indexer.maxRetries), a retry calls this method again with the entire batch, including
-   * documents the destination has already accepted. That is safe for a destination where writing the same document twice
-   * has the same effect as writing it once. An Indexer for an append-only destination or one that uses external versions
-   * must not report retryable failures unless it can handle being sent those documents again.
+   * <p> The documents to send are {@link PendingSend#documents()}. On the first attempt for a batch that is the whole
+   * batch. If retries are configured (indexer.maxRetries), a retry calls this method again with only the documents that
+   * are still pending, in their original order: those the previous attempt reported with a retryable failure or as
+   * {@link IndexerFailure#notSent(Document) not sent}. A document that was applied, or that failed with a cause that is
+   * not retryable, is not sent again.
+   *
+   * <p> The contract:
+   * <ol>
+   *   <li>A document that is not in the returned list counts as applied. That includes a document the Indexer collapsed
+   *   into a later operation on the same id.</li>
+   *   <li>Each returned failure must hold an instance from {@link PendingSend#documents()}, and each instance may be
+   *   reported only once. A failure that breaks either rule can't be matched to a document, so no retry is made and
+   *   every document in the batch without a failure of its own is failed.</li>
+   *   <li>Throw only when nothing in this call was applied, or when that can't be known. An Indexer that applied part of
+   *   the send before an error returns per-document failures instead, because a call that throws tells the base class
+   *   nothing about its documents: after a throw, all of them are still pending.</li>
+   *   <li>Use an {@link IndexerRetryableException} as the cause of a failure that may be transient. If any returned
+   *   failure has a status code in indexer.retryableStatusCodes and attempts remain, another attempt is made. Use an
+   *   {@link IndexerException} for a permanent failure.</li>
+   *   <li>An Indexer that stops part-way on purpose, because a later document must not be sent before an earlier one
+   *   that failed, reports the documents it held back with {@link IndexerFailure#notSent(Document)}. They stay pending.
+   *   A not-sent document does not cause a retry by itself, and if no further attempt is made it is reported as failed.
+   *   When {@link PendingSend#isFinal()} is true no attempt follows, so there is nothing to hold a document back
+   *   for.</li>
+   * </ol>
+   *
+   * <p> A retry can send a document after a later document from the same batch has been applied. An Indexer for a
+   * destination where that order matters (for example, one that runs a delete-by-query that must not remove later
+   * uploads) must hold the later documents back as described above.
+   *
+   * <p> If the destination applied a write but the response was lost (for example, a timeout), the write is not known to
+   * have been applied and is sent again.
    *
    * <p> Not called in bypass mode.
    *
-   * @param documents The documents to send to the destination.
-   * @return The documents that were not successfully indexed, each with the Exception describing its failure, or an empty
-   *     list if all documents succeeded or if per-document failure tracking is not supported. Each failure must hold the
-   *     instance that was passed in, and each instance may be reported only once. A failure that breaks either rule can't
-   *     be matched to a document, so every document in the batch without a failure of its own is failed. Use
-   *     {@link IndexerRetryableException} to signal that the failure may be transient; the base class will retry the
-   *     entire batch for any returned exception whose status code is in the configured retryable set. Use
-   *     {@link IndexerException} for permanent per-document failures. Does not return null.
-   * @throws IndexerException for errors that prevent the entire batch from being attempted. Throw an
+   * @param send The documents to send to the destination, and which attempt this is.
+   * @return The documents from this send that were not applied, each with the Exception describing its failure, or an
+   *     empty list if all were applied or if per-document failure tracking is not supported. Does not return null.
+   * @throws IndexerException for errors that prevent the entire send from being attempted. Throw an
    *     {@link IndexerRetryableException} when the failure may be transient (for example a transport error), so the
    *     configured retry policy applies to it.
    */
-  protected abstract List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException;
+  protected abstract List<IndexerFailure> sendToIndex(PendingSend send) throws IndexerException;
 
   /** Close the client or connection to the destination search engine. */
   public abstract void closeConnection();
@@ -567,36 +591,156 @@ public abstract class Indexer implements Runnable {
       return new SendOutcome(List.of(), null, 0);
     }
     long start = System.nanoTime();
+    // The state of this batch across its attempts. Local to this call, so concurrent batches never share it.
+    SendProgress progress = new SendProgress(batchedDocs);
     try {
-      // Note: the retry wraps the entire sendToIndex() call. If sendToIndex() partially succeeds
-      // (e.g. some documents indexed before a subsequent delete-by-query fails), a retry will
-      // re-execute the entire method. sendToIndex's Javadoc states what that requires of an Indexer.
-      // When retries are configured, retryOnResult triggers a retry if any per-document failure has a
-      // retryable status code. When retries are exhausted, the last result is returned directly —
-      // preserving per-document detail for the FAIL event path in completeBatch.
-      List<IndexerFailure> failures = retry != null
-          ? Retry.decorateCheckedSupplier(retry, () -> sendIfInputOwned(batchedDocs)).get()
-          : sendIfInputOwned(batchedDocs);
-      return new SendOutcome(failures, null, System.nanoTime() - start);
+      // Each attempt sends only the documents still pending. When retries are configured, another attempt is made if
+      // this one left a retryable per-document failure or threw a retryable exception. When retries are exhausted the
+      // loop ends normally, and the per-document detail is preserved for the FAIL event path in completeBatch.
+      if (retry != null) {
+        Retry.decorateCheckedSupplier(retry, () -> attemptSend(batchedDocs, progress)).get();
+      } else {
+        attemptSend(batchedDocs, progress);
+      }
+      return new SendOutcome(progress.failures(), null, System.nanoTime() - start);
     } catch (InputNotOwnedException e) {
       return SendOutcome.inputNotOwned(System.nanoTime() - start);
+    } catch (Exception e) {
+      // The last attempt threw (an exception that is not retryable, or retries are exhausted). If an earlier attempt
+      // resolved some documents, only the pending ones fail. Otherwise the whole batch fails, through the error path.
+      if (progress.anyResolved()) {
+        return new SendOutcome(progress.failuresWithPendingFailedBy(e), null, System.nanoTime() - start);
+      }
+      return new SendOutcome(null, e, System.nanoTime() - start);
     } catch (Throwable t) {
       return new SendOutcome(null, t, System.nanoTime() - start);
     }
   }
 
-  // One send attempt, made only if the messenger confirms this indexer still owns every document's input. Checked before
-  // each attempt, retries included, since a send blocked or retrying past the consumer's poll deadline means the consumer
-  // has been evicted and its partitions may be written by a new owner; sending then could overwrite the new owner's
-  // later writes, or restore a document it has since deleted. A request already on the wire cannot be recalled.
-  private List<IndexerFailure> sendIfInputOwned(List<Document> batchedDocs) throws Exception {
+  // One send attempt, made only if the messenger confirms this indexer still owns every document's input. Checked on the
+  // whole batch before each attempt, retries included, since a send blocked or retrying past the consumer's poll
+  // deadline means the consumer has been evicted and its partitions may be written by a new owner; sending then could
+  // overwrite the new owner's later writes, or restore a document it has since deleted. A request already on the wire
+  // cannot be recalled. Returns whether another attempt is wanted.
+  private boolean attemptSend(List<Document> batchedDocs, SendProgress progress) throws Exception {
     if (messenger != null && !batchedDocs.stream().allMatch(messenger::ownsInput)) {
       throw new InputNotOwnedException();
     }
-    return sendToIndex(batchedDocs);
+    PendingSend send = progress.nextSend();
+    return progress.record(send, sendToIndex(send));
   }
 
-  // Thrown by sendIfInputOwned to stop a send and its retries. Not retryable (the retry policy retries only
+  /**
+   * What is known about one batch's documents across the attempts to send it. A document is pending until an attempt
+   * resolves it: either the attempt does not report it (it was applied), or reports it with a cause that is not
+   * retryable (a permanent failure). Documents are tracked by identity. Used by one thread, for one sendWithRetry call.
+   */
+  private final class SendProgress {
+
+    private final List<Document> batchedDocs;
+    // Documents still to send, in batch order.
+    private List<Document> pending;
+    // Failures that are never retried, by document.
+    private final Map<Document, IndexerFailure> permanent = new IdentityHashMap<>();
+    // The failure that kept each pending document pending in the latest attempt that returned: retryable or not-sent.
+    private Map<Document, IndexerFailure> latest = new IdentityHashMap<>();
+    // The first failure that could not be matched to a document of its send, if any. It ends the retries and fails
+    // every document without a failure of its own.
+    private IndexerFailure unmatched = null;
+    private int attempts = 0;
+
+    SendProgress(List<Document> batchedDocs) {
+      this.batchedDocs = batchedDocs;
+      this.pending = batchedDocs;
+    }
+
+    PendingSend nextSend() {
+      attempts++;
+      return new PendingSend(pending, attempts, attempts > maxRetries);
+    }
+
+    /** Records the result of an attempt that returned. Returns whether it left a failure that warrants a retry. */
+    boolean record(PendingSend send, List<IndexerFailure> failures) {
+      Set<Document> unreported = Collections.newSetFromMap(new IdentityHashMap<>());
+      unreported.addAll(send.documents());
+      Map<Document, IndexerFailure> stillPending = new IdentityHashMap<>();
+      boolean anyRetryable = false;
+
+      for (IndexerFailure failure : failures) {
+        if (!unreported.remove(failure.document())) {
+          log.error("sendToIndex reported a failure for doc {}, which is not an instance from its send or was already "
+              + "reported. The rest of the batch will be failed.", failure.document().getId(), failure.cause());
+          if (unmatched == null) {
+            unmatched = failure;
+          }
+        } else if (failure.isNotSent()) {
+          stillPending.put(failure.document(), failure);
+        } else if (isRetryable(failure.cause())) {
+          stillPending.put(failure.document(), failure);
+          anyRetryable = true;
+        } else {
+          permanent.put(failure.document(), failure);
+        }
+      }
+
+      latest = stillPending;
+      pending = send.documents().stream().filter(stillPending::containsKey).toList();
+      // After a failure that can't be matched, there is no telling which documents were applied, so retrying is unsafe.
+      return anyRetryable && unmatched == null;
+    }
+
+    boolean anyResolved() {
+      return pending.size() < batchedDocs.size();
+    }
+
+    /** The batch's failures once no further attempt will be made: each failed document once, in batch order. */
+    List<IndexerFailure> failures() {
+      // A not-sent document is reported with the first retryable failure of the last attempt, which held it back.
+      Exception blocker = pending.stream()
+          .map(latest::get)
+          .filter(failure -> failure != null && !failure.isNotSent())
+          .map(IndexerFailure::cause)
+          .findFirst().orElse(null);
+      Exception notSentCause = blocker != null
+          ? new IndexerException("Not sent, because an earlier document in its batch failed: " + blocker.getMessage(),
+              blocker)
+          : new IndexerException("Not sent, because an earlier document in its batch failed.");
+
+      // A document was rejected and there is no telling which one, so no document can be reported as succeeded, including
+      // those an earlier attempt applied.
+      Exception unmatchedCause = unmatched == null ? null : new IndexerException("sendToIndex reported a failure for doc "
+          + unmatched.document().getId() + " that could not be matched to a document in its batch: "
+          + unmatched.cause().getMessage(), unmatched.cause());
+
+      List<IndexerFailure> result = new ArrayList<>();
+      for (Document doc : batchedDocs) {
+        IndexerFailure failure = permanent.containsKey(doc) ? permanent.get(doc) : latest.get(doc);
+        if (failure != null) {
+          result.add(failure.isNotSent() ? new IndexerFailure(doc, notSentCause) : failure);
+        } else if (unmatchedCause != null) {
+          result.add(new IndexerFailure(doc, unmatchedCause));
+        }
+      }
+      return result;
+    }
+
+    /** The batch's failures when the last attempt threw: the permanent failures, and every pending document. */
+    List<IndexerFailure> failuresWithPendingFailedBy(Exception thrown) {
+      Set<Document> pendingDocs = Collections.newSetFromMap(new IdentityHashMap<>());
+      pendingDocs.addAll(pending);
+      List<IndexerFailure> result = new ArrayList<>();
+      for (Document doc : batchedDocs) {
+        if (permanent.containsKey(doc)) {
+          result.add(permanent.get(doc));
+        } else if (pendingDocs.contains(doc)) {
+          result.add(new IndexerFailure(doc, thrown));
+        }
+      }
+      return result;
+    }
+  }
+
+  // Thrown by attemptSend to stop a send and its retries. Not retryable (the retry policy retries only
   // IndexerRetryableException), so it reaches sendWithRetry directly.
   private static final class InputNotOwnedException extends Exception {
     InputNotOwnedException() {
@@ -645,29 +789,10 @@ public abstract class Indexer implements Runnable {
       Set<Document> nonFailedDocs = Collections.newSetFromMap(new IdentityHashMap<>());
       nonFailedDocs.addAll(batchedDocs);
 
-      IndexerFailure unmatchedFailure = null;
+      // sendWithRetry has matched every failure to a document of the batch, each at most once (see SendProgress).
       for (IndexerFailure failure : outcome.failures()) {
-        Document doc = failure.document();
-        if (nonFailedDocs.remove(doc)) {
-          sendFailEvent(doc, failure.cause());
-        } else {
-          log.error("sendToIndex reported a failure for doc {}, which is not an instance from its batch or was already "
-              + "reported. The rest of the batch will be failed.", doc.getId(), failure.cause());
-          if (unmatchedFailure == null) {
-            unmatchedFailure = failure;
-          }
-        }
-      }
-
-      // A document was rejected and there is no telling which one, so none of the rest can be reported as succeeded.
-      if (unmatchedFailure != null) {
-        IndexerException cause = new IndexerException("sendToIndex reported a failure for doc "
-            + unmatchedFailure.document().getId() + " that could not be matched to a document in its batch: "
-            + unmatchedFailure.cause().getMessage(), unmatchedFailure.cause());
-        for (Document doc : batchedDocs) {
-          if (nonFailedDocs.remove(doc)) {
-            sendFailEvent(doc, cause);
-          }
+        if (nonFailedDocs.remove(failure.document())) {
+          sendFailEvent(failure.document(), failure.cause());
         }
       }
 

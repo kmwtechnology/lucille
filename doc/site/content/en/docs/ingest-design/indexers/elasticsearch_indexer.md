@@ -118,9 +118,10 @@ If a document has children and `childDocumentsField` is not set, the children ar
 Retries follow the generic `indexer.maxRetries` settings (see [Retries]({{< relref "docs/ingest-design/indexers#retries" >}})). For this indexer:
 
 - A request that fails with an HTTP error carries that status code; a transport failure (connection refused, socket timeout) carries `-1`. The batch is retried if the code is in `indexer.retryableStatusCodes`, and otherwise fails as a whole.
-- A document rejected in the bulk response carries the item's HTTP status code. If any rejected document's status is retryable (for example 429 but not 400), the whole batch is resent; once retries run out, or if none is retryable, only the rejected documents fail.
+- A document rejected in the bulk response carries the item's HTTP status code. If any rejected document's status is retryable (for example 429 but not 400), the documents rejected with a retryable status are resent; documents that were accepted, or rejected with any other status, are not. Once retries run out, or if none is retryable, only the rejected documents fail.
+- A retry of rejected uploads runs after the rest of the batch was applied. If the same batch holds a delete-by-query that comes after such an upload and matches it, the retried upload is written after the delete ran, so the document stays in the index.
 - A bulk response error whose ID does not match a document in the batch fails the whole batch and is not retried.
-- With `versionType: External`, a retry resends uploads the destination already accepted, and each is rejected with a 409 because its version is already there. Those documents get FAIL events even though they were indexed. `ExternalGte` accepts an equal version, so it is not affected.
+- With `versionType: External`, a retry after a request that threw resends uploads the destination already accepted in that send, and each is rejected with a 409 because its version is already there. Those documents get FAIL events even though they were indexed. `ExternalGte` accepts an equal version, so it is not affected.
 - An error on any delete-by-ID item, or any failure reported by delete-by-query, fails the whole batch and is not retried. A 409 on a versioned delete is not an error (see [Routing and Versioning](#routing-and-versioning)). Documents uploaded earlier in the same send were already indexed but still get FAIL events.
 
 ---

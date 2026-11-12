@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerFailure;
+import com.kmwllc.lucille.core.PendingSend;
 import com.kmwllc.lucille.indexer.IndexerType;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -112,7 +113,8 @@ public class WeaviateIndexer extends Indexer {
   }
 
   @Override
-  protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
+  protected List<IndexerFailure> sendToIndex(PendingSend send) throws IndexerException {
+    List<Document> documents = send.documents();
     List<IndexerFailure> failedDocs = new ArrayList<>();
 
     try (ObjectsBatcher batcher = client.batch().objectsBatcher()) {

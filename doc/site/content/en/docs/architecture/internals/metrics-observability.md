@@ -116,7 +116,7 @@ Each batch's send is timed, and the sample is recorded when the batch is complet
 ```java
 // sendWithRetry: may run on a send-pool thread when maxConcurrentBatches > 1
 long start = System.nanoTime();
-List<IndexerFailure> failures = /* sendToIndex(batchedDocs), with any retries */;
+List<IndexerFailure> failures = /* sendToIndex(send) for the batch, with any retries */;
 long elapsedNanos = System.nanoTime() - start;
 
 // completeBatch: always on the indexer thread, for a send that did not throw

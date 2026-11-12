@@ -8,7 +8,7 @@ import java.util.List;
  * <p> Indexing a batch of documents involves two steps:
  * <ul>
  *   <li><b>Sending</b> the documents to the destination. The specific Indexer subclass implements a single attempt,
- *   {@link Indexer#sendToIndex(List)}; the Indexer base class wraps that attempt in the configured retry policy.</li>
+ *   {@link Indexer#sendToIndex(PendingSend)}; the Indexer base class wraps that attempt in the configured retry policy.</li>
  *   <li><b>Completing</b> the batch — a post-processing step owned by the Indexer base class — which does the
  *   accounting for the batch: recording metrics, emitting FAIL / FINISH events to the event queue or topic, and
  *   committing the input offsets where applicable.</li>
