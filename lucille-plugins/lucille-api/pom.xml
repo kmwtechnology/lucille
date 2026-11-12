@@ -57,7 +57,7 @@
     <dependencies>
       <dependency>
         <groupId>com.kmwllc</groupId>
-        <artifactId>lucille-core</artifactId>
+        <artifactId>lucille-all</artifactId>
         <version>${project.version}</version>
         <scope>compile</scope>
       </dependency>
@@ -210,6 +210,16 @@
     </dependencies>
 
     <build>
+        <extensions>
+            <!-- Resolves ${os.detected.name}/${os.detected.arch}, the classifier of lucille-jlama's native dependency
+                 (jlama-native), which reaches this module through lucille-all. Build extensions aren't inherited through
+                 a dependency, so this module has to declare it too (as lucille-all does). -->
+            <extension>
+                <groupId>kr.motd.maven</groupId>
+                <artifactId>os-maven-plugin</artifactId>
+                <version>1.7.0</version>
+            </extension>
+        </extensions>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -251,6 +261,12 @@
                                 <transformer implementation="org.apache.logging.log4j.maven.plugins.shade.transformer.Log4j2PluginCacheFileTransformer" />
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.kmwllc.lucille.api.APIApplication</mainClass>
+                                    <!-- Some bundled plugin dependencies are multi-release jars (e.g. dnsjava registers a
+                                         java.net.spi.InetAddressResolverProvider whose class is under META-INF/versions/18).
+                                         Without this the JVM ignores the versioned classes and ServiceLoader fails. -->
+                                    <manifestEntries>
+                                        <Multi-Release>true</Multi-Release>
+                                    </manifestEntries>
                                 </transformer>
                             </transformers>
                         </configuration>

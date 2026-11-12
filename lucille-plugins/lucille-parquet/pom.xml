@@ -44,6 +44,20 @@
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-mapreduce-client-core</artifactId>
       <version>${hadoop.version}</version>
+      <exclusions>
+        <!-- Pulled in by hadoop-yarn-common for YARN's REST services, which parquet reading doesn't use. The JAXB module
+             is the javax flavour and registers itself as a Jackson Module service, so any ObjectMapper that calls
+             findAndRegisterModules() (e.g. opensearch-java's JacksonJsonpMapper) fails with
+             NoClassDefFoundError: javax/xml/bind/annotation/XmlElement when this plugin shares a classpath. -->
+        <exclusion>
+          <groupId>com.fasterxml.jackson.module</groupId>
+          <artifactId>jackson-module-jaxb-annotations</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.jaxrs</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>com.amazonaws</groupId>
