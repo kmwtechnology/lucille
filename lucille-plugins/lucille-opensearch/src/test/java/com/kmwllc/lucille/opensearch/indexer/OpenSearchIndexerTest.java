@@ -65,6 +65,7 @@ import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerFailure;
+import com.kmwllc.lucille.core.PendingSend;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
@@ -353,7 +354,7 @@ public class OpenSearchIndexerTest {
     doc3.setField("other_id", "something_else");
 
     OpenSearchIndexer indexer = new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient2);
-    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(PendingSend.of(List.of(doc, doc2, doc3)));
     assertEquals(2, failedDocs.size());
     assertTrue(failedDocs.stream().anyMatch(p -> p.document().equals(doc)));
     assertFalse(failedDocs.stream().anyMatch(p -> p.document().equals(doc2)));
@@ -816,7 +817,7 @@ public class OpenSearchIndexerTest {
     deleteChildren.setField("value", "P");
     Document newChild = Document.create("newChild");
     newChild.setField("parent", "P");
-    assertTrue(indexer.sendToIndex(List.of(oldChild, deleteChildren, newChild)).isEmpty());
+    assertTrue(indexer.sendToIndex(PendingSend.of(List.of(oldChild, deleteChildren, newChild))).isEmpty());
 
     InOrder inOrder = Mockito.inOrder(mockClient, mockIndicesClient);
     inOrder.verify(mockClient).bulk(any(BulkRequest.class));
@@ -848,7 +849,7 @@ public class OpenSearchIndexerTest {
       }
       batch.add(doc);
     }
-    assertTrue(indexer.sendToIndex(batch).isEmpty());
+    assertTrue(indexer.sendToIndex(PendingSend.of(batch)).isEmpty());
 
     InOrder inOrder = Mockito.inOrder(mockClient, mockIndicesClient);
     for (int i = 0; i < 2; i++) {
@@ -882,7 +883,7 @@ public class OpenSearchIndexerTest {
     doc.setField("value", "P");
 
     IndexerRetryableException exc =
-        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc)));
+        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(PendingSend.of(List.of(doc))));
     assertEquals(IndexerRetryableException.UNKNOWN_STATUS_CODE, exc.getStatusCode());
     verify(mockClient, never()).deleteByQuery(any(DeleteByQueryRequest.class));
   }
@@ -1222,7 +1223,7 @@ public class OpenSearchIndexerTest {
     Document doc = Document.create("doc1");
     doc.setField("my_version_field", 12345L);
     doc.setField("deleted", "true");
-    assertTrue(indexer.sendToIndex(List.of(doc)).isEmpty());
+    assertTrue(indexer.sendToIndex(PendingSend.of(List.of(doc))).isEmpty());
 
     ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
     verify(mockClient, times(1)).bulk(captor.capture());
@@ -1245,7 +1246,7 @@ public class OpenSearchIndexerTest {
             .put("id", "doc2")
             .put("deleted", "true"));
     kafkaDoc.setKafkaMetadata("testing", 0, 100, null);
-    assertTrue(indexer.sendToIndex(List.of(doc, kafkaDoc)).isEmpty());
+    assertTrue(indexer.sendToIndex(PendingSend.of(List.of(doc, kafkaDoc))).isEmpty());
 
     ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
     verify(mockClient, times(1)).bulk(captor.capture());
@@ -1266,7 +1267,7 @@ public class OpenSearchIndexerTest {
     Document doc = Document.create("doc1");
     doc.setField("my_version_field", 12345L);
     doc.setField("deleted", "true");
-    assertTrue(indexer.sendToIndex(List.of(doc)).isEmpty());
+    assertTrue(indexer.sendToIndex(PendingSend.of(List.of(doc))).isEmpty());
 
     ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
     verify(mockClient, times(1)).bulk(captor.capture());
@@ -1301,7 +1302,7 @@ public class OpenSearchIndexerTest {
     rejectDeleteWith(409);
     OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig().getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
 
-    assertTrue(indexer.sendToIndex(List.of(deleteDoc(1L))).isEmpty());
+    assertTrue(indexer.sendToIndex(PendingSend.of(List.of(deleteDoc(1L)))).isEmpty());
   }
 
   // Any other error on a versioned delete still fails the batch.
@@ -1310,7 +1311,7 @@ public class OpenSearchIndexerTest {
     rejectDeleteWith(400);
     OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig().getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
 
-    assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(deleteDoc(1L))));
+    assertThrows(IndexerException.class, () -> indexer.sendToIndex(PendingSend.of(List.of(deleteDoc(1L)))));
   }
 
   // A 409 counts as success only for a delete sent with a version.
@@ -1319,10 +1320,10 @@ public class OpenSearchIndexerTest {
     rejectDeleteWith(409);
     OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig().getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
 
-    assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(deleteDoc(null))));
+    assertThrows(IndexerException.class, () -> indexer.sendToIndex(PendingSend.of(List.of(deleteDoc(null)))));
   }
 
-  // A retry resends the whole batch, including a versioned delete that already succeeded. Under External the replay
+  // When a send throws, a retry resends every pending document, including a versioned delete that already succeeded. Under External the replay
   // has the same version as the delete it repeats, so OpenSearch rejects it (409); that must not fail the batch.
   @Test
   public void testReplayedVersionedDeleteSucceeds() throws Exception {
@@ -1426,7 +1427,7 @@ public class OpenSearchIndexerTest {
 
     indexer.run(3);
 
-    IndexerException exc = assertThrows(IndexerException.class, () -> indexer.sendToIndex(Arrays.asList(doc, doc2, doc3)));
+    IndexerException exc = assertThrows(IndexerException.class, () -> indexer.sendToIndex(PendingSend.of(Arrays.asList(doc, doc2, doc3))));
     assertEquals("mock reason", exc.getMessage());
 
     List<Event> events = messenger.getSentEvents();
@@ -2258,7 +2259,7 @@ public class OpenSearchIndexerTest {
     }
 
     @Override
-    public List<IndexerFailure> sendToIndex(List<Document> docs) throws IndexerException {
+    public List<IndexerFailure> sendToIndex(PendingSend send) throws IndexerException {
       throw new IndexerException("Test that errors when sending to indexer are correctly handled");
     }
   }
@@ -2278,7 +2279,7 @@ public class OpenSearchIndexerTest {
     }
 
     @Override
-    public List<IndexerFailure> sendToIndex(List<Document> docs) throws IndexerException {
+    public List<IndexerFailure> sendToIndex(PendingSend send) throws IndexerException {
       throw new IndexerRetryableException(
           503, "Simulated 503 Service Unavailable", new IOException("backend unavailable"));
     }
@@ -2438,7 +2439,7 @@ public class OpenSearchIndexerTest {
     Document inA = docInIndex("shared", "idx-a");
 
     OpenSearchIndexer indexer = indexerReturning(bulkItem("unrelated", false), bulkItem("shared", true), bulkItem("shared", false));
-    List<IndexerFailure> failures = indexer.sendToIndex(List.of(unrelated, inB, inA));
+    List<IndexerFailure> failures = indexer.sendToIndex(PendingSend.of(List.of(unrelated, inB, inA)));
 
     assertEquals(1, failures.size());
     assertTrue(failures.get(0).document() == inB);
@@ -2451,7 +2452,7 @@ public class OpenSearchIndexerTest {
     Document inA = docInIndex("shared", "idx-a");
 
     OpenSearchIndexer indexer = indexerReturning(bulkItem("unrelated", false), bulkItem("shared", true), bulkItem("shared", true));
-    List<IndexerFailure> failures = indexer.sendToIndex(List.of(unrelated, inB, inA));
+    List<IndexerFailure> failures = indexer.sendToIndex(PendingSend.of(List.of(unrelated, inB, inA)));
 
     assertEquals(2, failures.size());
     assertTrue(failures.get(0).document() == inB);
@@ -2462,6 +2463,6 @@ public class OpenSearchIndexerTest {
   public void testRejectionThatDoesNotLineUpFailsTheBatch() throws Exception {
     Document doc = docInIndex("doc1", "idx-a");
     OpenSearchIndexer indexer = indexerReturning(bulkItem("other", true));
-    assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(doc)));
+    assertThrows(IndexerException.class, () -> indexer.sendToIndex(PendingSend.of(List.of(doc))));
   }
 }

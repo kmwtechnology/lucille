@@ -137,7 +137,7 @@ Everything from the Happy Path, plus:
 - **Deletion handling.** If the document is marked for deletion (via `deletionMarker`), the Indexer issues a delete operation instead of an index operation. If it also has both fields that `deleteByQuery` names, it's a delete-by-query.
 - **ID override.** If `indexer.idOverrideField` is configured, the document's ID in the search backend is taken from that field rather than the internal document ID.
 - **Field filtering.** The configured `includeFields`/`excludeFields` filter is applied — only the desired fields reach the search backend. `___children` is always omitted. The other reserved fields (such as `run_id` and `___skipped`) are treated like any other field and reach the backend unless `includeFields` leaves them out or `excludeFields` names them.
-- **Retries.** If the bulk API call fails with a retryable status code (429, 503) and `indexer.maxRetries > 0`, the entire batch is retried with exponential backoff. The document may be sent multiple times before succeeding or being declared failed.
+- **Retries.** If the bulk API call fails with a retryable status code (429, 503) and `indexer.maxRetries > 0`, the documents that were not applied are retried with exponential backoff. A document may be sent multiple times before succeeding or being declared failed.
 - **Metrics.** The Indexer's Meter and Histogram record the batch: docs/sec throughput and per-doc backend latency.
 
 ### Step 8 — The Indexer sends a FINISH event
