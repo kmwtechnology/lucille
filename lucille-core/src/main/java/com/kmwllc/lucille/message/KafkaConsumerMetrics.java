@@ -12,7 +12,7 @@ import com.kmwllc.lucille.util.LogUtils;
  * same thing in each mode.
  *
  * <p> The metrics are registered in the shared registry ({@link LogUtils#METRICS_REG}) under the pipeline name followed
- * by one of the suffixes below. The names are stable. Every consumer of the same kind for a pipeline in one JVM shares
+ * by one of the suffixes below. Every consumer of the same kind for a pipeline in one JVM shares
  * them, so each value covers all of those consumers.
  * <ul>
  *   <li>{@code <pipeline>.kafka.worker.pollTime}, {@code <pipeline>.kafka.indexer.pollTime} (Timer): time spent in each

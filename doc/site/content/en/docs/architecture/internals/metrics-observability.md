@@ -139,7 +139,7 @@ log.info(String.format(
 
 Every messenger that reads documents from Kafka times its polls and offset commits and counts the commits that fail. The Worker's source consumer reports under `kafka.worker` in both distributed and hybrid mode; the standalone Indexer's destination consumer reports under `kafka.indexer`. The prefix is the pipeline name, not the run-based prefix the Worker and Indexer use for their own metrics, because a messenger is created for a pipeline and can outlive a run. All the consumers of one kind for a pipeline in one JVM share these metrics, so each value covers every worker thread.
 
-**These names are stable**: dashboards and alerts can rely on them. The suffixes are constants on `KafkaConsumerMetrics`.
+The name suffixes are constants on `KafkaConsumerMetrics`.
 
 | Metric Name | Type | Registered by | Meaning |
 |-------------|------|---------------|---------|
@@ -163,8 +163,6 @@ Once a messenger has registered them, the periodic status lines include these va
 ## Hybrid Mode Metrics
 
 In hybrid mode (`WorkerIndexer` / `WorkerIndexerPool`), each worker hands documents to its paired Indexer through an in-memory queue. The worker's Kafka polls and commits are reported under `kafka.worker`, above. These metrics cover the queue. There is no run ID in hybrid mode, so the prefix is the pipeline name. All the WorkerIndexer pairs for a pipeline in one JVM share these metrics, so each value covers every pair.
-
-**These names are stable**: dashboards and alerts can rely on them.
 
 | Metric Name | Type | Registered by | Meaning |
 |-------------|------|---------------|---------|

@@ -80,7 +80,7 @@ import java.util.regex.Pattern;
  *
  * <p> Registers the Worker consumer's poll and commit metrics (see {@link KafkaConsumerMetrics}) and, in the shared
  * registry ({@link LogUtils#METRICS_REG}), {@code <pipeline>.hybrid.indexerQueue.full} (Meter): documents that found the
- * indexer queue full and had to wait for space. The name is stable; it is shared by every WorkerIndexer pair running
+ * indexer queue full and had to wait for space. It is shared by every WorkerIndexer pair running
  * the pipeline in this JVM, so the value covers all of them.
  */
 public class HybridWorkerMessenger implements WorkerMessenger {

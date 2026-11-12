@@ -25,7 +25,7 @@ public class WorkerIndexerPool {
   /**
    * Suffix of the Gauge, registered while the pool is running, whose name is the pipeline name followed by this suffix.
    * Its value is the lowest remaining capacity of any WorkerIndexer pair's indexer queue: 0 means at least one worker is
-   * blocked waiting for its indexer. The name is stable.
+   * blocked waiting for its indexer.
    */
   public static final String INDEXER_QUEUE_REMAINING_CAPACITY_SUFFIX = ".hybrid.indexerQueue.remainingCapacity";
 
