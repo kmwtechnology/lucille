@@ -714,10 +714,40 @@ public class CSVFileHandlerTest {
     Iterator<Document> docs = handler.processFile(toStream("id,value\n1,a\n,b\n2\n3,this value is too long\n4,c\n"), "test.csv");
     assertEquals("1", docs.next().getId());
 
-    IllegalStateException e = assertThrows(IllegalStateException.class, docs::next);
+    // the file can't continue, so hasNext() throws, as the FileHandler contract asks, instead of next() throwing as if
+    // for a bad record, which processFileAndPublish would skip and then find no more rows
+    IllegalStateException e = assertThrows(IllegalStateException.class, docs::hasNext);
     assertFalse(e instanceof BadRecordTracker.TooManyBadRecordsException);
     assertTrue(e.getMessage(), e.getMessage().contains("Logical row 4"));
     assertFalse(docs.hasNext());
+
+    // through processFileAndPublish, the file fails after publishing row 1
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    assertThrows(FileHandlerException.class, () -> handler.processFileAndPublish(publisher,
+        toStream("id,value\n1,a\n,b\n2\n3,this value is too long\n4,c\n"), "test.csv"));
+    assertEquals(1, messenger.getDocsSentForProcessing().size());
+  }
+
+  @Test
+  public void testTooManyBadRowsIsThrownFromHasNext() throws Exception {
+    FileHandler handler = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("idField", "id"))));
+    String csv = "id,name\n1,a\n" + ",x\n".repeat(BadRecordTracker.MAX_CONSECUTIVE) + "2,b\n";
+
+    Iterator<Document> docs = handler.processFile(toStream(csv), "test.csv");
+    assertEquals("1", docs.next().getId());
+    assertThrows(BadRecordTracker.TooManyBadRecordsException.class, docs::hasNext);
+    assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testAnUnreadableRowFailsTheFile() throws Exception {
+    // an unterminated quote runs to the end of the file, which CSVReader reports as an error reading the row
+    FileHandler handler = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("idField", "id"))));
+
+    Iterator<Document> docs = handler.processFile(toStream("id,name\n1,a\n2,\"b\n"), "test.csv");
+    assertEquals("1", docs.next().getId());
+    assertThrows(IllegalStateException.class, docs::hasNext);
   }
 
   @Test

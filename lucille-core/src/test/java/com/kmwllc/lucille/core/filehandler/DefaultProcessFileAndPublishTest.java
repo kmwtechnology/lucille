@@ -101,18 +101,20 @@ public class DefaultProcessFileAndPublishTest {
   }
 
   @Test
-  public void testTooManyBadRecordsFromNextStopsTheFile() {
+  public void testTooManyBadRecordsFromHasNextStopsTheFile() {
     BadRecordTracker tracker = new BadRecordTracker("test.dat");
     FileHandler handler = handlerReturning(() -> new Iterator<>() {
       @Override
       public boolean hasNext() {
-        return true;
+        for (int i = 1; i <= BadRecordTracker.MAX_CONSECUTIVE; i++) {
+          tracker.bad(i, "bad record");
+        }
+        return false;
       }
 
       @Override
       public Document next() {
-        tracker.bad(1, "bad record");
-        return null;
+        throw new NoSuchElementException();
       }
     });
 
