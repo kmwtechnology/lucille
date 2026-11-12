@@ -3,7 +3,6 @@ package com.kmwllc.lucille.core.filehandler;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
-import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.util.Collections;
@@ -70,7 +69,9 @@ public interface FileHandler {
    * its resources differently.
    *
    * <p>The given InputStream is closed when this returns or throws, including when the Publisher throws partway through
-   * the file. An override must do the same.
+   * the file. An override must do the same. A failure to close it is logged, not thrown, as when the Iterator closes
+   * it: the stream was given to this method, and by then the file has been read, so the failure says nothing about
+   * the file. Whoever opened the stream decides what a failure to close it means.
    *
    * @param publisher The publisher you want to publish documents to.
    * @param inputStream An InputStream of the file's contents.
@@ -81,7 +82,7 @@ public interface FileHandler {
   default void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException {
     // the Iterator closes the stream when it finishes, but not when publishing stops partway, such as when the Publisher
     // throws: an open stream from a cloud provider holds an HTTP connection
-    try (inputStream) {
+    try {
       Iterator<Document> docIterator;
 
       try {
@@ -92,8 +93,8 @@ public interface FileHandler {
       }
 
       DocumentIteratorPublisher.publishAll(publisher, docIterator, pathStr);
-    } catch (IOException e) {
-      throw new FileHandlerException("Error closing file " + pathStr, e);
+    } finally {
+      DocumentIteratorPublisher.closeStream(inputStream, pathStr);
     }
   }
 

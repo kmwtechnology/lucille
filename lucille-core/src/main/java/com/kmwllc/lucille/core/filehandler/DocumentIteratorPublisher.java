@@ -4,6 +4,8 @@ import static com.kmwllc.lucille.core.Document.ID_FIELD;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Iterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +47,18 @@ final class DocumentIteratorPublisher {
           throw new FileHandlerException("Error publishing file " + pathStr, e);
         }
       }
+    }
+  }
+
+  /**
+   * Closes a stream given to a FileHandler, logging rather than throwing a failure to close it, since the file has been
+   * read by then.
+   */
+  static void closeStream(InputStream inputStream, String pathStr) {
+    try {
+      inputStream.close();
+    } catch (IOException e) {
+      log.warn("Error closing file {}", pathStr, e);
     }
   }
 

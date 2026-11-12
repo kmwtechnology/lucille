@@ -24,7 +24,7 @@ To create a FileHandler, extend `BaseFileHandler`, which implements the `FileHan
 | Method | Required | Purpose |
 |---|---|---|
 | `processFile(InputStream, String pathStr)` | Yes | Parse the stream and return an `Iterator<Document>` that follows [the iterator contract](#the-iterator-contract). |
-| `processFileAndPublish(Publisher, InputStream, String)` | No | Parse and publish directly. `FileHandler` provides a default; override it only for a format that can't be read through an iterator, or that needs to manage resources differently. An override must close the stream however it ends. |
+| `processFileAndPublish(Publisher, InputStream, String)` | No | Parse and publish directly. `FileHandler` provides a default; override it only for a format that can't be read through an iterator, or that needs to manage resources differently. An override must close the stream however it ends, and log a failure to close it rather than throw, since the file has been read by then. |
 | `supportsProcessFile()` | No | Return `false` if your handler can only publish, and throws from `processFile()`. Defaults to `true`. Stages that need an iterator, such as `ApplyFileHandlers`, reject such a handler when they start. |
 
 **What you declare:** a `public static final Spec SPEC`, built with `SpecBuilder.fileHandler()`, which already includes `class` and `docIdPrefix`.

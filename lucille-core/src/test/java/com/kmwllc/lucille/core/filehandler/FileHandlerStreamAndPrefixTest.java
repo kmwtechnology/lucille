@@ -12,6 +12,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.ConfigFactory;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -21,7 +22,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.Test;
 
 /**
- * Tests that <code>processFileAndPublish</code> closes its stream however it ends, and that every built-in handler applies
+ * Tests that <code>processFileAndPublish</code> closes its stream however it ends, logging a failure to close it, and that every built-in handler applies
  * <code>docIdPrefix</code> through {@link BaseFileHandler#createDocId(String)}.
  */
 public class FileHandlerStreamAndPrefixTest {
@@ -114,6 +115,32 @@ public class FileHandlerStreamAndPrefixTest {
     TrackingStream stream = new TrackingStream(CSV);
     csv(Map.of()).processFileAndPublish(mock(Publisher.class), stream, "test.csv");
     assertTrue(stream.closed);
+  }
+
+  /** Fails to close. */
+  private static class UnclosableStream extends ByteArrayInputStream {
+    UnclosableStream(String content) {
+      super(content.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Override
+    public void close() throws IOException {
+      throw new IOException("can't close");
+    }
+  }
+
+  @Test
+  public void testAFailureToCloseIsLoggedNotThrown() throws Exception {
+    // the file has been read by the time the stream is closed, so it is not failed
+    for (Object[] c : new Object[][] {{csv(Map.of()), CSV, "test.csv"}, {json(Map.of()), JSON, "test.jsonl"},
+        {xml(Map.of()), XML, "test.xml"}}) {
+      List<String> ids = new ArrayList<>();
+      Publisher publisher = mock(Publisher.class);
+      doAnswer(inv -> ids.add(((Document) inv.getArgument(0)).getId())).when(publisher).publish(any());
+
+      ((FileHandler) c[0]).processFileAndPublish(publisher, new UnclosableStream((String) c[1]), (String) c[2]);
+      assertEquals((String) c[2], List.of("1", "2"), ids);
+    }
   }
 
   @Test
