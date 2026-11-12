@@ -320,20 +320,20 @@ public class FileConnectorTest {
         d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subdir/e.yaml")).findAny().orElseThrow();
     assertTrue(doc11.getId().startsWith("normal-"));
 
-    Document doc12 = documentList.stream().filter(d -> d.has("source") &&
-        d.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv") &&
-        d.getId().equals("csvHandled-" + DigestUtils.md5Hex(d.getString("source")) + "-1")).findAny().orElseThrow();
-    assertTrue(doc12.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
+    Document doc12 = documentList.stream().filter(d -> d.has("file_path") &&
+        d.getString("file_path").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv") &&
+        d.getId().equals("csvHandled-" + DigestUtils.md5Hex(d.getString("file_path")) + "-1")).findAny().orElseThrow();
+    assertTrue(doc12.getString("file_path").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
-    Document doc13 = documentList.stream().filter(d -> d.has("source") &&
-        d.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv") &&
-        d.getId().equals("csvHandled-" + DigestUtils.md5Hex(d.getString("source")) + "-2")).findAny().orElseThrow();
-    assertTrue(doc13.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
+    Document doc13 = documentList.stream().filter(d -> d.has("file_path") &&
+        d.getString("file_path").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv") &&
+        d.getId().equals("csvHandled-" + DigestUtils.md5Hex(d.getString("file_path")) + "-2")).findAny().orElseThrow();
+    assertTrue(doc13.getString("file_path").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
-    Document doc14 = documentList.stream().filter(d -> d.has("source") &&
-        d.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv") &&
-        d.getId().equals("csvHandled-" + DigestUtils.md5Hex(d.getString("source")) + "-3")).findAny().orElseThrow();
-    assertTrue(doc14.getString("source").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
+    Document doc14 = documentList.stream().filter(d -> d.has("file_path") &&
+        d.getString("file_path").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv") &&
+        d.getId().equals("csvHandled-" + DigestUtils.md5Hex(d.getString("file_path")) + "-3")).findAny().orElseThrow();
+    assertTrue(doc14.getString("file_path").endsWith("subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv"));
 
     Document doc15 = documentList.stream().filter(d -> d.getId().equals("xmlHandled-1001")).findAny().orElseThrow();
     assertEquals("<staff>\n" +

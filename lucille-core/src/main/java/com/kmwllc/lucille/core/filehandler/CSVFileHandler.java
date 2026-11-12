@@ -41,7 +41,10 @@ import org.slf4j.LoggerFactory;
  * <p>A row that cannot be turned into a Document is logged and skipped, and the following rows are still processed.
  * This covers a blank line, a row with the wrong number of columns, and a row whose id, built from the idFields, is
  * blank as a whole. An id with only some blank parts, such as "2_" from two columns, is usable. If 10 rows in a row cannot
- * be read the file fails, because the cause is then likely a wrong configuration or the wrong file format.
+ * be read the file fails, because the cause is then likely a wrong configuration or the wrong file format. A row the
+ * CSV parser can't read at all, such as one with an unterminated quote, also fails the file, since the rows after it
+ * can't be found reliably. As the {@link FileHandler#processFile} contract asks, all of these are thrown from the
+ * Iterator's <code>hasNext()</code>.
  * <p>
  * <code>maxRecordBytes</code> (Integer, Optional): The maximum size, in bytes (UTF-8), of a single row, including all the
  * physical lines of a row whose quoted value contains line breaks. If a row exceeds this limit, processing of the file
@@ -82,7 +85,8 @@ public class CSVFileHandler extends BaseFileHandler {
 
     this.lineNumField = ConfigUtils.getStringOrDefault(config, "lineNumberField", "csvLineNumber");
     this.filenameField = ConfigUtils.getStringOrDefault(config, "filenameField", "filename");
-    this.filePathField = ConfigUtils.getStringOrDefault(config, "filePathField", "source");
+    // the same field the storage clients and ApplyFileHandlers use for the path
+    this.filePathField = ConfigUtils.getStringOrDefault(config, "filePathField", "file_path");
     String idField = ConfigUtils.getStringOrDefault(config, "idField", null);
     // Either specify the idField, or idFields
     if (idField != null) {
@@ -124,49 +128,88 @@ public class CSVFileHandler extends BaseFileHandler {
 
   private Iterator<Document> getDocumentIterator(CSVReader reader, BufferedReader lineReader, String filename, String path)
       throws FileHandlerException {
-    return new Iterator<Document>() {;
+    return new Iterator<Document>() {
       final CSVReader csvReader = reader;
       final BadRecordTracker tracker = new BadRecordTracker(path);
       final String[] header = getHeaderFromCSV(csvReader, path);
       final Map<String, Integer> columnIndexMap = getColumnIndexMap(header, path);
       final List<Integer> idColumns = getIdColumns(columnIndexMap, path);
       final String pathHash = idColumns.isEmpty() ? DigestUtils.md5Hex(path) : null;
-      Integer lineNum = 0;
-      // read lazily in hasNext(), not with CSVIterator: it reads one row ahead, so a failure on row N would lose row N-1
-      String[] nextLine = null;
+      int lineNum = 0;
+      // the next Document, read ahead by hasNext() so that rows that can't be read are skipped there, and every error
+      // that ends the file is thrown from hasNext(). Not CSVIterator: it reads one row further ahead, so a failure on row
+      // N would lose row N-1
+      Document pending = null;
       boolean finished = false;
 
       @Override
       public boolean hasNext() {
-        if (nextLine != null) {
+        if (pending != null) {
           return true;
         }
         if (finished) {
           return false;
         }
 
+        try {
+          String[] line;
+          while ((line = readRow()) != null) {
+            lineNum++;
+            pending = toDocument(line);
+            if (pending != null) {
+              return true;
+            }
+          }
+        } catch (RuntimeException e) {
+          // too many bad rows in a row, a row over maxRecordBytes, or an error reading the file: it can't continue
+          // the exception's message gives the row: the one being read, or the last of the bad rows
+          log.error("Can't continue reading CSV file. ({})", path, e);
+          finish();
+          throw e;
+        }
+
+        finish();
+        return false;
+      }
+
+      /** Reads the next row, or returns null at the end of the file. */
+      private String[] readRow() {
         // each row is its own record, even if a quoted value makes it span several physical lines
         if (lineReader instanceof BoundedLineReader boundedReader) {
           boundedReader.startRecord();
         }
 
         try {
-          nextLine = csvReader.readNext();
+          return csvReader.readNext();
         } catch (BoundedLineReader.RecordTooLargeException e) {
-          finish();
           throw new IllegalStateException(String.format("Logical row %d exceeds maxRecordBytes. (%s)", lineNum + 1, path), e);
         } catch (IOException | CsvValidationException e) {
-          // other read errors stop processing of the file without failing it
-          log.error("Error reading logical row {}. ({})", lineNum + 1, path, e);
-          finish();
-          return false;
+          throw new IllegalStateException(String.format("Error reading logical row %d. (%s)", lineNum + 1, path), e);
         }
+      }
 
-        if (nextLine == null) {
-          finish();
-          return false;
+      /** Returns the row's Document, or null if the row is skipped. Throws once too many rows in a row are skipped. */
+      private Document toDocument(String[] line) {
+        if (line.length == 0 || (line.length == 1 && StringUtils.isBlank(line[0]))) {
+          log.warn("Skipping blank line {}. ({})", lineNum, path);
+          return null;
         }
-        return true;
+        if (line.length != header.length) {
+          // a row with the wrong number of columns is skipped like any other bad record, so that a file where every row
+          // mismatches (for example a header with a trailing empty cell) fails instead of yielding no documents.
+          // The row number reported here may differ from the physical line number if a quoted value spans lines.
+          tracker.bad(lineNum, String.format("row has %d columns but the header has %d", line.length, header.length));
+          return null;
+        }
+        try {
+          Document doc = getDocumentFromLine(idColumns, header, line, filename, path, pathHash, lineNum);
+          tracker.good();
+          return doc;
+        } catch (DocumentException | IllegalArgumentException e) {
+          // a problem with this row's data: skip it and carry on with the next row
+          tracker.bad(lineNum, e.getMessage());
+          return null;
+        }
       }
 
       @Override
@@ -176,40 +219,9 @@ public class CSVFileHandler extends BaseFileHandler {
           return null;
         }
 
-        try {
-          // rows that cannot be turned into a Document are skipped, so keep reading until there is one, or no more rows.
-          // hasNext() reads each row and throws if it exceeds maxRecordBytes, which fails the file even while skipping.
-          do {
-            String[] line = nextLine;
-            nextLine = null;
-            lineNum++;
-
-            if (line.length == 0 || (line.length == 1 && StringUtils.isBlank(line[0]))) {
-              log.warn("Skipping blank line {}. ({})", lineNum, path);
-            } else if (line.length != header.length) {
-              // a row with the wrong number of columns is skipped like any other bad record, so that a file where every row
-              // mismatches (for example a header with a trailing empty cell) fails instead of yielding no documents.
-              // The row number reported here may differ from the physical line number if a quoted value spans lines.
-              tracker.bad(lineNum, String.format("row has %d columns but the header has %d", line.length, header.length));
-            } else {
-              try {
-                Document doc = getDocumentFromLine(idColumns, header, line, filename, path, pathHash, lineNum);
-                tracker.good();
-                return doc;
-              } catch (DocumentException | IllegalArgumentException e) {
-                // a problem with this row's data: skip it and carry on with the next row
-                tracker.bad(lineNum, e.getMessage());
-              }
-            }
-          } while (hasNext());
-
-          // the remaining rows were all skipped; the caller treats null as "no document" and then sees hasNext() is false
-          return null;
-        } catch (BadRecordTracker.TooManyBadRecordsException e) {
-          log.error("Error processing CSV line {}. ({})", lineNum, path, e);
-          finish();
-          throw e;
-        }
+        Document doc = pending;
+        pending = null;
+        return doc;
       }
 
       // closes the reader and logs the summary of skipped rows once, however the file ended
@@ -255,7 +267,7 @@ public class CSVFileHandler extends BaseFileHandler {
       docId = createDocId(rawId);
     } else {
       // hash the full path, not the filename, so same-named files in different folders don't overwrite each other
-      docId = docIdPrefix + pathHash + "-" + lineNum;
+      docId = createDocId(pathHash + "-" + lineNum);
     }
 
     Document doc = Document.create(docId);
@@ -379,11 +391,6 @@ public class CSVFileHandler extends BaseFileHandler {
       // Join the column data with an underscore if no docIdFormat provided.
       return StringUtils.join(idColumnData, "_");
     }
-  }
-
-  // TODO: synchronize with abstractConnector
-  private String createDocId(String id) {
-    return docIdPrefix + id;
   }
 
 }
