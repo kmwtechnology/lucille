@@ -432,7 +432,7 @@ public abstract class Indexer implements Runnable {
    *   into a later operation on the same id.</li>
    *   <li>Each returned failure must hold an instance from {@link PendingSend#documents()}, and each instance may be
    *   reported only once. A failure that breaks either rule can't be matched to a document, so no retry is made and
-   *   every document in the batch without a failure of its own is failed.</li>
+   *   every document in this send without a failure of its own is failed.</li>
    *   <li>Throw only when nothing in this call was applied, or when that can't be known. An Indexer that applied part of
    *   the send before an error returns per-document failures instead, because a call that throws tells the base class
    *   nothing about its documents: after a throw, all of them are still pending.</li>
@@ -645,8 +645,10 @@ public abstract class Indexer implements Runnable {
     // The failure that kept each pending document pending in the latest attempt that returned: retryable or not-sent.
     private Map<Document, IndexerFailure> latest = new IdentityHashMap<>();
     // The first failure that could not be matched to a document of its send, if any. It ends the retries and fails
-    // every document without a failure of its own.
+    // the documents of that send that it did not report (unreportedWithUnmatched). Documents resolved by an earlier
+    // attempt were not in that send and keep their results.
     private IndexerFailure unmatched = null;
+    private Set<Document> unreportedWithUnmatched = Set.of();
     private int attempts = 0;
 
     SendProgress(List<Document> batchedDocs) {
@@ -669,7 +671,7 @@ public abstract class Indexer implements Runnable {
       for (IndexerFailure failure : failures) {
         if (!unreported.remove(failure.document())) {
           log.error("sendToIndex reported a failure for doc {}, which is not an instance from its send or was already "
-              + "reported. The rest of the batch will be failed.", failure.document().getId(), failure.cause());
+              + "reported. The rest of the send will be failed.", failure.document().getId(), failure.cause());
           if (unmatched == null) {
             unmatched = failure;
           }
@@ -683,6 +685,9 @@ public abstract class Indexer implements Runnable {
         }
       }
 
+      if (unmatched != null) {
+        unreportedWithUnmatched = unreported;
+      }
       latest = stillPending;
       pending = send.documents().stream().filter(stillPending::containsKey).toList();
       // After a failure that can't be matched, there is no telling which documents were applied, so retrying is unsafe.
@@ -706,10 +711,10 @@ public abstract class Indexer implements Runnable {
               blocker)
           : new IndexerException("Not sent, because an earlier document in its batch failed.");
 
-      // A document was rejected and there is no telling which one, so no document can be reported as succeeded, including
-      // those an earlier attempt applied.
+      // A document of the last send was rejected and there is no telling which one, so none of the documents that send
+      // left unreported can be reported as succeeded.
       Exception unmatchedCause = unmatched == null ? null : new IndexerException("sendToIndex reported a failure for doc "
-          + unmatched.document().getId() + " that could not be matched to a document in its batch: "
+          + unmatched.document().getId() + " that could not be matched to a document in its send: "
           + unmatched.cause().getMessage(), unmatched.cause());
 
       List<IndexerFailure> result = new ArrayList<>();
@@ -717,7 +722,7 @@ public abstract class Indexer implements Runnable {
         IndexerFailure failure = permanent.containsKey(doc) ? permanent.get(doc) : latest.get(doc);
         if (failure != null) {
           result.add(failure.isNotSent() ? new IndexerFailure(doc, notSentCause) : failure);
-        } else if (unmatchedCause != null) {
+        } else if (unreportedWithUnmatched.contains(doc)) {
           result.add(new IndexerFailure(doc, unmatchedCause));
         }
       }

@@ -313,8 +313,34 @@ public class IndexerRetryTest {
 
     runBatch(indexer, messenger, docs);
 
+    // a was not in the send that made the bad report, so its result stands. b was, and can't be counted as applied.
     assertEquals(List.of(List.of("a", "b"), List.of("b")), indexer.sentIds());
-    assertEquals(List.of("a", "b"), idsWithEvent(messenger, Event.Type.FAIL));
+    assertEquals(List.of("a"), idsWithEvent(messenger, Event.Type.FINISH));
+    assertEquals(List.of("b"), idsWithEvent(messenger, Event.Type.FAIL));
+  }
+
+  @Test
+  public void testUnmatchedFailureOnALaterAttemptFailsOnlyThatSend() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    // First attempt: a is applied, b is rejected for good, and c, d and e fail retryably. The retry (c, d, e) reports
+    // c with a retryable failure of its own, and a failure for a document that is not in the send.
+    ScriptedIndexer indexer = new ScriptedIndexer(TWO_RETRIES, messenger, send -> send.attempt() == 1
+        ? List.of(permanent(send.documents().get(1)), retryable(send.documents().get(2)),
+            retryable(send.documents().get(3)), retryable(send.documents().get(4)))
+        : List.of(retryable(send.documents().get(0)), permanent(Document.create("stranger"))));
+
+    runBatch(indexer, messenger, docs("a", "b", "c", "d", "e"));
+
+    // no third attempt, although c's failure is retryable
+    assertEquals(List.of(List.of("a", "b", "c", "d", "e"), List.of("c", "d", "e")), indexer.sentIds());
+    assertEquals(List.of("a"), idsWithEvent(messenger, Event.Type.FINISH));
+    assertEquals(List.of("b", "c", "d", "e"), idsWithEvent(messenger, Event.Type.FAIL));
+    Map<String, String> messages = failMessages(messenger);
+    assertTrue(messages.get("b").contains("rejected b"));
+    assertTrue(messages.get("c").contains("unavailable c"));
+    for (String id : List.of("d", "e")) {
+      assertTrue(messages.get(id), messages.get(id).contains("could not be matched"));
+    }
   }
 
   @Test

@@ -7,7 +7,7 @@ import java.util.Objects;
  *
  * @param document The document that failed. Must be an instance from the send's documents, not a copy: two documents
  *     with the same content are different documents, so failures are matched to a send's documents by identity. A
- *     failure that can't be matched fails the rest of the batch.
+ *     failure that can't be matched fails the rest of the send.
  * @param cause Why the document failed. Use an {@link IndexerRetryableException} if the failure may be transient.
  */
 public record IndexerFailure(Document document, Exception cause) {
