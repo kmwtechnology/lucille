@@ -10,22 +10,13 @@ import {
   DOCS_URL,
   HEALTH_POLL_INTERVAL_MS,
   HEALTH_PROBE_TIMEOUT_MS,
-  SYSTEM_STATS_POLL_INTERVAL_MS,
 } from "@/lib/constants"
-import type { SystemStats } from "@/types/api"
 import { mockFetch, mockFetchHang, mockFetchReject } from "@/test/helpers/fetch-mock"
 
 // Sidebar reads auth state; the Layout gate doesn't care, so stub it as "no auth required".
 vi.mock("@/lib/auth-context", () => ({
   useAuth: () => ({ status: "authenticated", authRequired: false, login: vi.fn(), logout: vi.fn() }),
 }))
-
-const stats: SystemStats = {
-  cpu: { percent: 12, used: 1, available: 7, total: 8, loadAverage: 0.5 },
-  ram: { total: 16, available: 8, used: 8, percent: 50 },
-  jvm: { total: 4, free: 1, used: 3, percent: 75 },
-  storage: { total: 100, available: 40, used: 60, percent: 60 },
-}
 
 function renderLayout(page: ReactElement = <div>page content</div>) {
   return render(
@@ -81,12 +72,11 @@ describe("Layout", () => {
     mockFetch({
       "/v1/livez": { status: 200 },
       "/v1/readyz": { status: 200 },
-      "/v1/systemstats": { json: stats },
       "/v1/config": { json: {} },
       "/v1/run": { json: [] },
     })
     const { container } = renderLayout(<Dashboard />)
-    expect(await screen.findByText("60%")).toBeInTheDocument()
+    expect(await screen.findByText("Total Configs")).toBeInTheDocument()
 
     let sawCardError = false
     const observer = new MutationObserver(() => {
@@ -96,7 +86,7 @@ describe("Layout", () => {
 
     mockFetch({ "/v1": { status: 500, body: "proxy error" } })
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(SYSTEM_STATS_POLL_INTERVAL_MS)
+      await vi.advanceTimersByTimeAsync(2 * HEALTH_POLL_INTERVAL_MS)
     })
 
     expect(await screen.findByText("Can't reach the Lucille API")).toBeInTheDocument()
@@ -110,12 +100,11 @@ describe("Layout", () => {
     mockFetch({
       "/v1/livez": { status: 200 },
       "/v1/readyz": { status: 200 },
-      "/v1/systemstats": { json: stats },
       "/v1/config": { json: {} },
       "/v1/run": { json: [] },
     })
     const { container } = renderLayout(<Dashboard />)
-    expect(await screen.findByText("60%")).toBeInTheDocument()
+    expect(await screen.findByText("Total Configs")).toBeInTheDocument()
 
     mockFetchHang()
     await act(async () => {

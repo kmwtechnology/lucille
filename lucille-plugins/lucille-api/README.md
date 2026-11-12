@@ -45,7 +45,6 @@ the table requires Basic Auth credentials, except the liveness and readiness pro
 |--------|------|-------------|------|
 | GET    | `/v1/livez`                          | Liveness probe — returns 200 if the process is running | — |
 | GET    | `/v1/readyz`                         | Readiness probe — returns 200 once the app is ready to serve | — |
-| GET    | `/v1/systemstats`                    | CPU, memory, and JVM resource usage | — |
 | GET    | `/v1/systemstats/metrics`            | Detailed metrics breakdown | — |
 | GET    | `/v1/config-info/connector-list`     | Lists the available connector classes | — |
 | GET    | `/v1/config-info/stage-list`         | Lists the available stage classes | — |

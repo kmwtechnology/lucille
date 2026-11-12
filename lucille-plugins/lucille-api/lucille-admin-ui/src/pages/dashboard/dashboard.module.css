@@ -17,85 +17,34 @@
   @apply text-muted-foreground;
 }
 
-/* Status cards row */
-.statusGrid {
-  @apply grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6 mb-8;
-}
 
 /* Detail cards row */
 .detailGrid {
   @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8;
 }
 
-/* Stat card shared styles */
-.statCard {
-  @apply shadow-sm hover:shadow-md transition-shadow flex flex-col h-full;
-}
 
-.statCardHealthy {
-  @apply border-teal-100;
-}
 
-.statCardBlue {
-  @apply border-blue-100 shadow-sm;
-}
 
-.statCardTeal {
-  @apply border-teal-100 shadow-sm;
-}
 
-.statCardOrange {
-  @apply border-orange-100 shadow-sm;
-}
 
-/* Stat card content */
-.statHeader {
-  @apply pb-2 space-y-1;
-}
 
-.statTitleHealthy {
-  @apply flex items-center gap-2 text-base sm:text-lg text-teal-700;
-}
 
-.statValue {
-  @apply text-2xl font-bold;
-}
 
-.statValueTeal {
-  @apply text-2xl font-bold text-teal-700;
-}
 
-.statValueBlue {
-  @apply text-2xl font-bold text-blue-700;
-}
 
-.statValueOrange {
-  @apply text-2xl font-bold text-orange-700;
-}
 
 .statValueRed {
   @apply text-2xl font-bold text-red-700;
 }
 
-.statValueYellow {
-  @apply text-2xl font-bold text-yellow-700;
-}
 
-.statSubtext {
-  @apply text-sm text-muted-foreground;
-}
 
-.statSubtextTeal {
-  @apply text-sm text-teal-600;
-}
 
 .statSubtextRed {
   @apply text-sm text-red-600;
 }
 
-.statSubtextYellow {
-  @apply text-sm text-yellow-600;
-}
 
 /* Detail cards */
 .detailCard {
