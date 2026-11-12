@@ -319,6 +319,32 @@ public class ApplyFileHandlersTest {
   }
 
   @Test
+  public void testTheStreamIsClosedWhenProcessFileThrows() throws Exception {
+    Stage stage = factory.get("ApplyFileHandlersTest/throwingCustom.conf");
+
+    Document doc = Document.create("doc");
+    doc.setField("file_path", secretCSVTXTPath.toString());
+
+    assertThrows(StageException.class, () -> stage.processDocument(doc));
+    // a closed FileInputStream refuses to report what is available
+    assertThrows(IOException.class, () -> ThrowingFileHandler.given.available());
+  }
+
+  /** Throws from processFile, keeping the stream it was given. */
+  public static class ThrowingFileHandler implements FileHandler {
+    static InputStream given;
+
+    public ThrowingFileHandler(Config config) {
+    }
+
+    @Override
+    public Iterator<Document> processFile(InputStream inputStream, String pathStr) {
+      given = inputStream;
+      throw new IllegalStateException("can't set up");
+    }
+  }
+
+  @Test
   public void testInvalidConfs() {
     assertThrows(StageException.class, () -> factory.get("ApplyFileHandlersTest/empty.conf"));
     assertThrows(StageException.class, () -> factory.get("ApplyFileHandlersTest/noHandlers.conf"));

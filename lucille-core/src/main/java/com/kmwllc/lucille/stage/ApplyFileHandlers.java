@@ -154,7 +154,13 @@ public class ApplyFileHandlers extends Stage {
 
     try {
       return new SkippingIterator(handler.processFile(fileContentStream, filePath), filePath);
-    } catch (FileHandlerException e) {
+    } catch (FileHandlerException | RuntimeException e) {
+      // no Iterator will close the stream, so close it here: a stream from cloud storage holds an HTTP connection
+      try {
+        fileContentStream.close();
+      } catch (IOException closeFailure) {
+        e.addSuppressed(closeFailure);
+      }
       throw new StageException("Could not process file " + filePath, e);
     }
   }
