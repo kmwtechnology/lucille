@@ -345,7 +345,7 @@ Extracts frames from video files, publishing one Document per sampled frame with
 | `frameStride` | Integer | No | Publish every Nth frame. Values below 1 are treated as 1. Default: `1`. |
 | `docIdFormat` | String | No | `String.format` pattern with a single `%s`, applied to the file name without its extension to build the ID base. If not set, the base is the MD5 hash of the file's full path. |
 | `filePathField` | String | No | Field for the file path. Default: `file_path`. |
-| `filenameField` | String | No | Field for the file name. Default: `file_name`. |
+| `filenameField` | String | No | Field for the file name. Default: `filename`. |
 | `frameIndexField` | String | No | Field for the zero-based frame index. Default: `frame_index`. |
 | `frameTimeMsField` | String | No | Field for the frame timestamp in milliseconds. Default: `frame_time_ms`. |
 | `frameTimecodeField` | String | No | Field for the timestamp as `HH:MM:SS.mmm`. Default: `frame_timecode`. |

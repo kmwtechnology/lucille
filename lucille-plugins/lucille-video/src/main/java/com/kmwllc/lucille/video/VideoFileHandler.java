@@ -36,7 +36,7 @@ import org.bytedeco.javacv.Java2DFrameConverter;
  *   parent id (a single %s placeholder). Without it, the parent id is the md5 hash of the full file path.</li>
  *   <li>frameStride (Int, Optional) : Emit every Nth video frame; defaults to 1.</li>
  *   <li>filePathField (String, Optional) : Field used to store the original file path; defaults to "file_path".</li>
- *   <li>filenameField (String, Optional) : Field used to store the leaf filename; defaults to "file_name".</li>
+ *   <li>filenameField (String, Optional) : Field used to store the leaf filename; defaults to "filename".</li>
  *   <li>frameIndexField (String, Optional) : Field used to store the zero-based frame index; defaults to "frame_index".</li>
  *   <li>frameTimeMsField (String, Optional) : Field used to store the frame timestamp in milliseconds; defaults to "frame_time_ms".</li>
  *   <li>frameTimecodeField (String, Optional) : Field used to store the human-readable frame timecode; defaults to "frame_timecode".</li>
@@ -71,7 +71,8 @@ public class VideoFileHandler extends BaseFileHandler {
     this.frameStride = Math.max(1, ConfigUtils.getIntOrDefault(config, "frameStride", 1));
     // the same field the storage clients, CSVFileHandler and ApplyFileHandlers use for the path
     this.filePathField = ConfigUtils.getStringOrDefault(config, "filePathField", "file_path");
-    this.filenameField = ConfigUtils.getStringOrDefault(config, "filenameField", "file_name");
+    // the same default as CSVFileHandler
+    this.filenameField = ConfigUtils.getStringOrDefault(config, "filenameField", "filename");
     this.frameIndexField = ConfigUtils.getStringOrDefault(config, "frameIndexField", "frame_index");
     this.frameTimeMsField = ConfigUtils.getStringOrDefault(config, "frameTimeMsField", "frame_time_ms");
     this.frameTimecodeField = ConfigUtils.getStringOrDefault(config, "frameTimecodeField", "frame_timecode");

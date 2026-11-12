@@ -41,7 +41,7 @@ public class VideoFileHandlerTest {
     assertEquals(DigestUtils.md5Hex(filePath) + "-f0", first.getId());
 
     assertEquals(filePath, first.getString("file_path"));
-    assertEquals(leaf, first.getString("file_name"));
+    assertEquals(leaf, first.getString("filename"));
 
     Integer frameIndex = first.getInt("frame_index");
     assertNotNull(frameIndex);
@@ -78,6 +78,19 @@ public class VideoFileHandlerTest {
     Document configured = firstFrame(new VideoFileHandler(ConfigFactory.parseMap(Map.of("filePathField", "source"))), filePath);
     assertEquals(filePath, configured.getString("source"));
     assertFalse(configured.has("file_path"));
+  }
+
+  @Test
+  public void testFilenameFieldDefaultsToFilename() throws Exception {
+    String filePath = "src/test/resources/VideoFileHandlerTest/sample.mp4";
+
+    // the default matches CSVFileHandler
+    Document byDefault = firstFrame(new VideoFileHandler(ConfigFactory.empty()), filePath);
+    assertEquals("sample.mp4", byDefault.getString("filename"));
+    assertFalse(byDefault.has("file_name"));
+
+    Document configured = firstFrame(new VideoFileHandler(ConfigFactory.parseMap(Map.of("filenameField", "file_name"))), filePath);
+    assertEquals("sample.mp4", configured.getString("file_name"));
   }
 
   private static Document firstFrame(VideoFileHandler handler, String filePath) throws Exception {
