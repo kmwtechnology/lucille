@@ -15,6 +15,7 @@ import java.util.Iterator;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -39,8 +40,8 @@ public class VideoFileHandlerTest {
 
     assertEquals(DigestUtils.md5Hex(filePath) + "-f0", first.getId());
 
-    assertEquals(filePath, first.getString("source"));
-    assertEquals(leaf, first.getString("file_name"));
+    assertEquals(filePath, first.getString("file_path"));
+    assertEquals(leaf, first.getString("filename"));
 
     Integer frameIndex = first.getInt("frame_index");
     assertNotNull(frameIndex);
@@ -62,6 +63,40 @@ public class VideoFileHandlerTest {
     byte[] imageBytes = first.getBytes("frame_image");
     assertNotNull(imageBytes);
     assertTrue(imageBytes.length > 0);
+  }
+
+  @Test
+  public void testFilePathFieldDefaultsToFilePath() throws Exception {
+    String filePath = "src/test/resources/VideoFileHandlerTest/sample.mp4";
+
+    // the default matches the storage clients and CSVFileHandler
+    Document byDefault = firstFrame(new VideoFileHandler(ConfigFactory.empty()), filePath);
+    assertEquals(filePath, byDefault.getString("file_path"));
+    assertFalse(byDefault.has("source"));
+
+    // the old field is still available by setting it
+    Document configured = firstFrame(new VideoFileHandler(ConfigFactory.parseMap(Map.of("filePathField", "source"))), filePath);
+    assertEquals(filePath, configured.getString("source"));
+    assertFalse(configured.has("file_path"));
+  }
+
+  @Test
+  public void testFilenameFieldDefaultsToFilename() throws Exception {
+    String filePath = "src/test/resources/VideoFileHandlerTest/sample.mp4";
+
+    // the default matches CSVFileHandler
+    Document byDefault = firstFrame(new VideoFileHandler(ConfigFactory.empty()), filePath);
+    assertEquals("sample.mp4", byDefault.getString("filename"));
+    assertFalse(byDefault.has("file_name"));
+
+    Document configured = firstFrame(new VideoFileHandler(ConfigFactory.parseMap(Map.of("filenameField", "file_name"))), filePath);
+    assertEquals("sample.mp4", configured.getString("file_name"));
+  }
+
+  private static Document firstFrame(VideoFileHandler handler, String filePath) throws Exception {
+    try (FileInputStream fis = new FileInputStream(filePath)) {
+      return handler.processFile(fis, filePath).next();
+    }
   }
 
   @Test

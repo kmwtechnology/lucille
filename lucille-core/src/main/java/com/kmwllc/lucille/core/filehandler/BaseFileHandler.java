@@ -1,28 +1,18 @@
 package com.kmwllc.lucille.core.filehandler;
 
-import static com.kmwllc.lucille.core.Document.ID_FIELD;
-
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.typesafe.config.Config;
-import java.io.InputStream;
-import java.util.Iterator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
-import org.slf4j.MDC.MDCCloseable;
 
 /**
- * The base implementation of a FileHandler.
+ * The base implementation of a FileHandler. Validates the handler's Config against its Spec and applies
+ * <code>docIdPrefix</code> through {@link #createDocId(String)}. Publishing comes from
+ * {@link FileHandler#processFileAndPublish}.
  */
 public abstract class BaseFileHandler implements FileHandler {
 
-  private static final Logger log = LoggerFactory.getLogger(BaseFileHandler.class);
-  private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
-
-  protected final String docIdPrefix;
+  private final String docIdPrefix;
 
   public BaseFileHandler(Config config) {
     Spec.of(getClass()).validate(config, getClass().getName());
@@ -31,54 +21,22 @@ public abstract class BaseFileHandler implements FileHandler {
   }
 
   /**
-   * Process and publish the file, described by an InputStream to its contents and a String representation of its path, publishing
-   * any extracted documents to the Publisher.
+   * Creates the id of a Document this handler extracts, by applying the configured <code>docIdPrefix</code> to the given
+   * id. Every Document a handler creates should get its id from here, so that the prefix is applied the same way by
+   * every handler.
    *
-   * @param publisher The publisher you want to publish documents to.
-   * @param inputStream An InputStream of the file's contents.
-   * @param pathStr A string representing the path to the file being processed. Used for logging / debugging.
-   * @throws FileHandlerException If an error occurs while processing the file / setting up an Iterator of Documents
-   * to extract from the file.
+   * <p>A handler reading a record whose id may be blank should check it with {@link Document#isValidId(String)} first,
+   * and skip the record if it is not valid. This method refuses a null or blank id, instead of building an id that would
+   * be shared by every such record.
+   *
+   * @param id The id built from the record, before the prefix is applied.
+   * @return The Document id: the configured <code>docIdPrefix</code> followed by the given id.
+   * @throws IllegalArgumentException if the id is null or blank
    */
-  public void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException {
-    Iterator<Document> docIterator;
-
-    try {
-      docIterator = processFile(inputStream, pathStr);
-    } catch (Exception e) {
-      // going to skip this file if an error occurs
-      throw new FileHandlerException("Unable to set up iterator for this file " + pathStr, e);
+  protected final String createDocId(String id) {
+    if (!Document.isValidId(id)) {
+      throw new IllegalArgumentException("Cannot create a document id from a null or blank id.");
     }
-
-    try {
-      // once docIterator.hasNext() is false, it will close its resources in handler and return
-      while (docIterator.hasNext()) {
-        Document doc;
-        try {
-          doc = docIterator.next();
-        } catch (BadRecordTracker.TooManyBadRecordsException e) {
-          // the file is not in the expected format or is misconfigured: do not carry on reading it
-          throw e;
-        } catch (Exception e) {
-          log.error("Error reading next document from file {}", pathStr, e);
-          continue;
-        }
-        if (doc != null) {
-          if (docLogger.isInfoEnabled()) {
-            try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, doc.getId())) {
-              docLogger.info("FileHandler is now publishing Document {}", doc.getId());
-            }
-          }
-          try {
-            publisher.publish(doc);
-          } catch (Exception e) {
-            throw new FileHandlerException("Error publishing file " + pathStr, e);
-          }
-        }
-      }
-    } catch (BadRecordTracker.TooManyBadRecordsException e) {
-      throw new FileHandlerException("Too many consecutive records could not be read from file " + pathStr, e);
-    }
+    return docIdPrefix + id;
   }
-
 }

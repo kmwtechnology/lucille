@@ -252,7 +252,7 @@ Extracts one Document per row from a CSV file, read as UTF-8 (a leading byte ord
 | `docIdFormat` | String | No | Java `String.format` pattern applied to the `idField`/`idFields` values to build the Document ID. |
 | `lineNumberField` | String | No | Field for the row number. The first row after the header is 1, and skipped rows are counted. Default: `csvLineNumber`. |
 | `filenameField` | String | No | Field for the source file name. Default: `filename`. |
-| `filePathField` | String | No | Field for the full file path. Default: `source`. |
+| `filePathField` | String | No | Field for the full file path. Default: `file_path`. |
 | `separator` | String | No | Column delimiter character. Default: `,`. |
 | `useTabs` | Boolean | No | Use tab as the delimiter. Overrides `separator`. Default: `false`. |
 | `interpretQuotes` | Boolean | No | Treat `"` as a quoting character. Default: `true`. |
@@ -344,8 +344,8 @@ Extracts frames from video files, publishing one Document per sampled frame with
 |---|---|---|---|
 | `frameStride` | Integer | No | Publish every Nth frame. Values below 1 are treated as 1. Default: `1`. |
 | `docIdFormat` | String | No | `String.format` pattern with a single `%s`, applied to the file name without its extension to build the ID base. If not set, the base is the MD5 hash of the file's full path. |
-| `filePathField` | String | No | Field for the file path. Default: `source`. |
-| `filenameField` | String | No | Field for the file name. Default: `file_name`. |
+| `filePathField` | String | No | Field for the file path. Default: `file_path`. |
+| `filenameField` | String | No | Field for the file name. Default: `filename`. |
 | `frameIndexField` | String | No | Field for the zero-based frame index. Default: `frame_index`. |
 | `frameTimeMsField` | String | No | Field for the frame timestamp in milliseconds. Default: `frame_time_ms`. |
 | `frameTimecodeField` | String | No | Field for the timestamp as `HH:MM:SS.mmm`. Default: `frame_timecode`. |
@@ -385,7 +385,7 @@ fileHandlers: {
 }
 ```
 
-File Handlers accept an `InputStream` and return Documents via an `Iterator`. The `InputStream` and any underlying resources are closed when the Iterator's `hasNext()` returns `false`. When working directly with File Handlers in code, always exhaust the returned Iterator. `XMLFileHandler` is the exception: its `processFile` throws, so call `processFileAndPublish` instead.
+File Handlers accept an `InputStream` and return Documents via an `Iterator`. The `InputStream` and any underlying resources are closed when the Iterator's `hasNext()` returns `false`. When working directly with File Handlers in code, always exhaust the returned Iterator. `XMLFileHandler` is the exception: its `processFile` throws and its `supportsProcessFile()` returns `false`, so call `processFileAndPublish` instead, which closes the stream however it ends.
 
 ---
 

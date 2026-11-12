@@ -14,6 +14,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.KafkaConsumerMetrics;
 import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.UndeserializableRecordException;
 import com.kmwllc.lucille.util.FieldFilter;
@@ -141,6 +142,7 @@ public abstract class Indexer implements Runnable {
   private volatile boolean running = true;
 
   private final int logSeconds;
+  private final String metricsPrefix;
 
   private final Meter meter;
   private final Histogram histogram;
@@ -233,6 +235,7 @@ public abstract class Indexer implements Runnable {
             ? new SingleBatch(batchSize, batchByteSize, batchTimeout)
             : new MultiBatch(batchSize, batchByteSize, batchTimeout, indexOverrideField);
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+    this.metricsPrefix = context.metricsPrefix();
     this.meter = metrics.meter(context.metricsPrefix() + ".indexer.docsIndexed");
     this.histogram = metrics.histogram(context.metricsPrefix() + ".indexer.batchTimeOverSize");
     this.localRunId = context.localRunId();
@@ -559,12 +562,15 @@ public abstract class Indexer implements Runnable {
 
   private void sendToIndexWithAccounting(List<Document> batchedDocs) {
     if (ChronoUnit.SECONDS.between(lastLog, Instant.now()) > logSeconds) {
+      // The Kafka summary is empty unless this is the standalone Indexer, whose metrics prefix is the pipeline name its
+      // messenger registers its poll and commit metrics under.
       log.info(
-          String.format(
-              "%d docs indexed. One minute rate: %.2f docs/sec. Mean backend latency: %.2f ms/doc.",
+          (String.format(
+              "%d docs indexed. One minute rate: %.2f docs/sec. Mean backend latency: %.2f ms/doc. ",
               meter.getCount(),
               meter.getOneMinuteRate(),
-              histogram.getSnapshot().getMean() / 1000000));
+              histogram.getSnapshot().getMean() / 1000000)
+              + KafkaConsumerMetrics.indexerSummary(metricsPrefix)).trim());
       lastLog = Instant.now();
     }
 

@@ -35,8 +35,8 @@ import org.bytedeco.javacv.Java2DFrameConverter;
  *   <li>docIdFormat (String, Optional) : The pattern applied to the filename stem when composing the
  *   parent id (a single %s placeholder). Without it, the parent id is the md5 hash of the full file path.</li>
  *   <li>frameStride (Int, Optional) : Emit every Nth video frame; defaults to 1.</li>
- *   <li>filePathField (String, Optional) : Field used to store the original file path; defaults to "source".</li>
- *   <li>filenameField (String, Optional) : Field used to store the leaf filename; defaults to "file_name".</li>
+ *   <li>filePathField (String, Optional) : Field used to store the original file path; defaults to "file_path".</li>
+ *   <li>filenameField (String, Optional) : Field used to store the leaf filename; defaults to "filename".</li>
  *   <li>frameIndexField (String, Optional) : Field used to store the zero-based frame index; defaults to "frame_index".</li>
  *   <li>frameTimeMsField (String, Optional) : Field used to store the frame timestamp in milliseconds; defaults to "frame_time_ms".</li>
  *   <li>frameTimecodeField (String, Optional) : Field used to store the human-readable frame timecode; defaults to "frame_timecode".</li>
@@ -69,8 +69,10 @@ public class VideoFileHandler extends BaseFileHandler {
 
     this.docIdFormat = ConfigUtils.getStringOrDefault(config, "docIdFormat", null);
     this.frameStride = Math.max(1, ConfigUtils.getIntOrDefault(config, "frameStride", 1));
-    this.filePathField = ConfigUtils.getStringOrDefault(config, "filePathField", "source");
-    this.filenameField = ConfigUtils.getStringOrDefault(config, "filenameField", "file_name");
+    // the same field the storage clients, CSVFileHandler and ApplyFileHandlers use for the path
+    this.filePathField = ConfigUtils.getStringOrDefault(config, "filePathField", "file_path");
+    // the same default as CSVFileHandler
+    this.filenameField = ConfigUtils.getStringOrDefault(config, "filenameField", "filename");
     this.frameIndexField = ConfigUtils.getStringOrDefault(config, "frameIndexField", "frame_index");
     this.frameTimeMsField = ConfigUtils.getStringOrDefault(config, "frameTimeMsField", "frame_time_ms");
     this.frameTimecodeField = ConfigUtils.getStringOrDefault(config, "frameTimecodeField", "frame_timecode");
@@ -258,10 +260,10 @@ public class VideoFileHandler extends BaseFileHandler {
   private String buildParentId(String pathStr) {
     if (docIdFormat == null) {
       // the full path, not the stem, so same-named videos in different folders don't overwrite each other
-      return docIdPrefix + DigestUtils.md5Hex(pathStr);
+      return createDocId(DigestUtils.md5Hex(pathStr));
     }
     String stem = FilenameUtils.removeExtension(FilenameUtils.getName(pathStr));
-    return docIdPrefix + String.format(docIdFormat, stem);
+    return createDocId(String.format(docIdFormat, stem));
   }
 
   static String formatTimecode(long millis) {

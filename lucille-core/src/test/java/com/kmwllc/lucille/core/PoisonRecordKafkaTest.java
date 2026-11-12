@@ -373,6 +373,35 @@ public class PoisonRecordKafkaTest {
   }
 
   /**
+   * Skip mode on the worker's messenger: a skipped poison record moves the consumer's position, so the commit the
+   * Worker makes after the empty poll commits past it, even though no document was returned.
+   */
+  @Test(timeout = 120000)
+  public void testSkipModeCommitsPastPoisonRecord() throws Exception {
+    String pipelineName = "poison_skip_commit";
+    String groupId = "poison_skip_commit_group";
+    Config config = buildConfig(pipelineName, groupId, "onDeserializationError: skip");
+    String sourceTopic = KafkaUtils.getSourceTopicName(pipelineName, config);
+    produce(sourceTopic, "doc1", "poison2");
+
+    KafkaWorkerMessenger messenger = new KafkaWorkerMessenger(config, pipelineName);
+    try {
+      assertEquals("doc1", pollUntilDoc(messenger::pollDocToProcess).getId());
+      messenger.commitPendingDocOffsets();
+      assertEquals(1L, committedOffset(config, groupId, sourceTopic));
+
+      // poll and commit as the Worker does until the skip is committed
+      while (committedOffset(config, groupId, sourceTopic) < 2L) {
+        assertNull(messenger.pollDocToProcess());
+        messenger.commitPendingDocOffsets();
+      }
+      assertEquals(2L, committedOffset(config, groupId, sourceTopic));
+    } finally {
+      messenger.close();
+    }
+  }
+
+  /**
    * Skip mode on the indexer's consumer: the poison record is skipped, nothing is committed while the documents around
    * it are still pending, and the commit moves past it once they complete.
    */

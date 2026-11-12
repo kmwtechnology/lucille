@@ -295,17 +295,17 @@ public class GoogleStorageClientTest {
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar
     Document doc1 = docs.get(0);
-    assertEquals(DigestUtils.md5Hex(doc1.getString("source")) + "-1", doc1.getId());
+    assertEquals(DigestUtils.md5Hex(doc1.getString("file_path")) + "-1", doc1.getId());
     assertEquals("default.csv", doc1.getString("filename"));
-    assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc1.getString("source"));
+    assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc1.getString("file_path"));
     Document doc2 = docs.get(1);
-    assertEquals(DigestUtils.md5Hex(doc2.getString("source")) + "-2", doc2.getId());
+    assertEquals(DigestUtils.md5Hex(doc2.getString("file_path")) + "-2", doc2.getId());
     assertEquals("default.csv", doc2.getString("filename"));
-    assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc2.getString("source"));
+    assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc2.getString("file_path"));
     Document doc3 = docs.get(2);
-    assertEquals(DigestUtils.md5Hex(doc3.getString("source")) + "-3", doc3.getId());
+    assertEquals(DigestUtils.md5Hex(doc3.getString("file_path")) + "-3", doc3.getId());
     assertEquals("default.csv", doc3.getString("filename"));
-    assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc3.getString("source"));
+    assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc3.getString("file_path"));
     Document doc4 = docs.get(3);
     assertEquals("2", doc4.getId());
     assertEquals("Gorgeous Woman Mug", doc4.getString("name"));
@@ -323,17 +323,17 @@ public class GoogleStorageClientTest {
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar.gz
     Document doc9 = docs.get(8);
-    assertEquals(DigestUtils.md5Hex(doc9.getString("source")) + "-1", doc9.getId());
+    assertEquals(DigestUtils.md5Hex(doc9.getString("file_path")) + "-1", doc9.getId());
     assertEquals("default.csv", doc9.getString("filename"));
-    assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc9.getString("source"));
+    assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc9.getString("file_path"));
     Document doc10 = docs.get(9);
-    assertEquals(DigestUtils.md5Hex(doc10.getString("source")) + "-2", doc10.getId());
+    assertEquals(DigestUtils.md5Hex(doc10.getString("file_path")) + "-2", doc10.getId());
     assertEquals("default.csv", doc10.getString("filename"));
-    assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc10.getString("source"));
+    assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc10.getString("file_path"));
     Document doc11 = docs.get(10);
-    assertEquals(DigestUtils.md5Hex(doc11.getString("source")) + "-3", doc11.getId());
+    assertEquals(DigestUtils.md5Hex(doc11.getString("file_path")) + "-3", doc11.getId());
     assertEquals("default.csv", doc11.getString("filename"));
-    assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc11.getString("source"));
+    assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "default.csv", doc11.getString("file_path"));
     Document doc12 = docs.get(11);
     assertEquals("2", doc12.getId());
     assertEquals("Gorgeous Woman Mug", doc12.getString("name"));
@@ -344,17 +344,17 @@ public class GoogleStorageClientTest {
     assertEquals("gs://bucket/jsonlCsvAndFolderWithFooTxt.tar.gz" + ARCHIVE_FILE_SEPARATOR + "FolderWithFooTxt/foo.txt", doc14.getString(FILE_PATH));
     // check documents published from zipped.csv.zip
     Document doc15 = docs.get(14);
-    assertEquals(DigestUtils.md5Hex(doc15.getString("source")) + "-1", doc15.getId());
+    assertEquals(DigestUtils.md5Hex(doc15.getString("file_path")) + "-1", doc15.getId());
     assertEquals("zipped.csv", doc15.getString("filename"));
-    assertEquals("gs://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc15.getString("source"));
+    assertEquals("gs://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc15.getString("file_path"));
     Document doc16 = docs.get(15);
-    assertEquals(DigestUtils.md5Hex(doc16.getString("source")) + "-2", doc16.getId());
+    assertEquals(DigestUtils.md5Hex(doc16.getString("file_path")) + "-2", doc16.getId());
     assertEquals("zipped.csv", doc16.getString("filename"));
-    assertEquals("gs://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc16.getString("source"));
+    assertEquals("gs://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc16.getString("file_path"));
     Document doc17 = docs.get(16);
-    assertEquals(DigestUtils.md5Hex(doc17.getString("source")) + "-3", doc17.getId());
+    assertEquals(DigestUtils.md5Hex(doc17.getString("file_path")) + "-3", doc17.getId());
     assertEquals("zipped.csv", doc17.getString("filename"));
-    assertEquals("gs://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc17.getString("source"));
+    assertEquals("gs://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc17.getString("file_path"));
     // check documents published from zippedFolder.zip
     Document doc18 = docs.get(17);
     assertEquals("gs://bucket/zippedFolder.zip" + ARCHIVE_FILE_SEPARATOR + "zippedFolder/foo.txt", doc18.getString(FILE_PATH));
