@@ -17,7 +17,7 @@ To run the Admin UI you need:
 
 1. **A way to run the API** — Docker, or Java 21 and Maven to build and run it from source.
 2. **A build that includes the UI** — the `lucille-api` Docker image (1.0 or later), or both JARs built from source. See [Getting a Build with the UI](#getting-a-build-with-the-ui).
-3. **An admin password** — the default API config requires one. See [Step 1: Set the Admin Password](#step-1-set-the-admin-password).
+3. **An admin password** — the default API config requires one. See [Step 1: Determine the Admin Password](#step-1-determine-the-admin-password).
 4. **A free port** — `8080` by default.
 
 ---
@@ -35,9 +35,9 @@ A `-Padmin-ui` build downloads its own Node.js, so you don't need to install it.
 
 ---
 
-## Step 1: Set the Admin Password
+## Step 1: Determine the Admin Password
 
-The default API config turns authentication on and reads the password from the `LUCILLE_API_PASSWORD` environment variable. Set it before starting the API. If it is unset or blank, the API refuses to start with:
+The default API config turns authentication on and reads the password from the `LUCILLE_API_PASSWORD` environment variable. Choose a password now. You set it when you start the API in [Step 2](#step-2-start-the-api-with-the-ui). If it is unset or blank, the API refuses to start with:
 
 ```
 java.lang.IllegalArgumentException: auth.password must be set and not blank when auth.enabled is true.
