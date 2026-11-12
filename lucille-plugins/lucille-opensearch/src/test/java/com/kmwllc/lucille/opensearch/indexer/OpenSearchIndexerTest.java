@@ -2777,6 +2777,39 @@ public class OpenSearchIndexerTest {
     verify(mockClient, never()).deleteByQuery(any(DeleteByQueryRequest.class));
   }
 
+  // A valid delete-by-query doesn't drop an earlier upload with the same id. The upload is sent first, and the query
+  // decides whether to delete it: pinned for an upload the query matches (doc1, parent P) and one it doesn't (doc2,
+  // parent Q).
+  @Test
+  public void testDeleteByQueryKeepsEarlierUploadOfSameId() throws Exception {
+    deleteByQuerySucceeds();
+    stubBulk(statuses("doc1", 201, "doc2", 201));
+    TestMessenger messenger = new TestMessenger();
+    OpenSearchIndexer indexer = new OpenSearchIndexer(retryWithDeletesConfig().getConfig("indexer"),
+        new IndexerContext(messenger, false, "testing", null), mockClient);
+    Document matched = Document.create("doc1", "test_run");
+    matched.setField("parent", "P");
+    Document unmatched = Document.create("doc2", "test_run");
+    unmatched.setField("parent", "Q");
+    messenger.sendForIndexing(matched);
+    messenger.sendForIndexing(unmatched);
+    messenger.sendForIndexing(deleteByQueryDoc("doc1", "P"));
+    messenger.sendForIndexing(deleteByQueryDoc("doc2", "P"));
+    indexer.run(4);
+
+    InOrder inOrder = Mockito.inOrder(mockClient);
+    inOrder.verify(mockClient).bulk(any(BulkRequest.class));
+    inOrder.verify(mockClient).deleteByQuery(any(DeleteByQueryRequest.class));
+    assertEquals(List.of(List.of("doc1", "doc2")), bulkRequestIds(mockClient, 1));
+    ArgumentCaptor<DeleteByQueryRequest> captor = ArgumentCaptor.forClass(DeleteByQueryRequest.class);
+    verify(mockClient).deleteByQuery(captor.capture());
+    TermsQuery terms = captor.getValue().query().bool().should().get(0).terms();
+    assertEquals("parent", terms.field());
+    assertEquals(List.of("P", "P"), terms.terms().value().stream().map(FieldValue::stringValue).toList());
+    assertEquals(4, messenger.getSentEvents().size());
+    assertTrue(messenger.getSentEvents().stream().allMatch(e -> e.getType() == Event.Type.FINISH));
+  }
+
   // A batch's delete-by-queries are sent one per index. When one index's fails and the batch is retried, the retry
   // doesn't send again the delete-by-query another index completed, which could delete documents written since.
   @Test

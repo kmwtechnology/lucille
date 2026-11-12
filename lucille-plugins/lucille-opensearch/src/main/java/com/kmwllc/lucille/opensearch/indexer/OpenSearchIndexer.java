@@ -344,8 +344,7 @@ public class OpenSearchIndexer extends Indexer {
           write.deletes.put(indexAndId, doc);
         }
       } else {
-        // An invalid delete-by-query fails on its own and leaves the batch as if it weren't there: an earlier upload of
-        // the same id is still sent.
+        // An invalid delete-by-query fails on its own and leaves the batch as if it weren't there.
         String fieldName = getDeleteByQueryFieldName(doc);
         String value = getDeleteByQueryValue(doc);
         if (fieldName == null || value == null) {
@@ -353,9 +352,9 @@ public class OpenSearchIndexer extends Indexer {
               + " is marked for delete by query but its " + (fieldName == null ? "field name" : "value") + " is null")));
           continue;
         }
-        // the writes buffered before this delete-by-query are sent first, without an upload of the same id
+        // The writes buffered before this delete-by-query are sent first, including an upload with the delete-by-query
+        // document's own id: the query deletes it if it matches, as it would any earlier document.
         if (write != null) {
-          write.uploads.remove(indexAndId);
           segments.add(write);
           write = null;
         }
