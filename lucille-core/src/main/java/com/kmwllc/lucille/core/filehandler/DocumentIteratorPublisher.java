@@ -18,7 +18,7 @@ import org.slf4j.MDC.MDCCloseable;
  */
 final class DocumentIteratorPublisher {
 
-  private static final Logger log = LoggerFactory.getLogger(FileHandler.class);
+  private static final Logger log = LoggerFactory.getLogger(DocumentIteratorPublisher.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
   private DocumentIteratorPublisher() {
