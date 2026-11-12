@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -153,6 +154,41 @@ public class KafkaConnectorTest {
 
     verify(mockPublisher, times(1)).publish(any(Document.class));
     verify(mockPublisher).publish(doc2);
+  }
+
+  @Test
+  public void testSubclassReceivesNullValueRecord() throws Exception {
+    // a subclass that overrides handleMessage may treat a null value as a delete, so it must still receive it
+    Config config = ConfigFactory.parseMap(new HashMap<>(BASE_CONFIG_MAP));
+    KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
+    ConsumerRecord<String, Document> nullRecord = new ConsumerRecord<>("test-topic", 0, 0, "key1", null);
+    ConsumerRecords<String, Document> records =
+        new ConsumerRecords<>(Map.of(new TopicPartition("test-topic", 0), List.of(nullRecord)));
+    when(mockConsumer.poll(any(Duration.class))).thenReturn(records).thenReturn(ConsumerRecords.empty());
+
+    RecordingKafkaConnector connector = spy(new RecordingKafkaConnector(config));
+    doReturn(mockConsumer).when(connector).createConsumer(any());
+
+    connector.execute(mock(Publisher.class));
+
+    assertEquals(List.of(nullRecord), connector.handled);
+  }
+
+  /** Records the records it is given instead of publishing them. */
+  public static class RecordingKafkaConnector extends KafkaConnector {
+
+    public static final Spec SPEC = KafkaConnector.SPEC;
+
+    final List<ConsumerRecord<String, Document>> handled = new ArrayList<>();
+
+    public RecordingKafkaConnector(Config config) {
+      super(config);
+    }
+
+    @Override
+    public void handleMessage(ConsumerRecord<String, Document> record, Publisher publisher) {
+      handled.add(record);
+    }
   }
 
   @Test

@@ -451,6 +451,10 @@ public class KafkaUtils {
 
   /**
    * Logs that a record whose value deserialized to null, such as a tombstone with a null value, is being skipped.
+   *
+   * <p>Only the consumers of topics that other systems may write check for null values: the Workers' source topic
+   * (written directly in streaming mode) and KafkaConnector's topic. The destination and event topics are written only
+   * by Lucille, which never writes a null value, so their consumers (the Indexer and the Runner) do not check.
    */
   public static void logSkippedNullRecord(ConsumerRecord<?, ?> record) {
     log.warn("Skipping the Kafka record at {}-{}@{}: its value is null, so it holds no document.", record.topic(),

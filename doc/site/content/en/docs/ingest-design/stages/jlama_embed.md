@@ -22,7 +22,7 @@ For each document, the first value of `source` is embedded and each float of the
 </dependency>
 ```
 
-`lucille-jlama` depends on a platform-specific native library selected through `${os.detected.name}`, so a Maven project that depends on it must also add the `os-maven-plugin` build extension:
+`lucille-jlama` depends on a platform-specific native library, `jlama-native`, whose classifier is `${os.detected.name}-${os.detected.arch}`. Those properties are set by the `os-maven-plugin` build extension, so a Maven project that depends on `lucille-jlama` must also add it:
 
 ```xml
 <build>
