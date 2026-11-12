@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.message;
 
+import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.EventFieldConfig;
@@ -38,6 +39,8 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
 
   private final DeserializationErrorHandler deserializationErrorHandler;
   private final Duration pollInterval;
+  // poll and commit timing; the commits are made, and so timed, by the OffsetCommitTracker
+  private final KafkaConsumerMetrics consumerMetrics;
 
   // The consumer's max.poll.interval.ms, and when the last poll() that has returned was entered. Once the consumer has
   // gone that long without polling it has left its group, and its partitions may be assigned elsewhere, so ownsInput
@@ -63,7 +66,8 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     this.pipelineName = pipelineName;
     this.maxPollIntervalNanos = maxPollInterval.toNanos();
     this.destConsumer = destConsumer;
-    this.offsetCommitTracker = new OffsetCommitTracker(destConsumer);
+    this.consumerMetrics = KafkaConsumerMetrics.forIndexer(pipelineName);
+    this.offsetCommitTracker = new OffsetCommitTracker(destConsumer, consumerMetrics);
     this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)),
         offsetCommitTracker.rebalanceListener());
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
@@ -85,7 +89,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     // dispatching or draining a batch, so the hook never re-enters the dispatcher.
     ConsumerRecords<String, KafkaDocument> consumerRecords;
     long pollStartNanos = System.nanoTime();
-    try {
+    try (Timer.Context ignored = consumerMetrics.timePoll()) {
       consumerRecords = destConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
       // Throws unless configured to skip. Nothing is committed here: committing the consumer's position would commit

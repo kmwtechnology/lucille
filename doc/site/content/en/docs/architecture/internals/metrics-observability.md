@@ -135,6 +135,50 @@ log.info(String.format(
     meter.getCount(), meter.getOneMinuteRate(), histogram.getSnapshot().getMean() / 1000000));
 ```
 
+## Kafka Consumer Metrics
+
+Every messenger that reads documents from Kafka times its polls and offset commits and counts the commits that fail. The Worker's source consumer reports under `kafka.worker` in both distributed and hybrid mode; the standalone Indexer's destination consumer reports under `kafka.indexer`. The prefix is the pipeline name, not the run-based prefix the Worker and Indexer use for their own metrics, because a messenger is created for a pipeline and can outlive a run. All the consumers of one kind for a pipeline in one JVM share these metrics, so each value covers every worker thread.
+
+The name suffixes are constants on `KafkaConsumerMetrics`.
+
+| Metric Name | Type | Registered by | Meaning |
+|-------------|------|---------------|---------|
+| `{pipeline}.kafka.worker.pollTime` | Timer | `KafkaWorkerMessenger`, `HybridWorkerMessenger` | Time spent in each poll of the source topic, including polls that throw. A poll that finds no record waits for the full poll interval (`kafka.pollIntervalMs`), so an idle worker shows poll times close to that interval. A poll during a rebalance also includes the rebalance; see below. |
+| `{pipeline}.kafka.worker.commitTime` | Timer | `KafkaWorkerMessenger`, `HybridWorkerMessenger` | Time spent in each synchronous commit of source offsets, including commits that throw and, in hybrid mode, the commit made when partitions are revoked. Nothing is committed, or timed, when no record has been polled since the last successful commit, so an idle worker's commit count does not grow. |
+| `{pipeline}.kafka.worker.commitFailures` | Meter | `KafkaWorkerMessenger`, `HybridWorkerMessenger` | Source offset commits that threw. In hybrid mode a failed commit is retried on the next call, so one that keeps failing is counted each time. |
+| `{pipeline}.kafka.indexer.pollTime` | Timer | `KafkaIndexerMessenger` | As `kafka.worker.pollTime`, for the standalone Indexer's polls of the destination topic. A poll during a rebalance also includes the rebalance; see below. |
+| `{pipeline}.kafka.indexer.commitTime` | Timer | `KafkaIndexerMessenger` | As `kafka.worker.commitTime`, for the commits of destination offsets made when a batch completes and when partitions are revoked. |
+| `{pipeline}.kafka.indexer.commitFailures` | Meter | `KafkaIndexerMessenger` | Destination offset commits that threw. A failed commit is retried when the next batch completes, so one that keeps failing is counted each time. |
+
+A consumer handles a rebalance inside `poll()`, so a poll during one includes the wait to rejoin the consumer group and the work done when partitions are revoked: the standalone Indexer sends its open batch to the search engine, and in hybrid mode the worker drops the revoked partitions' queued documents; both then commit. Expect isolated `pollTime` spikes during rebalances (a deployment, a scale-up, a consumer that left the group); they are not broker latency. The commit made on revocation is also counted in `commitTime`, so it appears in both timers.
+
+Poll and commit timers are not labelled by topic. A worker that subscribes to a topic pattern reports all of its topics under the same names.
+
+Once a messenger has registered them, the periodic status lines include these values:
+
+```
+1200 docs processed. One minute rate: 19.87 docs/sec. Mean pipeline latency: 3.10 ms/doc. Kafka: 1310 polls, mean 45.20 ms; 1200 commits, mean 2.75 ms, 0 failed.
+```
+
+`WorkerPool` and `WorkerIndexerPool` append the worker's values to their "docs processed" line, and the standalone Indexer appends its own to its "docs indexed" line. An Indexer started by a `Runner` in Kafka mode registers the metrics but does not log them, because its metrics prefix is not the pipeline name.
+
+## Hybrid Mode Metrics
+
+In hybrid mode (`WorkerIndexer` / `WorkerIndexerPool`), each worker hands documents to its paired Indexer through an in-memory queue. The worker's Kafka polls and commits are reported under `kafka.worker`, above. These metrics cover the queue. There is no run ID in hybrid mode, so the prefix is the pipeline name. All the WorkerIndexer pairs for a pipeline in one JVM share these metrics, so each value covers every pair.
+
+| Metric Name | Type | Registered by | Meaning |
+|-------------|------|---------------|---------|
+| `{pipeline}.hybrid.indexerQueue.full` | Meter | `HybridWorkerMessenger` | Documents that found the indexer queue full, so the worker had to wait for the indexer. |
+| `{pipeline}.hybrid.indexerQueue.remainingCapacity` | Gauge | `WorkerIndexerPool` | The lowest remaining capacity of any pair's indexer queue (capacity 10000). `0` means at least one worker is blocked waiting for its indexer. Registered when the pool starts and removed when it stops. |
+
+When a worker finds its indexer queue full, it also logs a warning, at most once a minute per worker, and then waits for space. If the queue is full most of the time, the indexer (or the search engine behind it) is the bottleneck, not the pipeline.
+
+`WorkerIndexerPool` adds both to its status line, after the Kafka values, and logs the line once more when the pool stops (without the remaining capacity, since the queues are then out of use):
+
+```
+... Indexer queue: 14 docs waited for space, lowest remaining capacity 9871.
+```
+
 ## The WorkerPool Watcher Thread
 
 The `WorkerPool` starts a scheduled watcher that runs every 500ms:

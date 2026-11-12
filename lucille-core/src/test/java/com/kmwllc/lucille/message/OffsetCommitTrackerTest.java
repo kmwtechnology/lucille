@@ -6,10 +6,14 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
+import com.codahale.metrics.MetricFilter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
+import com.kmwllc.lucille.util.LogUtils;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -349,5 +353,51 @@ public class OffsetCommitTrackerTest {
   private static Long committed(MockConsumer<String, KafkaDocument> consumer, TopicPartition partition) {
     OffsetAndMetadata committed = consumer.committed(Set.of(partition)).get(partition);
     return committed == null ? null : committed.offset();
+  }
+
+  @Test
+  public void testCommitsAreTimedAndFailuresCountedIncludingOnRevocation() {
+    String pipeline = "offsetCommitTrackerTest";
+    MetricRegistry registry = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+    registry.removeMatching(MetricFilter.startsWith(pipeline + "."));
+    try {
+      boolean[] failCommits = {false};
+      MockConsumer<String, KafkaDocument> consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST) {
+        @Override
+        public synchronized void commitSync(Map<TopicPartition, OffsetAndMetadata> offsets) {
+          if (failCommits[0]) {
+            throw new CommitFailedException();
+          }
+          super.commitSync(offsets);
+        }
+      };
+      OffsetCommitTracker tracker = new OffsetCommitTracker(consumer, KafkaConsumerMetrics.forIndexer(pipeline));
+      consumer.subscribe(List.of(TOPIC), tracker.rebalanceListener());
+      consumer.rebalance(Set.of(P0));
+      consumer.updateBeginningOffsets(Map.of(P0, 0L));
+      String commitTime = pipeline + KafkaConsumerMetrics.INDEXER_COMMIT_TIME_SUFFIX;
+      String commitFailures = pipeline + KafkaConsumerMetrics.INDEXER_COMMIT_FAILURES_SUFFIX;
+
+      // nothing to commit: not timed
+      tracker.commitPending();
+      assertEquals(0, registry.timer(commitTime).getCount());
+
+      tracker.batchCompleted(List.of(poll(tracker, P0, 0)));
+      assertEquals(1, registry.timer(commitTime).getCount());
+      assertEquals(0, registry.meter(commitFailures).getCount());
+
+      // a failed commit is timed and counted, and so is the retry made when the partition is revoked
+      failCommits[0] = true;
+      KafkaDocument d1 = poll(tracker, P0, 1);
+      assertThrows(CommitFailedException.class, () -> tracker.batchCompleted(List.of(d1)));
+      assertEquals(2, registry.timer(commitTime).getCount());
+      assertEquals(1, registry.meter(commitFailures).getCount());
+
+      consumer.rebalance(Set.of());
+      assertEquals(3, registry.timer(commitTime).getCount());
+      assertEquals(2, registry.meter(commitFailures).getCount());
+    } finally {
+      registry.removeMatching(MetricFilter.startsWith(pipeline + "."));
+    }
   }
 }

@@ -3,12 +3,19 @@ package com.kmwllc.lucille.message;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+
+import com.codahale.metrics.MetricFilter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
+import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.List;
@@ -16,12 +23,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.kafka.clients.consumer.CommitFailedException;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.MockConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.consumer.OffsetResetStrategy;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.WakeupException;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -31,22 +42,31 @@ import org.junit.Test;
  */
 public class HybridWorkerMessengerTest {
 
-  private static final String TOPIC = "pipeline1_source";
+  // a pipeline name no other test uses, so the metrics in the shared registry are this test's alone
+  private static final String PIPELINE = "hybridWorkerMessengerTest";
+  private static final String TOPIC = PIPELINE + "_source";
   private static final TopicPartition P0 = new TopicPartition(TOPIC, 0);
   private static final TopicPartition P1 = new TopicPartition(TOPIC, 1);
 
   private final AtomicInteger commits = new AtomicInteger();
+  // when set, commitSync throws it
+  private volatile RuntimeException commitException;
   // MockConsumer reports 0 as the committed offset of a partition it is not assigned, so commits are recorded here
   private final Map<TopicPartition, Long> committedOffsets = new ConcurrentHashMap<>();
   private MockConsumer<String, KafkaDocument> consumer;
   private LinkedBlockingQueue<Document> pipelineDest;
   private HybridWorkerMessenger messenger;
+  private final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
 
   @Before
   public void setUp() {
+    removeMetrics();
     consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST) {
       @Override
       public synchronized void commitSync(Map<TopicPartition, OffsetAndMetadata> offsets) {
+        if (commitException != null) {
+          throw commitException;
+        }
         commits.incrementAndGet();
         offsets.forEach((partition, offset) -> committedOffsets.put(partition, offset.offset()));
         super.commitSync(offsets);
@@ -55,8 +75,17 @@ public class HybridWorkerMessengerTest {
     // the real document consumer reads one record per poll
     consumer.setMaxPollRecords(1);
     pipelineDest = new LinkedBlockingQueue<>();
-    messenger = new HybridWorkerMessenger(config(300000), "pipeline1", pipelineDest, consumer);
+    messenger = new HybridWorkerMessenger(config(300000), PIPELINE, pipelineDest, consumer);
     assign(P0, P1);
+  }
+
+  @After
+  public void tearDown() {
+    removeMetrics();
+  }
+
+  private void removeMetrics() {
+    metrics.removeMatching(MetricFilter.startsWith(PIPELINE + "."));
   }
 
   private static Config config(int maxPollIntervalMs) {
@@ -320,7 +349,7 @@ public class HybridWorkerMessengerTest {
 
   @Test
   public void testOwnershipEndsAfterThePollDeadline() throws Exception {
-    messenger = new HybridWorkerMessenger(config(1000), "pipeline1", pipelineDest, consumer);
+    messenger = new HybridWorkerMessenger(config(1000), PIPELINE, pipelineDest, consumer);
     assign(P0);
     KafkaDocument doc = poll(P0, 0);
     assertTrue(messenger.ownsInput(doc));
@@ -341,5 +370,136 @@ public class HybridWorkerMessengerTest {
 
     assertTrue("the partition's waiting documents will be polled again", pipelineDest.isEmpty());
     assertEquals(0L, consumer.position(P0));
+  }
+
+  @Test
+  public void testPollIsTimed() throws Exception {
+    messenger.pollDocToProcess();
+    addRecord(P0, 0);
+    messenger.pollDocToProcess();
+    assertEquals(2, metrics.timer(PIPELINE + KafkaConsumerMetrics.WORKER_POLL_TIME_SUFFIX).getCount());
+  }
+
+  @Test
+  public void testPollIsTimedWhenItThrows() throws Exception {
+    consumer.wakeup();
+    assertThrows(WakeupException.class, () -> messenger.pollDocToProcess());
+    assertEquals(1, metrics.timer(PIPELINE + KafkaConsumerMetrics.WORKER_POLL_TIME_SUFFIX).getCount());
+  }
+
+  @Test
+  public void testCommitIsTimedOnlyWhenThereIsSomethingToCommit() throws Exception {
+    messenger.commitPendingDocOffsets();
+    assertEquals(0, metrics.timer(PIPELINE + KafkaConsumerMetrics.WORKER_COMMIT_TIME_SUFFIX).getCount());
+
+    KafkaDocument offset0 = poll(P0, 0);
+    KafkaDocument offset1 = poll(P0, 1);
+    messenger.batchCompleted(List.of(offset0));
+    messenger.batchCompleted(List.of(offset1));
+    messenger.commitPendingDocOffsets();
+    assertEquals(1, metrics.timer(PIPELINE + KafkaConsumerMetrics.WORKER_COMMIT_TIME_SUFFIX).getCount());
+    assertEquals(0, metrics.meter(PIPELINE + KafkaConsumerMetrics.WORKER_COMMIT_FAILURES_SUFFIX).getCount());
+  }
+
+  @Test
+  public void testCommitFailureIsCountedAndRethrown() throws Exception {
+    CommitFailedException failure = new CommitFailedException();
+    commitException = failure;
+    KafkaDocument offset0 = poll(P0, 0);
+    messenger.batchCompleted(List.of(offset0));
+
+    CommitFailedException thrown = assertThrows(CommitFailedException.class, () -> messenger.commitPendingDocOffsets());
+    assertSame(failure, thrown);
+    assertEquals(1, metrics.meter(PIPELINE + KafkaConsumerMetrics.WORKER_COMMIT_FAILURES_SUFFIX).getCount());
+    assertEquals(1, metrics.timer(PIPELINE + KafkaConsumerMetrics.WORKER_COMMIT_TIME_SUFFIX).getCount());
+  }
+
+  @Test
+  public void testSendWithRoomInQueueIsNotCountedAsFull() throws Exception {
+    Document doc = Document.create("doc1");
+    messenger.sendForIndexing(doc);
+    assertSame(doc, pipelineDest.peek());
+    assertEquals(0, metrics.meter(PIPELINE + HybridWorkerMessenger.INDEXER_QUEUE_FULL_SUFFIX).getCount());
+  }
+
+  @Test
+  public void testSendToFullQueueIsCountedAndWaitsForSpace() throws Exception {
+    pipelineDest = new LinkedBlockingQueue<>(1);
+    messenger = new HybridWorkerMessenger(config(300000), PIPELINE, pipelineDest, consumer);
+    Document first = Document.create("doc1");
+    Document second = Document.create("doc2");
+    messenger.sendForIndexing(first);
+
+    Thread sender = new Thread(() -> {
+      try {
+        messenger.sendForIndexing(second);
+      } catch (MessengerException e) {
+        throw new RuntimeException(e);
+      }
+    });
+    sender.start();
+
+    // the second send finds the queue full, is counted, and blocks until the first document is taken
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+    while (metrics.meter(PIPELINE + HybridWorkerMessenger.INDEXER_QUEUE_FULL_SUFFIX).getCount() == 0
+        && System.nanoTime() < deadline) {
+      Thread.sleep(10);
+    }
+    assertEquals(1, metrics.meter(PIPELINE + HybridWorkerMessenger.INDEXER_QUEUE_FULL_SUFFIX).getCount());
+    assertTrue(sender.isAlive());
+
+    assertSame(first, pipelineDest.take());
+    sender.join(10_000);
+    assertFalse(sender.isAlive());
+    assertSame(second, pipelineDest.poll());
+  }
+
+  @Test
+  public void testSendToFullQueueStillTracksItsRecord() throws Exception {
+    // a document that waited for space must still hold back its record's commit until the Indexer reports it
+    pipelineDest = new LinkedBlockingQueue<>(1);
+    messenger = new HybridWorkerMessenger(config(300000), PIPELINE, pipelineDest, consumer);
+    assign(P0);
+    addRecord(P0, 0);
+    messenger.pollDocToProcess();
+    Document first = Document.create("child1");
+    Document second = Document.create("child2");
+    messenger.sendForIndexing(first);
+
+    Thread sender = new Thread(() -> {
+      try {
+        messenger.sendForIndexing(second);
+      } catch (MessengerException e) {
+        throw new RuntimeException(e);
+      }
+    });
+    sender.start();
+    assertSame(first, pipelineDest.take());
+    sender.join(10_000);
+    assertSame(second, pipelineDest.take());
+
+    messenger.batchCompleted(List.of(first));
+    messenger.commitPendingDocOffsets();
+    assertNull("child2 is not indexed yet", committed(P0));
+
+    messenger.batchCompleted(List.of(second));
+    messenger.commitPendingDocOffsets();
+    assertEquals(Long.valueOf(1L), committed(P0));
+  }
+
+  @Test
+  public void testCommitFailureOnRevocationIsCounted() throws Exception {
+    KafkaDocument offset0 = poll(P0, 0);
+    pipelineDest.remove(offset0);   // taken by the Indexer
+    poll(P1, 0);                    // the worker is done with offset 0 once it polls again
+    messenger.batchCompleted(List.of(offset0));
+    commitException = new CommitFailedException();
+
+    // P0 is revoked before the worker commits; the commit made during the revocation fails, and is only logged
+    consumer.rebalance(Set.of(P1));
+
+    assertNull(committed(P0));
+    assertEquals(1, metrics.meter(PIPELINE + KafkaConsumerMetrics.WORKER_COMMIT_FAILURES_SUFFIX).getCount());
+    assertEquals(1, metrics.timer(PIPELINE + KafkaConsumerMetrics.WORKER_COMMIT_TIME_SUFFIX).getCount());
   }
 }

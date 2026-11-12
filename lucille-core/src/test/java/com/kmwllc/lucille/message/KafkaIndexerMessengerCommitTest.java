@@ -5,10 +5,14 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import com.codahale.metrics.MetricFilter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
+import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.time.Duration;
@@ -264,5 +268,36 @@ public class KafkaIndexerMessengerCommitTest {
   private static Long committedOffset(MockConsumer<String, KafkaDocument> consumer, TopicPartition partition) {
     OffsetAndMetadata committed = consumer.committed(Set.of(partition)).get(partition);
     return committed == null ? null : committed.offset();
+  }
+
+  @Test
+  public void testPollsAndCommitsAreTimed() throws Exception {
+    // a pipeline name no other test uses, so the metrics in the shared registry are this test's alone
+    String pipeline = "kafkaIndexerMessengerMetricsTest";
+    TopicPartition partition = new TopicPartition(KafkaUtils.getDestTopicName(pipeline), 0);
+    MetricRegistry registry = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+    registry.removeMatching(MetricFilter.startsWith(pipeline + "."));
+    try {
+      MockConsumer<String, KafkaDocument> consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
+      consumer.setMaxPollRecords(1);
+      KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config(), pipeline, consumer);
+      consumer.rebalance(Set.of(partition));
+      consumer.updateBeginningOffsets(Map.of(partition, 0L));
+      KafkaDocument value = new KafkaDocument((ObjectNode) new ObjectMapper().readTree(Document.create("doc0", "run1").toString()));
+      consumer.addRecord(new ConsumerRecord<>(partition.topic(), 0, 0L, "doc0", value));
+
+      Document doc = messenger.pollDocToIndex();
+      messenger.pollDocToIndex();
+      assertEquals(2, registry.timer(pipeline + KafkaConsumerMetrics.INDEXER_POLL_TIME_SUFFIX).getCount());
+      assertEquals(0, registry.timer(pipeline + KafkaConsumerMetrics.INDEXER_COMMIT_TIME_SUFFIX).getCount());
+
+      messenger.batchComplete(List.of(doc));
+      assertEquals(1, registry.timer(pipeline + KafkaConsumerMetrics.INDEXER_COMMIT_TIME_SUFFIX).getCount());
+      assertEquals(0, registry.meter(pipeline + KafkaConsumerMetrics.INDEXER_COMMIT_FAILURES_SUFFIX).getCount());
+      // the worker's names are not used by the indexer
+      assertFalse(registry.getTimers().containsKey(pipeline + KafkaConsumerMetrics.WORKER_POLL_TIME_SUFFIX));
+    } finally {
+      registry.removeMatching(MetricFilter.startsWith(pipeline + "."));
+    }
   }
 }

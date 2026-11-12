@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.message;
 
+import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.EventFieldConfig;
@@ -31,39 +32,56 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   private final String pipelineName;
   private final EventFieldConfig eventFieldConfig;
   private final DeserializationErrorHandler deserializationErrorHandler;
+  private final KafkaConsumerMetrics consumerMetrics;
+  // Whether the consumer's position may have moved since the last successful commit: set when a poll returns a record or
+  // a poll skips an undeserializable one. The Worker commits after every empty poll, so without this an idle worker would
+  // send a commit to the broker every poll interval.
+  private boolean positionAdvanced = false;
 
   public KafkaWorkerMessenger(Config config, String pipelineName) {
+    this(config, pipelineName, createSourceConsumer(config, pipelineName));
+  }
+
+  private static Consumer<String, KafkaDocument> createSourceConsumer(Config config, String pipelineName) {
+    // append random string to kafka client ID to prevent kafka from issuing a warning when multiple consumers
+    // with the same client ID are started in separate worker threads
+    String kafkaClientId = "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
+    return KafkaUtils.createDocumentConsumer(config, kafkaClientId);
+  }
+
+  // takes the source consumer, so tests can supply one
+  KafkaWorkerMessenger(Config config, String pipelineName, Consumer<String, KafkaDocument> sourceConsumer) {
     this.config = config;
     this.pollInterval = KafkaUtils.getPollInterval(config);
     this.pipelineName = pipelineName;
     this.eventFieldConfig = EventFieldConfig.fromConfig(config);
     this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
-    // append random string to kafka client ID to prevent kafka from issuing a warning when multiple consumers
-    // with the same client ID are started in separate worker threads
-    String kafkaClientId = "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
-    this.sourceConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
+    this.sourceConsumer = sourceConsumer;
     this.sourceConsumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName, config)));
     this.deserializationErrorHandler =
         new DeserializationErrorHandler(config, sourceConsumer);
+    this.consumerMetrics = KafkaConsumerMetrics.forWorker(pipelineName);
   }
 
   /**
-   * Polls for a document that is waiting to be processed by the pipeline.
-   *
+   * Polls for a document that is waiting to be processed by the pipeline. The poll is timed (see
+   * {@link KafkaConsumerMetrics}).
    */
   @Override
   public Document pollDocToProcess() throws MessengerException {
     ConsumerRecords<String, KafkaDocument> consumerRecords;
-    try {
+    try (Timer.Context ignored = consumerMetrics.timePoll()) {
       consumerRecords = sourceConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
       // throws unless configured to skip; the Worker commits the advanced position when we return null
       deserializationErrorHandler.handleOrThrow(e);
+      positionAdvanced = true;
       return null;
     }
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
+      positionAdvanced = true;
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
@@ -82,8 +100,13 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   public void commitPendingDocOffsets() {
     // Called after the documents made from the polled record have been sent to the destination topic, each send waiting for
     // the broker's acknowledgment, so the record is safe to commit. The commit is synchronous, so that a worker crash or a
-    // consumer group rebalance re-processes as few records as possible.
-    sourceConsumer.commitSync();
+    // consumer group rebalance re-processes as few records as possible. The commit is timed, and counted if it throws.
+    // Skipped when nothing has been polled since the last successful commit; a failed commit is retried on the next call.
+    if (!positionAdvanced) {
+      return;
+    }
+    consumerMetrics.commit(() -> sourceConsumer.commitSync());
+    positionAdvanced = false;
   }
 
   /**
