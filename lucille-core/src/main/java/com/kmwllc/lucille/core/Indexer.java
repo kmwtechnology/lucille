@@ -440,10 +440,13 @@ public abstract class Indexer implements Runnable {
    *   failure has a status code in indexer.retryableStatusCodes and attempts remain, another attempt is made. Use an
    *   {@link IndexerException} for a permanent failure.</li>
    *   <li>An Indexer that stops part-way on purpose, because a later document must not be sent before an earlier one
-   *   that failed, reports the documents it held back with {@link IndexerFailure#notSent(Document)}. They stay pending.
-   *   A not-sent document does not cause a retry by itself, and if no further attempt is made it is reported as failed.
-   *   When {@link PendingSend#isFinal()} is true no attempt follows, so there is nothing to hold a document back
-   *   for.</li>
+   *   that will be retried, reports the documents it held back with {@link IndexerFailure#notSent(Document)}. They stay
+   *   pending. A not-sent document does not cause a retry by itself, and if no further attempt is made it is reported as
+   *   failed without having been sent. So hold documents back only behind a failure that causes a retry: one for which
+   *   {@link #isRetryable(Throwable)} is true, in a send for which {@link PendingSend#isFinal()} is false. A cause that
+   *   is an {@link IndexerRetryableException} is not enough, because its status code may not be in
+   *   indexer.retryableStatusCodes (500 is not, by default). After any other failure, and on the final attempt, send
+   *   the remaining documents.</li>
    * </ol>
    *
    * <p> A retry can send a document after a later document from the same batch has been applied. An Indexer for a
@@ -700,33 +703,50 @@ public abstract class Indexer implements Runnable {
 
     /** The batch's failures once no further attempt will be made: each failed document once, in batch order. */
     List<IndexerFailure> failures() {
-      // A not-sent document is reported with the first retryable failure of the last attempt, which held it back.
-      Exception blocker = pending.stream()
-          .map(latest::get)
-          .filter(failure -> failure != null && !failure.isNotSent())
-          .map(IndexerFailure::cause)
-          .findFirst().orElse(null);
-      Exception notSentCause = blocker != null
-          ? new IndexerException("Not sent, because an earlier document in its batch failed: " + blocker.getMessage(),
-              blocker)
-          : new IndexerException("Not sent, because an earlier document in its batch failed.");
+      // The usual case: every document was applied.
+      if (permanent.isEmpty() && latest.isEmpty() && unmatched == null) {
+        return List.of();
+      }
 
       // A document of the last send was rejected and there is no telling which one, so none of the documents that send
       // left unreported can be reported as succeeded.
       Exception unmatchedCause = unmatched == null ? null : new IndexerException("sendToIndex reported a failure for doc "
           + unmatched.document().getId() + " that could not be matched to a document in its send: "
           + unmatched.cause().getMessage(), unmatched.cause());
+      // Shared by the not-sent documents, and built only if there is one.
+      Exception notSentCause = null;
 
       List<IndexerFailure> result = new ArrayList<>();
       for (Document doc : batchedDocs) {
-        IndexerFailure failure = permanent.containsKey(doc) ? permanent.get(doc) : latest.get(doc);
-        if (failure != null) {
-          result.add(failure.isNotSent() ? new IndexerFailure(doc, notSentCause) : failure);
-        } else if (unreportedWithUnmatched.contains(doc)) {
-          result.add(new IndexerFailure(doc, unmatchedCause));
+        IndexerFailure failure = permanent.getOrDefault(doc, latest.get(doc));
+        if (failure == null) {
+          if (unreportedWithUnmatched.contains(doc)) {
+            result.add(new IndexerFailure(doc, unmatchedCause));
+          }
+        } else if (failure.isNotSent()) {
+          if (notSentCause == null) {
+            notSentCause = notSentCause();
+          }
+          result.add(new IndexerFailure(doc, notSentCause));
+        } else {
+          result.add(failure);
         }
       }
       return result;
+    }
+
+    // Why a document that was still held back after the last attempt failed: the first retryable failure of that
+    // attempt, if it had one.
+    private Exception notSentCause() {
+      Exception blocker = pending.stream()
+          .map(latest::get)
+          .filter(failure -> failure != null && !failure.isNotSent())
+          .map(IndexerFailure::cause)
+          .findFirst().orElse(null);
+      return blocker != null
+          ? new IndexerException("Not sent, because an earlier document in its batch failed: " + blocker.getMessage(),
+              blocker)
+          : new IndexerException("Not sent, because an earlier document in its batch failed.");
     }
 
     /** The batch's failures when the last attempt threw: the permanent failures, and every pending document. */

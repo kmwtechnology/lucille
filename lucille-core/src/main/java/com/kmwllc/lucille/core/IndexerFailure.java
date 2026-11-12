@@ -19,9 +19,11 @@ public record IndexerFailure(Document document, Exception cause) {
 
   /**
    * A failure for a document that the Indexer chose not to send in this call, because sending it had to wait for an
-   * earlier document in the same send that failed. The document stays pending: it is included in the next attempt if
-   * one is made. A not-sent document never causes a retry by itself, and if no further attempt is made it is reported
-   * as failed.
+   * earlier document in the same send that failed and will be retried. The document stays pending: it is included in
+   * the next attempt if one is made. A not-sent document never causes a retry by itself, and if no further attempt is
+   * made it is reported as failed without having been sent. So an Indexer should hold a document back only behind a
+   * failure for which {@link Indexer#isRetryable(Throwable)} is true, and only when {@link PendingSend#isFinal()} is
+   * false.
    *
    * @param document The document that was not sent. Must be an instance from the send's documents.
    * @return A failure marking the document as not sent.

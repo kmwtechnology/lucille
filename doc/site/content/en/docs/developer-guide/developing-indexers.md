@@ -148,7 +148,7 @@ Most indexers only read `send.documents()`. The base class creates a new `Pendin
 2. Each returned failure must hold a `Document` instance from `send.documents()`, and each instance may be reported only once. A failure that breaks either rule cannot be matched to a document, so no retry is made and every document in that send without a failure of its own is failed. Documents that an earlier attempt applied or failed are not in the send, and keep their results.
 3. Throw only when nothing in the call was applied, or when you cannot tell. If you applied part of the send before an error, return per-document failures instead. The base class cannot see inside a call that throws, so after a throw it treats every document in the send as still pending.
 4. Use an `IndexerRetryableException` as the cause of a failure that may be transient, and an `IndexerException` for a permanent one.
-5. If you stop part-way on purpose, because a later document must not be sent before an earlier one that failed, report each document you held back with `IndexerFailure.notSent(document)`.
+5. If you stop part-way on purpose, because a later document must not be sent before an earlier one that will be retried, report each document you held back with `IndexerFailure.notSent(document)`. Hold documents back only behind a failure for which `isRetryable(cause)` is true, and only when `send.isFinal()` is false (see [Order across attempts](#order-across-attempts)).
 
 **What the base class does with the result.** After each attempt, every document in the send is in one of three states:
 
@@ -165,7 +165,16 @@ A cause is retryable if it is an `IndexerRetryableException` whose status code i
 - **A thrown exception that ends the attempts** (it is not retryable, or retries have run out) fails the documents that are still pending. Documents that an earlier attempt applied still get FINISH events. If no earlier attempt applied or permanently failed anything, the whole batch fails.
 - **Without `indexer.maxRetries`** there is one call, with the whole batch.
 
-**Order across attempts.** A retry can send a document after a later document from the same batch has been applied. If order matters to your destination (for example, a delete-by-query must not run before an earlier upload that it should remove), stop at the first retryable failure and return the rest as `notSent`, unless `send.isFinal()` is true. On the final attempt nothing follows, so send everything that is left.
+### Order across attempts
+
+A retry can send a document after a later document from the same batch has been applied. If order matters to your destination (for example, a delete-by-query must not run before an earlier upload that it should remove), stop at the first failure that will be retried and return the rest as `notSent`.
+
+A failure will be retried only if both of these hold:
+
+- `isRetryable(cause)` is true. This is a method of the `Indexer` base class. It checks that the cause is an `IndexerRetryableException` and that its status code is in `indexer.retryableStatusCodes`. Checking the exception type yourself is not enough: a 500 wrapped in an `IndexerRetryableException` is not retried under the default codes (429, 503 and -1).
+- `send.isFinal()` is false.
+
+In every other case, keep going and send the documents that are left. A not-sent document never causes a retry by itself, so documents held back behind a failure that is not retried fail without ever being sent.
 
 **In-doubt requests.** If the destination applied a write but the response was lost (for example, a timeout), the write is not known to have been applied, and it is sent again.
 
