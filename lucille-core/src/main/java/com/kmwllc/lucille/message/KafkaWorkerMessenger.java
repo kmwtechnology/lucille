@@ -33,6 +33,10 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   private final EventFieldConfig eventFieldConfig;
   private final DeserializationErrorHandler deserializationErrorHandler;
   private final KafkaConsumerMetrics consumerMetrics;
+  // Whether the consumer's position may have moved since the last successful commit: set when a poll returns a record or
+  // a poll skips an undeserializable one. The Worker commits after every empty poll, so without this an idle worker would
+  // send a commit to the broker every poll interval.
+  private boolean positionAdvanced = false;
 
   public KafkaWorkerMessenger(Config config, String pipelineName) {
     this(config, pipelineName, createSourceConsumer(config, pipelineName));
@@ -72,10 +76,12 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
     } catch (RecordDeserializationException e) {
       // throws unless configured to skip; the Worker commits the advanced position when we return null
       deserializationErrorHandler.handleOrThrow(e);
+      positionAdvanced = true;
       return null;
     }
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
+      positionAdvanced = true;
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
@@ -90,7 +96,12 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
     // Called after the documents made from the polled record have been sent to the destination topic, each send waiting for
     // the broker's acknowledgment, so the record is safe to commit. The commit is synchronous, so that a worker crash or a
     // consumer group rebalance re-processes as few records as possible. The commit is timed, and counted if it throws.
+    // Skipped when nothing has been polled since the last successful commit; a failed commit is retried on the next call.
+    if (!positionAdvanced) {
+      return;
+    }
     consumerMetrics.commit(() -> sourceConsumer.commitSync());
+    positionAdvanced = false;
   }
 
   /**

@@ -17,7 +17,8 @@ import com.kmwllc.lucille.util.LogUtils;
  * <ul>
  *   <li>{@code <pipeline>.kafka.worker.pollTime}, {@code <pipeline>.kafka.indexer.pollTime} (Timer): time spent in each
  *   poll, including polls that throw. A poll that finds nothing waits for the poll interval, so an idle consumer shows
- *   poll times close to that interval.</li>
+ *   poll times close to that interval. A rebalance runs inside a poll, so a poll during one includes rejoining the
+ *   group and the work done on revocation.</li>
  *   <li>{@code <pipeline>.kafka.worker.commitTime}, {@code <pipeline>.kafka.indexer.commitTime} (Timer): time spent in
  *   each offset commit sent to the broker, including commits that throw and commits made when partitions are revoked.
  *   Calls with nothing to commit are not timed.</li>
