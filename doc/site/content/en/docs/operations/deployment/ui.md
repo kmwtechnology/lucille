@@ -11,6 +11,14 @@ The Lucille Admin UI is a browser console for the [Lucille REST API]({{< relref 
 
 > **The API is a prerequisite:** The Admin UI has no backend of its own. Every page reads from or writes to the API's `/v1` endpoints. The UI is only available while the API that serves it is running.
 
+### Quick Start
+
+```bash
+docker run --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 kmwtechnology/lucille-api:<version>
+```
+
+Open `http://localhost:8080/admin` and sign in with `<password>`. For `<version>`, use an image tag for Lucille 1.0 or later (see [With Docker](#with-docker)).
+
 ### Prerequisites
 
 To run the Admin UI you need:
@@ -18,7 +26,8 @@ To run the Admin UI you need:
 1. **A way to run the API** — Docker, or Java 21 and Maven to build and run it from source.
 2. **A build that includes the UI** — the `lucille-api` Docker image (1.0 or later), or both JARs built from source. See [Getting a Build with the UI](#getting-a-build-with-the-ui).
 3. **An admin password** — the default API config requires one. See [Step 1: Determine the Admin Password](#step-1-determine-the-admin-password).
-4. **A free port** — `8080` by default.
+
+The UI runs on port `8080` by default.
 
 ---
 
