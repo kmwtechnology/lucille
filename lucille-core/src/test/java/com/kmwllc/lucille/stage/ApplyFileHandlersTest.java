@@ -10,14 +10,21 @@ import com.kmwllc.lucille.connector.storageclient.GoogleStorageClient;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.filehandler.FileHandler;
+import com.typesafe.config.Config;
+import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
@@ -245,6 +252,70 @@ public class ApplyFileHandlersTest {
     }
 
     assertEquals(4, docsCount);
+  }
+
+  @Test
+  public void testChildrenFollowTheFileHandlerIteratorContract() throws StageException {
+    Stage stage = factory.get("ApplyFileHandlersTest/contractCustom.conf");
+
+    // a record whose next() throws, and a null, are skipped
+    Document doc = Document.create("doc");
+    doc.setField("file_path", "records.rec");
+    doc.setField("file_content", "a\nbad\nnull\nb\nnull\n".getBytes(StandardCharsets.UTF_8));
+
+    List<String> ids = new ArrayList<>();
+    stage.processDocument(doc).forEachRemaining(d -> ids.add(d.getId()));
+    assertEquals(List.of("a", "b"), ids);
+
+    // a hasNext() that throws stops the file, after the children read before it
+    Document failing = Document.create("failing");
+    failing.setField("file_path", "records.rec");
+    failing.setField("file_content", "a\nfail\nb\n".getBytes(StandardCharsets.UTF_8));
+
+    Iterator<Document> children = stage.processDocument(failing);
+    assertEquals("a", children.next().getId());
+    IllegalStateException e = assertThrows(IllegalStateException.class, children::hasNext);
+    assertTrue(e.getMessage(), e.getMessage().contains("records.rec"));
+  }
+
+  /**
+   * One record per line, whose id is the line: "bad" makes next() throw, "null" makes it return null, and "fail" makes
+   * hasNext() throw.
+   */
+  public static class ContractFileHandler implements FileHandler {
+
+    public ContractFileHandler(Config config) {
+    }
+
+    @Override
+    public Iterator<Document> processFile(InputStream inputStream, String pathStr) {
+      Iterator<String> lines = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8)).lines().iterator();
+      return new Iterator<>() {
+        private String line = null;
+
+        @Override
+        public boolean hasNext() {
+          if (line == null && lines.hasNext()) {
+            line = lines.next();
+          }
+          if ("fail".equals(line)) {
+            throw new IllegalStateException("can't read on");
+          }
+          return line != null;
+        }
+
+        @Override
+        public Document next() {
+          hasNext();
+          String record = line;
+          line = null;
+          if ("bad".equals(record)) {
+            throw new IllegalArgumentException("bad record");
+          }
+          return "null".equals(record) ? null : Document.create(record);
+        }
+      };
+    }
   }
 
   @Test

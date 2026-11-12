@@ -18,7 +18,10 @@ import java.io.InputStream;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import org.apache.commons.io.FilenameUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Using a file path found on a Document, or a byte[] of its contents, applies file handlers to create children documents.
@@ -51,6 +54,11 @@ import org.apache.commons.io.FilenameUtils;
  *   <li>storageClients (Map, Optional) : custom StorageClients, keyed by URI scheme. Include if you are going to process documents with
  *   the filePathField set to a URI with one of those schemes. See FileConnector for necessary arguments.</li>
  * </ul>
+ * <p>
+ * The children follow the Iterator contract described on {@link FileHandler#processFile}, as with
+ * {@link FileHandler#processFileAndPublish}: a record whose <code>next()</code> throws is logged and skipped, a null
+ * from <code>next()</code> is skipped, and a <code>hasNext()</code> that throws stops the file and fails the parent
+ * Document, along with any child already announced. Children produced before that have already been sent on.
  */
 public class ApplyFileHandlers extends Stage {
 
@@ -58,6 +66,8 @@ public class ApplyFileHandlers extends Stage {
       .requiredParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){})
       .include(FileConnector.STORAGE_SPEC)
       .optionalString("filePathField", "fileContentField").build();
+
+  private static final Logger log = LoggerFactory.getLogger(ApplyFileHandlers.class);
 
   private final Config fileHandlersConfig;
 
@@ -143,9 +153,58 @@ public class ApplyFileHandlers extends Stage {
     }
 
     try {
-      return handler.processFile(fileContentStream, filePath);
+      return new SkippingIterator(handler.processFile(fileContentStream, filePath), filePath);
     } catch (FileHandlerException e) {
       throw new StageException("Could not process file " + filePath, e);
+    }
+  }
+
+  /**
+   * Applies the FileHandler Iterator contract for the Worker, which expects every child to be a Document and fails the
+   * parent for any exception: skips a record whose <code>next()</code> throws, and a null, and lets a
+   * <code>hasNext()</code> that throws stop the file.
+   */
+  private static final class SkippingIterator implements Iterator<Document> {
+
+    private final Iterator<Document> records;
+    private final String filePath;
+    private Document pending = null;
+
+    SkippingIterator(Iterator<Document> records, String filePath) {
+      this.records = records;
+      this.filePath = filePath;
+    }
+
+    @Override
+    public boolean hasNext() {
+      while (pending == null && hasNextRecord()) {
+        try {
+          pending = records.next();
+        } catch (RuntimeException e) {
+          // a single bad record: the iterator stays usable, so skip it and carry on
+          log.error("Error reading next document from file {}", filePath, e);
+        }
+      }
+      return pending != null;
+    }
+
+    // a hasNext() that throws means the file can't be read any further; the iterator has closed its resources
+    private boolean hasNextRecord() {
+      try {
+        return records.hasNext();
+      } catch (RuntimeException e) {
+        throw new IllegalStateException("Error reading file " + filePath + ": " + e.getMessage(), e);
+      }
+    }
+
+    @Override
+    public Document next() {
+      if (!hasNext()) {
+        throw new NoSuchElementException("No more documents in file " + filePath);
+      }
+      Document doc = pending;
+      pending = null;
+      return doc;
     }
   }
 }
