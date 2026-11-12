@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -42,9 +43,13 @@ public class WorkerPool {
 
   private static final Logger log = LoggerFactory.getLogger(WorkerPool.class);
   private static final long WATCHER_PERIOD_MILLISECONDS = 500;
+  // how long stop() waits for the watcher thread to exit after its executor has terminated
+  private static final long WATCHER_THREAD_JOIN_MILLISECONDS = 5000;
 
   private final List<WorkerThread> threads = new ArrayList<>();
   private ScheduledExecutorService watcherService;
+  // the thread the watcher executor runs on; recorded so stop() can wait for it to actually exit
+  private final AtomicReference<Thread> watcherThread = new AtomicReference<>();
 
   // set by stop(): a worker thread that ends afterwards is doing what it was told
   private volatile boolean stopRequested = false;
@@ -295,7 +300,14 @@ public class WorkerPool {
         .priority(Thread.NORM_PRIORITY)
         .build();
 
-    ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(factory);
+    // record the watcher's thread as it is created, so stopWatcher() can wait for the thread itself to exit
+    ThreadFactory recordingFactory = runnable -> {
+      Thread thread = factory.newThread(runnable);
+      watcherThread.set(thread);
+      return thread;
+    };
+
+    ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(recordingFactory);
     executor.scheduleAtFixedRate(watcher, 1, WATCHER_PERIOD_MILLISECONDS, TimeUnit.MILLISECONDS);
     return executor;
   }
@@ -309,13 +321,28 @@ public class WorkerPool {
         // wait a while for tasks to respond to being cancelled
         if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
           log.error("Worker watcher did not terminate.");
+          return;
         }
       }
+      // the executor reports terminated slightly before its thread finishes exiting; wait for the thread itself
+      joinWatcherThread();
     } catch (InterruptedException ex) {
       // cancel if current thread also interrupted
       executorService.shutdownNow();
       // preserve interrupt status
       Thread.currentThread().interrupt();
+    }
+  }
+
+  private void joinWatcherThread() throws InterruptedException {
+    Thread thread = watcherThread.get();
+    if (thread == null || thread == Thread.currentThread()) {
+      return;
+    }
+    thread.join(WATCHER_THREAD_JOIN_MILLISECONDS);
+    if (thread.isAlive()) {
+      log.warn("Worker watcher thread {} is still alive {} ms after its executor terminated.",
+          thread.getName(), WATCHER_THREAD_JOIN_MILLISECONDS);
     }
   }
 
