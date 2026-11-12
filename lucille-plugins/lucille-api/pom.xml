@@ -38,6 +38,13 @@
           <type>pom</type>
           <scope>import</scope>
         </dependency>
+        <dependency>
+          <groupId>io.opentelemetry</groupId>
+          <artifactId>opentelemetry-bom</artifactId>
+          <version>${opentelemetry.version}</version>
+          <type>pom</type>
+          <scope>import</scope>
+        </dependency>
         <!-- Dropwizard 5.0.2 pulls hibernate-validator 8.0.3.Final (EL injection); 8.0.6.Final fixes it. -->
         <dependency>
           <groupId>org.hibernate.validator</groupId>
@@ -154,7 +161,7 @@
       <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-classic</artifactId>
-        <version>1.6.3</version>
+        <version>1.6.6</version>
       </dependency>
 
       <dependency>
