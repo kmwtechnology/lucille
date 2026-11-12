@@ -122,7 +122,7 @@ public class XMLFileHandler extends BaseFileHandler {
 
       setEncodingAndParse(xmlHandler, ris, pathStr);
     } finally {
-      DocumentIteratorPublisher.closeStream(inputStream, pathStr);
+      FileHandlerUtils.closeStream(inputStream, pathStr);
     }
   }
 

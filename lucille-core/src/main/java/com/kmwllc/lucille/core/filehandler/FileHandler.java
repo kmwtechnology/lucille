@@ -92,9 +92,9 @@ public interface FileHandler {
         throw new FileHandlerException("Unable to set up iterator for this file " + pathStr, e);
       }
 
-      DocumentIteratorPublisher.publishAll(publisher, docIterator, pathStr);
+      FileHandlerUtils.publishAll(publisher, docIterator, pathStr);
     } finally {
-      DocumentIteratorPublisher.closeStream(inputStream, pathStr);
+      FileHandlerUtils.closeStream(inputStream, pathStr);
     }
   }
 

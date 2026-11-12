@@ -13,15 +13,16 @@ import org.slf4j.MDC;
 import org.slf4j.MDC.MDCCloseable;
 
 /**
- * Publishes the Documents of a {@link FileHandler#processFile} iterator, following the iterator contract described on
- * {@link FileHandler#processFile}. Backs the default {@link FileHandler#processFileAndPublish}.
+ * Helpers shared by the default {@link FileHandler#processFileAndPublish} and the built-in handlers:
+ * {@link #publishAll} publishes the Documents of a {@link FileHandler#processFile} Iterator, following the Iterator
+ * contract described there, and {@link #closeStream} closes the stream a handler was given.
  */
-final class DocumentIteratorPublisher {
+final class FileHandlerUtils {
 
-  private static final Logger log = LoggerFactory.getLogger(DocumentIteratorPublisher.class);
+  private static final Logger log = LoggerFactory.getLogger(FileHandlerUtils.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
-  private DocumentIteratorPublisher() {
+  private FileHandlerUtils() {
   }
 
   static void publishAll(Publisher publisher, Iterator<Document> docIterator, String pathStr) throws FileHandlerException {
