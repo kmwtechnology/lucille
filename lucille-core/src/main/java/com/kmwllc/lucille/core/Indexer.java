@@ -630,13 +630,31 @@ public abstract class Indexer implements Runnable {
       throw new InputNotOwnedException();
     }
     PendingSend send = progress.nextSend();
-    return progress.record(send, sendToIndex(send));
+    return progress.recordAttemptResult(send, sendToIndex(send));
   }
 
   /**
-   * What is known about one batch's documents across the attempts to send it. A document is pending until an attempt
-   * resolves it: either the attempt does not report it (it was applied), or reports it with a cause that is not
-   * retryable (a permanent failure). Documents are tracked by identity. Used by one thread, for one sendWithRetry call.
+   * What the Indexer knows about one batch's documents across the attempts to send it. Created for one sendWithRetry
+   * call, and used by one thread. {@link PendingSend} is what the subclass sees for one attempt; this is what the base
+   * class remembers between attempts.
+   *
+   * <p>Each attempt: {@link #nextSend()} builds the PendingSend from the pending documents, the subclass's sendToIndex
+   * returns failures, and {@link #recordAttemptResult} updates this from them. When no attempt follows,
+   * {@link #failures()} produces the batch's failures, or {@link #failuresWithPendingFailedBy} if the last attempt threw.
+   * An attempt that throws never reaches recordAttemptResult, so it changes nothing: every document of its send stays
+   * pending.
+   *
+   * <p>A document is in one of three states, tracked by identity:
+   * <ul>
+   *   <li>applied: an attempt did not report it. It leaves pending and is never sent again.</li>
+   *   <li>permanently failed: an attempt reported a cause that is not retryable. It leaves pending, and is reported at
+   *   the end. Failures accumulate in {@code permanent} across attempts.</li>
+   *   <li>pending: reported with a retryable cause, or as not sent. It is in the next attempt. {@code latest} holds the
+   *   failure from the most recent attempt only. The pending list only shrinks.</li>
+   * </ul>
+   *
+   * <p>One exception: an attempt that reports a failure that can't be matched to a document of its send is the last
+   * attempt, and the documents it did not report are failed, not applied (see {@code unmatched}).
    */
   private final class SendProgress {
 
@@ -665,7 +683,7 @@ public abstract class Indexer implements Runnable {
     }
 
     /** Records the result of an attempt that returned. Returns whether it left a failure that warrants a retry. */
-    boolean record(PendingSend send, List<IndexerFailure> failures) {
+    boolean recordAttemptResult(PendingSend send, List<IndexerFailure> failures) {
       Set<Document> unreported = Collections.newSetFromMap(new IdentityHashMap<>());
       unreported.addAll(send.documents());
       Map<Document, IndexerFailure> stillPending = new IdentityHashMap<>();
