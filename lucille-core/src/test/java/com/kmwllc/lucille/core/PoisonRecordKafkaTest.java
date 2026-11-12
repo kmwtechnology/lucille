@@ -155,8 +155,9 @@ public class PoisonRecordKafkaTest {
   }
 
   /**
-   * Produces the given records to a single-partition topic. A null value produces a poison record keyed by
-   * that id; otherwise the value is a valid serialized Document.
+   * Produces the given records to a single-partition topic. An id starting with "poison" produces a poison record keyed
+   * by that id, and one starting with "null" a record with a null value; otherwise the value is a valid serialized
+   * Document.
    */
   private void produce(String topic, String... ids) throws Exception {
     embeddedKafka.addTopics(new NewTopic(topic, 1, (short) 1));
@@ -169,7 +170,7 @@ public class PoisonRecordKafkaTest {
       for (String id : ids) {
         byte[] value = id.startsWith("poison")
             ? POISON
-            : Document.create(id, "run1").toString().getBytes(StandardCharsets.UTF_8);
+            : id.startsWith("null") ? null : Document.create(id, "run1").toString().getBytes(StandardCharsets.UTF_8);
         producer.send(new ProducerRecord<>(topic, id, value)).get();
       }
     }
@@ -446,6 +447,25 @@ public class PoisonRecordKafkaTest {
       messenger.close();
     }
     assertNoFailEvents(config, pipelineName);
+  }
+
+  /**
+   * A record with a null value (a tombstone, for example) holds no document. The worker skips it rather than failing on
+   * it, which would stop the worker at the same record after every restart.
+   */
+  @Test(timeout = 120000)
+  public void testNullValueRecordIsSkippedOnWorkerMessenger() throws Exception {
+    String pipelineName = "null_value_worker";
+    Config config = buildConfig(pipelineName, "null_value_worker_group", "");
+    produce(KafkaUtils.getSourceTopicName(pipelineName, config), "doc1", "null2", "doc3");
+
+    KafkaWorkerMessenger messenger = new KafkaWorkerMessenger(config, pipelineName);
+    try {
+      assertEquals("doc1", pollUntilDoc(messenger::pollDocToProcess).getId());
+      assertEquals("doc3", pollUntilDoc(messenger::pollDocToProcess).getId());
+    } finally {
+      messenger.close();
+    }
   }
 
   @Test

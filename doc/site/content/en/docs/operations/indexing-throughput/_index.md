@@ -167,7 +167,7 @@ A consequence to be aware of: a re-delivered document emits a second completion 
 >
 > Local mode has no Kafka and no offset commits.
 
-If you supply a Kafka consumer configuration through `kafka.consumerPropertiesPath`, it **must** set `enable.auto.commit=false`. Auto-commit would commit offsets at poll time — before documents are indexed — reintroducing an at-most-once window in which a crash could skip documents. The indexer (and worker) reject a document consumer that enables auto-commit, or that leaves it unset (kafka-clients defaults it to `true`), with a startup error. Deployments using the normal inline Kafka configuration are unaffected; Lucille sets `enable.auto.commit=false` for them.
+If you supply a Kafka consumer configuration through `kafka.consumerPropertiesPath`, it **must** set `enable.auto.commit=false`. Auto-commit would commit offsets at poll time — before documents are indexed — reintroducing an at-most-once window in which a crash could skip documents. The indexer (and worker) reject a document consumer that enables auto-commit, or that leaves it unset (kafka-clients defaults it to `true`), with a startup error. Deployments using the normal inline Kafka configuration are unaffected; Lucille sets `enable.auto.commit=false` for them. The file must also leave `max.poll.records` unset or set it to `1`: workers and indexers handle one record per poll, so Lucille sets it to `1` when it is unset and rejects any other value at startup.
 
 ## Implementation details: concurrent bulk sends
 

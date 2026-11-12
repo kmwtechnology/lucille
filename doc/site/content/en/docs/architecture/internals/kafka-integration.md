@@ -326,7 +326,7 @@ All Kafka settings live under the `kafka` config prefix:
 | `kafka.event.maxValueLength` | Max length in characters of any copied string value (at least 1); fields with longer values are skipped | No (default: 1024) |
 | `kafka.documentSerializer` | Custom serializer class | No |
 | `kafka.documentDeserializer` | Custom deserializer class. It must return `KafkaDocument` instances and accept Lucille's native Document JSON, the format Workers publish to the destination topic. Extend `KafkaDocumentDeserializer` or wrap its result | No |
-| `kafka.consumerPropertiesPath` | Path to external consumer properties | No |
+| `kafka.consumerPropertiesPath` | Path to external consumer properties. Must set `enable.auto.commit=false`, and leave `max.poll.records` unset or `1` | No |
 | `kafka.producerPropertiesPath` | Path to external producer properties | No |
 | `kafka.adminPropertiesPath` | Path to external admin properties | No |
 | `kafka.consumer` | Arbitrary properties for consumer | No |
@@ -399,7 +399,7 @@ kafka.producerPropertiesPath = "/path/to/producer.properties"
 kafka.adminPropertiesPath = "/path/to/admin.properties"
 ```
 
-When a property file is specified, it completely replaces the programmatic configuration (except for `CLIENT_ID_CONFIG` which is always set). The file is loaded via `FileContentFetcher` which supports local files and cloud storage (S3, Azure, GCP).
+When a property file is specified, it completely replaces the programmatic configuration (except for `CLIENT_ID_CONFIG` which is always set). In a consumer properties file, `max.poll.records` must be unset or `1`: Workers, Indexers and the Runner's event consumer handle one record per poll, so Lucille sets it to `1` when it is unset and fails at startup on any other value. The file is loaded via `FileContentFetcher` which supports local files and cloud storage (S3, Azure, GCP).
 
 ```java
 private static Properties loadExternalProps(String filename, Config config) {

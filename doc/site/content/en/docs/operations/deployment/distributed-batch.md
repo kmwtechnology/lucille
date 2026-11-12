@@ -58,7 +58,8 @@ kafka {
   # Maximum request size in bytes — increase for large documents
   maxRequestSize: 250000000
 
-  # TLS/SASL — provide Java properties files for detailed Kafka client config
+  # TLS/SASL — provide Java properties files for detailed Kafka client config.
+  # consumer.properties must set enable.auto.commit=false and leave max.poll.records unset or 1.
   securityProtocol: "SSL"
   consumerPropertiesPath: "/path/to/consumer.properties"
   producerPropertiesPath: "/path/to/producer.properties"

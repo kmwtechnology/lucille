@@ -23,6 +23,7 @@ import org.apache.kafka.clients.admin.CreateTopicsOptions;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -240,6 +241,7 @@ public class KafkaUtils {
 
   private static KafkaConsumer<String, KafkaDocument> createDocumentConsumer(Properties consumerProps, Config config) {
     requireAutoCommitDisabled(consumerProps);
+    requireOneRecordPerPoll(consumerProps);
     String deserializerClass = ConfigUtils.getStringOrDefault(config, "kafka.documentDeserializer", KafkaDocumentDeserializer.class.getName());
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deserializerClass);
     return new KafkaConsumer<>(consumerProps);
@@ -270,6 +272,25 @@ public class KafkaUtils {
   }
 
   /**
+   * Sets {@code max.poll.records} to 1 if it is unset, and fails fast if it is set to anything else. Workers, Indexers
+   * and the Runner's event consumer handle one record per poll (see {@link #validateAtMostOneRecord}) and commit, or
+   * read, the whole poll at once, so a poll of several records would fail and could skip the rest of them. The
+   * non-property-file path sets it to 1, but a {@code kafka.consumerPropertiesPath} that omits it would otherwise get
+   * the kafka-clients default of 500.
+   */
+  // access set to package so unit tests can check the resolved value without initializing a Consumer
+  static void requireOneRecordPerPoll(Properties consumerProps) {
+    Object maxPollRecords = consumerProps.get(ConsumerConfig.MAX_POLL_RECORDS_CONFIG);
+    if (maxPollRecords == null) {
+      consumerProps.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1);
+    } else if (!"1".equals(maxPollRecords.toString().trim())) {
+      throw new IllegalArgumentException(ConsumerConfig.MAX_POLL_RECORDS_CONFIG + " must be 1 or unset for Lucille's "
+          + "document and event consumers, which handle one record per poll, but it is set to " + maxPollRecords
+          + " (in kafka.consumerPropertiesPath or kafka.consumer." + ConsumerConfig.MAX_POLL_RECORDS_CONFIG + ").");
+    }
+  }
+
+  /**
    * Creates a Kafka consumer for events. The consumer belongs to no consumer group and commits no offsets: it reads a
    * partition assigned to it directly, so that starting and ending a run doesn't rebalance the Workers and Indexers.
    *
@@ -291,6 +312,7 @@ public class KafkaUtils {
     Properties consumerProps = createConsumerProps(config, clientId);
     consumerProps.remove(ConsumerConfig.GROUP_ID_CONFIG);
     consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+    requireOneRecordPerPoll(consumerProps);
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
     return consumerProps;
   }
@@ -425,6 +447,18 @@ public class KafkaUtils {
       Thread.currentThread().interrupt();
       throw new MessengerException("Sending document " + document.getId() + " to the fail topic was interrupted", e);
     }
+  }
+
+  /**
+   * Logs that a record whose value deserialized to null, such as a tombstone with a null value, is being skipped.
+   *
+   * <p>Only the consumers of topics that other systems may write check for null values: the Workers' source topic
+   * (written directly in streaming mode) and KafkaConnector's topic. The destination and event topics are written only
+   * by Lucille, which never writes a null value, so their consumers (the Indexer and the Runner) do not check.
+   */
+  public static void logSkippedNullRecord(ConsumerRecord<?, ?> record) {
+    log.warn("Skipping the Kafka record at {}-{}@{}: its value is null, so it holds no document.", record.topic(),
+        record.partition(), record.offset());
   }
 
   public static void validateAtMostOneRecord(ConsumerRecords<?, ?> consumerRecords) {

@@ -22,6 +22,20 @@ For each document, the first value of `source` is embedded and each float of the
 </dependency>
 ```
 
+`lucille-jlama` depends on a platform-specific native library, `jlama-native`, whose classifier is `${os.detected.name}-${os.detected.arch}`. Those properties are set by the `os-maven-plugin` build extension, so a Maven project that depends on `lucille-jlama` must also add it:
+
+```xml
+<build>
+  <extensions>
+    <extension>
+      <groupId>kr.motd.maven</groupId>
+      <artifactId>os-maven-plugin</artifactId>
+      <version>1.7.0</version>
+    </extension>
+  </extensions>
+</build>
+```
+
 ```hocon
 {
   name: "embed"

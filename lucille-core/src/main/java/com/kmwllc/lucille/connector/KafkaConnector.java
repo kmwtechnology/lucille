@@ -200,10 +200,12 @@ public class KafkaConnector extends AbstractConnector {
   }
 
   /**
-   * Processes a single consumer record by converting it to a Lucille document and publishing it.
+   * Processes a single consumer record by converting it to a Lucille document and publishing it. A record whose value
+   * is null, such as a tombstone, holds no document and is skipped with a warning.
    * <p>
    * Subclasses may choose to handle messages in a different way and may or may not publish the
-   * document depending on the message and the implementation of the subclassed KafkaConnector.
+   * document depending on the message and the implementation of the subclassed KafkaConnector. A subclass that
+   * overrides this method also receives records whose value is null, and may, for example, treat them as deletes.
    *
    * @param record the Kafka consumer record to process
    * @param publisher the publisher to use for publishing the document
@@ -211,6 +213,10 @@ public class KafkaConnector extends AbstractConnector {
    */
   public void handleMessage(ConsumerRecord<String, Document> record, Publisher publisher) throws ConnectorException {
     Document doc = record.value();
+    if (doc == null) {
+      KafkaUtils.logSkippedNullRecord(record);
+      return;
+    }
     try {
       publisher.publish(doc);
     } catch (Exception e) {
