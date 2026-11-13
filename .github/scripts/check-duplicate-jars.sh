@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Fails if the given modules' runtime dependencies, taken together, hold more than one version of the same
+# groupId:artifactId. The core Docker image copies each module's separately resolved target/lib into one
+# /lucille/lib, so a version split between the modules ships both jars.
+# Classifier jars of one version (e.g. netty natives per platform) count once.
+# Matches on groupId:artifactId only, so a library republished under a new groupId (e.g. asm:asm and
+# org.ow2.asm:asm) is not caught.
+# Usage (from the repo root): check-duplicate-jars.sh <module> [<module> ...]
+set -euo pipefail
+
+modules=$(IFS=,; echo "$*")
+out=target/runtime-deps.txt
+
+# -am puts the parent poms in the reactor, so this works on a runner that has not installed them
+mvn -B -q dependency:list -DincludeScope=runtime -DoutputFile="$out" -DappendOutput=false \
+  -pl "$modules" -am
+
+# Lines look like "   group:artifact:type[:classifier]:version:scope[ -- module ...]"
+coords=$(
+  for m in "$@"; do
+    lines=$(awk '$1 ~ /^[^:]+:[^:]+:[^:]+:/ {print $1}' "$m/$out")
+    if [[ -z "$lines" ]]; then
+      echo "No dependencies listed for $m" >&2
+      exit 1
+    fi
+    echo "$lines"
+  done | awk -F: '{print $1 ":" $2, $(NF-1)}' | sort -u
+)
+
+dupes=$(echo "$coords" | awk '{print $1}' | sort | uniq -d)
+if [[ -n "$dupes" ]]; then
+  echo "Runtime dependencies of $* hold more than one version of:"
+  for d in $dupes; do
+    echo "  $d: $(echo "$coords" | awk -v d="$d" '$1 == d {print $2}' | paste -sd' ' -)"
+  done
+  exit 1
+fi
+echo "No duplicate artifacts across the runtime dependencies of: $*"
