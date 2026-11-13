@@ -71,6 +71,15 @@
     <junit4.version>4.13.2</junit4.version>
     <aws-sdk.version>2.52.1</aws-sdk.version>
     <hadoop.version>3.5.0</hadoop.version>
+    <!-- Must match the version Tika's PDF parser was built against (tika 3.3.1 -> pdfbox 3.0.7). -->
+    <pdfbox.version>3.0.7</pdfbox.version>
+    <!-- Tika 3.x uses the jakarta JAXB stack. Hadoop (via lucille-parquet) otherwise drags in the javax 2.3.x runtime,
+         which mismatches jakarta.xml.bind-api 4.x on the lucille-all classpath. -->
+    <jaxb.version>4.0.8</jaxb.version>
+    <!-- Tika's crypto module needs the newer line; Hadoop pulls an older one. -->
+    <bouncycastle.version>1.84</bouncycastle.version>
+    <!-- javacpp and every bytedeco preset (tesseract, leptonica, ...) must come from the same release train. -->
+    <javacpp.version>1.5.12</javacpp.version>
     <!-- SecureRandom algorithm Solr's test framework expects the JVM to use; overridden by the windows profile -->
     <test.solr.securerandom>NativePRNG</test.solr.securerandom>
     <!-- Number of JVMs surefire spreads test classes across ("1C" = one per CPU core). Use -Dsurefire.forkCount=1
@@ -150,6 +159,36 @@
         <groupId>org.apache.httpcomponents.core5</groupId>
         <artifactId>httpcore5-reactive</artifactId>
         <version>${httpcore5.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.glassfish.jaxb</groupId>
+        <artifactId>jaxb-bom</artifactId>
+        <version>${jaxb.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.bouncycastle</groupId>
+        <artifactId>bcprov-jdk18on</artifactId>
+        <version>${bouncycastle.version}</version>
+      </dependency>
+
+      <!-- Keep the pdfbox family at a single version. lucille-ocr and lucille-tika both use it. -->
+      <dependency>
+        <groupId>org.apache.pdfbox</groupId>
+        <artifactId>pdfbox</artifactId>
+        <version>${pdfbox.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.pdfbox</groupId>
+        <artifactId>fontbox</artifactId>
+        <version>${pdfbox.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.pdfbox</groupId>
+        <artifactId>pdfbox-io</artifactId>
+        <version>${pdfbox.version}</version>
       </dependency>
 
       <dependency>
