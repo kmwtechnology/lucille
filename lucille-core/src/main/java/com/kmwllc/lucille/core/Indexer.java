@@ -129,8 +129,11 @@ public abstract class Indexer implements Runnable {
       .requiredString("field", "value").build();
   private static final Spec DELETE_BY_QUERY_SPEC = SpecBuilder.withoutDefaults()
       .requiredString("fieldNameField", "valueField").build();
-  // generic settings that are blocks, so validateIndexerConfigs does not mistake them for an indexer's own block
-  private static final Set<String> GENERIC_BLOCKS = Set.of("deletionMarker", "deleteByQuery");
+  /**
+   * The generic settings in the indexer block that are objects rather than scalars or lists. They are not an indexer's own
+   * block, so config handling (validation and selection by nesting) must not mistake them for one.
+   */
+  public static final Set<String> GENERIC_BLOCKS = Set.of("deletionMarker", "deleteByQuery");
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
