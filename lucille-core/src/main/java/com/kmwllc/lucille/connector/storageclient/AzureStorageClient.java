@@ -4,6 +4,7 @@ import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.AZ
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.AZURE_ACCOUNT_NAME;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.AZURE_CONNECTION_STRING;
 
+import com.azure.core.util.polling.LongRunningOperationStatus;
 import com.azure.core.util.polling.SyncPoller;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
@@ -64,6 +65,7 @@ public class AzureStorageClient extends BaseStorageClient {
         String accountKey = config.getString(AZURE_ACCOUNT_KEY);
 
         serviceClient = new BlobServiceClientBuilder()
+            .endpoint("https://" + accountName + ".blob.core.windows.net")
             .credential(new StorageSharedKeyCredential(accountName, accountKey))
             .buildClient();
       }
@@ -175,11 +177,15 @@ public class AzureStorageClient extends BaseStorageClient {
     BlobClient sourceBlobClient = serviceClient.getBlobContainerClient(source.containerName).getBlobClient(source.blobName);
     BlobClient destBlobClient = serviceClient.getBlobContainerClient(dest.containerName).getBlobClient(destBlob);
 
-    // Start the copy, then we wait for it to complete
-    SyncPoller<BlobCopyInfo, Void> poller = sourceBlobClient.beginCopy(destBlobClient.getBlobUrl(), null);
-    poller.waitForCompletion();
+    // beginCopy copies the blob at the given URL into the blob it's called on
+    SyncPoller<BlobCopyInfo, Void> poller = destBlobClient.beginCopy(sourceBlobClient.getBlobUrl(), null);
+    LongRunningOperationStatus status = poller.waitForCompletion().getStatus();
 
-    // then delete the source file, completing the move
+    if (status != LongRunningOperationStatus.SUCCESSFULLY_COMPLETED) {
+      throw new IOException("Copying '" + filePath + "' to '" + destBlob + "' ended with status " + status
+          + ". The source was not deleted.");
+    }
+
     sourceBlobClient.delete();
   }
 
