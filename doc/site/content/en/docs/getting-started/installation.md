@@ -56,6 +56,7 @@ Everything that pulls in a large or backend-specific dependency lives in its own
 | `lucille-pinecone` | `PineconeIndexer` |
 | `lucille-weaviate` | `WeaviateIndexer` |
 | `lucille-parquet` | Parquet connector/file handler |
+| `lucille-salesforce` | Salesforce connector (standard and custom objects) and file fetch stage |
 | `lucille-tika` | `TextExtractor` stage |
 | `lucille-ocr` | `ApplyOCR` stage |
 | `lucille-jlama` | `JlamaEmbed` stage |
