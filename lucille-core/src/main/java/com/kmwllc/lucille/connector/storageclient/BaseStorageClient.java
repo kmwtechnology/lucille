@@ -1103,6 +1103,9 @@ public abstract class BaseStorageClient implements StorageClient {
     } catch (UnsupportedOperationException e) {
       throw new MoveNotSupportedException(getClass().getName() + " does not support moving files, which fileOptions."
           + option + " requires.", e);
+    } catch (RuntimeException e) {
+      // cloud SDKs fail with unchecked exceptions, which would otherwise escape the error-folder catch and stop the traversal
+      throw new IOException("Unable to move '" + filePath + "' to '" + folder + "'.", e);
     }
   }
 
