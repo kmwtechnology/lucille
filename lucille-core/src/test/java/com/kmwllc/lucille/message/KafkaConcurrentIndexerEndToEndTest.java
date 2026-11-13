@@ -602,9 +602,10 @@ public class KafkaConcurrentIndexerEndToEndTest {
   @Test
   public void testEvictedIndexerDoesNotSendBatchDispatchedAfterEviction() throws Exception {
     String pipeline = newPipeline(1);
-    // One document per batch, never flushed by time; a 2 s poll deadline.
+    // One document per batch, never flushed by time; a 5 s poll deadline. Long enough that a loaded run does not
+    // repeatedly lose ownership of a batch it is still allowed to send (which re-polls and re-sends it).
     Config config = config(pipeline, 2, Map.of("indexer.batchSize", 1, "indexer.batchTimeoutMs", 600000,
-        "kafka.pollIntervalMs", 100, "kafka.maxPollIntervalMs", 2000));
+        "kafka.pollIntervalMs", 100, "kafka.maxPollIntervalMs", 5000));
     String topic = KafkaUtils.getDestTopicName(pipeline);
     TopicPartition partition = new TopicPartition(topic, 0);
     // A fifth document, so the fourth is flushed (a batch of one is flushed by the next add).
@@ -625,7 +626,12 @@ public class KafkaConcurrentIndexerEndToEndTest {
       waitFor(() -> !messenger.ownsInput(probe));
       // doc2 is dispatched only now, after the eviction.
       indexer.release();
-      waitFor(() -> Map.of(partition, 4L).equals(committed(config)), indexer.sent::toString);
+      // At least 4: docs 0 to 3 are committed. The offset can move past 4 (doc 4 is dispatched too), so equality is not
+      // the condition.
+      waitFor(() -> {
+        Long offset = committed(config).get(partition);
+        return offset != null && offset >= 4L;
+      }, () -> "sent=" + indexer.sent + " committed=" + committed(config));
     } finally {
       indexer.release();
       indexer.terminate();
