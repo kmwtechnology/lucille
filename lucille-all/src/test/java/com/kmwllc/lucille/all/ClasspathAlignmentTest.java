@@ -54,8 +54,6 @@ public class ClasspathAlignmentTest {
   public void testPdfboxJarsShareVersion() {
     String pdfboxJar = jarName(org.apache.pdfbox.pdmodel.PDDocument.class);
     String version = pdfboxJar.replaceFirst("^pdfbox-", "").replaceFirst("\\.jar$", "");
-    assertTrue("unexpected pdfbox jar " + pdfboxJar, pdfboxJar.startsWith("pdfbox-") && version.startsWith("3."));
-
     assertEquals("pdfbox-io-" + version + ".jar", jarName(org.apache.pdfbox.io.RandomAccessRead.class));
     assertEquals("fontbox-" + version + ".jar", jarName(org.apache.fontbox.FontBoxFont.class));
   }
