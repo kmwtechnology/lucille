@@ -46,7 +46,7 @@ public class ConfigInfo {
 
   private static final ObjectMapper mapper = new ObjectMapper();
 
-  // Written into each plugin jar by the component-javadocs execution in lucille-plugins/pom.xml
+  // Written into each plugin jar by the component-javadocs profile in lucille-plugins/pom.xml
   static final String PLUGIN_DOCS_RESOURCE = "lucille-component-javadocs.json";
 
   private ArrayNode cachedConnectorListJson;

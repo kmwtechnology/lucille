@@ -86,6 +86,6 @@ These endpoints are used by the Lucille UI to populate the component browser and
 The Javadoc is extracted at build time by `lucille-core`'s `JsonDoclet`, not read from source at runtime:
 
 - **Core components:** `run-jsondoclet.sh` writes `stage-javadocs.json`, `connector-javadocs.json` and `indexer-javadocs.json` into the `lucille-api` JAR.
-- **Plugin components:** every module under `lucille-plugins` writes `lucille-component-javadocs.json` into its own JAR (the `component-javadocs` execution in `lucille-plugins/pom.xml`). The endpoints merge this file from every JAR on the classpath, so a plugin's descriptions appear whenever the plugin is on the API's classpath.
+- **Plugin components:** every module under `lucille-plugins` writes `lucille-component-javadocs.json` into its own JAR (the `component-javadocs` profile in `lucille-plugins/pom.xml`, which is active in any module with Java sources). The endpoints merge this file from every JAR on the classpath, so a plugin's descriptions appear whenever the plugin is on the API's classpath.
 
 A new plugin module under `lucille-plugins` gets this automatically. Rebuild the plugin after changing its Javadoc for the UI to pick up the change.
