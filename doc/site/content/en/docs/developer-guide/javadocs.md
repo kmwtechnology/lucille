@@ -82,3 +82,10 @@ The `lucille-api` plugin exposes three REST endpoints that return component meta
 Each response is a JSON array. For each component, the parser extracts the text before the `<p>` tag as the component description, and maps each `<li>` entry to its corresponding SPEC field by name, populating a `description` property on that field. If a component's Javadoc is missing or malformatted, the description and field descriptions will be absent from the response but the SPEC fields themselves will still be returned.
 
 These endpoints are used by the Lucille UI to populate the component browser and config editor.
+
+The Javadoc is extracted at build time by `lucille-core`'s `JsonDoclet`, not read from source at runtime:
+
+- **Core components:** `run-jsondoclet.sh` writes `stage-javadocs.json`, `connector-javadocs.json` and `indexer-javadocs.json` into the `lucille-api` JAR.
+- **Plugin components:** every module under `lucille-plugins` writes `lucille-component-javadocs.json` into its own JAR (the `component-javadocs` profile in `lucille-plugins/pom.xml`, which is active in any module with Java sources). The endpoints merge this file from every JAR on the classpath, so a plugin's descriptions appear whenever the plugin is on the API's classpath.
+
+A new plugin module under `lucille-plugins` gets this automatically. Rebuild the plugin after changing its Javadoc for the UI to pick up the change.

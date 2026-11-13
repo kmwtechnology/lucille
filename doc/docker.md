@@ -9,7 +9,7 @@ Lucille publishes a few images for different needs:
 | Image | Contents | Use when |
 |---|---|---|
 | `kmwtechnology/lucille` | `lucille-core` only. Built from `Dockerfile` (the default `core` stage). | You want a minimal image and will either stick to core components or extend the image with the specific plugin jars you need. |
-| `kmwtechnology/lucille-all` | `lucille-core` **plus every component plugin** (Solr, OpenSearch, Elasticsearch, Pinecone, Weaviate, Parquet, Tika, OCR, Jlama, entity-extraction, video). Built from the same `Dockerfile` with `--target all`. | You want everything available out of the box and are willing to accept a larger image. Lowest barrier to entry. |
+| `kmwtechnology/lucille-all` | `lucille-core` **plus every component plugin** (Solr, OpenSearch, Elasticsearch, Pinecone, Weaviate, Parquet, Tika, OCR, Jlama, entity-extraction, video), **plus the Admin API and UI**. Built from the same `Dockerfile` with `--target all`. | You want everything available out of the box and are willing to accept a larger image. Lowest barrier to entry. Run with `LUCILLE_ROLE=api` to use the Admin UI with every component (see [Running the Admin API and UI](#running-the-admin-api-and-ui-lucille-all)). |
 | `kmwtechnology/lucille-api` | `lucille-core` plus the Dropwizard-based Admin API web layer. Built from `lucille-plugins/lucille-api/Dockerfile`. | You want to drive/monitor Lucille over the REST Admin API. |
 
 `lucille-all` is a large image. It is also tied to one CPU architecture: `lucille-jlama` resolves its native library to the architecture the image is **built** on (e.g. `osx-aarch_64`), so build `lucille-all` on — or cross-build it for — the architecture you will run it on, or the Jlama stage will fail to load its native code.
@@ -22,7 +22,10 @@ The rest of this document describes the `lucille` image. The `lucille-all` image
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `LUCILLE_CONF` | **Yes** | *(none)* | Path to the Lucille config file inside the container |
+| `LUCILLE_CONF` | **Yes**, except with `LUCILLE_ROLE=api` | *(none)* | Path to the Lucille config file inside the container |
+| `LUCILLE_ROLE` | No | `runner` | Component to run: `runner`, `worker`, `indexer`, `worker-indexer`, or `api` (`lucille-all` only) |
+| `DROPWIZARD_CONF` | With `LUCILLE_ROLE=api` | `/lucille/conf/api.yml` in `lucille-all` | Admin API config file |
+| `LUCILLE_API_PASSWORD` | With `LUCILLE_ROLE=api` and the default `api.yml` | *(none)* | Password for the Admin API and UI |
 | `JAVA_OPTS` | No | *(empty)* | JVM flags (heap size, GC tuning, etc.) |
 | `LUCILLE_OPTS` | No | *(empty)* | Lucille Runner CLI flags (e.g. `-distributed`, `-external`) |
 
@@ -75,6 +78,16 @@ docker run \
   -v /path/on/host/data:/lucille/data \
   lucille:latest
 ```
+
+### Running the Admin API and UI (lucille-all)
+
+The `lucille-all` image includes the Admin API, so the UI can use every component. Build it with `mvn clean install -Padmin-ui` (needs network access for Node) so the UI jar is included; without `-Padmin-ui` the API still runs, but `/admin` isn't served.
+
+```bash
+docker run --env LUCILLE_ROLE=api --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 lucille-all:latest
+```
+
+The UI is at `http://localhost:8080/admin`. Configs are POSTed to the API instead of passed in `LUCILLE_CONF`, and file paths and hosts in them are resolved inside the container. `localhost` there is the container itself, so reach a service running on your machine via `host.docker.internal` (Docker Desktop), or run both containers on a shared Docker network and use the container name.
 
 ## Adding a Plugin to the Core Image
 

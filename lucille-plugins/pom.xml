@@ -36,9 +36,68 @@
          shaded *-plugin.jar (hundreds of MB for some plugins, unused by tests). Activate the
          shaded-plugin-jars profile to build it: mvn package -Pshaded-plugin-jars -->
     <shaded-plugin-jar.phase>none</shaded-plugin-jar.phase>
+    <!-- Set to true in modules with no components to document (lucille-api). See the component-javadocs profile. -->
+    <component-javadocs.skip>false</component-javadocs.skip>
   </properties>
 
   <profiles>
+    <!-- Writes this plugin's component javadoc (stages, connectors, indexers) to lucille-component-javadocs.json in the
+         jar. The Admin API's config-info endpoints merge this file from every jar on the classpath, so the UI shows
+         descriptions for plugin components too, not only core's (whose docs run-jsondoclet.sh generates into
+         lucille-api).
+         Runs lucille-core's JsonDoclet (its main() calls the javadoc tool) on the module's own classpath, which includes
+         lucille-core (provided) and gson, and which Maven resolves from the reactor in a multi-module build, so
+         lucille-core doesn't need to be installed first. Only active in modules with Java sources (not this aggregator
+         pom or lucille-admin-ui). longClasspath passes the classpath in a manifest jar rather than on the command line,
+         which these classpaths would overflow on Windows. -->
+    <profile>
+      <id>component-javadocs</id>
+      <activation>
+        <file>
+          <exists>${basedir}/src/main/java</exists>
+        </file>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.5.1</version>
+            <executions>
+              <execution>
+                <id>component-javadocs</id>
+                <phase>prepare-package</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <skip>${component-javadocs.skip}</skip>
+                  <executable>${java.home}/bin/java</executable>
+                  <!-- test: the only scope with provided (lucille-core), compile and runtime dependencies together. The
+                       doclet needs gson, which a plugin's own runtime-scoped copy can drop from the compile classpath
+                       (pinecone-client's does). -->
+                  <classpathScope>test</classpathScope>
+                  <longClasspath>true</longClasspath>
+                  <arguments>
+                    <argument>-classpath</argument>
+                    <classpath/>
+                    <argument>com.kmwllc.lucille.doclet.JsonDoclet</argument>
+                    <argument>--sourcepath</argument>
+                    <argument>${project.build.sourceDirectory}</argument>
+                    <argument>--subpackages</argument>
+                    <argument>com.kmwllc.lucille</argument>
+                    <argument>--output</argument>
+                    <argument>lucille-component-javadocs.json</argument>
+                    <argument>--directory</argument>
+                    <argument>${project.build.outputDirectory}</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
     <profile>
       <id>shaded-plugin-jars</id>
       <properties>

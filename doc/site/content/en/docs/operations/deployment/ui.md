@@ -19,6 +19,14 @@ docker run --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 kmwtechnology/luci
 
 Open `http://localhost:8080/admin` and sign in with `<password>`. For `<version>`, use an image tag for Lucille 1.0 or later (see [With Docker](#with-docker)).
 
+The `lucille-api` image only has `lucille-core`'s components. To use plugin components such as the Solr, Elasticsearch or OpenSearch indexers from the UI, run the `lucille-all` image in API mode instead:
+
+```bash
+docker run --env LUCILLE_ROLE=api --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 kmwtechnology/lucille-all:<version>
+```
+
+See [Choosing Which Components Are Available](#choosing-which-components-are-available).
+
 ### Prerequisites
 
 To run the Admin UI you need:
@@ -36,7 +44,8 @@ The UI runs on port `8080` by default.
 | Source | Includes the UI? |
 |---|---|
 | `kmwtechnology/lucille-api` Docker image, 1.0 or later | Yes — both JARs are in the image |
-| Source build with `-Padmin-ui` | Yes — builds `lucille-admin-ui.jar` next to the API JAR |
+| `kmwtechnology/lucille-all` Docker image, with `LUCILLE_ROLE=api` | Yes — the API, the UI and every plugin |
+| Source build with `-Padmin-ui` | Yes — builds `lucille-admin-ui.jar` next to the API JAR, and adds it to `lucille-all/target/lib` |
 | Source build without `-Padmin-ui` | No — API only |
 | Maven: `com.kmwllc:lucille-api` | No — add `com.kmwllc:lucille-admin-ui` as well (see [Embedding the API](#embedding-the-api)) |
 
@@ -90,6 +99,18 @@ docker build -t lucille-api .
 
 Then use `lucille-api` in place of `kmwtechnology/lucille-api:<version>` in the `docker run` commands on this page.
 
+**With every plugin.** The `lucille-all` image also runs the API and UI when you set `LUCILLE_ROLE=api`, and then every plugin component is available:
+
+```bash
+docker run \
+  --env LUCILLE_ROLE=api \
+  --env LUCILLE_API_PASSWORD=<password> \
+  -p 8080:8080 \
+  kmwtechnology/lucille-all:<version>
+```
+
+To build it yourself, run `mvn clean install -DskipTests -Padmin-ui` and then `docker build --target all -t lucille-all .` from the repository root. Its default API config is `/lucille/conf/api.yml`; to use your own, mount it and set `DROPWIZARD_CONF` as in [Using Your Own API Config](#using-your-own-api-config).
+
 ### From Source
 
 From the repository root, build the API JAR and the UI JAR:
@@ -109,6 +130,16 @@ java -cp 'target/lucille-api-plugin.jar:lucille-admin-ui/target/lucille-admin-ui
 
 Use `-cp` with the main class, not `java -jar`. `java -jar` ignores any other JARs on the classpath, so the API starts without the UI.
 
+To run it with every plugin instead, use the classpath `lucille-all` assembles. From the repository root, after the same build:
+
+```bash
+export LUCILLE_API_PASSWORD=<password>
+java -cp 'lucille-all/target/lib/*' \
+  com.kmwllc.lucille.api.APIApplication server lucille-plugins/lucille-api/conf/api.yml
+```
+
+`lucille-all/target/lib` contains the API, the UI JAR (with `-Padmin-ui`) and every plugin with their dependencies. Relative paths in the configs you run, such as input files, resolve against the directory you start the API in.
+
 ### Embedding the API
 
 If you run the API from your own Maven project, add `lucille-admin-ui` next to `lucille-api`. Both versions are managed by `lucille-bom`:
@@ -124,7 +155,19 @@ If you run the API from your own Maven project, add `lucille-admin-ui` next to `
 </dependency>
 ```
 
-Keep the two at the same version.
+Keep the two at the same version. Add the plugin modules you want available too (for example `com.kmwllc:lucille-opensearch`); `lucille-api` only depends on `lucille-core`.
+
+### Choosing Which Components Are Available
+
+The UI lists every connector, stage and indexer on the API's classpath, with the descriptions from each component's Javadoc.
+
+| Option | Components available |
+|---|---|
+| `lucille-api` image, or `lucille-api` + `lucille-admin-ui` from source or Maven | `lucille-core` only |
+| Any of the above plus specific plugin JARs on the classpath | `lucille-core` plus those plugins |
+| `lucille-all` image with `LUCILLE_ROLE=api`, or `lucille-all/target/lib` from source | `lucille-core` plus every plugin |
+
+To add one plugin to the `lucille-api` image, put the plugin's shaded JAR (built with `-Pshaded-plugin-jars`) in the image's `/lucille-api/lib/`; the image's classpath is `lib/*`. See [Using a Plugin]({{< relref "docs/operations/api#using-a-plugin" >}}).
 
 ## Step 3: Open the UI
 
