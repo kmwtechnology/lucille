@@ -3,6 +3,8 @@
 # groupId:artifactId. The core Docker image copies each module's separately resolved target/lib into one
 # /lucille/lib, so a version split between the modules ships both jars.
 # Classifier jars of one version (e.g. netty natives per platform) count once.
+# Matches on groupId:artifactId only, so a library republished under a new groupId (e.g. asm:asm and
+# org.ow2.asm:asm) is not caught.
 # Usage (from the repo root): check-duplicate-jars.sh <module> [<module> ...]
 set -euo pipefail
 
@@ -16,13 +18,14 @@ mvn -B -q dependency:list -DincludeScope=runtime -DoutputFile="$out" -DappendOut
 # Lines look like "   group:artifact:type[:classifier]:version:scope[ -- module ...]"
 coords=$(
   for m in "$@"; do
-    awk '$1 ~ /^[^:]+:[^:]+:[^:]+:/ {print $1}' "$m/$out"
+    lines=$(awk '$1 ~ /^[^:]+:[^:]+:[^:]+:/ {print $1}' "$m/$out")
+    if [[ -z "$lines" ]]; then
+      echo "No dependencies listed for $m" >&2
+      exit 1
+    fi
+    echo "$lines"
   done | awk -F: '{print $1 ":" $2, $(NF-1)}' | sort -u
 )
-if [[ -z "$coords" ]]; then
-  echo "No dependencies listed for: $*"
-  exit 1
-fi
 
 dupes=$(echo "$coords" | awk '{print $1}' | sort | uniq -d)
 if [[ -n "$dupes" ]]; then
