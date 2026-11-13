@@ -19,9 +19,10 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.net.URL;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.io.InputStream;
 import java.io.IOException;
@@ -44,6 +45,9 @@ public class ConfigInfo {
   private static final Logger log = LoggerFactory.getLogger(ConfigInfo.class);
 
   private static final ObjectMapper mapper = new ObjectMapper();
+
+  // Written into each plugin jar by the component-javadocs execution in lucille-plugins/pom.xml
+  static final String PLUGIN_DOCS_RESOURCE = "lucille-component-javadocs.json";
 
   private ArrayNode cachedConnectorListJson;
   private ArrayNode cachedStageListJson;
@@ -113,24 +117,29 @@ public class ConfigInfo {
     return out;
   }
 
-  // Load the docs from the provided json file
-  private static Map<String, ComponentDoc> loadDocs(String resourceName) throws IOException {
+  // Load the docs for one component type: core's file for that type (generated into this jar by run-jsondoclet.sh) plus
+  // the lucille-component-javadocs.json each plugin jar carries. Entries are keyed by class name, so merging every
+  // plugin's file into each list is harmless.
+  private static Map<String, ComponentDoc> loadDocs(String coreResourceName) throws IOException {
     Map<String, ComponentDoc> map = new HashMap<>();
+    readDocs(coreResourceName, map);
+    readDocs(PLUGIN_DOCS_RESOURCE, map);
+    return map;
+  }
 
-    try (InputStream is = ConfigInfo.class.getClassLoader().getResourceAsStream(resourceName)) {
-      if (is == null) {
-        return map;
+  // Reads the named resource from every jar on the classpath into the map
+  private static void readDocs(String resourceName, Map<String, ComponentDoc> map) throws IOException {
+    Enumeration<URL> urls = ConfigInfo.class.getClassLoader().getResources(resourceName);
+    while (urls.hasMoreElements()) {
+      URL url = urls.nextElement();
+      try (InputStream is = url.openStream()) {
+        for (ComponentDoc d : mapper.readValue(is, ComponentDoc[].class)) {
+          map.put(d.className, d);
+        }
+      } catch (IOException e) {
+        // One unreadable file shouldn't take the descriptions of every other component with it
+        log.warn("Couldn't read component docs from {}: {}", url, e.toString());
       }
-
-      // Get the document stream as an array of ComponentDocs
-      List<ComponentDoc> list = Arrays.asList(mapper.readValue(is, ComponentDoc[].class));
-
-      // Put each ComponentDoc into the map with the name as the key
-      for (ComponentDoc d : list) {
-        map.put(d.className, d);
-      }
-
-      return map;
     }
   }
 

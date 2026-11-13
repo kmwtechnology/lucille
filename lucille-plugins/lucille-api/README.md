@@ -25,6 +25,16 @@ In a deployment the UI is a separate jar, `lucille-admin-ui.jar`, and the API se
 2. Replace the placeholders with your config file names or export them as environment variables. See [Configuration](#configuration) for more information
 3. Run the image, passing the auth password (required while auth is enabled): `docker run --env DROPWIZARD_CONF=${DROPWIZARD_CONF} --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 lucille-api`
 
+### Running with every plugin
+
+This module depends only on `lucille-core`, so the runs above can use core components only. To have every plugin's connectors, stages and indexers available (in the API and the UI), use `lucille-all`, which bundles this API with every plugin:
+
+- **From source:** run `mvn clean install -DskipTests -Padmin-ui` from the repo root, then, from the repo root:
+  `java -cp 'lucille-all/target/lib/*' com.kmwllc.lucille.api.APIApplication server lucille-plugins/lucille-api/conf/api.yml`
+- **Docker:** `docker run --env LUCILLE_ROLE=api --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 kmwtechnology/lucille-all:<version>`, or build it with `docker build --target all -t lucille-all .` from the repo root. See [`doc/docker.md`](../../doc/docker.md).
+
+To add just one plugin instead, put its shaded jar (`-Pshaded-plugin-jars`) on the classpath next to this one.
+
 ### Upload Lucille Config
 1. This should be a HOCON file
 2. `curl -u user:${LUCILLE_API_PASSWORD} -X POST http://localhost:8080/v1/config -H "Content-Type: application/hocon" -d @${LUCILLE_CONF}` (drop `-u` if auth is disabled)

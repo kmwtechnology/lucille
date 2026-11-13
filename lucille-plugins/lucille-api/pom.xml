@@ -19,6 +19,7 @@
       <!-- Dropwizard 5.0.2 drags in Jetty 12.1.9, which has CVEs in jetty-security/jetty-server.
            Pin the whole Jetty 12.1.x set to 12.1.13 via the Jetty BOMs (modules must share one version). -->
       <jetty.version>12.1.13</jetty.version>
+      <component-javadocs.skip>true</component-javadocs.skip>
       <jjwt.version>0.12.6</jjwt.version>
     </properties>
 
@@ -55,24 +56,11 @@
     </dependencyManagement>
 
     <dependencies>
-      <!-- Declared directly (not just via lucille-all) because lucille-all is optional below, so this is the
-           dependency projects using lucille-api actually inherit. -->
       <dependency>
         <groupId>com.kmwllc</groupId>
         <artifactId>lucille-core</artifactId>
         <version>${project.version}</version>
         <scope>compile</scope>
-      </dependency>
-
-      <!-- Bundles every plugin into this module's own build (the shaded lucille-api-plugin.jar and the Docker image).
-           Optional because lucille-all isn't published (maven.deploy.skip): projects that depend on lucille-api don't
-           inherit it, so they can still resolve it from Maven Central and get lucille-core only, as before. -->
-      <dependency>
-        <groupId>com.kmwllc</groupId>
-        <artifactId>lucille-all</artifactId>
-        <version>${project.version}</version>
-        <scope>compile</scope>
-        <optional>true</optional>
       </dependency>
 
       <!-- Dropwizard Core dependency for Lucille Admin API -->
@@ -223,16 +211,6 @@
     </dependencies>
 
     <build>
-        <extensions>
-            <!-- Resolves ${os.detected.name}/${os.detected.arch}, the classifier of lucille-jlama's native dependency
-                 (jlama-native), which reaches this module through lucille-all. Build extensions aren't inherited through
-                 a dependency, so this module has to declare it too (as lucille-all does). -->
-            <extension>
-                <groupId>kr.motd.maven</groupId>
-                <artifactId>os-maven-plugin</artifactId>
-                <version>1.7.0</version>
-            </extension>
-        </extensions>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -274,12 +252,6 @@
                                 <transformer implementation="org.apache.logging.log4j.maven.plugins.shade.transformer.Log4j2PluginCacheFileTransformer" />
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.kmwllc.lucille.api.APIApplication</mainClass>
-                                    <!-- Some bundled plugin dependencies are multi-release jars (e.g. dnsjava registers a
-                                         java.net.spi.InetAddressResolverProvider whose class is under META-INF/versions/18).
-                                         Without this the JVM ignores the versioned classes and ServiceLoader fails. -->
-                                    <manifestEntries>
-                                        <Multi-Release>true</Multi-Release>
-                                    </manifestEntries>
                                 </transformer>
                             </transformers>
                         </configuration>

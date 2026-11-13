@@ -36,7 +36,49 @@
          shaded *-plugin.jar (hundreds of MB for some plugins, unused by tests). Activate the
          shaded-plugin-jars profile to build it: mvn package -Pshaded-plugin-jars -->
     <shaded-plugin-jar.phase>none</shaded-plugin-jar.phase>
+    <!-- Set to true in modules with no components to document (lucille-api, lucille-admin-ui) -->
+    <component-javadocs.skip>false</component-javadocs.skip>
   </properties>
+
+  <build>
+    <plugins>
+      <!-- Writes this plugin's component javadoc (stages, connectors, indexers) to lucille-component-javadocs.json in the
+           jar, using lucille-core's JsonDoclet. The Admin API's config-info endpoints merge this file from every jar on
+           the classpath, so the UI shows descriptions for plugin components too, not only core's (whose docs
+           run-jsondoclet.sh generates into lucille-api). -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>component-javadocs</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>javadoc-no-fork</goal>
+            </goals>
+            <configuration>
+              <skip>${component-javadocs.skip}</skip>
+              <doclet>com.kmwllc.lucille.doclet.JsonDoclet</doclet>
+              <docletArtifacts>
+                <docletArtifact>
+                  <groupId>com.kmwllc</groupId>
+                  <artifactId>lucille-core</artifactId>
+                  <version>${project.version}</version>
+                  <!-- resolved with its dependencies, which include the gson the doclet writes JSON with -->
+                </docletArtifact>
+              </docletArtifacts>
+              <useStandardDocletOptions>false</useStandardDocletOptions>
+              <subpackages>com.kmwllc.lucille</subpackages>
+              <additionalOptions>
+                <additionalOption>-o lucille-component-javadocs.json</additionalOption>
+                <additionalOption>-d ${project.build.outputDirectory}</additionalOption>
+              </additionalOptions>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 
   <profiles>
     <profile>

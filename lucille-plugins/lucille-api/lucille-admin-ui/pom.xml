@@ -27,6 +27,7 @@
 
     <!-- No Java is produced here, so disable the Java-oriented plugins the parent applies. -->
     <maven.javadoc.skip>true</maven.javadoc.skip>
+    <component-javadocs.skip>true</component-javadocs.skip>
     <maven.source.skip>true</maven.source.skip>
     <jacoco.skip>true</jacoco.skip>
     <maven.test.skip>true</maven.test.skip>

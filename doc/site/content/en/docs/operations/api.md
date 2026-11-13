@@ -51,9 +51,21 @@ mvn -pl lucille-plugins/lucille-opensearch,lucille-plugins/lucille-api -am -Psha
 
 ```bash
 java \
-  -cp 'lucille-plugins/lucille-api/target/lucille-api-{version}.jar:lucille-plugins/lucille-opensearch/target/lucille-opensearch-plugin.jar' \
-  com.kmwllc.lucille.APIApplication server lucille-plugins/lucille-api/conf/api.yml
+  -cp 'lucille-plugins/lucille-api/target/lucille-api-plugin.jar:lucille-plugins/lucille-opensearch/target/lucille-opensearch-plugin.jar' \
+  com.kmwllc.lucille.api.APIApplication server lucille-plugins/lucille-api/conf/api.yml
 ```
+
+### Using Every Plugin
+
+To have every plugin available, use the classpath `lucille-all` assembles, which includes the API (and the Admin UI when built with `-Padmin-ui`):
+
+```bash
+mvn clean install -DskipTests -Padmin-ui
+java -cp 'lucille-all/target/lib/*' \
+  com.kmwllc.lucille.api.APIApplication server lucille-plugins/lucille-api/conf/api.yml
+```
+
+The `lucille-all` Docker image runs the API the same way when started with `LUCILLE_ROLE=api`. See [UI]({{< relref "docs/operations/deployment/ui#choosing-which-components-are-available" >}}).
 ---
 
 ## Admin UI (optional)
@@ -72,7 +84,7 @@ java -cp 'lucille-plugins/lucille-api/target/lucille-api-plugin.jar:lucille-plug
   com.kmwllc.lucille.api.APIApplication server lucille-plugins/lucille-api/conf/api.yml
 ```
 
-The released `lucille-api` Docker image includes both jars, so the UI is available out of the box.
+The released `lucille-api` Docker image includes both jars, so the UI is available out of the box. The `lucille-all` image also includes them, along with every plugin, when started with `LUCILLE_ROLE=api`.
 Maven users can add the `com.kmwllc:lucille-admin-ui` dependency (version managed by `lucille-bom`) alongside `lucille-api`.
 To work on the UI, run the API on its own and start the UI with `npm run dev`.
 

@@ -39,6 +39,28 @@
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-common</artifactId>
       <version>${hadoop.version}</version>
+      <exclusions>
+        <!-- Jersey 2 / JAX-RS 2 (javax.ws.rs), used only by Hadoop's embedded web servers, which parquet reading doesn't
+             start. Jersey 2 and 3 share Maven coordinates, so on a classpath with Dropwizard (the Admin API in
+             lucille-all) Maven mixes the two (jersey-server 2.46 with jersey-common 3.1.11) and the API fails to start
+             with NoClassDefFoundError: javax/ws/rs/core/Configurable. -->
+        <exclusion>
+          <groupId>org.glassfish.jersey.core</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.glassfish.jersey.containers</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.glassfish.jersey.inject</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>jakarta.ws.rs</groupId>
+          <artifactId>jakarta.ws.rs-api</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
@@ -56,6 +78,15 @@
         <exclusion>
           <groupId>com.fasterxml.jackson.jaxrs</groupId>
           <artifactId>*</artifactId>
+        </exclusion>
+        <!-- Jersey 2 / JAX-RS 2, see hadoop-common above -->
+        <exclusion>
+          <groupId>org.glassfish.jersey.core</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>jakarta.ws.rs</groupId>
+          <artifactId>jakarta.ws.rs-api</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
