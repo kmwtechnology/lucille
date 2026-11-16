@@ -6,6 +6,11 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
+# it seems the opencv stages require some gtk dependencies,  not sure if this
+# is because the debug mode for the unit tests.  we should see if we can
+# remove this dependency/requreiment.
+
+
 name: Java CI with Maven
 
 on:
@@ -27,6 +32,10 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
         cache: maven
+    - name: Install OpenCV highgui native dependencies
+      run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk2.0-0t64 || sudo apt-get install -y libgtk2.0-0
     - name: Build with Maven
       run: mvn -B verify --file pom.xml
 
