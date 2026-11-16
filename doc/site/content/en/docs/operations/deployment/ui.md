@@ -159,9 +159,9 @@ Keep the two at the same version. Add the plugin modules you want available too 
 
 ### Choosing Which Components Are Available
 
-The UI lists every connector, stage and indexer on the API's classpath, with the descriptions from each component's Javadoc.
+Configs you create and run through the UI run inside the API's process, so they can use any connector, stage or indexer on the API's classpath. A config that uses a component that isn't on the classpath fails when you create it.
 
-| Option | Components available |
+| Option | Components your configs can use |
 |---|---|
 | `lucille-api` image, or `lucille-api` + `lucille-admin-ui` from source or Maven | `lucille-core` only |
 | Any of the above plus specific plugin JARs on the classpath | `lucille-core` plus those plugins |

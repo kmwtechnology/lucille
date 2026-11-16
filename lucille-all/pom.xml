@@ -155,7 +155,7 @@
       <version>${project.version}</version>
     </dependency>
 
-    <!-- The Admin API. Its ConfigInfo endpoints scan the classpath, so every component above shows up in the UI. -->
+    <!-- The Admin API. Configs submitted to it run in the API's JVM, so they can use every component above. -->
     <dependency>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-api</artifactId>
