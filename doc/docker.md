@@ -153,7 +153,7 @@ mvn clean package -pl lucille-plugins/lucille-solr -am -Pshaded-plugin-jars
 ```
 
 ```dockerfile
-FROM kmwtechnology/lucille:0.13.0
+FROM kmwtechnology/lucille:1.0.0-alpha.0
 COPY lucille-solr-plugin.jar /lucille/lib/
 COPY my-config.conf /lucille/conf/my-config.conf
 ENV LUCILLE_CONF=/lucille/conf/my-config.conf
