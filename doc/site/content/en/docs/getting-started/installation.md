@@ -100,7 +100,7 @@ If you're launching Lucille components via `java -cp ... com.kmwllc.lucille.core
 ```bash
 git clone https://github.com/kmwtechnology/lucille.git
 cd lucille
-git checkout 1.0.0-alpha  # check out the release tag you want to use (tags have no "v" prefix)
+git checkout VERSION  # check out the release tag you want to use (tags have no "v" prefix)
 mvn clean install
 ```
 
@@ -220,7 +220,7 @@ cd lucille
 To use a specific release version, check out the corresponding tag:
 
 ```bash
-git checkout 1.0.0-alpha  # replace with the version you want
+git checkout VERSION  # replace with the version you want
 ```
 
 To see available release tags:

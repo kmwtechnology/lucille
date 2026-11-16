@@ -61,7 +61,7 @@ Alternatively, run the published Docker image. `kmwtechnology/lucille-all` conta
 ```bash
 docker run --rm -v "$PWD":/lucille/work -w /lucille/work \
   -e LUCILLE_CONF=/lucille/work/<YOUR-CONFIG.conf> \
-  kmwtechnology/lucille-all:1.0.0-alpha.0
+  kmwtechnology/lucille-all:VERSION.0
 ```
 
 See the [troubleshooting guide]({{< relref "docs/operations/troubleshooting" >}}) if Lucille doesn't start as expected.

@@ -28,7 +28,7 @@ The API uses a Dropwizard YAML configuration file. An example config is provided
 With Docker:
 
 ```bash
-docker run --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 kmwtechnology/lucille-api:1.0.0-alpha.0
+docker run --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 kmwtechnology/lucille-api:VERSION.0
 ```
 
 From source, build the shaded API JAR, then run it from the `lucille-api` module:
