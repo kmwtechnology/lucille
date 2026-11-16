@@ -107,13 +107,13 @@ Declare `lucille-core` as `provided`, the image already has it, so you don't wan
   <dependency>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-core</artifactId>
-    <version>0.12.0</version>  <!-- match the image tag -->
+    <version>VERSION</version>  <!-- match the image tag -->
     <scope>provided</scope>
   </dependency>
   <dependency>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-solr</artifactId>
-    <version>0.12.0</version>
+    <version>VERSION</version>
   </dependency>
 </dependencies>
 ```
@@ -127,7 +127,7 @@ mvn dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=plugin
 
 ```dockerfile
 # Use the same version tag you compiled the plugin jars against.
-FROM kmwtechnology/lucille:0.12.0
+FROM kmwtechnology/lucille:VERSION
 
 # Everything on /lucille/lib is on the classpath; lucille-core is already there.
 COPY plugin-lib/ /lucille/lib/
@@ -207,7 +207,7 @@ docker run -v /path/on/host/logs:/log ...
 ## Example: Complete Production Setup
 
 ```dockerfile
-FROM lucille:0.5.0
+FROM lucille:VERSION
 
 COPY conf/production.conf /lucille/conf/production.conf
 COPY conf/application.conf /lucille/conf/application.conf
