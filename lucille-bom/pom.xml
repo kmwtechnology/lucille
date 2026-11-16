@@ -93,6 +93,11 @@
         <artifactId>lucille-admin-ui</artifactId>
         <version>${project.version}</version>
       </dependency>
+      <dependency>
+        <groupId>com.kmwllc</groupId>
+        <artifactId>lucille-salesforce</artifactId>
+        <version>${project.version}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 </project>

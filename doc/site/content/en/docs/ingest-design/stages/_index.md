@@ -208,6 +208,7 @@ Every Stage has its own page, listed alphabetically in the navigation under **St
 - [ApplyFileHandlers]({{< relref "docs/ingest-design/stages/apply_file_handlers" >}}) — Apply configured FileHandlers to a file path or byte array on the document, generating child documents.
 - [ComputeFieldSize]({{< relref "docs/ingest-design/stages/compute_field_size" >}}) — Measure the byte size of a field value.
 - [FetchFileContent]({{< relref "docs/ingest-design/stages/fetch_file_content" >}}) — Load the content of a file path into a byte array field.
+- [FetchSalesforceFile]({{< relref "docs/ingest-design/stages/fetch_salesforce_file" >}}) — Download Salesforce Attachment, ContentDocument, ContentVersion, and Document file bytes into a byte array field. *(requires `lucille-salesforce`)*
 - [TextExtractor]({{< relref "docs/ingest-design/stages/text_extractor" >}}) — Extract text and metadata from file contents or file paths using Apache Tika. *(requires `lucille-tika`)*
 - [ApplyOCR]({{< relref "docs/ingest-design/stages/apply_ocr" >}}) — Perform OCR on images and PDFs using Tesseract, with optional template-based form extraction. *(requires `lucille-ocr`)*
 
