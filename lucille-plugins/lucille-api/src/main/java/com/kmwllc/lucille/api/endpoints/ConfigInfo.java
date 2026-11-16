@@ -13,6 +13,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ClassInfo;
 import io.github.classgraph.ScanResult;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -35,8 +36,21 @@ import org.slf4j.LoggerFactory;
 /**
  * API endpoint to provide available connectors, stages, and indexers,
  * including their configuration parameters and type information.
+ *
+ * <p>Not currently in use: {@code APIApplication} does not register this resource, so these endpoints are not served.
+ * The class is kept because it may be used again, for example to give the Admin UI a list of the components that are
+ * available. To restore the endpoints:
+ * <ul>
+ *   <li>register it in {@code APIApplication};</li>
+ *   <li>remove {@code @Hidden}, which keeps these endpoints out of the OpenAPI document while they are not served;</li>
+ *   <li>for component descriptions, build {@code lucille-api} with the {@code generate-json-docs} profile
+ *   ({@code -Pgenerate-json-docs}), so that the build runs {@code run-jsondoclet.sh} and writes the Javadoc JSON files
+ *   this class reads (without them the endpoints work, but have no descriptions);</li>
+ *   <li>re-enable the tests marked {@code @Ignore} for this reason.</li>
+ * </ul>
  */
 @Path("/v1/config-info")
+@Hidden
 @Tag(name = "Config")
 @Produces(MediaType.APPLICATION_JSON)
 public class ConfigInfo {

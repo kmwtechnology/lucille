@@ -1,6 +1,11 @@
 #!/bin/bash
 
-# Generates the stage/connector/indexer JSON docs that lucille-api serves.
+# Generates the stage/connector/indexer JSON docs that the lucille-api ConfigInfo endpoints read.
+#
+# Not currently run by the build: the generate-json-docs execution in lucille-plugins/lucille-api/pom.xml is bound to
+# phase "none" unless the generate-json-docs profile is active, because ConfigInfo is not registered. The script is
+# kept because it may be used again. To run it, build lucille-api with -Pgenerate-json-docs, or run it by hand from
+# the repo root.
 
 PROJECT_ROOT=$(pwd)
 TARGET_DIR="$PROJECT_ROOT/lucille-core/target"

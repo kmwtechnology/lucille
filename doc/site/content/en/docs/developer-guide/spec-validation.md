@@ -46,7 +46,7 @@ Secondary reasons:
 
 - **Immutability.** A `static final` field is initialized once at class-load time and cannot change. An instance method could theoretically return different values depending on constructor arguments, which would be confusing for a validation contract.
 - **Minimal boilerplate.** Declaring a single field is simpler than implementing an accessor method in every subclass.
-- **One source of truth.** Validation, the admin UI and documentation tooling all read the same field through `Spec.of(Class)`, so there is no overridable method that could make them disagree.
+- **One source of truth.** Everything that needs a component's Spec reads the same field through `Spec.of(Class)`, so there is no overridable method that could make two readers disagree.
 
 **The tradeoff: no compile-time enforcement.** The compiler does not force you to declare a `SPEC` field. If you forget it, you won't get a compile error — you'll get an `IllegalStateException` the first time the component is instantiated. This happens because the `Stage` base class constructor calls `Spec.of(getClass()).validate(config, ...)`, and `Spec.of` uses reflection to look up the `SPEC` field on your class. If the field is missing, the reflective lookup fails immediately with a clear error message:
 
@@ -122,7 +122,7 @@ Each factory method pre-populates the builder with default legal properties appr
 
 ### Descriptions
 
-A Spec declares names, types and whether each property is required; it does not carry descriptions. Describe each property in the component's Javadoc "Config Parameters" list instead (see [Javadoc Standards]({{< relref "docs/developer-guide/javadocs" >}})). The admin UI reads those descriptions from the generated Javadoc and merges them into the Spec's JSON.
+A Spec declares names, types and whether each property is required; it does not carry descriptions. Describe each property in the component's Javadoc "Config Parameters" list instead (see [Javadoc Standards]({{< relref "docs/developer-guide/javadocs" >}})).
 
 ## How Validation Is Triggered
 

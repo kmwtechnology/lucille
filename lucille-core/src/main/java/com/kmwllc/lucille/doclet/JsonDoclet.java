@@ -27,6 +27,10 @@ import jdk.javadoc.doclet.Reporter;
 /**
  * A modern JDK-9+ Doclet that generates a JSON file of ClassDescriptor and MethodDescriptor.
  * This doclet extracts documentation from source code structure rather than loading runtime classes.
+ *
+ * <p>Not currently run by the build. It is kept because it may be used again, for example to give the API's
+ * {@code ConfigInfo} endpoints component descriptions. To run it, build {@code lucille-api} with the
+ * {@code generate-json-docs} profile ({@code -Pgenerate-json-docs}), which runs {@code run-jsondoclet.sh}.
  */
 public class JsonDoclet implements Doclet {
 

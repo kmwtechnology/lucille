@@ -18,8 +18,7 @@ The `api` service has a healthcheck on its readiness probe, so `/v1/readyz` must
 `VerifyApiEndpoints` checks the API's endpoints:
 1. `/v1/readyz` and `/v1/livez` return 200.
 2. Basic auth is enforced: `/v1/run` returns 401 without credentials and 200 with them (auth is enabled in `conf/api.yml`).
-3. `/v1/config-info/connector-list` returns connectors.
-4. An invalid HOCON upload to `/v1/config` returns 400.
+3. An invalid HOCON upload to `/v1/config` returns 400.
 
 `VerifyIngestResult` checks the runs' output. Each run's CSV must contain exactly its own run's 500 docs, with every pipeline stage applied, and nothing from the other run.
 
