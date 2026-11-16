@@ -46,9 +46,6 @@ the table requires Basic Auth credentials, except the liveness and readiness pro
 | GET    | `/v1/livez`                          | Liveness probe — returns 200 if the process is running | — |
 | GET    | `/v1/readyz`                         | Readiness probe — returns 200 once the app is ready to serve | — |
 | GET    | `/v1/systemstats/metrics`            | Detailed metrics breakdown | — |
-| GET    | `/v1/config-info/connector-list`     | Lists the available connector classes | — |
-| GET    | `/v1/config-info/stage-list`         | Lists the available stage classes | — |
-| GET    | `/v1/config-info/indexer-list`       | Lists the available indexer classes | — |
 | POST   | `/v1/config`                         | Register a new Lucille config. Responds with a generated `configId` to use in `POST /v1/run`. You may store up to 10,000 Configs. | Full Lucille config as JSON (see [Upload Lucille Config](#upload-lucille-config)) |
 | GET    | `/v1/config`                         | List all registered configs, keyed by `configId` | — |
 | GET    | `/v1/config/{configId}`              | Get a specific registered config | — |
@@ -69,29 +66,6 @@ curl -k -u user:${LUCILLE_API_PASSWORD} https://localhost:8443/v1/run
 
 The API Configuration file can be supplied via the `DROPWIZARD_CONF` environment variable. If building via Docker, this file should
 reside in the `conf/` directory, or be mounted as volume when starting the Docker container (more details in Dockerfile).
-
-### Giving the API access to custom components
-
-By default, the `/v1/config-info/*` endpoints only know about Stage, Connector, 
-and Indexer implementations under `com.kmwllc.lucille`. To make the API aware of
-custom implementations shipped in other packages, pass their package prefixes using
-the `scan.extra.packages` system property at startup:
-
-```
--Dscan.extra.packages=com.company.lucille
-```
-
-The value is a comma-separated list of package prefixes without spaces. Subpackages
-are included automatically; `com.company.lucille` covers `com.company.lucille.stage`,
-`com.company.lucille.indexer`, for example. To register components from multiple
-sources:
-
-```
-java -Dscan.extra.packages=com.company.lucille,com.other.lucille \
-   -jar target/lucille-api-X.X.X-SNAPSHOT.jar server ${DROPWIZARD_CONF}
-```
-
-If unset, only `com.kmwllc.lucille` will be scanned.
 
 ### DropWizard Configuration
 

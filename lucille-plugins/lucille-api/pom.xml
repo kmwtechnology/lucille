@@ -20,6 +20,11 @@
            Pin the whole Jetty 12.1.x set to 12.1.13 via the Jetty BOMs (modules must share one version). -->
       <jetty.version>12.1.13</jetty.version>
       <jjwt.version>0.12.6</jjwt.version>
+      <!-- Lifecycle phase the generate-json-docs execution below is bound to. "none" skips it. The step writes the
+           Javadoc JSON files that the ConfigInfo endpoints read, and ConfigInfo is not registered in APIApplication.
+           Both are kept because they may be used again. Activate the generate-json-docs profile to run the step:
+           mvn package -Pgenerate-json-docs -->
+      <generate-json-docs.phase>none</generate-json-docs.phase>
     </properties>
 
     <dependencyManagement>
@@ -139,7 +144,8 @@
         <version>${project.version}</version>
       </dependency>
 
-      <!-- ConfigInfo scans the classpath for components and parses their javadoc. Versions match lucille-core's. -->
+      <!-- Used by ConfigInfo, which scans the classpath for components and parses their javadoc. ConfigInfo is not
+           currently registered; these stay so that it still compiles and can be restored. Versions match lucille-core's. -->
       <dependency>
         <groupId>io.github.classgraph</groupId>
         <artifactId>classgraph</artifactId>
@@ -265,7 +271,7 @@
               <executions>
                 <execution>
                   <id>generate-json-docs</id>
-                  <phase>generate-resources</phase>
+                  <phase>${generate-json-docs.phase}</phase>
                   <goals><goal>exec</goal></goals>
                   <configuration>
                     <executable>bash</executable>
@@ -316,4 +322,12 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+      <profile>
+        <id>generate-json-docs</id>
+        <properties>
+          <generate-json-docs.phase>generate-resources</generate-json-docs.phase>
+        </properties>
+      </profile>
+    </profiles>
 </project>
