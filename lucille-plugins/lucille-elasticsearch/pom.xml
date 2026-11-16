@@ -47,7 +47,7 @@
       <artifactId>elasticsearch-java</artifactId>
       <version>${elasticsearch.version}</version>
     </dependency>
-    <!-- CVE floor: elasticsearch-java pulls parsson 1.1.7 (CVE-2026-9563). -->
+    <!-- CVE floor: elasticsearch-java 9.0.0 pulls parsson 1.1.7 (CVE-2026-9563). -->
     <dependency>
       <groupId>org.eclipse.parsson</groupId>
       <artifactId>parsson</artifactId>
