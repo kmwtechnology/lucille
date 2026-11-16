@@ -16,8 +16,9 @@ The most common approach is to write your components in your own Java project an
 Put your classes anywhere in your own package — for example, `com.mycompany.ingest.MyStage`. Build your project to produce a JAR, then include it on the classpath alongside Lucille when running:
 
 ```bash
-java -Dconfig.file=my-config.conf \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*:my-components.jar' \
+java -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
+  -Dconfig.file=my-config.conf \
+  -cp 'lucille-all/target/lib/*:my-components.jar' \
   com.kmwllc.lucille.core.Runner
 ```
 

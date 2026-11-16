@@ -15,8 +15,8 @@ Use the static factory methods on the `Document` interface:
 // Create with an explicit ID
 Document doc = Document.create("my-doc-123");
 
-// Create with an auto-generated UUID
-Document doc = Document.create();
+// Create with a generated UUID as the ID
+Document doc = Document.create(UUID.randomUUID().toString());
 ```
 
 Connectors typically create Documents and call `publisher.publish(doc)` to send them into the pipeline.
@@ -31,7 +31,7 @@ Lucille reserves several field names for internal use. Do not use these for appl
 | `run_id` | The run ID stamped by the Publisher. Immutable once set. |
 | `___children` | Internal: tracks child documents generated in the pipeline. |
 | `___dropped` | Set to `true` when a document is dropped (not sent to the Indexer). |
-| `___skipped` | Set to `true` when a document should bypass Stages but still reach the Indexer (used for deletions). |
+| `___skipped` | Set to `true` when a document should bypass Stages but still reach the Indexer. Reaches the search backend like any other field. |
 
 ## Field Types
 
@@ -178,7 +178,7 @@ Use the `DropDocument` Stage in config, or call `setDropped()` in stage code:
 doc.setDropped(true);
 ```
 
-**Skipping** causes the document to bypass all downstream Stages but still reach the Indexer. This is used for deletion markers, so the Indexer can issue a delete against the search backend.
+**Skipping** causes the document to bypass all downstream Stages but still reach the Indexer, which indexes it like any other document. Skipping does not delete it; to delete documents, configure `indexer.deletionMarker`.
 
 Use the `SkipDocument` Stage in config, or call `setSkipped()` in stage code:
 
@@ -195,8 +195,8 @@ Children are always emitted before the parent document, ensuring the Publisher's
 ## Iterating Fields
 
 ```java
-for (String fieldName : doc) {
-    // iterate over all field names in the Document
+for (String fieldName : doc.getFieldNames()) {
+    // iterate over all field names in the Document, including reserved fields such as id
 }
 ```
 

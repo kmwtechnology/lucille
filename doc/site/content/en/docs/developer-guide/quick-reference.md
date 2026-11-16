@@ -101,7 +101,7 @@ Instant ts = doc.getInstant("created_at");
 if (doc.has("optionalField")) { ... }
 
 // Drop a document (will not be sent to the indexer)
-doc.setField(Document.DROP_FIELD, true);
+doc.setDropped(true);
 
 // Reserved field names
 // Document.ID_FIELD = "id"

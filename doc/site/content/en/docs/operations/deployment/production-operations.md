@@ -54,13 +54,12 @@ Larger batches improve indexing throughput (fewer API calls). The timeout preven
 
 ## Graceful Shutdown
 
-Lucille handles `SIGINT` (Ctrl+C) and `SIGTERM` gracefully. On receiving a signal:
-1. The Connector stops publishing new documents.
-2. Workers drain the remaining documents.
-3. The Indexer flushes its current batch.
-4. The process exits with a run summary.
+The Runner stops on `SIGINT` (Ctrl+C) and `SIGTERM` through a JVM shutdown hook:
+1. The Connector and the Publisher are closed, so no new documents are published.
+2. The Worker pool is stopped. Each Worker finishes its current document, with a 3-second wait.
+3. The Indexer is stopped and tries to send its current batch, with a 3-second wait.
 
-Do not send `SIGKILL` — documents in flight may not be indexed.
+This is not a drain. In a local run, documents still on the in-memory queues are not processed and no run summary is logged, so a stopped local run must be re-run. Do not send `SIGKILL` — it skips even these steps.
 
 ## Monitoring
 
@@ -130,7 +129,7 @@ Individual document failures do **not** produce a non-zero exit code. This means
 When the Runner is the last command in a Docker entrypoint (or in a script with `set -eo pipefail`), its exit code becomes the container's exit code directly:
 
 ```dockerfile
-ENTRYPOINT ["sh", "-c", "java -Xmx4g -Dconfig.file=${CONF} -cp 'lib/*' com.kmwllc.lucille.core.Runner"]
+ENTRYPOINT ["sh", "-c", "java -Xmx4g -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml -Dconfig.file=${CONF} -cp 'lib/*' com.kmwllc.lucille.core.Runner"]
 ```
 
 If you pipe Runner output through another command (e.g. `tee`), ensure `pipefail` is set so a Runner failure isn't masked:
@@ -138,12 +137,12 @@ If you pipe Runner output through another command (e.g. `tee`), ensure `pipefail
 ```bash
 #!/bin/bash
 set -eo pipefail
-java -Xmx4g -Dconfig.file="${CONF}" -cp 'lib/*' com.kmwllc.lucille.core.Runner 2>&1 | tee /var/log/lucille.log
+java -Xmx4g -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml -Dconfig.file="${CONF}" -cp 'lib/*' com.kmwllc.lucille.core.Runner 2>&1 | tee /var/log/lucille.log
 ```
 
 ### Graceful shutdown exit code
 
-When the Runner receives `SIGINT` (e.g. from Kubernetes sending `SIGTERM` → the JVM's shutdown hook), it attempts a clean shutdown of all components and exits **0**. This means a pod terminated by Kubernetes during a scale-down or rolling update is not treated as a failure.
+When the Runner receives a signal (e.g. Kubernetes sending `SIGTERM` during a scale-down or rolling update), the shutdown hook runs the steps above and the process exits with the JVM's signal status: **130** for `SIGINT`, **143** for `SIGTERM`, not 0. Scripts that check the exit code should treat these as an interrupted run.
 
 ## Production Checklist
 

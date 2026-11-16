@@ -78,7 +78,7 @@ docker run \
 ```
 
 - `<password>` — the admin password you will sign in with.
-- `<version>` — an image tag for Lucille 1.0 or later. Tags are the Lucille release version followed by an image revision number, so `1.0.0.0` would be the first image for release 1.0.0. See the [available tags](https://hub.docker.com/r/kmwtechnology/lucille-api/tags) on Docker Hub.
+- `<version>` — an image tag for Lucille 1.0 or later. Tags are the Lucille release version followed by an image revision number, so `1.0.0-alpha.0` is the first image for release 1.0.0-alpha. See the [available tags](https://hub.docker.com/r/kmwtechnology/lucille-api/tags) on Docker Hub.
 
 **Building the image yourself.** To run an image built from source instead, build both JARs, then build the image from the `lucille-api` module:
 

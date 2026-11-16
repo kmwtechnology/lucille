@@ -92,7 +92,10 @@ Every Stage supports a `conditions` block that controls whether the Stage applie
 ```hocon
 {
   class: "com.kmwllc.lucille.stage.OpenAIEmbed"
-  fields: ["content"]
+  source: "content"
+  apiKey: ${OPENAI_API_KEY}
+  embedDocument: true
+  embedChildren: false
   conditions: [
     { fields: ["content_type"], values: ["article"] }
   ]
@@ -140,12 +143,18 @@ For integration tests or programmatic usage, pipelines can be constructed from a
 
 ```java
 Config config = ConfigFactory.load("my-config.conf");
-Pipeline pipeline = Pipeline.fromConfig(config, "my-pipeline");
-pipeline.startStages();
-
-Iterator<Document> results = pipeline.processDocument(doc);
-
-pipeline.stopStages();
+// the third argument is the metrics prefix; fromConfig also starts the stages
+Pipeline pipeline = Pipeline.fromConfig(config, "my-pipeline", "my-pipeline");
+try {
+  // lazy: the stages run as the iterator is consumed
+  Iterator<Document> results = pipeline.processDocument(doc);
+  while (results.hasNext()) {
+    Document result = results.next();
+    // inspect result
+  }
+} finally {
+  pipeline.stopStages();
+}
 ```
 
 See [Testing Pipelines]({{< relref "docs/developer-guide/testing" >}}) for more on testing patterns.

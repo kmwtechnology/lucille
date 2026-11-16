@@ -57,7 +57,7 @@ stages: [
   {
     class: "com.kmwllc.lucille.tika.stage.TextExtractor"
     byteArrayField: "file_content"
-    dest: "body"
+    textField: "body"
   },
   {
     class: "com.kmwllc.lucille.stage.DeleteFields"
@@ -88,6 +88,7 @@ stages: [
   {
     class: "com.kmwllc.lucille.tika.stage.TextExtractor"
     byteArrayField: "file_content"
+    textField: "body"
     conditions: [
       { fields: ["file_content"], operator: "must" }
     ]
@@ -95,6 +96,9 @@ stages: [
   {
     class: "com.kmwllc.lucille.stage.OpenAIEmbed"
     source: "body"
+    apiKey: ${OPENAI_API_KEY}
+    embedDocument: true
+    embedChildren: false
     conditions: [
       { fields: ["body"], operator: "must" }
       { fields: ["content_type"], values: ["article", "page"], operator: "must" }
@@ -144,9 +148,9 @@ If your pipelines don't depend on each other, you can run them in parallel with 
 ```bash
 #!/bin/bash
 # Run three independent pipelines in parallel
-java -Dconfig.file=conf/database-ingest.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner &
-java -Dconfig.file=conf/file-ingest.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner &
-java -Dconfig.file=conf/api-ingest.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner &
+java -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml -Dconfig.file=conf/database-ingest.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner &
+java -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml -Dconfig.file=conf/file-ingest.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner &
+java -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml -Dconfig.file=conf/api-ingest.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner &
 wait
 echo "All ingests complete"
 ```
@@ -339,7 +343,7 @@ In distributed mode, adding Worker processes increases throughput proportionally
 
 ```bash
 # Start additional Worker processes
-java -Dconfig.file=config.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Worker my-pipeline
+java -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml -Dconfig.file=config.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Worker my-pipeline
 ```
 
 Each Worker joins the same Kafka consumer group. Kafka distributes partitions automatically.
@@ -355,7 +359,7 @@ Workers can be added to a running ingest. The new Worker joins the consumer grou
 If the Indexer is not a separate bottleneck, use WorkerIndexer to avoid the Kafka round-trip between Worker and Indexer:
 
 ```bash
-java -Dconfig.file=config.conf -cp 'target/lib/*' com.kmwllc.lucille.core.WorkerIndexer my-pipeline
+java -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml -Dconfig.file=config.conf -cp 'target/lib/*' com.kmwllc.lucille.core.WorkerIndexer my-pipeline
 ```
 
 Each WorkerIndexer process pairs one Worker with one Indexer, communicating via an in-memory queue. Scale by adding more WorkerIndexer processes.
@@ -395,7 +399,7 @@ This blocks the Connector when too many documents are in flight (published but n
 Always set `-Xmx` explicitly:
 
 ```bash
-java -Xmx4g -Dconfig.file=config.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner
+java -Xmx4g -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml -Dconfig.file=config.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner
 ```
 
 ### Memory Budget

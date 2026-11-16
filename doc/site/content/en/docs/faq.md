@@ -67,7 +67,7 @@ Not natively. Lucille runs are bounded: a connector runs to completion or fails.
 
 **What happens when a Stage throws an exception?**
 
-The document is marked as failed and a FAIL event is sent to the Publisher. The run continues — other documents in the pipeline are not affected. The run summary reports the failure count. To fail the entire run on a document error, set `runner.failOnDocumentError: true`.
+The document is marked as failed and a FAIL event is sent to the Publisher. The run continues — other documents in the pipeline are not affected. The run summary reports the failure count. Document failures do not change the run's exit code, and there is no setting to make them fail the run. To detect a partial success, check `RunResult.hasFailingDocs()` when running Lucille from Java, or look for `RUN SUMMARY: Partial success.` in the log. In Kafka modes, `worker.sendFailedDocsToTopic` and `indexer.sendFailedDocsToTopic` also copy failed documents to a fail topic. See [Exit Codes]({{< relref "docs/operations/deployment/production-operations#exit-codes" >}}).
 
 **How do I skip a Stage for some documents?**
 
@@ -77,7 +77,7 @@ Use the `conditions` block on the Stage. Conditions can check field presence, fi
 
 **Dropping** (setting `___dropped = true`) removes the document from the pipeline entirely. It will not be sent to the Indexer. A DROP event is sent to the Publisher. Use this to filter out documents you do not want to index.
 
-**Skipping** (setting `___skipped = true`) bypasses all downstream Stages but the document still reaches the Indexer. The Indexer interprets this as a deletion marker and issues a delete against the search backend for that document's ID. Use this for CDC scenarios where your source emits delete events.
+**Skipping** (setting `___skipped = true`) bypasses all downstream Stages but the document still reaches the Indexer, which indexes it like any other document. Skipping does not delete anything. For CDC scenarios where your source emits delete events, configure `indexer.deletionMarker` (for example `deletionMarker { field: "is_deleted", value: "true" }`) so the Indexer issues a delete for documents carrying that field and value; skipping them as well keeps them out of the enrichment stages. See [Deletion Mechanics]({{< relref "docs/ingest-design/indexers#deletion-mechanics" >}}).
 
 **What is a child document?**
 
@@ -111,7 +111,7 @@ By design. A Stage that only needs the primary value of a field does not need to
 
 **How are reserved fields named?**
 
-Reserved internal fields use a triple-underscore prefix: `___dropped`, `___skipped`, `___children`. The `id` and `run_id` fields are also reserved. Stages cannot write to these fields; `validateFieldNames()` enforces this on every write. Reserved fields are stripped by the Indexer before documents reach the search backend.
+Reserved internal fields use a triple-underscore prefix: `___dropped`, `___skipped`, `___children`. The `id` and `run_id` fields are also reserved. Stages cannot write to these fields; `validateFieldNames()` enforces this on every write. The Indexer always omits `___children` and the `___failure_*` fields (set on documents sent to the fail topic); the other reserved fields, including `run_id` and `___skipped`, reach the search backend unless `includeFields` leaves them out or `excludeFields` names them.
 
 **How do I control the document ID?**
 
