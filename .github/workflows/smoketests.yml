@@ -23,13 +23,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    services:
-      azurite:
-        image: mcr.microsoft.com/azure-storage/azurite
-        ports:
-          - 10000:10000
-
     steps:
+      # Azurite rejects requests from Azure SDK versions newer than it knows about, and its releases tend to lag behind
+      # the SDK (azure-storage-blob 12.37.1 needs a newer Azurite than has been released). --skipApiVersionCheck turns
+      # that check off. Azurite is started here rather than as a service container because a service can't be given
+      # command-line flags.
+      - name: Start Azurite
+        run: |
+          docker run -d --name azurite -p 10000:10000 mcr.microsoft.com/azure-storage/azurite \
+            azurite-blob --blobHost 0.0.0.0 --blobPort 10000 --skipApiVersionCheck
+          # Wait for Azurite to accept connections. The IT skips itself when it can't reach Azurite, which would
+          # leave the job green without having tested anything.
+          timeout 60 bash -c 'until (exec 3<>/dev/tcp/127.0.0.1/10000) 2>/dev/null; do sleep 1; done' \
+            || { docker logs azurite; exit 1; }
       - uses: actions/checkout@v4
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -38,7 +44,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
       # Build the core jar (and its dependencies) that failsafe runs the IT against, then run only the Azure IT.
-      # AZURITE_CONNECTION_STRING points the test at the Azurite service container above; without it the IT would
+      # AZURITE_CONNECTION_STRING points the test at the Azurite container above; without it the IT would
       # skip. -DfailIfNoTests=false keeps the job green if the IT is ever renamed/removed.
       - name: Build core (skip unit tests)
         run: mvn -B -pl lucille-core -am package -DskipTests --file pom.xml
