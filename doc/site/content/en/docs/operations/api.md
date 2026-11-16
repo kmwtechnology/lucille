@@ -141,14 +141,6 @@ All endpoints are under the `/v1` prefix. Endpoints marked **auth** require cred
 | `GET` | `/v1/run` | **auth.** List all runs and their status. |
 | `GET` | `/v1/run/{runId}` | **auth.** Get details for a specific run. Details for the last 10,000 runs are stored. |
 
-### Component Info
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/v1/config-info/connector-list` | **auth.** Available connectors with their config parameters. |
-| `GET` | `/v1/config-info/stage-list` | **auth.** Available stages with their config parameters. |
-| `GET` | `/v1/config-info/indexer-list` | **auth.** Available indexers with their config parameters. |
-
 ### Authentication
 
 | Method | Path | Description |

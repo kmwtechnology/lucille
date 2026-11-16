@@ -21,7 +21,7 @@ This covers all public classes, interfaces, and methods in the core library, inc
 
 ## Javadoc Standards for Components
 
-Lucille includes an internal parser that extracts class-level Javadoc from Connectors, Stages, and Indexers during documentation builds and renders their config parameters in the UI. It runs as part of the docs generation tooling — not at runtime — and expects the exact formatting described below. For reference, see the [parser implementation](https://github.com/kmwtechnology/lucille/blob/main/lucille-plugins/lucille-api/src/main/java/com/kmwllc/lucille/api/endpoints/ConfigInfo.java).
+Lucille includes an internal parser that extracts class-level Javadoc from Connectors, Stages, and Indexers during documentation builds and renders their config parameters in the UI. It runs as part of the docs generation tooling — not at runtime — and expects the exact formatting described below. For reference, see the [parser implementation](https://github.com/kmwtechnology/lucille/blob/main/lucille-plugins/lucille-api/src/main/java/com/kmwllc/lucille/endpoints/ConfigInfo.java).
 
 Every Connector, Stage, and Indexer must have a class-level Javadoc comment in this format.
 
