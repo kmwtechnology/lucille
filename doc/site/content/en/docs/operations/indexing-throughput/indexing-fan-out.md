@@ -9,7 +9,7 @@ description: >
 
 These diagrams show how Lucille overlaps bulk requests against the search
 destination, and how that concurrency fans out across threads, JVMs, and processes.
-They correspond to the levers described on the [Indexing Throughput]({{< relref "docs/indexing-throughput" >}})
+They correspond to the levers described on the [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}})
 page: larger batches, more consumers, and more sending threads per consumer
 (`indexer.maxConcurrentBatches`).
 
