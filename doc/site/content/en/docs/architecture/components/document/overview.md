@@ -14,9 +14,6 @@ Use the static factory methods on the `Document` interface:
 ```java
 // Create with an explicit ID
 Document doc = Document.create("my-doc-123");
-
-// Create with a generated UUID as the ID
-Document doc = Document.create(UUID.randomUUID().toString());
 ```
 
 Connectors typically create Documents and call `publisher.publish(doc)` to send them into the pipeline.
