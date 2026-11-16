@@ -69,9 +69,21 @@ ENTRYPOINT ["/lucille/docker-entrypoint.sh"]
 # lucille-all's copy-dependencies build places lucille-core, every plugin jar, and all of their
 # transitive runtime dependencies into target/lib. Keeping each jar separate (rather than shading)
 # keeps each plugin's META-INF/services/com.kmwllc.lucille.core.Indexer file present and readable from the classpath.
+#
+# This image also carries the Admin API (and the Admin UI when built with -Padmin-ui), so every component above is
+# available in the UI. Run it with LUCILLE_ROLE=api instead of a Lucille config:
+#   docker run --env LUCILLE_ROLE=api --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 lucille-all
+# The UI is at http://localhost:8080/admin. DROPWIZARD_CONF defaults to the bundled /lucille/conf/api.yml (auth on,
+# password read from LUCILLE_API_PASSWORD); mount your own and point DROPWIZARD_CONF at it to change it.
+# Paths in configs POSTed to the API are resolved inside the container, and "localhost" there is the container itself:
+# reach services on the host via host.docker.internal, or put the containers on a shared Docker network.
 # ---------------------------------------------------------------------------------------------------
 FROM base AS all
-LABEL description="Lucille Search ETL batteries-included image (lucille-core + all component plugins)"
+LABEL description="Lucille Search ETL batteries-included image (lucille-core + all component plugins + Admin API/UI)"
+COPY --chown=lucille:lucille lucille-plugins/lucille-api/conf/api.yml /lucille/conf/api.yml
+ENV DROPWIZARD_CONF="/lucille/conf/api.yml"
+# Only used with LUCILLE_ROLE=api
+EXPOSE 8080
 COPY lucille-all/target/lib/ /lucille/lib/
 
 # ---------------------------------------------------------------------------------------------------
