@@ -47,6 +47,12 @@
       <artifactId>elasticsearch-java</artifactId>
       <version>${elasticsearch.version}</version>
     </dependency>
+    <!-- CVE floor: elasticsearch-java pulls parsson 1.1.7 (CVE-2026-9563). -->
+    <dependency>
+      <groupId>org.eclipse.parsson</groupId>
+      <artifactId>parsson</artifactId>
+      <version>1.1.8</version>
+    </dependency>
 
     <!-- Jackson is used directly by the Elasticsearch sources (TypeReference, JsonNode, ObjectNode, ObjectMapper).
          lucille-core supplies these too, but it is a provided dependency so its compile-scope transitives do not flow
