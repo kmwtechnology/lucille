@@ -32,7 +32,7 @@ docker run -v "$(pwd)/conf:/mnt/conf" \
            --env LUCILLE_CONF=/mnt/conf/my-pipeline.conf \
            --env JAVA_OPTS=-Xmx4g \
            --env OPENSEARCH_URL=https://opensearch:9200 \
-           kmwtechnology/lucille-all:1.0.0-alpha.0
+           kmwtechnology/lucille-all:VERSION.0
 ```
 
 The same image can run any Lucille component by setting `LUCILLE_ROLE`:
@@ -43,20 +43,20 @@ docker run -v "$(pwd)/conf:/mnt/conf" \
            --env LUCILLE_CONF=/mnt/conf/my-pipeline.conf \
            --env LUCILLE_ROLE=worker --env LUCILLE_PIPELINE=my-pipeline \
            --env JAVA_OPTS=-Xmx2g \
-           kmwtechnology/lucille-all:1.0.0-alpha.0
+           kmwtechnology/lucille-all:VERSION.0
 
 # Run as an Indexer (distributed mode)
 docker run -v "$(pwd)/conf:/mnt/conf" \
            --env LUCILLE_CONF=/mnt/conf/my-pipeline.conf \
            --env LUCILLE_ROLE=indexer --env LUCILLE_PIPELINE=my-pipeline \
            --env JAVA_OPTS=-Xmx1g \
-           kmwtechnology/lucille-all:1.0.0-alpha.0
+           kmwtechnology/lucille-all:VERSION.0
 ```
 
 **Custom image (optional):** to ship the config inside the image instead of mounting it, build on the published image:
 
 ```dockerfile
-FROM kmwtechnology/lucille-all:1.0.0-alpha.0
+FROM kmwtechnology/lucille-all:VERSION.0
 COPY conf/my-pipeline.conf /lucille/conf/my-pipeline.conf
 ENV LUCILLE_CONF=/lucille/conf/my-pipeline.conf
 ```
@@ -76,7 +76,7 @@ spec:
           restartPolicy: OnFailure
           containers:
           - name: lucille
-            image: kmwtechnology/lucille-all:1.0.0-alpha.0
+            image: kmwtechnology/lucille-all:VERSION.0
             env:
             - name: LUCILLE_CONF
               value: /mnt/conf/my-pipeline.conf
@@ -127,7 +127,7 @@ spec:
     spec:
       containers:
       - name: worker
-        image: kmwtechnology/lucille-all:1.0.0-alpha.0
+        image: kmwtechnology/lucille-all:VERSION.0
         env:
         - name: LUCILLE_CONF
           value: /mnt/conf/my-pipeline.conf

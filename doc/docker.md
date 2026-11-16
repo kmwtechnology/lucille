@@ -127,7 +127,7 @@ mvn dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=plugin
 
 ```dockerfile
 # Use the same version tag you compiled the plugin jars against.
-FROM kmwtechnology/lucille:VERSION
+FROM kmwtechnology/lucille:VERSION.0
 
 # Everything on /lucille/lib is on the classpath; lucille-core is already there.
 COPY plugin-lib/ /lucille/lib/
@@ -153,7 +153,7 @@ mvn clean package -pl lucille-plugins/lucille-solr -am -Pshaded-plugin-jars
 ```
 
 ```dockerfile
-FROM kmwtechnology/lucille:VERSION
+FROM kmwtechnology/lucille:VERSION.0
 COPY lucille-solr-plugin.jar /lucille/lib/
 COPY my-config.conf /lucille/conf/my-config.conf
 ENV LUCILLE_CONF=/lucille/conf/my-config.conf
@@ -207,7 +207,7 @@ docker run -v /path/on/host/logs:/log ...
 ## Example: Complete Production Setup
 
 ```dockerfile
-FROM lucille:VERSION
+FROM lucille:VERSION.0
 
 COPY conf/production.conf /lucille/conf/production.conf
 COPY conf/application.conf /lucille/conf/application.conf
@@ -219,6 +219,6 @@ ENV LUCILLE_OPTS=""
 ```
 
 ```bash
-docker build -t my-lucille-prod:1.0.0 .
-docker run --memory=4g my-lucille-prod:1.0.0
+docker build -t my-lucille-prod:VERSION.0 .
+docker run --memory=4g my-lucille-prod:VERSION.0
 ```

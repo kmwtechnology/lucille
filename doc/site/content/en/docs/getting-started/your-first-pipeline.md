@@ -136,7 +136,7 @@ Alternatively, run the published `kmwtechnology/lucille` Docker image, which alr
 ```bash
 docker run --rm -v "$PWD":/lucille/work -w /lucille/work \
   -e LUCILLE_CONF=/lucille/work/my-first-pipeline.conf \
-  kmwtechnology/lucille:1.0.0-alpha.0
+  kmwtechnology/lucille:VERSION.0
 ```
 
 The container runs as a non-root `lucille` user. On Linux, add `--user "$(id -u):$(id -g)"` if it can't write `my-output.csv` into the mounted directory.

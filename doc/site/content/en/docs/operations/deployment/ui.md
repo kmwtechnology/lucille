@@ -14,15 +14,15 @@ The Lucille Admin UI is a browser console for the [Lucille REST API]({{< relref 
 ### Quick Start
 
 ```bash
-docker run --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 kmwtechnology/lucille-api:<version>
+docker run --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 kmwtechnology/lucille-api:VERSION.0
 ```
 
-Open `http://localhost:8080/admin` and sign in with `<password>`. For `<version>`, use an image tag for Lucille 1.0 or later (see [With Docker](#with-docker)).
+Open `http://localhost:8080/admin` and sign in with `<password>`. For `VERSION.0`, use an image tag for Lucille 1.0 or later (see [With Docker](#with-docker)).
 
 The `lucille-api` image only has `lucille-core`'s components. To use plugin components such as the Solr, Elasticsearch or OpenSearch indexers from the UI, run the `lucille-all` image in API mode instead:
 
 ```bash
-docker run --env LUCILLE_ROLE=api --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 kmwtechnology/lucille-all:<version>
+docker run --env LUCILLE_ROLE=api --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 kmwtechnology/lucille-all:VERSION.0
 ```
 
 See [Choosing Which Components Are Available](#choosing-which-components-are-available).
@@ -83,11 +83,11 @@ Start a container from the `lucille-api` image. It includes the UI and starts th
 docker run \
   --env LUCILLE_API_PASSWORD=<password> \
   -p 8080:8080 \
-  kmwtechnology/lucille-api:<version>
+  kmwtechnology/lucille-api:VERSION.0
 ```
 
 - `<password>` — the admin password you will sign in with.
-- `<version>` — an image tag for Lucille 1.0 or later. Tags are the Lucille release version followed by an image revision number, so `1.0.0-alpha.0` is the first image for release 1.0.0-alpha. See the [available tags](https://hub.docker.com/r/kmwtechnology/lucille-api/tags) on Docker Hub.
+- `VERSION.0` — an image tag for Lucille 1.0 or later. Tags are the Lucille release version followed by an image revision number, so `1.0.0-alpha.0` is the first image for release 1.0.0-alpha. See the [available tags](https://hub.docker.com/r/kmwtechnology/lucille-api/tags) on Docker Hub.
 
 **Building the image yourself.** To run an image built from source instead, build both JARs, then build the image from the `lucille-api` module:
 
@@ -97,7 +97,7 @@ cd lucille-plugins/lucille-api
 docker build -t lucille-api .
 ```
 
-Then use `lucille-api` in place of `kmwtechnology/lucille-api:<version>` in the `docker run` commands on this page.
+Then use `lucille-api` in place of `kmwtechnology/lucille-api:VERSION.0` in the `docker run` commands on this page.
 
 **With every plugin.** The `lucille-all` image also runs the API and UI when you set `LUCILLE_ROLE=api`, and then every plugin component is available:
 
@@ -106,7 +106,7 @@ docker run \
   --env LUCILLE_ROLE=api \
   --env LUCILLE_API_PASSWORD=<password> \
   -p 8080:8080 \
-  kmwtechnology/lucille-all:<version>
+  kmwtechnology/lucille-all:VERSION.0
 ```
 
 To build it yourself, run `mvn clean install -DskipTests -Padmin-ui` and then `docker build --target all -t lucille-all .` from the repository root. Its default API config is `/lucille/conf/api.yml`; to use your own, mount it and set `DROPWIZARD_CONF` as in [Using Your Own API Config](#using-your-own-api-config).
@@ -191,7 +191,7 @@ To change API settings, such as turning authentication off, edit a copy of the d
 
   ```bash
   mkdir -p conf
-  docker run --rm --entrypoint cat kmwtechnology/lucille-api:<version> conf/api.yml > conf/api.yml
+  docker run --rm --entrypoint cat kmwtechnology/lucille-api:VERSION.0 conf/api.yml > conf/api.yml
   ```
 
   ```bash
@@ -200,7 +200,7 @@ To change API settings, such as turning authentication off, edit a copy of the d
     --env DROPWIZARD_CONF=/mnt/conf/api.yml \
     --env LUCILLE_API_PASSWORD=<password> \
     -p 8080:8080 \
-    kmwtechnology/lucille-api:<version>
+    kmwtechnology/lucille-api:VERSION.0
   ```
 
   Run both commands from the directory that contains `conf/`. If your copy turns authentication off, you can drop `--env LUCILLE_API_PASSWORD`.
