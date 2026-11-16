@@ -72,13 +72,13 @@ A field containing a list of values rather than a single value. Created by calli
 An enum controlling how a field write behaves: `OVERWRITE` (replace existing values), `APPEND` (add to existing values), or `SKIP` (write only if the field doesn't already exist).
 
 **Reserved Fields**
-Internal control fields that cannot be written to by Stages: `id`, `run_id`, `___children`, `___dropped`, `___skipped`. These are stripped by the Indexer before sending to the search backend.
+Internal control fields that cannot be written to by Stages: `id`, `run_id`, `___children`, `___dropped`, `___skipped`. The Indexer always omits `___children` and the `___failure_*` fields; `run_id` and `___skipped` reach the search backend unless `includeFields` or `excludeFields` filters them.
 
 **Dropped Document**
 A Document marked with `___dropped = true`. It is ignored by all downstream Stages and is NOT sent to the Indexer. The Worker sends a DROP event to the Publisher. Use this to filter out documents entirely.
 
 **Skipped Document**
-A Document marked with `___skipped = true`. It is ignored by all downstream Stages but IS still sent to the Indexer. Used for deletion markers — the document bypasses enrichment but reaches the Indexer so it can issue a delete against the search backend.
+A Document marked with `___skipped = true`. It is ignored by all downstream Stages but IS still sent to the Indexer. The Indexer indexes it like any other document; skipping alone does not delete it. For deletes, combine it with `indexer.deletionMarker`, which makes the Indexer issue a delete for documents carrying the marker field and value.
 
 **Child Document (Attached)**
 A Document stored inside a parent via `doc.addChild(childDoc)`. Attached children travel with the parent as nested data. They are not independently tracked by the Publisher and are not indexed as separate records.
@@ -194,7 +194,7 @@ A document field/value combination (`indexer.deletionMarker`) that signals the I
 A deletion mode where the Indexer deletes all documents in the index matching a field/value pair, rather than deleting a single document by ID. Configured via `indexer.deleteByQuery`.
 
 **Field Filtering (includeFields/excludeFields)**
-Configuration that controls which document fields are sent to the search backend. `indexer.includeFields` includes only listed fields; `indexer.excludeFields` excludes listed fields. Reserved fields are always stripped.
+Configuration that controls which document fields are sent to the search backend. `indexer.includeFields` includes only listed fields; `indexer.excludeFields` excludes listed fields. `___children` and the `___failure_*` fields are always omitted; other reserved fields are filtered like any other field.
 
 **Bypass Mode**
 When `bypass = true` (test mode), the Indexer skips all actual backend communication. Documents are still batched and events are still sent, but `sendToIndex()` is not called.

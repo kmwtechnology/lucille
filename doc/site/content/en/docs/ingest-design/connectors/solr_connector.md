@@ -9,6 +9,8 @@ description: A Connector that queries Solr and publishes each result document in
 
 `com.kmwllc.lucille.solr.connector.SolrConnector`
 
+The connector is in the `lucille-solr` plugin, which must be on the classpath (it is included in `lucille-all` and the `kmwtechnology/lucille-all` image).
+
 **Maven dependency:**
 ```xml
 <dependency>
@@ -17,8 +19,6 @@ description: A Connector that queries Solr and publishes each result document in
   <version>${lucille.version}</version>
 </dependency>
 ```
-
-`com.kmwllc.lucille.connector.SolrConnector`
 
 The `SolrConnector` sends optional update requests to Solr before and after a run (`preActions` and `postActions`). When the connector has a `pipeline`, it also queries Solr and publishes each result as a Lucille Document. It is useful for cross-index enrichment pipelines, for example reading documents from one Solr collection, enriching them, and indexing them into a different collection or backend. Without a `pipeline`, no query is run and only the actions are sent.
 

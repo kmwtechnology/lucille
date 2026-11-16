@@ -13,7 +13,7 @@ Stages are composed into Pipelines. When a Document flows through a Pipeline, it
 
 ## The Stage Contract
 
-A Stage implementation must provide one method: `processDocument(Document doc)`. This method receives a Document, performs its transformation (typically by reading and writing fields), and returns an iterator of result documents. For most stages, the iterator contains just the input document (now modified). Stages that generate child documents return the children followed by the parent.
+A Stage implementation must provide one method: `processDocument(Document doc)`. This method receives a Document, modifies it in place (typically by reading and writing fields), and returns null when it generates no children. A Stage that generates child documents returns an `Iterator<Document>` over the children only, never the input document. The framework emits the children, then the parent.
 
 The framework handles everything else:
 - **Instantiation** — Stages are created from class names in configuration via reflection.

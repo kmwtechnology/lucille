@@ -120,7 +120,7 @@ FROM eclipse-temurin:21
 COPY target/ /target/
 COPY conf/ /conf/
 ENV CONF=""
-ENTRYPOINT java -Dconfig.file=${CONF} -cp 'target/lib/*' com.kmwllc.lucille.core.Runner
+ENTRYPOINT java -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml -Dconfig.file=${CONF} -cp 'target/lib/*' com.kmwllc.lucille.core.Runner
 ```
 
 The container is launched with:
@@ -149,7 +149,7 @@ All errors are reported at once — not fail-fast on the first error. This means
 Configuration can also be validated without execution using the `-validate` flag:
 
 ```bash
-java -Dconfig.file=conf/my-ingest.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner -validate
+java -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml -Dconfig.file=conf/my-ingest.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner -validate
 ```
 
 This is useful in CI pipelines that want to catch config errors before deployment without actually running an ingest.
@@ -157,7 +157,7 @@ This is useful in CI pipelines that want to catch config errors before deploymen
 The `-render` flag prints the fully resolved config (with all substitutions applied) so you can verify what values Lucille will actually see at runtime:
 
 ```bash
-java -Dconfig.file=conf/my-ingest.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner -render
+java -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml -Dconfig.file=conf/my-ingest.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner -render
 ```
 
 ---

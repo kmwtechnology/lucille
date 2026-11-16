@@ -30,8 +30,9 @@ For each Connector in the configured sequence, the Runner:
 
 ```bash
 java \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=/path/to/config.conf \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.Runner
 ```
 
@@ -39,8 +40,9 @@ java \
 
 ```bash
 java \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=/path/to/config.conf \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.Runner \
   -distributed
 ```
@@ -49,8 +51,9 @@ java \
 
 ```bash
 java \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=/path/to/config.conf \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.Runner \
   -external
 ```
@@ -61,8 +64,9 @@ Validates every Connector, Stage, and Indexer spec and prints all errors. Exits 
 
 ```bash
 java \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=/path/to/config.conf \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.Runner \
   -validate
 ```
@@ -73,8 +77,9 @@ Prints the fully resolved configuration after HOCON substitutions (environment v
 
 ```bash
 java \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=/path/to/config.conf \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.Runner \
   -render
 ```
@@ -83,7 +88,7 @@ java \
 
 ```hocon
 runner {
-  # Log detailed stage-by-stage metrics at end of run (default: INFO)
+  # Level for the stage-by-stage metrics logged at end of run: TRACE, DEBUG, INFO, WARN or ERROR (default: DEBUG)
   metricsLoggingLevel: "INFO"
 
   # Connector timeout in milliseconds (default: 86400000 = 24 hours; set <= 0 to disable)
@@ -112,11 +117,12 @@ A connector that failed entirely is distinguished from one that completed with i
 
 ## Graceful Shutdown
 
-The Runner handles `SIGINT` (Ctrl+C) and `SIGTERM`. On signal receipt:
-1. The Connector stops publishing.
-2. Workers drain remaining documents.
-3. The Indexer flushes its current batch.
-4. A partial run summary is logged.
+The Runner registers a JVM shutdown hook, so `SIGINT` (Ctrl+C) and `SIGTERM` stop the current run as follows:
+1. The Connector and the Publisher are closed, so no more documents are published.
+2. The Worker pool is stopped. Each Worker finishes the document it is working on, and the Runner waits up to 3 seconds for them.
+3. The Indexer is stopped. It tries to send its current batch, and the Runner waits up to 3 seconds for it.
+
+In a local run, documents still waiting on the in-memory queues are not processed, and no run summary is logged. The process exits with the JVM's signal status: 130 for `SIGINT`, 143 for `SIGTERM`.
 
 ## RunType
 

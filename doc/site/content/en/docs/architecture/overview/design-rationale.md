@@ -185,6 +185,6 @@ The system should recover from failures without losing work and prevent resource
 
 - **Poison pill detection.** Documents that repeatedly cause a Worker process to crash are detected (via a distributed retry counter) and routed to a Dead Letter Queue after a configurable retry limit.
 - **Crash resilience.** Uncompleted work is resumed when a component restarts, or picked up by another instance via Kafka's consumer group protocol. Work is not silently dropped.
-- **Graceful shutdown.** Signal handling (SIGINT/SIGTERM) cleanly stops all components — the Connector stops publishing, Workers drain remaining documents, the Indexer flushes its current batch, and the process exits with a run summary.
+- **Graceful shutdown.** A JVM shutdown hook stops all components on SIGINT/SIGTERM — the Connector and Publisher are closed, Workers finish their current document, and the Indexer tries to send its current batch, each with a 3-second wait. Documents still on a local run's in-memory queues are not processed, and no run summary is logged.
 - **Backpressure.** The Publisher blocks the Connector when too many documents are in flight or when queues are full, preventing unbounded growth that leads to out-of-memory crashes.
 - **Indexer retry with exponential backoff.** Failed batch calls are retried with configurable maximum attempts, initial wait duration, and retryable status codes. Non-retryable failures fail immediately.

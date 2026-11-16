@@ -76,7 +76,7 @@ For `.jsonl` files (one JSON object per line), no extra configuration is needed 
 
 ## Recipe 3: Ingest XML Files
 
-Extract records from XML files using an XPath expression.
+Split XML files into records, one Document per element at `xmlRootPath`.
 
 ```hocon
 connectors: [
@@ -88,14 +88,15 @@ connectors: [
 
     fileHandlers: {
       xml {
-        chunkPath: "//record"
+        xmlRootPath: "/records/record"
+        xmlIdPath: "/records/record/id"
       }
     }
   }
 ]
 ```
 
-Each XML element matching `//record` becomes a separate Lucille Document.
+`xmlRootPath` is a plain absolute element path, not XPath. Each `<record>` element under the root `<records>` element becomes a separate Lucille Document, with its raw XML in the `xml` field and its ID taken from the `<id>` child. Set exactly one of `xmlIdPath` (absolute element path) or `xpathIdPath` (XPath relative to `xmlRootPath`).
 
 ## Recipe 4: Ingest from Amazon S3
 
@@ -176,7 +177,6 @@ connectors: [
     class: "com.kmwllc.lucille.connector.FileConnector"
     pipeline: "my-pipeline"
     paths: ["/data/files"]
-    publishMode: "INCREMENTAL"
 
     # JDBC state database (H2 embedded is the default; Derby also works)
     state {
@@ -185,6 +185,7 @@ connectors: [
     }
 
     filterOptions: {
+      publishMode: "incremental"
       # Only process files that were last published more than 1 hour ago
       lastPublishedCutoff: "1h"
     }
@@ -193,8 +194,8 @@ connectors: [
 ```
 
 **Notes on incremental mode:**
-- `FULL` mode (the default) republishes every file on every run.
-- `INCREMENTAL` mode requires a `state` database and only processes files that are new or modified since the last run.
+- `full` mode (the default) republishes every file on every run.
+- `incremental` mode requires a `state` database and only processes files that are new or modified since the last run.
 - The `state` database tracks when each file was last published by Lucille.
 
 ## Recipe 8: Tombstone Deletions
@@ -208,8 +209,11 @@ connectors: [
     class: "com.kmwllc.lucille.connector.FileConnector"
     pipeline: "my-pipeline"
     paths: ["/data/files"]
-    publishMode: "INCREMENTAL"
-    sendTombstones: true
+
+    filterOptions: {
+      publishMode: "incremental"
+      sendTombstones: true
+    }
 
     state {
       driver: "org.h2.Driver"
@@ -219,10 +223,13 @@ connectors: [
 ]
 
 indexer {
-  type: "opensearch"
   deletionMarker {
     field: "file_expired"
     value: "true"
+  }
+  opensearch {
+    url: "https://localhost:9200"
+    index: "my-docs"
   }
 }
 ```
@@ -253,8 +260,8 @@ pipelines: [
     stages: [
       {
         class: "com.kmwllc.lucille.tika.stage.TextExtractor"
-        source: "file_content"
-        dest: "extracted_text"
+        byteArrayField: "file_content"
+        textField: "extracted_text"
       }
     ]
   }
@@ -278,7 +285,7 @@ filterOptions: {
   # Only process files modified within the last 3 days
   lastModifiedCutoff: "3d"
 
-  # Only process files not published by Lucille in the last 6 hours (requires state)
+  # Only process files not published by Lucille in the last 6 hours (requires state and publishMode: "incremental")
   lastPublishedCutoff: "6h"
 }
 ```
@@ -300,10 +307,10 @@ fileOptions: {
   # Process gzip-compressed files
   handleCompressedFiles: true
 
-  # Move files to this path after successful processing (local files only)
+  # Move files to this path after successful processing (single input path only; must be outside that path)
   moveToAfterProcessing: "/data/processed"
 
-  # Move files to this path if an error occurs (local files only)
+  # Move files to this path if an error occurs (single input path only; must be outside that path)
   moveToErrorFolder: "/data/errors"
 }
 

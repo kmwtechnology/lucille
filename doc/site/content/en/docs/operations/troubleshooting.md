@@ -64,14 +64,16 @@ indexer {
 }
 ```
 
-**Re-run in test mode (Java).** Use `Runner.runInTestMode()` with the same config and source data. After the run, inspect documents programmatically:
+**Re-run in test mode (Java).** Use `Runner.runInTestMode()` with the same config and source data. After the run, inspect documents programmatically. A document that fails in a stage is never sent for indexing, so look for it among the documents the connector published, and read the error from its FAIL event:
 
 ```java
-RunResult result = Runner.runInTestMode(config);
-List<Document> docs = result.getDocsSentForIndexing("my-connector");
-Document problem = docs.stream()
+TestMessenger history = Runner.runInTestMode(config).get("my-connector");
+Document problem = history.getDocsSentForProcessing().stream()
     .filter(d -> d.getId().equals("the-failing-doc-id"))
     .findFirst().orElse(null);
+history.getSentEvents().stream()
+    .filter(e -> e.getType() == Event.Type.FAIL && e.getDocumentId().equals("the-failing-doc-id"))
+    .forEach(e -> System.out.println(e.getMessage()));
 ```
 
 **Consume the Kafka fail topic (distributed or Hybrid mode).** Documents that exceeded `worker.maxRetries` are sent to the `{pipeline}_fail` topic with their full serialized content, and so are documents that fail in a Worker or Indexer with `sendFailedDocsToTopic` set. Each carries failure metadata fields (`___failure_reason`, `___failure_component`, `___failure_time`). Consume the topic to inspect the document. See [The Fail Topic]({{< relref "docs/architecture/internals/error-handling#the-fail-topic-dead-letter-queue" >}}).

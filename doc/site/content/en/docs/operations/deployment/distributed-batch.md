@@ -182,8 +182,9 @@ The Runner publishes documents to Kafka and waits for all work to complete:
 
 ```bash
 java \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=/path/to/config.conf \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.Runner \
   -distributed
 ```
@@ -194,8 +195,9 @@ Start one or more Worker processes, each consuming from the Kafka source topic:
 
 ```bash
 java \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=/path/to/config.conf \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.Worker \
   my-pipeline-name
 ```
@@ -206,8 +208,9 @@ Adding more Worker processes increases throughput proportionally. Workers join t
 
 ```bash
 java \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=/path/to/config.conf \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.Indexer \
   my-pipeline-name
 ```
@@ -217,7 +220,7 @@ If the search backend collection does not yet exist, create it before launching 
 ```bash
 # Create Solr collection, then start Indexer
 curl 'http://solr:8983/solr/admin/collections?action=CREATE&name=my-collection&numShards=1&collection.configName=_default'
-java -Dconfig.file=/conf/config.conf -cp '/target/lib/*' com.kmwllc.lucille.core.Indexer my-pipeline
+java -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml -Dconfig.file=/conf/config.conf -cp '/target/lib/*' com.kmwllc.lucille.core.Indexer my-pipeline
 ```
 
 ---

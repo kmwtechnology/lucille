@@ -89,6 +89,7 @@ If your OpenSearch cluster uses certificates signed by an internal CA not in the
 java \
   -Djavax.net.ssl.trustStore=/path/to/truststore.jks \
   -Djavax.net.ssl.trustStorePassword=changeit \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=config.conf \
   -cp 'target/lib/*' com.kmwllc.lucille.core.Runner
 ```
@@ -264,6 +265,7 @@ If the Kafka broker's certificate is signed by a CA in the JVM's default trust s
 java \
   -Djavax.net.ssl.trustStore=/path/to/kafka-truststore.jks \
   -Djavax.net.ssl.trustStorePassword=changeit \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=config.conf \
   -cp 'target/lib/*' com.kmwllc.lucille.core.Runner
 ```
@@ -278,7 +280,6 @@ Pinecone uses API key authentication:
 indexer {
   pinecone {
     apiKey: ${PINECONE_API_KEY}
-    environment: "us-east-1-aws"
     index: "my-index"
   }
 }
@@ -290,13 +291,12 @@ All Pinecone communication uses HTTPS by default. No additional TLS configuratio
 
 ## Weaviate Security
 
-Weaviate supports API key and OIDC authentication:
+Weaviate connections always use HTTPS and authenticate with an API key. `host` is the host name only, without a scheme:
 
 ```hocon
 indexer {
   weaviate {
-    scheme: "https"
-    host: "weaviate-host:8080"
+    host: "my-cluster.weaviate.network"
     apiKey: ${WEAVIATE_API_KEY}
     className: "MyClass"
   }
@@ -366,5 +366,5 @@ docker run \
 | Solr | `userName` + `password` | `https://` + keystore/truststore | `solr {}` block |
 | Kafka | `securityProtocol` + property files | SSL/SASL_SSL | `kafka {}` block |
 | Pinecone | `apiKey` | Always HTTPS | `pinecone {}` block |
-| Weaviate | `apiKey` | `scheme: "https"` | `weaviate {}` block |
+| Weaviate | `apiKey` (API key authentication only) | Always HTTPS (fixed) | `weaviate {}` block |
 | ZooKeeper | External config | External config | Not managed by Lucille |

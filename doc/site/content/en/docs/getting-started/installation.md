@@ -20,7 +20,7 @@ If you're embedding Lucille inside an existing Java project (e.g., calling `Runn
     <dependency>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-bom</artifactId>
-      <version>0.9.0</version>
+      <version>1.0.0-alpha</version>
       <type>pom</type>
       <scope>import</scope>
     </dependency>
@@ -31,6 +31,12 @@ If you're embedding Lucille inside an existing Java project (e.g., calling `Runn
   <dependency>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-core</artifactId>
+  </dependency>
+  <!-- Log4j2 backend and Lucille's logging config; lucille-core logs only through the SLF4J API -->
+  <dependency>
+    <groupId>com.kmwllc</groupId>
+    <artifactId>lucille-logging</artifactId>
+    <scope>runtime</scope>
   </dependency>
   <!-- Add plugins as needed -->
   <dependency>
@@ -85,7 +91,7 @@ indexer {
 
 Stages and connectors are always referenced by their fully-qualified `class` (e.g. `com.kmwllc.lucille.opensearch.stage.QueryOpensearch`). Each component's documentation page lists its exact `class`, module, and Maven dependency.
 
-> **Classpath note for command-line runs:** an indexer's block name or `indexer.type` is resolved from a service file on the classpath, so the plugin JAR must be on the runtime classpath, not just a compile dependency. When you build from source, each module's `target/lib/` already contains the plugin JARs it needs (see below); when you assemble a classpath yourself, make sure the plugin JAR and its dependencies are included.
+> **Classpath note for command-line runs:** an indexer's block name or `indexer.type` is resolved from a service file on the classpath, so the plugin JAR must be on the runtime classpath, not just a compile dependency. Plugin modules have no `target/lib/` of their own. After a source build, `lucille-all/target/lib/` contains lucille-core, lucille-logging, every plugin, and all their dependencies (see below); when you assemble a classpath yourself, make sure the plugin JAR and its dependencies are included.
 
 ### Running Lucille from the Command Line (Runner, Worker, Indexer)
 
@@ -94,15 +100,19 @@ If you're launching Lucille components via `java -cp ... com.kmwllc.lucille.core
 ```bash
 git clone https://github.com/kmwtechnology/lucille.git
 cd lucille
-git checkout v0.9.0  # check out the release tag/branch you want to use
+git checkout 1.0.0-alpha  # check out the release tag you want to use (tags have no "v" prefix)
 mvn clean install
 ```
 
 After the build, the JARs and dependencies are in each module's `target/` directory. You can then run Lucille with:
 
 ```bash
-java -Dconfig.file=my-config.conf -cp 'lucille-core/target/lucille-core-0.9.0.jar:lucille-core/target/lib/*' com.kmwllc.lucille.core.Runner
+java -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml -Dconfig.file=my-config.conf -cp 'lucille-all/target/lib/*' com.kmwllc.lucille.core.Runner
 ```
+
+`lucille-all/target/lib` holds every module. For a config that uses only lucille-core components, `-cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*:lucille-logging/target/lucille-logging.jar:lucille-logging/target/lib/*'` is enough. Always include `lucille-logging` and the `-Dlog4j2.configurationFile` flag, or you get no log output.
+
+Alternatively, skip the build and run a published Docker image: `kmwtechnology/lucille-all` (every plugin) or `kmwtechnology/lucille` (core and logging only). Images are tagged `<release>.<revision>`, for example `1.0.0-alpha.0`; there is no `latest` tag. See [Running Lucille]({{< relref "docs/getting-started/running-lucille" >}}).
 
 ### Developing New Lucille Components (Stages, Connectors, Indexers)
 
@@ -210,7 +220,7 @@ cd lucille
 To use a specific release version, check out the corresponding tag:
 
 ```bash
-git checkout 0.9.0  # replace with the version you want
+git checkout 1.0.0-alpha  # replace with the version you want
 ```
 
 To see available release tags:
@@ -227,7 +237,9 @@ mvn clean install
 
 This compiles all modules and produces build artifacts under each module's `target/` folder. Modules and test classes are built and tested in parallel by default; to run serially, or to tell which test JVM produced a line of output, see [Controlling Test Parallelism]({{< relref "docs/developer-guide/testing#controlling-test-parallelism" >}}). After the build:
 
-- `lucille-core/target/lucille-core-{version}.jar` — the core framework JAR
-- `lucille-core/target/lib/` — all runtime dependencies
-- `lucille-plugins/lucille-tika/target/lucille-tika-{version}.jar` — plugin JARs (one per plugin)
+- `lucille-core/target/lucille.jar` — the core framework JAR
+- `lucille-core/target/lib/` — lucille-core's runtime dependencies (no logging backend)
+- `lucille-logging/target/lucille-logging.jar` and `lucille-logging/target/lib/` — the Log4j2 backend and Lucille's logging config
+- `lucille-plugins/lucille-tika/target/lucille-tika-{version}.jar` — plugin JARs (one per plugin, without their dependencies)
+- `lucille-all/target/lib/` — lucille-core, lucille-logging, every plugin, and all their runtime dependencies in one directory
 - `lucille-examples/*/target/lib/` — example projects with all dependencies copied for easy classpath setup
