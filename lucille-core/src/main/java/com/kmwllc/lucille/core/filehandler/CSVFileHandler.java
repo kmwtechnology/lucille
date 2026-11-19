@@ -174,6 +174,11 @@ public class CSVFileHandler extends BaseFileHandler {
 
       /** Reads the next row, or returns null at the end of the file. */
       private String[] readRow() {
+        // with no header, getHeaderFromCSV has already closed the reader: there are no rows to read
+        if (header == null || header.length == 0) {
+          return null;
+        }
+
         // each row is its own record, even if a quoted value makes it span several physical lines
         if (lineReader instanceof BoundedLineReader boundedReader) {
           boundedReader.startRecord();
@@ -370,6 +375,9 @@ public class CSVFileHandler extends BaseFileHandler {
       return new CSVReaderBuilder(lineReader)
           .withCSVParser(
               new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
+          // without this, opencsv treats an IOException while peeking at the next line as end of file, and the rest of
+          // the file is silently skipped. With it off, the error reaches readRow() and fails the file.
+          .withVerifyReader(false)
           .build();
     } catch (Exception e) {
       throw new FileHandlerException(String.format("Error creating CSVReader from InputStream. (%s)", path), e);

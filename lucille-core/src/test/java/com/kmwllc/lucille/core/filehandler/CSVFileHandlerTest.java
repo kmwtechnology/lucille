@@ -751,6 +751,30 @@ public class CSVFileHandlerTest {
   }
 
   @Test
+  public void testAnIOErrorAtALineBoundaryFailsTheFile() throws Exception {
+    // the stream fails after two complete rows, at the point where the reader looks ahead to the next line. The
+    // failure must reach the caller instead of ending the file early.
+    byte[] good = "id,name\n1,a\n2,b\n".getBytes(StandardCharsets.UTF_8);
+    InputStream failing = new InputStream() {
+      private int pos = 0;
+
+      @Override
+      public int read() throws java.io.IOException {
+        if (pos < good.length) {
+          return good[pos++] & 0xFF;
+        }
+        throw new java.io.IOException("connection reset");
+      }
+    };
+
+    FileHandler handler = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("idField", "id"))));
+    Iterator<Document> docs = handler.processFile(failing, "test.csv");
+    assertEquals("1", docs.next().getId());
+    assertEquals("2", docs.next().getId());
+    assertThrows(IllegalStateException.class, docs::hasNext);
+  }
+
+  @Test
   public void testInvalidMaxRecordBytes() {
     Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("maxRecordBytes", 0)));
     assertThrows(IllegalArgumentException.class, () -> FileHandler.create("csv", config));
