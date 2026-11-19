@@ -237,6 +237,10 @@ An exception thrown by `traverseStorageClient()` itself, for example when a list
 
 ---
 
+## Naming a StorageClient
+
+A custom StorageClient's class name is what users put in `class`, so it is hard to change once the client is released: a rename breaks every config that uses it. Name it for the storage service or provider it reads, followed by `StorageClient`, such as `S3StorageClient`, following the conventions in [Component Naming]({{< relref "docs/developer-guide/component-naming#storage-clients" >}}).
+
 ## Skeleton
 
 ```java

@@ -10,7 +10,7 @@ description: >
 
 A component's configuration property names are part of its public interface. People type them into configs, read them in error messages, and look them up in the docs. Names that follow a common pattern let someone who knows one component guess the properties of the next.
 
-This page describes the conventions Lucille's built-in components follow. They are **conventions and recommendations, not strict requirements**. Nothing in the build or in Spec validation enforces them. New components, built-in or your own, should follow them unless there is a good reason not to. When a convention doesn't fit, choose the name that is clearest for that component's users, and say why in its Javadoc.
+This page describes the conventions Lucille's built-in components follow for property names. For the class names of components, see [Component Naming]({{< relref "docs/developer-guide/component-naming" >}}). They are **conventions and recommendations, not strict requirements**. Nothing in the build or in Spec validation enforces them. New components, built-in or your own, should follow them unless there is a good reason not to. When a convention doesn't fit, choose the name that is clearest for that component's users, and say why in its Javadoc.
 
 The most basic convention is that every property name is in **camel case**: it starts lowercase, and each word after the first starts with a capital letter, as in `idField`, `batchTimeoutMs` and `includeFields`. Acronyms and compound words follow the same rule (see [Capitalization and Acronyms](#capitalization-and-acronyms)).
 
@@ -171,3 +171,4 @@ If you rename a property:
 - Settings that already exist elsewhere use the same name.
 - A property that sets a setting of an external system uses that system's name for it.
 - Settings that must be set together are in a nested block with required keys.
+- The component's class name follows [Component Naming]({{< relref "docs/developer-guide/component-naming" >}}).

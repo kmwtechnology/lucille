@@ -93,6 +93,10 @@ See [Control Flow: Setup-Only Connectors]({{< relref "docs/ingest-design/control
 
 ---
 
+## Naming a Connector
+
+A connector's class name is what users put in `class`, so it is hard to change once the connector is released: a rename breaks every config that uses it. Name it for the source it reads from, followed by `Connector`, such as `KafkaConnector` or `DatabaseConnector`, following the conventions in [Component Naming]({{< relref "docs/developer-guide/component-naming#connectors" >}}).
+
 ## Connector Skeleton
 
 Every connector must follow the [Javadoc Standards]({{< relref "docs/developer-guide/javadocs" >}}).

@@ -54,6 +54,10 @@ Your constructor must call `super(config, context)` — this triggers config val
 
 ---
 
+## Naming an Indexer
+
+An indexer's class name is what users put in `indexer.class`, and the part before `Indexer` is its type name for `indexer.type`, so both are hard to change once the indexer is released: a rename breaks every config that uses them. Name it for the destination it writes to, followed by `Indexer`, such as `OpenSearchIndexer` or `CSVIndexer`, following the conventions in [Component Naming]({{< relref "docs/developer-guide/component-naming#indexers" >}}).
+
 ## Indexer Skeleton
 
 Every indexer must follow the [Javadoc Standards]({{< relref "docs/developer-guide/javadocs" >}}).

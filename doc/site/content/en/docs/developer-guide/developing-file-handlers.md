@@ -75,6 +75,10 @@ When the FileConnector encounters a file ending in `.yaml`, it passes its conten
 
 ---
 
+## Naming a File Handler
+
+A custom file handler's class name is what users put in `class`, so it is hard to change once the handler is released: a rename breaks every config that uses it. Name it for the file format it parses, followed by `FileHandler`, such as `CSVFileHandler`, following the conventions in [Component Naming]({{< relref "docs/developer-guide/component-naming#file-handlers" >}}).
+
 ## Skeleton
 
 Every file handler must follow the [Javadoc Standards]({{< relref "docs/developer-guide/javadocs" >}}).
