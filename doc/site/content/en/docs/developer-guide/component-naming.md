@@ -20,17 +20,13 @@ Stages are named for what they do, with a verb first, because a stage is an acti
 
 ### Spell Product Names the Way Their Owners Do
 
-Write a product name the way its owner writes it, fitted to camel case: `OpenSearch`, `Elasticsearch`, `JavaScript`, `JSONata`, `OpenAI`, `OpenNLP`, `XPath`, `Jlama`, `Ollama` and `Jsoup`. jsoup is lowercase, so at the start of a word it becomes `Jsoup`, as in its own class `org.jsoup.Jsoup`. `OpenSearchIndexer` and `ElasticsearchIndexer` follow this rule.
+Write a product name the way its owner writes it, fitted to camel case: `OpenSearch`, `Elasticsearch`, `JavaScript`, `JSONata`, `OpenAI`, `OpenNLP`, `XPath`, `Jlama`, `Ollama`, `Jsoup` and `S3`. jsoup is lowercase, so at the start of a word it becomes `Jsoup`, as in its own class `org.jsoup.Jsoup`. `OpenSearchIndexer` and `ElasticsearchIndexer` follow this rule.
 
-### Write Acronyms in Capitals
+### Write Acronyms in Camel Case
 
-Write other acronyms in capitals: `CSVFileHandler`, `XMLFileHandler`, `RSSConnector`, `CSVIndexer`, `S3StorageClient`, `ApplyOCR`, `ExtractEntitiesFST`. Most of the class names users already type are written this way.
+Write acronyms as if they were ordinary words: `ParseJson`, `FetchUri`, `ApplyOcr`, `ExtractEntitiesFst`, `CsvIndexer`, `RssConnector`, `JsonFileHandler`. Acronyms in all capitals make the word boundaries hard to see, especially next to another word or acronym: `HttpUrl` reads more easily than `HTTPURL`. Property names follow the same rule (see [Capitalization and Acronyms]({{< relref "docs/developer-guide/config-naming#capitalization-and-acronyms" >}})), and so do the Google Java Style Guide and newer JDK APIs such as `java.net.http.HttpClient`.
 
-This differs from property names, which write acronyms in camel case (see [Capitalization and Acronyms]({{< relref "docs/developer-guide/config-naming#capitalization-and-acronyms" >}})).
-
-A product name that contains an acronym follows its owner's spelling, as above (`JSONata`, `OpenAI`).
-
-`JsonFileHandler` is an exception. Users select it with the `json` file extension key, not by its class name, so it keeps its name.
+Product names are not acronyms. A product name keeps its owner's spelling, even where it has capitals in a row (`JSONata`, `OpenAI`, `S3`).
 
 ### Spell Words Out
 
@@ -40,11 +36,13 @@ Spell words out, with the same exceptions as for property names (see [Config Pro
 
 ### Start with a Verb
 
-A stage name is an imperative verb phrase: the verb, then what it acts on, then any qualifier, as in `CopyFields`, `ParseDate`, `DetectLanguage` and `ExtractEntitiesFST`. A stage does something to a document, and the name says what.
+A stage name is an imperative verb phrase: the verb, then what it acts on, then any qualifier, as in `CopyFields`, `ParseDate`, `DetectLanguage` and `ExtractEntitiesFst`. A stage does something to a document, and the name says what.
 
 A bare verb is fine when what it acts on is obvious: `Concatenate`, `Print`.
 
 Don't name a stage with an agent noun (`FieldCopier`, `DateParser`) or a bare noun (`Language`, `Teaser`). Write `CopyFields`, `ParseDate`, `DetectLanguage` and `CreateStaticTeaser`.
+
+Lookup stages are the one exception (see [Lookup Stages](#lookup-stages)).
 
 ### Use One Verb per Kind of Job
 
@@ -54,14 +52,14 @@ Stages that do the same kind of job use the same verb:
 |---|---|---|
 | `Fetch` | Reads bytes from a location | `FetchFileContent` |
 | `Query` | Runs a search against an external system | `QueryDatabase` |
-| `LookUp` | Gets entries by key | — |
-| `Apply` | Runs an expression language, script, model or set of handlers | `ApplyRegex`, `ApplyJSONata`, `ApplyFileHandlers`, `ApplyOpenNLPNameFinders` |
+| `Apply` | Runs an expression language, model or set of handlers | `ApplyRegex`, `ApplyJSONata`, `ApplyXPath`, `ApplyFileHandlers`, `ApplyOpenNLPNameFinders` |
+| `Run` | Runs user-supplied code on each document | `RunPython`, `RunExternalPython`, `RunJavaScript` |
 | `Add` | Writes a generated value to a field | `AddRandomInt`, `AddRandomString` |
 | `Set` | Writes values given in the config to a field | `SetStaticValues` |
 | `Extract` | Pulls values out of content | `ExtractEntities`, `ExtractFirstCharacter` |
 | `Emit` | Produces child documents | `EmitNestedChildren`, `EmitDocsToDeleteByPrefix` |
 
-"Look up" is two words as a verb, so camel case gives `LookUp`. `Lookup`, one word, is the noun.
+A `Run` stage starts its interpreter, or for `RunExternalPython` its Python process, when the stage starts, not for each document.
 
 Stages that do different jobs keep different verbs, even when they look alike. `ApplyRegex` extracts the matches of a regular expression and `ReplacePatterns` finds and replaces, so each has its own verb.
 
@@ -70,6 +68,12 @@ Stages that do different jobs keep different verbs, even when they look alike. `
 When a stage name includes a service, product or library, it comes after the verb, either as the object (`PromptOllama`, `ApplyJSONata`) or after the object (`EmbedOpenAI`, not `OpenAIEmbed`).
 
 You don't need to name a provider that the stage's package already names. The Pinecone plugin's `EmitDocsToDeleteByPrefix` doesn't say "Pinecone".
+
+### Lookup Stages
+
+A stage that gets entries by key from a named source is named for the source, followed by `Lookup`: `DictionaryLookup` looks up each source value in a dictionary file, and `ElasticsearchLookup` gets a document from Elasticsearch by its ID. This is the one stage name that doesn't start with a verb and puts the provider first. "Lookup" is an established name for the job, and the source is what tells one lookup stage from another.
+
+A stage that runs a search, rather than getting entries by key, uses `Query` instead (`QueryOpenSearch`, `QueryDatabase`).
 
 ### Use Singular or Plural by the Job
 
@@ -89,7 +93,7 @@ These components are named with a qualifier followed by the component type: `<Qu
 
 The qualifier says what the component works with. Choose the most specific of these that is true:
 
-1. **A product, service or format**, when the component works with that one: `KafkaConnector`, `SolrConnector`, `ParquetConnector`, `RSSConnector`, `OpenSearchIndexer`, `PineconeIndexer`, `CSVIndexer`, `CSVFileHandler`, `XMLFileHandler`, `S3StorageClient`, `AzureStorageClient`.
+1. **A product, service or format**, when the component works with that one: `KafkaConnector`, `SolrConnector`, `ParquetConnector`, `RssConnector`, `OpenSearchIndexer`, `PineconeIndexer`, `CsvIndexer`, `CsvFileHandler`, `XmlFileHandler`, `S3StorageClient`, `AzureStorageClient`.
 2. **A kind of system or data**, when the component works with any system of that kind: `DatabaseConnector` reads from any database with a JDBC driver, `FileConnector` reads files from local and cloud storage, and `LocalStorageClient` reads the local file system.
 3. **What the component does**, when it doesn't work with an external system at all, as with components for testing or generating data: `SequenceConnector` produces a sequence of empty documents, and `NopIndexer` sends nothing anywhere.
 
@@ -103,7 +107,7 @@ The qualifier names the destination the indexer writes to. It is also the indexe
 
 ### File Handlers
 
-The qualifier names the file format the handler parses: `CSVFileHandler`, `XMLFileHandler`, `VideoFileHandler`. The built-in handlers are selected by file extension key, and a custom handler by `class`.
+The qualifier names the file format the handler parses: `CsvFileHandler`, `XmlFileHandler`, `JsonFileHandler`, `VideoFileHandler`. The built-in handlers are selected by file extension key, and a custom handler by `class`.
 
 ### Storage Clients
 
@@ -121,10 +125,10 @@ If you rename a component:
 
 ## Checklist for a New Component
 
-- Product names are spelled as their owners spell them, and other acronyms are in capitals.
+- Product names are spelled as their owners spell them, and other acronyms are in camel case.
 - Words are spelled out, apart from the allowed abbreviations.
 - For a stage:
-  - The name starts with a verb, and uses the same verb as other stages that do the same kind of job.
+  - The name starts with a verb, and uses the same verb as other stages that do the same kind of job. A lookup stage is named `<Source>Lookup` instead.
   - A provider name comes after the verb.
   - The name is singular or plural by what the stage does.
   - The name doesn't end in `Stage`.
