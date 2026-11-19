@@ -1,6 +1,6 @@
 ---
 title: RemoveDiacritics
-weight: 530
+weight: 540
 date: 2025-06-09
 description: Removes accents and other diacritical marks from a String field.
 ---

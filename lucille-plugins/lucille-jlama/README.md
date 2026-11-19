@@ -1,3 +1,3 @@
 ## Lucille JLama plugin
 
-This plugin includes the `JlamaEmbed` stage, which allows you to embed certain fields within a Document.
+This plugin includes the `EmbedJlama` stage, which allows you to embed certain fields within a Document.

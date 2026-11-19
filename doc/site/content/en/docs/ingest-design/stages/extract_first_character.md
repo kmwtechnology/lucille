@@ -1,6 +1,6 @@
 ---
 title: ExtractFirstCharacter
-weight: 340
+weight: 380
 date: 2025-06-09
 description: Extracts the first character of fields, with a replacement value when it is not a letter.
 ---

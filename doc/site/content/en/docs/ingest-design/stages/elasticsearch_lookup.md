@@ -1,6 +1,6 @@
 ---
 title: ElasticsearchLookup
-weight: 280
+weight: 310
 date: 2025-06-09
 description: Looks up a document in Elasticsearch by the Lucille document's ID and copies selected fields onto the document.
 ---

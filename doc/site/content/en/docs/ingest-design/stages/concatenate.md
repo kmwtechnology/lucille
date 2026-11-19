@@ -1,6 +1,6 @@
 ---
 title: Concatenate
-weight: 180
+weight: 190
 date: 2025-06-09
 description: Builds a destination field from a format string with field values substituted into placeholders.
 ---

@@ -31,11 +31,11 @@ public class FileHandlerTest {
     // test csv
     Config csvConfig = ConfigFactory.parseMap(Map.of("csv", Map.of()));
     FileHandler csvHandler = FileHandler.create("csv", csvConfig);
-    assertInstanceOf(CSVFileHandler.class, csvHandler);
+    assertInstanceOf(CsvFileHandler.class, csvHandler);
     // test xml
     Config xmlConfig = ConfigFactory.parseMap(Map.of("xml", Map.of("xmlRootPath", "path", "xmlIdPath", "idPath")));
     FileHandler xmlHandler = FileHandler.create("xml", xmlConfig);
-    assertInstanceOf(XMLFileHandler.class, xmlHandler);
+    assertInstanceOf(XmlFileHandler.class, xmlHandler);
     // test xml without required configs
     assertThrows(IllegalArgumentException.class, () -> FileHandler.create("xml", ConfigFactory.parseMap(Map.of("xml", Map.of()))));
     // test json
@@ -60,10 +60,10 @@ public class FileHandlerTest {
     // A bit weird, but an easy way to make sure reflection works
     Config withCSVOnOtherType = ConfigFactory.parseMap(Map.of(
         "tsv", Map.of(
-            "class", "com.kmwllc.lucille.core.filehandler.CSVFileHandler",
+            "class", "com.kmwllc.lucille.core.filehandler.CsvFileHandler",
             "useTabs", true
         )));
-    assertInstanceOf(CSVFileHandler.class, FileHandler.create("tsv", withCSVOnOtherType));
+    assertInstanceOf(CsvFileHandler.class, FileHandler.create("tsv", withCSVOnOtherType));
   }
 
   @Test
@@ -73,24 +73,24 @@ public class FileHandlerTest {
 
     result = FileHandler.createFromConfig(ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/csv_only.conf"));
     assertEquals(1, result.size());
-    assertInstanceOf(CSVFileHandler.class, result.get("csv"));
+    assertInstanceOf(CsvFileHandler.class, result.get("csv"));
 
     result = FileHandler.createFromConfig(ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/all_three.conf"));
     assertEquals(4, result.size());
-    assertInstanceOf(CSVFileHandler.class, result.get("csv"));
+    assertInstanceOf(CsvFileHandler.class, result.get("csv"));
     assertInstanceOf(JsonFileHandler.class, result.get("json"));
     assertInstanceOf(JsonFileHandler.class, result.get("jsonl"));
     // small detail... when you only specify one (json, jsonl), they are the *same* JsonFileHandler.
     assertEquals(result.get("json"), result.get("jsonl"));
-    assertInstanceOf(XMLFileHandler.class, result.get("xml"));
+    assertInstanceOf(XmlFileHandler.class, result.get("xml"));
 
     result = FileHandler.createFromConfig(ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/csv_on_other_type.conf"));
     assertEquals(5, result.size());
-    assertInstanceOf(CSVFileHandler.class, result.get("csv"));
+    assertInstanceOf(CsvFileHandler.class, result.get("csv"));
     assertInstanceOf(JsonFileHandler.class, result.get("json"));
     assertInstanceOf(JsonFileHandler.class, result.get("jsonl"));
-    assertInstanceOf(XMLFileHandler.class, result.get("xml"));
-    assertInstanceOf(CSVFileHandler.class, result.get("tsv"));
+    assertInstanceOf(XmlFileHandler.class, result.get("xml"));
+    assertInstanceOf(CsvFileHandler.class, result.get("tsv"));
 
     result = FileHandler.createFromConfig(ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/jsonAndJsonl.conf"));
     assertEquals(2, result.size());
@@ -117,7 +117,7 @@ public class FileHandlerTest {
   @Test
   public void testCreateFromConfigLowerCasesKeys() {
     Map<String, FileHandler> result = FileHandler.createFromConfig(ConfigFactory.parseMap(Map.of("CSV", Map.of(), "Json", Map.of())));
-    assertInstanceOf(CSVFileHandler.class, result.get("csv"));
+    assertInstanceOf(CsvFileHandler.class, result.get("csv"));
     assertInstanceOf(JsonFileHandler.class, result.get("json"));
 
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,

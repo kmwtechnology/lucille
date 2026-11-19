@@ -24,7 +24,7 @@ class Py4jClient:
         Path('src/test/resources').resolve(),
         Path('src/main/resources').resolve(),
         Path('python').resolve(),
-        Path('src/test/resources/ExternalPythonTest').resolve(),
+        Path('src/test/resources/RunExternalPythonTest').resolve(),
     ]
 
     def __init__(self, script_name, script_dir, port=25333, callback_port=None):

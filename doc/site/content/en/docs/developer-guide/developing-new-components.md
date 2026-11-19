@@ -12,9 +12,9 @@ Lucille is designed to cover a wide range of ingestion use cases without custom 
 
 When the built-in stages don't do what you need, you can often run your own logic inside a pipeline through one of the scripting stages, without building or packaging a component:
 
-- [ApplyJavascript]({{< relref "docs/ingest-design/stages/apply_javascript" >}}) runs a JavaScript script against each document.
-- [EmbeddedPython]({{< relref "docs/ingest-design/stages/embedded_python" >}}) runs Python inside the JVM.
-- [ExternalPython]({{< relref "docs/ingest-design/stages/external_python" >}}) runs Python in a separate process, so you can use any Python library.
+- [RunJavaScript]({{< relref "docs/ingest-design/stages/run_javascript" >}}) runs a JavaScript script against each document.
+- [RunPython]({{< relref "docs/ingest-design/stages/run_python" >}}) runs Python inside the JVM.
+- [RunExternalPython]({{< relref "docs/ingest-design/stages/run_external_python" >}}) runs Python in a separate process, so you can use any Python library.
 - [ApplyJSONata]({{< relref "docs/ingest-design/stages/apply_jsonata" >}}) transforms documents with a JSONata expression.
 
 Build a component when a script isn't enough: when you need a new data source or destination, a new file format, or enrichment logic that is better written, tested, and reused as Java.

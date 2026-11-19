@@ -18,7 +18,7 @@ Add a `conditions` block to the stage in your config. The base `Stage` class eva
 
 ```hocon
 {
-  class: "com.kmwllc.lucille.stage.OpenAIEmbed"
+  class: "com.kmwllc.lucille.stage.EmbedOpenAI"
   source: "content"
   dest: "content_vector"
   apiKey: ${OPENAI_API_KEY}
@@ -327,7 +327,7 @@ public void start() throws StageException {
 
 Use `stop()` for:
 
-- **Closing connections** — JDBC connections, HTTP clients, script engine contexts. `QueryDatabase` closes its connection and prepared statement here; `FetchUri` closes its HTTP client here; `ApplyJavascript` closes its GraalVM context here.
+- **Closing connections** — JDBC connections, HTTP clients, script engine contexts. `QueryDatabase` closes its connection and prepared statement here; `FetchUri` closes its HTTP client here; `RunJavaScript` closes its GraalVM context here.
 - **Flushing output** — `Print` closes its writer here if one was opened.
 
 ```java

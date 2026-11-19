@@ -1,6 +1,6 @@
 ---
 title: MatchQuery
-weight: 400
+weight: 430
 date: 2025-06-09
 description: Runs a set of named Lucene queries against document fields and records the names of the queries that match.
 ---

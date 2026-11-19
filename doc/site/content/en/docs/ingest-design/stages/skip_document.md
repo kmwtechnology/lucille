@@ -1,6 +1,6 @@
 ---
 title: SkipDocument
-weight: 590
+weight: 630
 date: 2025-06-09
 description: Marks a document as skipped so it bypasses downstream Stages but still reaches the Indexer.
 ---

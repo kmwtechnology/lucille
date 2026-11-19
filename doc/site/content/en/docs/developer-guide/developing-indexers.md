@@ -186,7 +186,7 @@ In every other case, keep going and send the documents that are left. A not-sent
 
 Indexers that pull in a heavy or backend-specific dependency (a search client, a vector-store SDK, native libraries) do **not** live in `lucille-core`. 
 They live in their own plugin module under `lucille-plugins/`, so that `lucille-core` stays lightweight and users only pull in the client stacks they actually use. 
-The Solr, OpenSearch, and Elasticsearch indexers are packaged this way. `CSVIndexer` and `NopIndexer` are still built-in.
+The Solr, OpenSearch, and Elasticsearch indexers are packaged this way. `CsvIndexer` and `NopIndexer` are still built-in.
 
 If your indexer needs no third-party dependency, put it in `lucille-core` and you are done, skip this section. 
 Otherwise, follow the checklist below to add a new plugin module. The same module mechanics apply to a plugin stage or connector. Only the `indexer.type` registration step is indexer-specific.

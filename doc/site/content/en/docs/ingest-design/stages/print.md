@@ -1,6 +1,6 @@
 ---
 title: Print
-weight: 480
+weight: 500
 date: 2025-06-09
 description: Logs documents in JSON format at INFO level and/or writes them to a file.
 ---

@@ -1,11 +1,11 @@
 ---
-title: ApplyOCR
-weight: 110
+title: ApplyOcr
+weight: 120
 date: 2025-06-09
 description: Performs optical character recognition on image and PDF files using Tesseract, with optional template-based form extraction.
 ---
 
-`com.kmwllc.lucille.ocr.stage.ApplyOCR` *(requires `lucille-ocr`)*
+`com.kmwllc.lucille.ocr.stage.ApplyOcr` *(requires `lucille-ocr`)*
 
 Performs optical character recognition on the image or PDF file at the local path in `filePathField`, using [Tesseract](https://tesseract-ocr.github.io/). A file is treated as a PDF when its extension is `pdf`; each PDF page is rendered to an image at 300 DPI. Documents without `filePathField` are skipped with a warning, and so are documents whose file cannot be loaded. Only the first value of `filePathField` is used.
 
@@ -25,7 +25,7 @@ At startup, Tesseract loads the trained data for `language` from a `TesseractOcr
 ```hocon
 {
   name: "ocr"
-  class: "com.kmwllc.lucille.ocr.stage.ApplyOCR"
+  class: "com.kmwllc.lucille.ocr.stage.ApplyOcr"
   filePathField: "file_path"
   language: "eng"
   extractAllDest: "ocr_text"

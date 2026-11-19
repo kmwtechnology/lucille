@@ -1,6 +1,6 @@
 ---
 title: NormalizeText
-weight: 420
+weight: 450
 date: 2025-06-09
 description: Converts text fields to lowercase, uppercase, title case, or sentence case.
 ---

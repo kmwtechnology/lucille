@@ -57,14 +57,14 @@ Everything that pulls in a large or backend-specific dependency lives in its own
 | Module | Provides |
 |---|---|
 | `lucille-solr` | `SolrIndexer`, `SolrConnector` |
-| `lucille-opensearch` | `OpenSearchIndexer`, `QueryOpensearch` stage |
+| `lucille-opensearch` | `OpenSearchIndexer`, `QueryOpenSearch` stage |
 | `lucille-elasticsearch` | `ElasticsearchIndexer`, `ElasticsearchLookup` stage |
 | `lucille-pinecone` | `PineconeIndexer` |
 | `lucille-weaviate` | `WeaviateIndexer` |
 | `lucille-parquet` | Parquet connector/file handler |
-| `lucille-tika` | `TextExtractor` stage |
-| `lucille-ocr` | `ApplyOCR` stage |
-| `lucille-jlama` | `JlamaEmbed` stage |
+| `lucille-tika` | `ExtractText` stage |
+| `lucille-ocr` | `ApplyOcr` stage |
+| `lucille-jlama` | `EmbedJlama` stage |
 | `lucille-entity-extraction` | `ApplyOpenNLPNameFinders` stage |
 
 To use a component from a plugin module, add that module as a Maven dependency (the BOM manages the version):
@@ -89,7 +89,7 @@ indexer {
 }
 ```
 
-Stages and connectors are always referenced by their fully-qualified `class` (e.g. `com.kmwllc.lucille.opensearch.stage.QueryOpensearch`). Each component's documentation page lists its exact `class`, module, and Maven dependency.
+Stages and connectors are always referenced by their fully-qualified `class` (e.g. `com.kmwllc.lucille.opensearch.stage.QueryOpenSearch`). Each component's documentation page lists its exact `class`, module, and Maven dependency.
 
 > **Classpath note for command-line runs:** an indexer's block name or `indexer.type` is resolved from a service file on the classpath, so the plugin JAR must be on the runtime classpath, not just a compile dependency. Plugin modules have no `target/lib/` of their own. After a source build, `lucille-all/target/lib/` contains lucille-core, lucille-logging, every plugin, and all their dependencies (see below); when you assemble a classpath yourself, make sure the plugin JAR and its dependencies are included.
 

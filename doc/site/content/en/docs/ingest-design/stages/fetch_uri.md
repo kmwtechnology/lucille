@@ -1,6 +1,6 @@
 ---
 title: FetchUri
-weight: 360
+weight: 410
 date: 2025-06-09
 description: Fetches the content of a URL stored in a document field and stores the response as a byte array.
 ---

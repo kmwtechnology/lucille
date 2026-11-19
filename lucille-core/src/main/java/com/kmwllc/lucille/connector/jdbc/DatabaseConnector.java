@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
  * out-of-order or duplicate key fails the run rather than silently dropping children. Join keys may be any
  * mutually comparable type (numbers, strings, dates). Child rows whose key is NULL or has no matching primary
  * row are skipped. <code>ignoreColumns</code> applies to the primary result set only; child documents carry
- * every column of their query. {@link com.kmwllc.lucille.stage.CollapseChildrenDocuments} can flatten the
+ * every column of their query. {@link com.kmwllc.lucille.stage.CollapseChildren} can flatten the
  * children into multi-valued fields.
  *
  * <p>Column values are converted by {@link JDBCUtils}: SQL NULLs are skipped, and a column of an unsupported SQL

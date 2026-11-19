@@ -1,6 +1,6 @@
 ---
 title: ParseDate
-weight: 440
+weight: 460
 date: 2025-06-09
 description: Parses date strings with format patterns or formatter classes and writes them as ISO-8601 instants.
 ---

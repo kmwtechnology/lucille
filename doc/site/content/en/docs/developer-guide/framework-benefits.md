@@ -75,7 +75,7 @@ These are registered with a shared `MetricRegistry` and reported at the end of t
 
 ### What you must handle (with guidance from existing implementations)
 
-**Resource initialization and cleanup.** If your stage needs external resources (database connections, HTTP clients, loaded models), initialize them in `start()` and clean them up in `stop()`. The framework calls these at the right time but doesn't know what resources you need. See `FetchUri` (HTTP client), `DatabaseLookup` (JDBC connection), `JlamaEmbed` (model loading).
+**Resource initialization and cleanup.** If your stage needs external resources (database connections, HTTP clients, loaded models), initialize them in `start()` and clean them up in `stop()`. The framework calls these at the right time but doesn't know what resources you need. See `FetchUri` (HTTP client), `DatabaseLookup` (JDBC connection), `EmbedJlama` (model loading).
 
 **Error semantics.** Decide whether an error should fail the document (throw `StageException`) or be handled gracefully (log and continue). The framework catches `StageException` and routes the document to a failure state. If you catch exceptions internally and continue, the document proceeds through the pipeline. See `FetchUri` for graceful degradation (logs the error, leaves the field empty) vs. stages that throw on any failure.
 

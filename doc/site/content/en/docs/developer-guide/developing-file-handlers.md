@@ -64,7 +64,7 @@ connectors: [{
       idField: "name"
     }
     csv: {
-      # no class needed — uses built-in CSVFileHandler
+      # no class needed — uses built-in CsvFileHandler
       separator: ","
     }
   }
@@ -195,7 +195,7 @@ The iterator returned by `processFile()` is read by the default `processFileAndP
 - **Return a lazy iterator** — Don't load the entire file into memory. Parse incrementally when the format supports it (YAML's `loadAll`, JSON streaming, etc.).
 - **Build ids with `createDocId`** — It applies `docIdPrefix` the same way as every other handler. If a record's id may be blank, check it with `Document.isValidId(id)` and skip the record; `createDocId` throws on a blank id.
 - **Use `pathStr` for IDs and logging** — The path string identifies the file for error messages and can be used as part of document ID generation. Don't use it to open the file — the InputStream is already open.
-- **Leave `processFileAndPublish` to the default** — It iterates `processFile()`, publishes each document and closes the stream. Override it only for a format that can't be read through an iterator, as `XMLFileHandler` does; then also return `false` from `supportsProcessFile()`.
+- **Leave `processFileAndPublish` to the default** — It iterates `processFile()`, publishes each document and closes the stream. Override it only for a format that can't be read through an iterator, as `XmlFileHandler` does; then also return `false` from `supportsProcessFile()`.
 
 ---
 
@@ -231,7 +231,7 @@ For full pipeline integration tests, see [Testing Pipelines]({{< relref "docs/de
 
 ## Custom File Content Fetchers
 
-Several built-in stages (`ApplyFileHandlers`, `FetchFileContent`, `TextExtractor`, `ExtractEntities`) need to read file content from a path stored on a document. They do this through a `FileContentFetcher` — an interface that resolves a path string to an `InputStream`. The default implementation handles local files, classpath resources, and cloud storage (S3, Azure, GCS) transparently.
+Several built-in stages (`ApplyFileHandlers`, `FetchFileContent`, `ExtractText`, `ExtractEntities`) need to read file content from a path stored on a document. They do this through a `FileContentFetcher` — an interface that resolves a path string to an `InputStream`. The default implementation handles local files, classpath resources, and cloud storage (S3, Azure, GCS) transparently.
 
 If you need custom path resolution logic — for example, looking up a path in a database, fetching content from a proprietary CMS API, or interpreting paths relative to a document's metadata — you can provide a custom `FileContentFetcher` implementation.
 
@@ -385,7 +385,7 @@ Any stage that calls `FileContentFetcher.create(config)` in its constructor supp
 
 - `ApplyFileHandlers` — applies FileHandlers to content fetched from a path field
 - `FetchFileContent` — fetches raw file content into a document field
-- `TextExtractor` (lucille-tika plugin) — extracts text from binary files
+- `ExtractText` (lucille-tika plugin) — extracts text from binary files
 - `ExtractEntities` — loads entity dictionaries from file paths
 
 ### What's in `config`

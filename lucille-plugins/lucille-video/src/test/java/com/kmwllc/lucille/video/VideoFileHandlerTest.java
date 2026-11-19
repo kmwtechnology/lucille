@@ -69,7 +69,7 @@ public class VideoFileHandlerTest {
   public void testFilePathFieldDefaultsToFilePath() throws Exception {
     String filePath = "src/test/resources/VideoFileHandlerTest/sample.mp4";
 
-    // the default matches the storage clients and CSVFileHandler
+    // the default matches the storage clients and CsvFileHandler
     Document byDefault = firstFrame(new VideoFileHandler(ConfigFactory.empty()), filePath);
     assertEquals(filePath, byDefault.getString("file_path"));
     assertFalse(byDefault.has("source"));
@@ -84,7 +84,7 @@ public class VideoFileHandlerTest {
   public void testFilenameFieldDefaultsToFilename() throws Exception {
     String filePath = "src/test/resources/VideoFileHandlerTest/sample.mp4";
 
-    // the default matches CSVFileHandler
+    // the default matches CsvFileHandler
     Document byDefault = firstFrame(new VideoFileHandler(ConfigFactory.empty()), filePath);
     assertEquals("sample.mp4", byDefault.getString("filename"));
     assertFalse(byDefault.has("file_name"));

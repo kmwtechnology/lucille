@@ -263,7 +263,7 @@ class ChunkingXMLHandler implements ContentHandler, DeclHandler {
   }
 
   /**
-   * Sets how the id of each published Document is created from the id read from its record. XMLFileHandler passes its
+   * Sets how the id of each published Document is created from the id read from its record. XmlFileHandler passes its
    * createDocId, which applies docIdPrefix.
    */
   public void setDocIdCreator(UnaryOperator<String> docIdCreator) {

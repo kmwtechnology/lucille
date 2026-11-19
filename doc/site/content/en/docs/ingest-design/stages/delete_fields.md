@@ -1,6 +1,6 @@
 ---
 title: DeleteFields
-weight: 230
+weight: 260
 date: 2025-06-09
 description: Removes specified fields from a Document.
 ---

@@ -1,6 +1,6 @@
 ---
 title: FetchFileContent
-weight: 350
+weight: 400
 date: 2025-06-09
 description: Loads the content of a file path into a byte array field on the document.
 ---

@@ -1,6 +1,6 @@
 ---
 title: ReplacePatterns
-weight: 570
+weight: 580
 date: 2025-06-09
 description: Replaces all matches of one or more regular expressions in source fields and writes the results to destination fields.
 ---

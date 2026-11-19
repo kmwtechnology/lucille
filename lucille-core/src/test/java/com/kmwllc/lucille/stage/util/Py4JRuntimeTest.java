@@ -11,7 +11,7 @@ import static org.junit.Assert.*;
 
 public class Py4JRuntimeTest {
 
-  private static final String SCRIPT = "src/test/resources/ExternalPythonTest/process_document_1.py";
+  private static final String SCRIPT = "src/test/resources/RunExternalPythonTest/process_document_1.py";
 
   private final List<Py4JRuntime> runtimes = new ArrayList<>();
 
@@ -59,7 +59,7 @@ public class Py4JRuntimeTest {
   @Test
   public void testFailedStartReleasesPorts() throws Exception {
     int requested = findFreePortPair();
-    Py4JRuntime runtime = new Py4JRuntime("python3", "src/test/resources/ExternalPythonTest/does_not_exist.py", null, requested);
+    Py4JRuntime runtime = new Py4JRuntime("python3", "src/test/resources/RunExternalPythonTest/does_not_exist.py", null, requested);
     runtimes.add(runtime);
 
     assertThrows(StageException.class, runtime::start);
@@ -71,7 +71,7 @@ public class Py4JRuntimeTest {
 
   @Test
   public void testFailedStartIncludesPythonOutput() throws Exception {
-    Py4JRuntime runtime = new Py4JRuntime("python3", "src/test/resources/ExternalPythonTest/does_not_exist.py", null, null);
+    Py4JRuntime runtime = new Py4JRuntime("python3", "src/test/resources/RunExternalPythonTest/does_not_exist.py", null, null);
     runtimes.add(runtime);
 
     StageException ex = assertThrows(StageException.class, runtime::start);

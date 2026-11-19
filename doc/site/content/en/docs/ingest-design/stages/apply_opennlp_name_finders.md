@@ -1,6 +1,6 @@
 ---
 title: ApplyOpenNLPNameFinders
-weight: 120
+weight: 130
 date: 2025-06-09
 description: Performs named entity recognition using Apache OpenNLP name finder models.
 ---

@@ -5,13 +5,13 @@ date: 2025-06-06
 description: A Connector that publishes Documents representing items found in an RSS feed. 
 ---
 
-[Source Code](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/RSSConnector.java)
+[Source Code](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/RssConnector.java)
 
-`com.kmwllc.lucille.connector.RSSConnector`
+`com.kmwllc.lucille.connector.RssConnector`
 
-The `RSSConnector` reads an RSS feed and publishes a Document for each item in it. Each Document contains the fields found on the RSS item, like the author, description, title, etc. By default, the Document ID is the item's `guid`, which should be a unique identifier for the RSS item.
+The `RssConnector` reads an RSS feed and publishes a Document for each item in it. Each Document contains the fields found on the RSS item, like the author, description, title, etc. By default, the Document ID is the item's `guid`, which should be a unique identifier for the RSS item.
 
-You can configure the `RSSConnector` to only publish recent RSS items, based on the `pubDate` found on the items. It can also run incrementally, re-reading the feed every `refreshIncrement` until `runDuration` has passed. On each refresh, items that were already in the feed on the previous refresh are not published again. An item only counts as already seen if all of its fields (title, description, content, link, author, categories, guid and so on) and the feed's channel-level fields (such as its `pubDate` and `lastBuildDate`) are unchanged, so an edited item is published again, and a feed that changes its channel `lastBuildDate` on every refresh has all of its items published again. Items are compared only with the immediately previous refresh, so an item that leaves the feed and comes back is published again. If a refresh returns no items, the previous refresh's items are kept for the comparison.
+You can configure the `RssConnector` to only publish recent RSS items, based on the `pubDate` found on the items. It can also run incrementally, re-reading the feed every `refreshIncrement` until `runDuration` has passed. On each refresh, items that were already in the feed on the previous refresh are not published again. An item only counts as already seen if all of its fields (title, description, content, link, author, categories, guid and so on) and the feed's channel-level fields (such as its `pubDate` and `lastBuildDate`) are unchanged, so an edited item is published again, and a feed that changes its channel `lastBuildDate` on every refresh has all of its items published again. Items are compared only with the immediately previous refresh, so an item that leaves the feed and comes back is published again. If a refresh returns no items, the previous refresh's items are kept for the comparison.
 
 ## Parameters
 
@@ -28,7 +28,7 @@ Without `runDuration`/`refreshIncrement`, the feed is read once. In incremental 
 ```hocon
 {
   name: "rss-connector"
-  class: "com.kmwllc.lucille.connector.RSSConnector"
+  class: "com.kmwllc.lucille.connector.RssConnector"
   pipeline: "my-pipeline"
   rssUrl: "https://example.com/feed.xml"
   pubDateCutoff: "7d"

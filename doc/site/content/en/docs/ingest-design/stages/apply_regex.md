@@ -1,6 +1,6 @@
 ---
 title: ApplyRegex
-weight: 130
+weight: 140
 date: 2025-06-09
 description: Extracts all matches of a regular expression from source fields into destination fields.
 ---

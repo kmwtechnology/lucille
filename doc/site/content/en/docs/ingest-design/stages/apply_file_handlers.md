@@ -1,6 +1,6 @@
 ---
 title: ApplyFileHandlers
-weight: 70
+weight: 90
 date: 2025-06-09
 description: Applies FileHandlers to a file referenced by a document, generating child documents for each extracted record.
 ---

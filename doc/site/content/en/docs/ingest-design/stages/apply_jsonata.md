@@ -1,6 +1,6 @@
 ---
 title: ApplyJSONata
-weight: 90
+weight: 100
 date: 2025-06-09
 description: Applies a JSONata expression to a field, or to the whole Document.
 ---

@@ -112,7 +112,7 @@ s3 {
 
 ### Azure Hosts
 
-An `https` URI is only read with the Azure client if its authority (host and port) contains one of `azure.allowedHosts`, which defaults to `["blob.core.windows.net"]`. This is a substring match. It applies both to `paths` and to files read by stages, such as the script for `ApplyJavascript` or the URIs fetched by `FetchFileContent`. An `https` path on any other host fails at startup, and a stage reading one fails with `No Storage Client available`. Set it to read from an Azure-compatible endpoint on another hostname. The setting only selects the Azure client: requests go to the endpoint given by the Azure credentials, so that endpoint must also be in `connectionString`. The list replaces the default, so include `blob.core.windows.net` if you still need it.
+An `https` URI is only read with the Azure client if its authority (host and port) contains one of `azure.allowedHosts`, which defaults to `["blob.core.windows.net"]`. This is a substring match. It applies both to `paths` and to files read by stages, such as the script for `RunJavaScript` or the URIs fetched by `FetchFileContent`. An `https` path on any other host fails at startup, and a stage reading one fails with `No Storage Client available`. Set it to read from an Azure-compatible endpoint on another hostname. The setting only selects the Azure client: requests go to the endpoint given by the Azure credentials, so that endpoint must also be in `connectionString`. The list replaces the default, so include `blob.core.windows.net` if you still need it.
 
 ```hocon
 azure {
@@ -159,7 +159,7 @@ Rules:
 - `file` can't be configured: local files are always read with the built-in client.
 - Schemes must be at least two characters long, since one-letter schemes are read as Windows drive letters.
 
-The same settings apply to stages that read files by URI, such as `FetchFileContent` and `ApplyJavascript`. See [Developing Storage Clients]({{< relref "docs/developer-guide/developing-storage-clients" >}}).
+The same settings apply to stages that read files by URI, such as `FetchFileContent` and `RunJavaScript`. See [Developing Storage Clients]({{< relref "docs/developer-guide/developing-storage-clients" >}}).
 
 ---
 
@@ -241,7 +241,7 @@ Every File Handler accepts `class` (a custom handler class, see [Custom File Han
 
 ### CSV File Handler
 
-`com.kmwllc.lucille.core.filehandler.CSVFileHandler`
+`com.kmwllc.lucille.core.filehandler.CsvFileHandler`
 
 Extracts one Document per row from a CSV file, read as UTF-8 (a leading byte order mark is removed). The first row is the header, and each column becomes a field named after its header. Blank rows are skipped with a warning. A row whose number of columns differs from the header, or whose ID is blank as a whole, is skipped and logged as an error; if 10 consecutive rows are skipped this way, the file fails. Columns named after a reserved field (such as `id`) are not copied.
 
@@ -306,7 +306,7 @@ fileHandlers: {
 
 ### XML File Handler
 
-`com.kmwllc.lucille.core.filehandler.XMLFileHandler`
+`com.kmwllc.lucille.core.filehandler.XmlFileHandler`
 
 Streams an XML file and publishes one Document per element found at `xmlRootPath`. The element's raw XML text, including its own tags, is stored in `xmlField`.
 
@@ -320,7 +320,7 @@ Streams an XML file and publishes one Document per element found at `xmlRootPath
 | `skipEmptyId` | Boolean | No | Skip an element whose ID is empty or blank. When `false`, such an element gets a random UUID as its ID. Default: `false`. |
 | `docIdPrefix` | String | No | Prefix prepended to every Document ID. |
 | `maxRecordBytes` | Integer | No | Maximum number of bytes held in memory while reading a single record. Must be positive. If exceeded, processing of the file stops with an error; records before it are still published. The limit is approximate (bytes read ahead by the parser count too) and also applies to content before the first record. No limit by default. |
-| `allowDoctype` | Boolean | No | Accept files that contain a DOCTYPE. External DTDs and external entities are never loaded, even when allowed. A record that uses an entity declared in the DOCTYPE is published with a DOCTYPE declaring just those entities, so it still parses on its own; XPathExtractor then needs its own `allowDoctype`. Default: `false`, so a file with a DOCTYPE fails to parse. |
+| `allowDoctype` | Boolean | No | Accept files that contain a DOCTYPE. External DTDs and external entities are never loaded, even when allowed. A record that uses an entity declared in the DOCTYPE is published with a DOCTYPE declaring just those entities, so it still parses on its own; ApplyXPath then needs its own `allowDoctype`. Default: `false`, so a file with a DOCTYPE fails to parse. |
 
 Exactly one of `xmlIdPath` and `xpathIdPath` must be set. Each Document holds only its ID and `xmlField`; no source file field is added. A parse error partway through a file fails that file, but Documents already published from it are not withdrawn.
 
@@ -385,7 +385,7 @@ fileHandlers: {
 }
 ```
 
-File Handlers accept an `InputStream` and return Documents via an `Iterator`. The `InputStream` and any underlying resources are closed when the Iterator's `hasNext()` returns `false`. When working directly with File Handlers in code, always exhaust the returned Iterator. `XMLFileHandler` is the exception: its `processFile` throws and its `supportsProcessFile()` returns `false`, so call `processFileAndPublish` instead, which closes the stream however it ends.
+File Handlers accept an `InputStream` and return Documents via an `Iterator`. The `InputStream` and any underlying resources are closed when the Iterator's `hasNext()` returns `false`. When working directly with File Handlers in code, always exhaust the returned Iterator. `XmlFileHandler` is the exception: its `processFile` throws and its `supportsProcessFile()` returns `false`, so call `processFileAndPublish` instead, which closes the stream however it ends.
 
 ---
 
