@@ -490,4 +490,34 @@ public class XMLFileHandlerTest {
     laughs.append("]><Company><staff><id>1</id><v>&l9;</v></staff></Company>");
     assertThrows(FileHandlerException.class, () -> publishXml(config, laughs.toString()));
   }
+
+  @Test
+  public void testNonAsciiTextOverEightKilobytesIsNotCorrupted() throws Exception {
+    // the reader takes the file in 8 KB pieces. The first record is padded so that its first 3-byte character starts at
+    // byte 8191, straddling the piece boundary at byte 8192: the bytes before that boundary are a partial character
+    String head = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Company><staff><id>0</id><name>";
+    String padding = "x".repeat(8191 - head.getBytes(StandardCharsets.UTF_8).length);
+    StringBuilder xml = new StringBuilder(head).append(padding).append("日本語 😀 0</name></staff>");
+    for (int i = 1; i < 300; i++) {
+      xml.append("<staff><id>").append(i).append("</id><name>Zoë café — 日本語 😀 ").append(i).append("</name></staff>");
+    }
+    xml.append("</Company>");
+    assertTrue(xml.toString().getBytes(StandardCharsets.UTF_8).length > 16 * 1024);
+
+    // the same check with the record ID taken from the parser's events and from an XPath evaluated on the record
+    for (Map<String, Object> idSetting : List.<Map<String, Object>>of(
+        Map.of("xmlIdPath", "/Company/staff/id"), Map.of("xpathIdPath", "id"))) {
+      Map<String, Object> config = new HashMap<>(idSetting);
+      config.put("xmlRootPath", "/Company/staff");
+      config.put("xmlField", "xml");
+
+      List<Document> docs = publishXml(config, xml.toString());
+      assertEquals(300, docs.size());
+      for (int i = 0; i < 300; i++) {
+        assertEquals(String.valueOf(i), docs.get(i).getId());
+        String name = i == 0 ? padding + "日本語 😀 0" : "Zoë café — 日本語 😀 " + i;
+        assertTrue(docs.get(i).getString("xml").contains("<name>" + name + "</name>"));
+      }
+    }
+  }
 }

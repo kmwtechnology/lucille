@@ -2,8 +2,7 @@ package com.kmwllc.lucille.core.filehandler;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
+import java.io.StringReader;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
@@ -26,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.Attributes;
 import org.xml.sax.ContentHandler;
+import org.xml.sax.InputSource;
 import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
 import org.xml.sax.ext.DeclHandler;
@@ -128,10 +128,10 @@ class ChunkingXMLHandler implements ContentHandler, DeclHandler {
 
         // we have the full XML object. if using xpath, run it to get the ID
         if (docIdExpression != null) {
-          try (InputStream xmlStream = new ByteArrayInputStream(xml.getBytes())) {
-            org.w3c.dom.Document xmlDoc = builder.parse(xmlStream);
-            id = docIdExpression.evaluate(xmlDoc.getDocumentElement());
-          }
+          // parse the decoded text, not bytes: xml is already a correct String, and getBytes() would use the platform
+          // charset, which is not the file's encoding
+          org.w3c.dom.Document xmlDoc = builder.parse(new InputSource(new StringReader(xml)));
+          id = docIdExpression.evaluate(xmlDoc.getDocumentElement());
         }
       } catch (XPathExpressionException e) {
         log.warn("Error evaluating docID for xml {}. Document will have a UUID.", xml, e);
