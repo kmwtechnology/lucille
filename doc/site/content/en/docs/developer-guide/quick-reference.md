@@ -196,7 +196,7 @@ Every Stage automatically supports a `conditions` configuration block:
 
 ```hocon
 {
-  class: "com.kmwllc.lucille.stage.EmbedOpenAI"
+  class: "com.kmwllc.lucille.stage.EmbedTextOpenAI"
   source: "text"
   conditions: [
     { fields: ["text"], operator: "must" }

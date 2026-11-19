@@ -94,7 +94,7 @@ stages: [
     ]
   },
   {
-    class: "com.kmwllc.lucille.stage.EmbedOpenAI"
+    class: "com.kmwllc.lucille.stage.EmbedTextOpenAI"
     source: "body"
     apiKey: ${OPENAI_API_KEY}
     embedDocument: true
@@ -110,7 +110,7 @@ stages: [
 
 In this example:
 - `ExtractText` only runs on documents that actually have `file_content` — documents without it skip the stage entirely (zero cost).
-- `EmbedOpenAI` only runs on documents that have a `body` field AND a `content_type` of "article" or "page" — other documents skip the expensive embedding call.
+- `EmbedTextOpenAI` only runs on documents that have a `body` field AND a `content_type` of "article" or "page" — other documents skip the expensive embedding call.
 
 **This is free performance.** Conditional execution is evaluated in the base `Stage` class before `processDocument()` is called. There is no overhead for documents that don't match — they are simply not processed by that stage. For pipelines that handle heterogeneous documents (some with files, some without; some needing embeddings, some not), conditions can dramatically reduce the average pipeline latency.
 

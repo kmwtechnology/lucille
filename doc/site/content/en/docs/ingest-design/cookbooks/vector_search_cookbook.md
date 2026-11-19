@@ -55,7 +55,7 @@ pipelines: [
       },
       # Generate a vector embedding using OpenAI
       {
-        class: "com.kmwllc.lucille.stage.EmbedOpenAI"
+        class: "com.kmwllc.lucille.stage.EmbedTextOpenAI"
         source: "text_to_embed"
         dest: "content_vector"
         modelName: "text-embedding-3-small"
@@ -78,9 +78,9 @@ indexer {
 
 ## Recipe 2: PDF Files → Tika → Local Embeddings (JLama) → Pinecone
 
-Index PDF documents without sending data to an external API. The `EmbedJlama` stage generates embeddings locally.
+Index PDF documents without sending data to an external API. The `EmbedTextJlama` stage generates embeddings locally.
 
-`EmbedJlama` embeds a field of the Document itself, not attached child chunks, so this recipe embeds each PDF's whole extracted text as one vector. For a vector per chunk, chunk with `ChunkText` and embed with `EmbedOpenAI` and `embedChildren: true` (see Recipe 5).
+`EmbedTextJlama` embeds a field of the Document itself, not attached child chunks, so this recipe embeds each PDF's whole extracted text as one vector. For a vector per chunk, chunk with `ChunkText` and embed with `EmbedTextOpenAI` and `embedChildren: true` (see Recipe 5).
 
 **Prerequisites:**
 - `lucille-tika` plugin (for text extraction)
@@ -118,7 +118,7 @@ pipelines: [
       },
       # Generate an embedding of the whole text locally (no external API call)
       {
-        class: "com.kmwllc.lucille.jlama.stage.EmbedJlama"
+        class: "com.kmwllc.lucille.jlama.stage.EmbedTextJlama"
         source: "extracted_text"
         dest: "content_vector"
         modelName: "intfloat/e5-small-v2"
@@ -245,7 +245,7 @@ pipelines: [
         conditions: [ { fields: ["is_deleted"], values: ["true"], operator: "must_not" } ]
       },
       {
-        class: "com.kmwllc.lucille.stage.EmbedOpenAI"
+        class: "com.kmwllc.lucille.stage.EmbedTextOpenAI"
         source: "text"
         dest: "content_vector"
         modelName: "text-embedding-3-small"
@@ -300,7 +300,7 @@ Only generate embeddings for documents that have content, skipping short or empt
 
 ```hocon
 {
-  class: "com.kmwllc.lucille.stage.EmbedOpenAI"
+  class: "com.kmwllc.lucille.stage.EmbedTextOpenAI"
   source: "content"
   dest: "content_vector"
   modelName: "text-embedding-3-small"
@@ -346,7 +346,7 @@ pipelines: [
       },
       # Embed the summary
       {
-        class: "com.kmwllc.lucille.stage.EmbedOpenAI"
+        class: "com.kmwllc.lucille.stage.EmbedTextOpenAI"
         source: "summary"
         dest: "summary_vector"
         modelName: "text-embedding-3-small"
@@ -371,8 +371,8 @@ indexer {
 
 | Model | Stage | Requires | Privacy |
 |---|---|---|---|
-| OpenAI `text-embedding-*` | `EmbedOpenAI` | API key | Data sent to OpenAI |
-| Local model via Jlama | `EmbedJlama` | `lucille-jlama` plugin, model file | Data stays local |
+| OpenAI `text-embedding-*` | `EmbedTextOpenAI` | API key | Data sent to OpenAI |
+| Local model via Jlama | `EmbedTextJlama` | `lucille-jlama` plugin, model file | Data stays local |
 | Ollama models | `PromptOllama` | Running Ollama server | Data stays local |
 
 ## Tips

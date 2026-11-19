@@ -18,7 +18,7 @@ Add a `conditions` block to the stage in your config. The base `Stage` class eva
 
 ```hocon
 {
-  class: "com.kmwllc.lucille.stage.EmbedOpenAI"
+  class: "com.kmwllc.lucille.stage.EmbedTextOpenAI"
   source: "content"
   dest: "content_vector"
   apiKey: ${OPENAI_API_KEY}

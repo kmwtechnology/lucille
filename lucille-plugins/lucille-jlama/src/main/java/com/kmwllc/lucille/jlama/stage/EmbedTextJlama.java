@@ -61,7 +61,7 @@ import org.slf4j.LoggerFactory;
  *    "Q4" (Quantized 4-bit integer)
  *    "Q5" (Quantized 5-bit integer)
  */
-public class EmbedJlama extends Stage {
+public class EmbedTextJlama extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("modelName", "source", "modelDownloadPath")
@@ -77,9 +77,9 @@ public class EmbedJlama extends Stage {
   private final boolean deleteModelOnStop;
   private AbstractModel model;
 
-  private static final Logger log = LoggerFactory.getLogger(EmbedJlama.class);
+  private static final Logger log = LoggerFactory.getLogger(EmbedTextJlama.class);
 
-  public EmbedJlama(Config config) {
+  public EmbedTextJlama(Config config) {
     super(config);
     this.pathToStoreModel = config.getString("modelDownloadPath");
     this.embeddingModel = config.getString("modelName");
@@ -96,7 +96,7 @@ public class EmbedJlama extends Stage {
       File localModelPath;
       // synchronization only applies to worker threads in the same JVM. If you have multiple worker JVMs running on the same machine,
       // you might want to take note that there is an edge case where two JVMs could download the same model at the same time.
-      synchronized (EmbedJlama.class) {
+      synchronized (EmbedTextJlama.class) {
         localModelPath = SafeTensorSupport.maybeDownloadModel(pathToStoreModel, embeddingModel);
       }
       model = ModelSupport.loadEmbeddingModel(localModelPath,

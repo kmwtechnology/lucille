@@ -64,7 +64,7 @@ Everything that pulls in a large or backend-specific dependency lives in its own
 | `lucille-parquet` | Parquet connector/file handler |
 | `lucille-tika` | `ExtractText` stage |
 | `lucille-ocr` | `ApplyOcr` stage |
-| `lucille-jlama` | `EmbedJlama` stage |
+| `lucille-jlama` | `EmbedTextJlama` stage |
 | `lucille-entity-extraction` | `ApplyOpenNLPNameFinders` stage |
 
 To use a component from a plugin module, add that module as a Maven dependency (the BOM manages the version):

@@ -65,7 +65,9 @@ Stages that do different jobs keep different verbs, even when they look alike. `
 
 ### Put a Provider After the Verb
 
-When a stage name includes a service, product or library, it comes after the verb, either as the object (`PromptOllama`, `ApplyJSONata`) or after the object (`EmbedOpenAI`, not `OpenAIEmbed`).
+When a stage name includes a service, product or library, it comes after the verb. When the provider is what the stage acts on, it is the object: `PromptOllama` prompts Ollama, `QueryOpenSearch` queries OpenSearch, and `ApplyJSONata` applies a JSONata expression.
+
+When the provider is how the stage does its job rather than what it acts on, put it after the object: `EmbedTextOpenAI` embeds text using OpenAI. `EmbedOpenAI` would read as embedding OpenAI, and `OpenAIEmbed` puts the verb last.
 
 You don't need to name a provider that the stage's package already names. The Pinecone plugin's `EmitDocsToDeleteByPrefix` doesn't say "Pinecone".
 

@@ -20,23 +20,23 @@ import java.util.List;
 import org.junit.Test;
 import org.mockito.Mockito;
 
-public class EmbedOpenAITest {
+public class EmbedTextOpenAITest {
 
-  private StageFactory factory = StageFactory.of(EmbedOpenAI.class);
+  private StageFactory factory = StageFactory.of(EmbedTextOpenAI.class);
 
   private static final float DELTA = 1e-6f; // Tolerance level for floating point comparison
 
   @Test
   public void testOpenAIEmptyAPIKey() throws Exception {
     assertThrows(StageException.class, () -> {
-      factory.get("EmbedOpenAITest/APIKeyEmpty.conf");
+      factory.get("EmbedTextOpenAITest/APIKeyEmpty.conf");
     });
   }
 
   @Test
   public void testOpenAIBothEmbedFalse() throws Exception {
     assertThrows(StageException.class, () -> {
-      factory.get("EmbedOpenAITest/bothEmbedFalse.conf");
+      factory.get("EmbedTextOpenAITest/bothEmbedFalse.conf");
     });
   }
 
@@ -44,12 +44,12 @@ public class EmbedOpenAITest {
   public void testOpenAIModelNameMisspelledRetrieval() throws Exception {
     // a misspelled or unsupported model name is a configuration error; it used to fall back silently to
     // text-embedding-3-small
-    assertThrows(StageException.class, () -> factory.get("EmbedOpenAITest/wrongModelName.conf"));
+    assertThrows(StageException.class, () -> factory.get("EmbedTextOpenAITest/wrongModelName.conf"));
   }
 
   @Test
   public void testSkipDocumentsWithoutTextField() throws Exception {
-    EmbedOpenAI stage = (EmbedOpenAI) StageFactory.of(EmbedOpenAI.class).get("EmbedOpenAITest/skipDocumentsWithoutTextField.conf");
+    EmbedTextOpenAI stage = (EmbedTextOpenAI) StageFactory.of(EmbedTextOpenAI.class).get("EmbedTextOpenAITest/skipDocumentsWithoutTextField.conf");
     EmbeddingModel model = mock(EmbeddingModel.class);
     stage.setModel(model);
 
@@ -66,7 +66,7 @@ public class EmbedOpenAITest {
 
   @Test
   public void testEmbedChildOnly() throws Exception {
-    EmbedOpenAI stage = (EmbedOpenAI) StageFactory.of(EmbedOpenAI.class).get("EmbedOpenAITest/embedChildDoc.conf");
+    EmbedTextOpenAI stage = (EmbedTextOpenAI) StageFactory.of(EmbedTextOpenAI.class).get("EmbedTextOpenAITest/embedChildDoc.conf");
     EmbeddingModel model = mock(EmbeddingModel.class);
     Embedding embedding = mock(Embedding.class);
     float[] vectors = new float[] {0.1F, 0.2F, 0.3F, 0.4F, 0.5f};
@@ -107,7 +107,7 @@ public class EmbedOpenAITest {
 
   @Test
   public void testEmbedParentOnly() throws Exception {
-    EmbedOpenAI stage = (EmbedOpenAI) StageFactory.of(EmbedOpenAI.class).get("EmbedOpenAITest/embedParentDoc.conf");
+    EmbedTextOpenAI stage = (EmbedTextOpenAI) StageFactory.of(EmbedTextOpenAI.class).get("EmbedTextOpenAITest/embedParentDoc.conf");
     EmbeddingModel model = mock(EmbeddingModel.class);
     Embedding embedding = mock(Embedding.class);
     float[] vectors = new float[] {0.1F, 0.2F, 0.3F, 0.4F, 0.5f};
@@ -137,7 +137,7 @@ public class EmbedOpenAITest {
 
   @Test
   public void testEmbedParentAndChild() throws Exception {
-    EmbedOpenAI stage = (EmbedOpenAI) StageFactory.of(EmbedOpenAI.class).get("EmbedOpenAITest/embedChildAndParentDoc.conf");
+    EmbedTextOpenAI stage = (EmbedTextOpenAI) StageFactory.of(EmbedTextOpenAI.class).get("EmbedTextOpenAITest/embedChildAndParentDoc.conf");
     EmbeddingModel model = mock(EmbeddingModel.class);
     Embedding embedding = mock(Embedding.class);
     float[] vectors = new float[] {0.1F, 0.2F, 0.3F, 0.4F, 0.5f};
@@ -187,7 +187,7 @@ public class EmbedOpenAITest {
 
   @Test
   public void testChildOrderPreservation() throws Exception {
-    EmbedOpenAI stage = (EmbedOpenAI) StageFactory.of(EmbedOpenAI.class).get("EmbedOpenAITest/embedChildDoc.conf");
+    EmbedTextOpenAI stage = (EmbedTextOpenAI) StageFactory.of(EmbedTextOpenAI.class).get("EmbedTextOpenAITest/embedChildDoc.conf");
     EmbeddingModel model = mock(EmbeddingModel.class);
 
     // Create 3 different embeddings for 3 children
@@ -240,8 +240,8 @@ public class EmbedOpenAITest {
 
   @Test
   public void testEmbedParentWithMultipleChildren() throws Exception {
-    EmbedOpenAI stage = (EmbedOpenAI) StageFactory.of(EmbedOpenAI.class)
-        .get("EmbedOpenAITest/embedChildAndParentDoc.conf");
+    EmbedTextOpenAI stage = (EmbedTextOpenAI) StageFactory.of(EmbedTextOpenAI.class)
+        .get("EmbedTextOpenAITest/embedChildAndParentDoc.conf");
     EmbeddingModel model = mock(EmbeddingModel.class);
 
     // Parent embedding

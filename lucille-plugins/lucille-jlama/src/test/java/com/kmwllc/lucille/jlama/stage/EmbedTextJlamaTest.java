@@ -36,9 +36,9 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 
-public class EmbedJlamaTest {
+public class EmbedTextJlamaTest {
 
-  private StageFactory factory = StageFactory.of(EmbedJlama.class);
+  private StageFactory factory = StageFactory.of(EmbedTextJlama.class);
   private Config defaultConfig;
 
   @Before

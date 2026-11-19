@@ -78,7 +78,7 @@ indexer {
 
 `filenameField` and `filePathField` follow the same capitalization rule: "filename" is one word and "file path" is two (see [Capitalization](#capitalization-and-acronyms)).
 
-Put the role first and `Path` last (`modelDownloadPath`, not `pathToStoreModel`), and say what the location is for when a shorter name could mislead. `EmbedJlama`'s `modelDownloadPath` is the directory the model is downloaded to. A plain `modelPath` would read as the path of a model file to load.
+Put the role first and `Path` last (`modelDownloadPath`, not `pathToStoreModel`), and say what the location is for when a shorter name could mislead. `EmbedTextJlama`'s `modelDownloadPath` is the directory the model is downloaded to. A plain `modelPath` would read as the path of a model file to load.
 
 A bare `path` is also used for JSON and XML paths in some components, so use `filePathField`, not `pathField`, for a field holding a file path.
 
@@ -137,7 +137,7 @@ When a setting already exists in another component, reuse its name and meaning i
 | Retries | `maxRetries`, `retryWaitDurationMs`, `retryMaxWaitDurationMs`, `retryableStatusCodes` | Indexer, `FetchUri` |
 | HTTP timeouts | `connectTimeoutMs`, `socketTimeoutMs` | Elasticsearch and OpenSearch indexers, `FetchUri` |
 | Cloud storage credentials | `s3`, `gcp` and `azure` blocks, with keys such as `accessKeyId`, `secretAccessKey`, `serviceKeyPath` | `FileConnector`, `ParquetConnector`, the stages that fetch file content |
-| Model names | `modelName` | `EmbedOpenAI`, `EmbedJlama`, `PromptOllama` |
+| Model names | `modelName` | `EmbedTextOpenAI`, `EmbedTextJlama`, `PromptOllama` |
 
 ## Settings of External Systems
 

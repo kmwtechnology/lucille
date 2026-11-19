@@ -145,7 +145,7 @@ pipelines: [
       },
       # 3. Embed each chunk (only the attached children, which carry the chunk text)
       {
-        class: "com.kmwllc.lucille.stage.EmbedOpenAI"
+        class: "com.kmwllc.lucille.stage.EmbedTextOpenAI"
         source: "chunk_text"
         dest: "chunk_vector"
         embedDocument: false
@@ -164,7 +164,7 @@ pipelines: [
 
 ## Tips
 
-- Use `embedDocument: false, embedChildren: true` in `EmbedOpenAI` to only embed chunks, not the full parent document.
+- Use `embedDocument: false, embedChildren: true` in `EmbedTextOpenAI` to only embed chunks, not the full parent document.
 - Set `characterLimit` to stay within your embedding model's input limit. The limit is in characters, not tokens.
 - Use `cleanChunks: true` when the source text has formatting artifacts (embedded newlines from PDF extraction). Cleaning runs after splitting, so it does not change `paragraph` boundaries.
 - `chunksToOverlap` and `chunksToMerge` work together: if you merge 5 sentences with 1 overlap, each chunk shares its last sentence with the next chunk, helping the model retrieve context that spans a chunk boundary. `chunksToOverlap` must be smaller than `chunksToMerge`.

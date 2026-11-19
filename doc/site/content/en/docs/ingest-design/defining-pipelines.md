@@ -91,7 +91,7 @@ Every Stage supports a `conditions` block that controls whether the Stage applie
 
 ```hocon
 {
-  class: "com.kmwllc.lucille.stage.EmbedOpenAI"
+  class: "com.kmwllc.lucille.stage.EmbedTextOpenAI"
   source: "content"
   apiKey: ${OPENAI_API_KEY}
   embedDocument: true
@@ -102,7 +102,7 @@ Every Stage supports a `conditions` block that controls whether the Stage applie
 }
 ```
 
-In this example, `EmbedOpenAI` only runs on Documents where `content_type` equals `"article"`.
+In this example, `EmbedTextOpenAI` only runs on Documents where `content_type` equals `"article"`.
 
 Use `conditionPolicy` to control how multiple conditions combine:
 - `"all"` (default) — all conditions must be true

@@ -1,5 +1,5 @@
 ---
-title: EmbedOpenAI
+title: EmbedTextOpenAI
 weight: 330
 aliases:
   - /docs/ingest-design/stages/openai_embed/
@@ -7,7 +7,7 @@ date: 2025-06-09
 description: Generates vector embeddings for a text field using the OpenAI Embeddings API.
 ---
 
-`com.kmwllc.lucille.stage.EmbedOpenAI`
+`com.kmwllc.lucille.stage.EmbedTextOpenAI`
 
 Generates vector embeddings for the `source` field of a Document, its children, or both, using the OpenAI Embeddings API. The Document and its children are embedded together in one batch call. Only the first value of a multi-valued `source` field is embedded. A Document or child whose `source` is missing, null, or blank is not embedded.
 
@@ -29,7 +29,7 @@ When `embedChildren` is `true`, the Document's children are replaced with the em
 
 ```hocon
 {
-  class: "com.kmwllc.lucille.stage.EmbedOpenAI"
+  class: "com.kmwllc.lucille.stage.EmbedTextOpenAI"
   source: "content"
   dest: "content_vector"
   modelName: "text-embedding-3-small"

@@ -50,7 +50,7 @@ import org.slf4j.LoggerFactory;
  * </ul>
  */
 
-public class EmbedOpenAI extends Stage {
+public class EmbedTextOpenAI extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("source", "apiKey")
@@ -70,9 +70,9 @@ public class EmbedOpenAI extends Stage {
   private final Integer dimensions;
   private Encoding enc;
 
-  private static final Logger log = LoggerFactory.getLogger(EmbedOpenAI.class);
+  private static final Logger log = LoggerFactory.getLogger(EmbedTextOpenAI.class);
 
-  public EmbedOpenAI(Config config) throws StageException {
+  public EmbedTextOpenAI(Config config) throws StageException {
     super(config);
 
     this.source = config.getString("source");

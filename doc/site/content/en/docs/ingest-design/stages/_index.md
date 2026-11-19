@@ -91,7 +91,7 @@ The value is case-insensitive. Any other value causes an error when the stage is
 
 ```hocon
 {
-  class: "com.kmwllc.lucille.stage.EmbedOpenAI"
+  class: "com.kmwllc.lucille.stage.EmbedTextOpenAI"
   source: "content"
   embedDocument: true
   embedChildren: false
@@ -106,7 +106,7 @@ The value is case-insensitive. Any other value causes an error when the stage is
 
 ```hocon
 {
-  class: "com.kmwllc.lucille.stage.EmbedOpenAI"
+  class: "com.kmwllc.lucille.stage.EmbedTextOpenAI"
   source: "content"
   embedDocument: true
   embedChildren: false
@@ -225,7 +225,7 @@ Every Stage has its own page, listed alphabetically in the navigation under **St
 - [ApplyJSONata]({{< relref "docs/ingest-design/stages/apply_jsonata" >}}) — Apply a JSONata expression to a field, or to the whole Document.
 - [ChunkText]({{< relref "docs/ingest-design/stages/chunk_text" >}}) — Split long text fields into chunks for embedding and RAG pipelines.
 - [DetectLanguage]({{< relref "docs/ingest-design/stages/detect_language" >}}) — Detect the language of a text field and write the ISO language code.
-- [EmbedOpenAI]({{< relref "docs/ingest-design/stages/embed_openai" >}}) — Generate vector embeddings using the OpenAI Embeddings API.
+- [EmbedTextOpenAI]({{< relref "docs/ingest-design/stages/embed_text_openai" >}}) — Generate vector embeddings using the OpenAI Embeddings API.
 - [ExtractEntities]({{< relref "docs/ingest-design/stages/extract_entities" >}}) — Find dictionary terms in text fields (Aho-Corasick) and write the matches or their payloads to destination fields.
 - [ExtractEntitiesFst]({{< relref "docs/ingest-design/stages/extract_entities_fst" >}}) — Find dictionary terms in text fields using a Lucene FST and write the matches or their payloads to destination fields.
 - [PromptOllama]({{< relref "docs/ingest-design/stages/prompt_ollama" >}}) — Send document fields to an LLM on an Ollama server and merge the response.
@@ -233,7 +233,7 @@ Every Stage has its own page, listed alphabetically in the navigation under **St
 - [RunJavaScript]({{< relref "docs/ingest-design/stages/run_javascript" >}}) — Run a JavaScript snippet per document using GraalVM.
 - [RunPython]({{< relref "docs/ingest-design/stages/run_python" >}}) — Run per-document Python code inside the JVM using GraalPy.
 - [ApplyOpenNLPNameFinders]({{< relref "docs/ingest-design/stages/apply_opennlp_name_finders" >}}) — Perform named entity recognition using Apache OpenNLP models. *(requires `lucille-entity-extraction`)*
-- [EmbedJlama]({{< relref "docs/ingest-design/stages/embed_jlama" >}}) — Generate vector embeddings locally inside the JVM via Jlama. *(requires `lucille-jlama`)*
+- [EmbedTextJlama]({{< relref "docs/ingest-design/stages/embed_text_jlama" >}}) — Generate vector embeddings locally inside the JVM via Jlama. *(requires `lucille-jlama`)*
 
 ### Testing & Debugging
 

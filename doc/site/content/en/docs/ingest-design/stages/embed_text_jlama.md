@@ -1,5 +1,5 @@
 ---
-title: EmbedJlama
+title: EmbedTextJlama
 weight: 320
 aliases:
   - /docs/ingest-design/stages/jlama_embed/
@@ -7,7 +7,7 @@ date: 2025-06-09
 description: Generates vector embeddings with a HuggingFace embedding model running locally inside the JVM via Jlama.
 ---
 
-`com.kmwllc.lucille.jlama.stage.EmbedJlama` *(requires `lucille-jlama`)*
+`com.kmwllc.lucille.jlama.stage.EmbedTextJlama` *(requires `lucille-jlama`)*
 
 Generates vector embeddings with an embedding model running locally inside the JVM via [Jlama](https://github.com/tjake/Jlama). No API key or external service is needed to embed documents; the model runs in the Lucille process. The model must be in safetensors format and use a BERT architecture; other model types are not supported.
 
@@ -41,7 +41,7 @@ For each document, the first value of `source` is embedded and each float of the
 ```hocon
 {
   name: "embed"
-  class: "com.kmwllc.lucille.jlama.stage.EmbedJlama"
+  class: "com.kmwllc.lucille.jlama.stage.EmbedTextJlama"
   source: "content"
   dest: "content_vector"
   modelName: "intfloat/e5-small-v2"
