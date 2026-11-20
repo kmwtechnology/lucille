@@ -1,6 +1,6 @@
 ---
 title: SetStaticValues
-weight: 580
+weight: 620
 date: 2025-06-09
 description: Sets one or more fields to fixed, static values.
 ---

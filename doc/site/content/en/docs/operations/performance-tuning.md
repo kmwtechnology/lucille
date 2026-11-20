@@ -55,7 +55,7 @@ stages: [
 ```hocon
 stages: [
   {
-    class: "com.kmwllc.lucille.tika.stage.TextExtractor"
+    class: "com.kmwllc.lucille.tika.stage.ExtractText"
     byteArrayField: "file_content"
     textField: "body"
   },
@@ -86,7 +86,7 @@ Every Stage supports a `conditions` block that controls whether it executes for 
 ```hocon
 stages: [
   {
-    class: "com.kmwllc.lucille.tika.stage.TextExtractor"
+    class: "com.kmwllc.lucille.tika.stage.ExtractText"
     byteArrayField: "file_content"
     textField: "body"
     conditions: [
@@ -94,7 +94,7 @@ stages: [
     ]
   },
   {
-    class: "com.kmwllc.lucille.stage.OpenAIEmbed"
+    class: "com.kmwllc.lucille.stage.EmbedTextOpenAI"
     source: "body"
     apiKey: ${OPENAI_API_KEY}
     embedDocument: true
@@ -109,8 +109,8 @@ stages: [
 ```
 
 In this example:
-- `TextExtractor` only runs on documents that actually have `file_content` — documents without it skip the stage entirely (zero cost).
-- `OpenAIEmbed` only runs on documents that have a `body` field AND a `content_type` of "article" or "page" — other documents skip the expensive embedding call.
+- `ExtractText` only runs on documents that actually have `file_content` — documents without it skip the stage entirely (zero cost).
+- `EmbedTextOpenAI` only runs on documents that have a `body` field AND a `content_type` of "article" or "page" — other documents skip the expensive embedding call.
 
 **This is free performance.** Conditional execution is evaluated in the base `Stage` class before `processDocument()` is called. There is no overhead for documents that don't match — they are simply not processed by that stage. For pipelines that handle heterogeneous documents (some with files, some without; some needing embeddings, some not), conditions can dramatically reduce the average pipeline latency.
 

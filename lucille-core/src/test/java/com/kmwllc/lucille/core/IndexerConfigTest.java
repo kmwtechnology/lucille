@@ -6,7 +6,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.indexer.CSVIndexer;
+import com.kmwllc.lucille.indexer.CsvIndexer;
 import com.kmwllc.lucille.indexer.NopIndexer;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.MessengerException;
@@ -63,7 +63,7 @@ public class IndexerConfigTest {
         "indexer.type", "csv", "indexer.maxConcurrentBatches", 2,
         "indexer.csv.columns", List.of("id"), "indexer.csv.path", "target/IndexerConfigTest.csv"));
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-        () -> new CSVIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null)));
+        () -> new CsvIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null)));
     assertTrue(e.getMessage(), e.getMessage().contains("does not support concurrent sends"));
   }
 
@@ -72,7 +72,7 @@ public class IndexerConfigTest {
     Config config = ConfigFactory.parseMap(Map.of(
         "indexer.type", "csv", "indexer.maxConcurrentBatches", 1,
         "indexer.csv.columns", List.of("id"), "indexer.csv.path", "target/IndexerConfigTest.csv"));
-    new CSVIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null)).closeConnection();
+    new CsvIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null)).closeConnection();
   }
 
   @Test

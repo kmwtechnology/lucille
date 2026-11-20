@@ -83,8 +83,8 @@ The framework itself. Contains:
 - The core architecture: `Runner`, `Worker`, `Indexer`, `Publisher`, `Pipeline`, `Document`
 - The messenger abstractions: `LocalMessenger`, `TestMessenger`, `KafkaWorkerMessenger`, etc.
 - Built-in Stages (field manipulation, regex, date parsing, text operations, database enrichment, HTTP enrichment, scripting, etc.)
-- Built-in Connectors (FileConnector, DatabaseConnector, KafkaConnector, RSSConnector, etc.)
-- Built-in Indexers (CSVIndexer, NopIndexer). The Solr, OpenSearch and Elasticsearch indexers are in the `lucille-solr`, `lucille-opensearch` and `lucille-elasticsearch` plugins.
+- Built-in Connectors (FileConnector, DatabaseConnector, KafkaConnector, RssConnector, etc.)
+- Built-in Indexers (CsvIndexer, NopIndexer). The Solr, OpenSearch and Elasticsearch indexers are in the `lucille-solr`, `lucille-opensearch` and `lucille-elasticsearch` plugins.
 - The SPEC validation system
 - Test mode, a supported dry-run mode for pipeline development and tests (`Runner.runInTestMode`, `TestMessenger`)
 

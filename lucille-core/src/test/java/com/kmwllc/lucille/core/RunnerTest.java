@@ -440,7 +440,7 @@ public class RunnerTest {
 
     // confirm that a CREATE event was sent for the doc1's children;
     // confirm that a FAIL event was sent for doc1 no DROP or FINISH event was sent for it;
-    // note that the CreateChildrenStage in the pipeline is configured to mark the parent as dropped,
+    // note that the CreateChildren in the pipeline is configured to mark the parent as dropped,
     // but the worker sends a FAIL event for the parent instead of a DROP event, because
     // the error in generating children is considered as a failure in processing the parent;
     // also note that the failure arises when requesting the 3rd child and therefore a CREATE event

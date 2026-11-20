@@ -1,6 +1,6 @@
 ---
 title: DropDocument
-weight: 260
+weight: 320
 date: 2025-06-09
 description: Marks a document as dropped so it is not sent to the Indexer.
 ---

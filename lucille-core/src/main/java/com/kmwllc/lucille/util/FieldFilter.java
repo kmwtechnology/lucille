@@ -27,7 +27,7 @@ public class FieldFilter {
 
   /**
    * Reads the include and exclude lists from the given config paths, for a component whose lists filter something
-   * other than document fields (such as TextExtractor's includeMetadata and excludeMetadata). Either may be absent,
+   * other than document fields (such as ExtractText's includeMetadata and excludeMetadata). Either may be absent,
    * which leaves it empty.
    * @param config the config holding the lists
    * @param includePath the path of the include list

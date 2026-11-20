@@ -1,11 +1,11 @@
 ---
-title: ExtractEntitiesFST
-weight: 330
+title: ExtractEntitiesFst
+weight: 400
 date: 2025-06-09
 description: Finds dictionary terms in text fields using a Lucene FST and writes the matches or their payloads to destination fields.
 ---
 
-`com.kmwllc.lucille.stage.ExtractEntitiesFST`
+`com.kmwllc.lucille.stage.ExtractEntitiesFst`
 
 Finds occurrences of dictionary terms anywhere inside the values of each `source` field, using a Lucene finite-state transducer (FST), and writes the payloads of the matched terms to the corresponding `dest` field. It is an alternative to [ExtractEntities]({{< relref "docs/ingest-design/stages/extract_entities" >}}) with the same configuration, minus `onlyWhitespaceSeparated` and plus `dictionariesSorted`.
 
@@ -33,7 +33,7 @@ Dictionaries are CSV files read as UTF-8. Each row is `term` or `term, payload`;
 
 ```hocon
 {
-  class: "com.kmwllc.lucille.stage.ExtractEntitiesFST"
+  class: "com.kmwllc.lucille.stage.ExtractEntitiesFst"
   source: ["body"]
   dest: ["companies"]
   dictionaries: ["/data/dictionaries/companies.csv"]

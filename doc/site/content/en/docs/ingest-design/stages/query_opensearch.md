@@ -1,11 +1,11 @@
 ---
-title: QueryOpensearch
-weight: 510
+title: QueryOpenSearch
+weight: 560
 date: 2025-06-06
 description: Execute an OpenSearch Template using information from a Document, and add the response to it.
 ---
 
-`com.kmwllc.lucille.opensearch.stage.QueryOpensearch`
+`com.kmwllc.lucille.opensearch.stage.QueryOpenSearch`
 
 **Maven dependency:**
 ```xml
@@ -38,9 +38,9 @@ In Opensearch, you could then call this template (providing it `park_to_search`)
 Templates can also have default values. For example, if you want `park_to_search` to default to "Central Park" when a value is not provided,
 it would be written as: `"park_name": "{{park_to_search}}{{^park_to_search}}Central Park{{/park_to_search}}"`
 
-### QueryOpensearch Stage
+### QueryOpenSearch Stage
 
-The `QueryOpensearch` Stage executes a search template using certain fields from a Document as your parameters and adding OpenSearch's response to the Document.
+The `QueryOpenSearch` Stage executes a search template using certain fields from a Document as your parameters and adding OpenSearch's response to the Document.
 You'll specify either `templateName`, the name of a search template you've saved, or `searchTemplate`, the template you want to execute, in your Config.
 
 You'll also need to specify the names of parameters in your search template. These will need to match the names of fields on your Documents. 
@@ -67,8 +67,8 @@ The stage connects to OpenSearch via the same `opensearch` config block used by 
 
 ```hocon
 {
-  name: "QueryOpensearch-Example"
-  class: "com.kmwllc.lucille.opensearch.stage.QueryOpensearch"
+  name: "QueryOpenSearch-Example"
+  class: "com.kmwllc.lucille.opensearch.stage.QueryOpenSearch"
 
   opensearch {
     url: "https://admin:admin@localhost:9200"

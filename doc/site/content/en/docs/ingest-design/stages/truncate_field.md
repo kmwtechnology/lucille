@@ -1,6 +1,6 @@
 ---
 title: TruncateField
-weight: 640
+weight: 660
 date: 2025-06-09
 description: Truncates a field to a maximum number of characters, in place or into another field.
 ---

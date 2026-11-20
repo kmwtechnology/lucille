@@ -29,7 +29,7 @@ Documents still go through the normal indexer loop (batching, metrics, and compl
 
 ## Comparison with sendEnabled: false
 
-Setting `indexer.sendEnabled: false` starts the configured indexer in bypass mode. In bypass mode, the framework skips sending and the connection check for every indexer, and documents still complete. For example, SolrIndexer creates no client and CSVIndexer creates no file. NopIndexer discards documents regardless and does not need a backend-specific config block:
+Setting `indexer.sendEnabled: false` starts the configured indexer in bypass mode. In bypass mode, the framework skips sending and the connection check for every indexer, and documents still complete. For example, SolrIndexer creates no client and CsvIndexer creates no file. NopIndexer discards documents regardless and does not need a backend-specific config block:
 
 ```hocon
 # Option 1: NopIndexer

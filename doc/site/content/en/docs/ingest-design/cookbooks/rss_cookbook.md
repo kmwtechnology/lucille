@@ -15,9 +15,9 @@ Let's say we wanted to read from an RSS feed into a CSV using Lucille. We can se
 ```hocon
 connectors: [
   {
-    name: "RSSConnector"
+    name: "RssConnector"
     pipeline: "rssPipeline"
-    class: "com.kmwllc.lucille.connector.RSSConnector"
+    class: "com.kmwllc.lucille.connector.RssConnector"
     rssUrl: "https://www.cnbc.com/id/15837362/device/rss/rss.html"
   }
 ]
@@ -40,7 +40,7 @@ are doing:
 News items in an RSS feed often have some article metadata, and then a link to the actual meat of the article in HTML as a field.
 
 - The fetchURI stage allows us to grab the actual content of our associated news article.
-- The ApplyJSoup stage parses that content into fields that will exist in addition to our article metadata from the RSS feed. These 
+- The ApplyJsoup stage parses that content into fields that will exist in addition to our article metadata from the RSS feed. These 
 fields include the body, bullet points, and the header.
 
 ```hocon
@@ -55,8 +55,8 @@ pipelines: [
         dest: "content"
       }
       {
-        name: "ApplyJSoup"
-        class: "com.kmwllc.lucille.stage.ApplyJSoup"
+        name: "ApplyJsoup"
+        class: "com.kmwllc.lucille.stage.ApplyJsoup"
         byteArrayField: "content"
         selectors: {
           paragraphTexts: {
@@ -95,9 +95,9 @@ Here is the full config file:
 ```hocon
 connectors: [
   {
-    name: "RSSConnector"
+    name: "RssConnector"
     pipeline: "rssPipeline"
-    class: "com.kmwllc.lucille.connector.RSSConnector"
+    class: "com.kmwllc.lucille.connector.RssConnector"
     rssUrl: "https://www.cnbc.com/id/15837362/device/rss/rss.html"
   }
 ]
@@ -113,8 +113,8 @@ pipelines: [
         dest: "content"
       }
       {
-        name: "ApplyJSoup"
-        class: "com.kmwllc.lucille.stage.ApplyJSoup"
+        name: "ApplyJsoup"
+        class: "com.kmwllc.lucille.stage.ApplyJsoup"
         byteArrayField: "content"
         selectors: {
           paragraphTexts: {
@@ -152,9 +152,9 @@ We might also choose to index into another destination, like an OpenSearch index
 ```hocon
 connectors: [
   {
-    name: "RSSConnector"
+    name: "RssConnector"
     pipeline: "rssPipeline"
-    class: "com.kmwllc.lucille.connector.RSSConnector"
+    class: "com.kmwllc.lucille.connector.RssConnector"
     rssUrl: "https://www.cnbc.com/id/15837362/device/rss/rss.html"
     refreshIncrement: "60s"
     runDuration: "1h"
