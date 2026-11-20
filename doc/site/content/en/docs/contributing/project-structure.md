@@ -16,7 +16,7 @@ lucille (root aggregator)
 ├── lucille-bom             # Bill of Materials: version-aligned dependency declarations
 ├── lucille-core            # the framework itself: Runner, Worker, Indexer, Pipeline, Document, Stages, Connectors
 ├── lucille-plugins/        # optional modules with heavy or specialized dependencies
-│                           #   (tika, pinecone, weaviate, jlama, parquet, ocr, video, entity-extraction, api)
+│                           #   (tika, pinecone, relevan, weaviate, jlama, parquet, ocr, video, entity-extraction, api)
 └── lucille-examples/       # runnable example projects demonstrating common ingestion patterns (not published to Maven Central)
 ```
 
