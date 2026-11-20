@@ -155,8 +155,9 @@ public class PoisonRecordKafkaTest {
   }
 
   /**
-   * Produces the given records to a single-partition topic. A null value produces a poison record keyed by
-   * that id; otherwise the value is a valid serialized Document.
+   * Produces the given records to a single-partition topic. An id starting with "poison" produces a poison record keyed
+   * by that id, and one starting with "null" a record with a null value; otherwise the value is a valid serialized
+   * Document.
    */
   private void produce(String topic, String... ids) throws Exception {
     embeddedKafka.addTopics(new NewTopic(topic, 1, (short) 1));
@@ -169,7 +170,7 @@ public class PoisonRecordKafkaTest {
       for (String id : ids) {
         byte[] value = id.startsWith("poison")
             ? POISON
-            : Document.create(id, "run1").toString().getBytes(StandardCharsets.UTF_8);
+            : id.startsWith("null") ? null : Document.create(id, "run1").toString().getBytes(StandardCharsets.UTF_8);
         producer.send(new ProducerRecord<>(topic, id, value)).get();
       }
     }
@@ -372,6 +373,35 @@ public class PoisonRecordKafkaTest {
   }
 
   /**
+   * Skip mode on the worker's messenger: a skipped poison record moves the consumer's position, so the commit the
+   * Worker makes after the empty poll commits past it, even though no document was returned.
+   */
+  @Test(timeout = 120000)
+  public void testSkipModeCommitsPastPoisonRecord() throws Exception {
+    String pipelineName = "poison_skip_commit";
+    String groupId = "poison_skip_commit_group";
+    Config config = buildConfig(pipelineName, groupId, "onDeserializationError: skip");
+    String sourceTopic = KafkaUtils.getSourceTopicName(pipelineName, config);
+    produce(sourceTopic, "doc1", "poison2");
+
+    KafkaWorkerMessenger messenger = new KafkaWorkerMessenger(config, pipelineName);
+    try {
+      assertEquals("doc1", pollUntilDoc(messenger::pollDocToProcess).getId());
+      messenger.commitPendingDocOffsets();
+      assertEquals(1L, committedOffset(config, groupId, sourceTopic));
+
+      // poll and commit as the Worker does until the skip is committed
+      while (committedOffset(config, groupId, sourceTopic) < 2L) {
+        assertNull(messenger.pollDocToProcess());
+        messenger.commitPendingDocOffsets();
+      }
+      assertEquals(2L, committedOffset(config, groupId, sourceTopic));
+    } finally {
+      messenger.close();
+    }
+  }
+
+  /**
    * Skip mode on the indexer's consumer: the poison record is skipped, nothing is committed while the documents around
    * it are still pending, and the commit moves past it once they complete.
    */
@@ -446,6 +476,25 @@ public class PoisonRecordKafkaTest {
       messenger.close();
     }
     assertNoFailEvents(config, pipelineName);
+  }
+
+  /**
+   * A record with a null value (a tombstone, for example) holds no document. The worker skips it rather than failing on
+   * it, which would stop the worker at the same record after every restart.
+   */
+  @Test(timeout = 120000)
+  public void testNullValueRecordIsSkippedOnWorkerMessenger() throws Exception {
+    String pipelineName = "null_value_worker";
+    Config config = buildConfig(pipelineName, "null_value_worker_group", "");
+    produce(KafkaUtils.getSourceTopicName(pipelineName, config), "doc1", "null2", "doc3");
+
+    KafkaWorkerMessenger messenger = new KafkaWorkerMessenger(config, pipelineName);
+    try {
+      assertEquals("doc1", pollUntilDoc(messenger::pollDocToProcess).getId());
+      assertEquals("doc3", pollUntilDoc(messenger::pollDocToProcess).getId());
+    } finally {
+      messenger.close();
+    }
   }
 
   @Test

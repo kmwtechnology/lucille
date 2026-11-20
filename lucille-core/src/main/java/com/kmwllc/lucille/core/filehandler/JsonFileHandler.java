@@ -86,7 +86,7 @@ public class JsonFileHandler extends BaseFileHandler {
     this.docIdFormat = ConfigUtils.getStringOrDefault(config, "docIdFormat", null);
 
     // returning null for a blank id makes fromJsonString reject the line, so it is skipped like any other bad record
-    this.idUpdater = (id) -> Document.isValidId(id) ? docIdPrefix + id : null;
+    this.idUpdater = (id) -> Document.isValidId(id) ? createDocId(id) : null;
 
     this.fieldFilter = new FieldFilter(config);
 
@@ -262,7 +262,7 @@ public class JsonFileHandler extends BaseFileHandler {
     if (!Document.isValidId(rawId)) {
       throw new DocumentException("the id built from " + idFields + " is blank");
     }
-    node.put(Document.ID_FIELD, docIdPrefix + rawId);
+    node.put(Document.ID_FIELD, createDocId(rawId));
 
     return Document.create(node);
   }

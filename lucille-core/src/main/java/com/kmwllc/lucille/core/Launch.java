@@ -58,7 +58,8 @@ public final class Launch {
 
   /**
    * Runs the configured connectors; see {@link Runner#main} for the options. Exits 0 when the run succeeds and 1 when
-   * it fails, or returns without exiting after <code>-validate</code> or <code>-render</code>.
+   * it fails. After <code>-validate</code> or <code>-render</code> it does not run, and exits 1 if
+   * <code>-validate</code> found errors, or returns without exiting otherwise.
    */
   static void runner(String[] args) throws Exception {
     Options cliOptions = Runner.cliOptions();
@@ -87,8 +88,9 @@ public final class Launch {
       if (cli.hasOption("render")) {
         Runner.renderConfig(config);
       }
-      if (cli.hasOption("validate")) {
-        ConfigValidator.validate(config);
+      if (cli.hasOption("validate") && !ConfigValidator.validate(config).isEmpty()) {
+        // the errors have been logged; a non-zero exit lets a CI step fail on an invalid config
+        SystemHelper.exit(1);
       }
       return;
     }

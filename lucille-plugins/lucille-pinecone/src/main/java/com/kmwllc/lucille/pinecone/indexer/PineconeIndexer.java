@@ -25,6 +25,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerFailure;
+import com.kmwllc.lucille.core.PendingSend;
 import com.kmwllc.lucille.indexer.IndexerType;
 import com.typesafe.config.Config;
 import io.pinecone.clients.Index;
@@ -115,7 +116,8 @@ public class PineconeIndexer extends Indexer {
   }
 
   @Override
-  protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
+  protected List<IndexerFailure> sendToIndex(PendingSend send) throws IndexerException {
+    List<Document> documents = send.documents();
     // retrieve documents to delete & upload, mapping destination id to document
     Map<String, Document> deleteMap = new LinkedHashMap<>();
     Map<String, Document> uploadMap = new LinkedHashMap<>();

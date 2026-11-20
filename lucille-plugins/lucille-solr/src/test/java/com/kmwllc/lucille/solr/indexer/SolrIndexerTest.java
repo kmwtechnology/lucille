@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerFailure;
+import com.kmwllc.lucille.core.PendingSend;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -821,7 +822,7 @@ public class SolrIndexerTest {
 
     SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "", null), solrClient);
 
-    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(PendingSend.of(List.of(doc, doc2, doc3)));
     assertEquals(2, failedDocs.size());
     assertTrue(failedDocs.stream().anyMatch(p -> p.document().equals(doc)));
 
@@ -1092,7 +1093,7 @@ public class SolrIndexerTest {
     when(solrClient.add(any(Collection.class))).thenThrow(solrError);
 
     SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "", null), solrClient);
-    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc1, doc2, doc3));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(PendingSend.of(List.of(doc1, doc2, doc3)));
 
     // each document is reported once, with the error Solr returned
     assertEquals(Set.of(doc1, doc2, doc3), failedDocs.stream().map(IndexerFailure::document).collect(Collectors.toSet()));
@@ -1146,7 +1147,7 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "", null), solrClient);
-    indexer.sendToIndex(List.of(byField, byId));
+    indexer.sendToIndex(PendingSend.of(List.of(byField, byId)));
 
     // the pending delete by id joins the same query, as a terms query on the id field
     verify(solrClient).deleteByQuery(
@@ -1194,7 +1195,7 @@ public class SolrIndexerTest {
     when(solrClient.add(any(Collection.class))).thenThrow(new IOException("connection refused"));
 
     SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "", null), solrClient);
-    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(PendingSend.of(List.of(doc)));
 
     assertEquals(1, failedDocs.size());
     Exception e = failedDocs.get(0).cause();
@@ -1217,7 +1218,7 @@ public class SolrIndexerTest {
     when(solrClient.add(any(Collection.class))).thenThrow(new SolrServerException("no live SolrServers available"));
 
     SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "", null), solrClient);
-    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(PendingSend.of(List.of(doc)));
 
     assertEquals(1, failedDocs.size());
     Exception e = failedDocs.get(0).cause();
@@ -1241,7 +1242,7 @@ public class SolrIndexerTest {
         .thenThrow(new RemoteSolrException("localhost", 503, "Service Unavailable", null));
 
     SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "", null), solrClient);
-    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(PendingSend.of(List.of(doc)));
 
     assertEquals(1, failedDocs.size());
     Exception e = failedDocs.get(0).cause();
@@ -1267,7 +1268,7 @@ public class SolrIndexerTest {
         .thenThrow(new RemoteSolrException("localhost", 400, "Bad Request", null));
 
     SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "", null), solrClient);
-    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(PendingSend.of(List.of(doc)));
 
     assertEquals(1, failedDocs.size());
     Exception e = failedDocs.get(0).cause();
@@ -1300,7 +1301,7 @@ public class SolrIndexerTest {
 
     SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "", null), solrClient);
     IndexerRetryableException e =
-        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc)));
+        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(PendingSend.of(List.of(doc))));
     assertEquals(IndexerRetryableException.UNKNOWN_STATUS_CODE, e.getStatusCode());
   }
 
@@ -1321,7 +1322,7 @@ public class SolrIndexerTest {
     SolrClient solrClient = mock(SolrClient.class);
     SolrIndexer indexer = new SolrIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "", null), solrClient);
 
-    IndexerException e = assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(doc)));
+    IndexerException e = assertThrows(IndexerException.class, () -> indexer.sendToIndex(PendingSend.of(List.of(doc))));
     assertFalse("Mapping errors must not be treated as retryable", e instanceof IndexerRetryableException);
     // the client should never have been called for an invalid document
     verify(solrClient, times(0)).add(any(Collection.class));
@@ -1370,7 +1371,7 @@ public class SolrIndexerTest {
     }
 
     @Override
-    public List<IndexerFailure> sendToIndex(List<Document> docs) throws IndexerException {
+    public List<IndexerFailure> sendToIndex(PendingSend send) throws IndexerException {
       throw new IndexerException("Test that errors when sending to Solr are correctly handled");
     }
   }

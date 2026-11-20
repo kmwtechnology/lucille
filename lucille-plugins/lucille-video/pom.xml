@@ -7,7 +7,7 @@
     <parent>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-plugins</artifactId>
-      <version>0.13.0-SNAPSHOT</version>
+      <version>1.0.0-SNAPSHOT</version>
       <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -30,7 +30,7 @@
       <dependency>
         <groupId>org.bytedeco</groupId>
         <artifactId>javacv-platform</artifactId>
-        <version>1.5.12</version>
+        <version>${javacpp.version}</version>
       </dependency>
     </dependencies>
 

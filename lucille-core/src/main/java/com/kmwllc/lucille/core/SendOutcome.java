@@ -3,7 +3,7 @@ package com.kmwllc.lucille.core;
 import java.util.List;
 
 /**
- * The outcome of one {@link Indexer#sendToIndex(java.util.List)} call (with retries): exactly one of failures and
+ * The outcome of one {@link Indexer#sendToIndex(PendingSend)} call (with retries): exactly one of failures and
  * error is meaningful. error is non-null when the send threw; otherwise failures holds the per-document failures
  * (possibly empty). elapsedNanos is the time the send took, used for the latency metric.
  *

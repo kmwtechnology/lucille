@@ -213,7 +213,7 @@ When multiple connectors feed documents into the same index, their IDs might col
 connectors: [
   {
     name: "database"
-    class: "com.kmwllc.lucille.connector.DatabaseConnector"
+    class: "com.kmwllc.lucille.connector.jdbc.DatabaseConnector"
     docIdPrefix: "db-"
     # produces IDs like "db-1", "db-2", ...
   },

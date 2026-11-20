@@ -15,7 +15,6 @@ import com.kmwllc.lucille.api.config.AuthConfiguration.AuthType;
 import com.kmwllc.lucille.api.config.LucilleAPIConfiguration;
 import com.kmwllc.lucille.core.RunnerManager;
 import com.kmwllc.lucille.api.endpoints.AuthInfoResource;
-import com.kmwllc.lucille.api.endpoints.ConfigInfo;
 import com.kmwllc.lucille.api.endpoints.LivenessResource;
 import com.kmwllc.lucille.api.endpoints.LoginResource;
 import com.kmwllc.lucille.api.endpoints.LucilleResource;
@@ -53,8 +52,19 @@ import jdk.jfr.Experimental;
  * </pre>
  * @see com.kmwllc.lucille.api.config.LucilleAPIConfiguration
  */
-@Experimental
 public class APIApplication extends Application<LucilleAPIConfiguration> {
+
+  // The API logs through log4j2 with Lucille's default config, like the rest of Lucille. Logback is also on the classpath,
+  // because Dropwizard's classes need it, so log4j2 is selected explicitly unless the caller chose a provider or config.
+  // This runs before the logger below is created, which is what initializes SLF4J.
+  static {
+    if (System.getProperty("slf4j.provider") == null) {
+      System.setProperty("slf4j.provider", "org.apache.logging.slf4j.SLF4JServiceProvider");
+    }
+    if (System.getProperty("log4j2.configurationFile") == null) {
+      System.setProperty("log4j2.configurationFile", "classpath:lucille-log4j2.xml");
+    }
+  }
 
   /**
    * Logger for the Lucille API application.
@@ -179,7 +189,11 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
 
     // Register SystemStatsResource
     env.jersey().register(new SystemStatsResource());
-    env.jersey().register(new ConfigInfo());
+    // The ConfigInfo endpoints (/v1/config-info/*) are intentionally not registered, so they are not served. The class
+    // and its tests are kept because they may be used again, for example to give the Admin UI a list of the available
+    // components. To restore the endpoints, register it here:
+    //   env.jersey().register(new com.kmwllc.lucille.api.endpoints.ConfigInfo());
+    // See the notes on ConfigInfo for what else it needs.
 
     env.jersey().register(new LoginResource(jwtService, config.getAuthConfig().getPassword()));
     env.jersey().register(new AuthInfoResource(authEnabled));

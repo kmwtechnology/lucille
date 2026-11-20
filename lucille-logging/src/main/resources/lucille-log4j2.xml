@@ -95,5 +95,9 @@
         <!-- Higher level for logging from Ollama4j. At "INFO" it logs every time an LLM request is made and provides
         the entire JSON related with the request. -->
         <Logger name="io.github.ollama4j" level="WARN"/>
+        <!-- Dropwizard (used only by the Lucille API) warns at startup when an app registers no health checks. The API
+        has no fixed dependencies to check (each run's sources and destinations come from its config), and it serves
+        /v1/livez and /v1/readyz. -->
+        <Logger name="io.dropwizard.core.setup.AdminEnvironment" level="ERROR"/>
     </Loggers>
 </Configuration>

@@ -151,7 +151,7 @@ public class IndexerConfigTest {
     }
 
     @Override
-    protected List<IndexerFailure> sendToIndex(List<Document> documents) {
+    protected List<IndexerFailure> sendToIndex(PendingSend send) {
       return List.of();
     }
   }

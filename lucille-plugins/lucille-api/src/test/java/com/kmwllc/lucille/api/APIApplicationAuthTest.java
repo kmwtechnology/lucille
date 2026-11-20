@@ -52,7 +52,7 @@ public class APIApplicationAuthTest {
 
       // both of these require credentials when auth is enabled
       assertEquals(200, client.target(url + "/v1/config").request().get().getStatus());
-      assertEquals(200, client.target(url + "/v1/systemstats").request().get().getStatus());
+      assertEquals(200, client.target(url + "/v1/run").request().get().getStatus());
     } finally {
       support.after();
     }

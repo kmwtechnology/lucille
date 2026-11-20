@@ -4,11 +4,21 @@ import static com.kmwllc.lucille.util.ThreadNameUtils.areLucilleThreadsRunning;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.LinkedBlockingQueue;
 import org.junit.Test;
+import com.codahale.metrics.MetricFilter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
+import com.kmwllc.lucille.message.HybridWorkerMessenger;
+import com.kmwllc.lucille.message.KafkaConsumerMetrics;
+import com.kmwllc.lucille.util.LogUtils;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -48,4 +58,44 @@ public class WorkerIndexerPoolTest {
     assertFalse(areLucilleThreadsRunning());
   }
 
+  @Test
+  public void testMinRemainingCapacity() throws Exception {
+    LinkedBlockingQueue<Document> roomy = new LinkedBlockingQueue<>(10);
+    LinkedBlockingQueue<Document> tight = new LinkedBlockingQueue<>(3);
+    tight.add(Document.create("doc1"));
+    tight.add(Document.create("doc2"));
+
+    assertEquals(1, WorkerIndexerPool.minRemainingCapacity(List.of(roomy, tight)));
+
+    tight.add(Document.create("doc3"));
+    assertEquals(0, WorkerIndexerPool.minRemainingCapacity(List.of(roomy, tight)));
+
+    assertEquals(10, WorkerIndexerPool.minRemainingCapacity(Arrays.asList(roomy, null)));
+    assertEquals(0, WorkerIndexerPool.minRemainingCapacity(List.of()));
+  }
+
+  @Test
+  public void testStatusMessageIncludesKafkaAndQueueMetricsOnceRegistered() throws Exception {
+    String pipeline = "workerIndexerPoolStatusTest";
+    MetricRegistry registry = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+    registry.removeMatching(MetricFilter.startsWith(pipeline + "."));
+    try {
+      WorkerIndexerPool pool = new WorkerIndexerPool(ConfigFactory.empty(), pipeline, true, null);
+      // before any messenger exists, only the pipeline's own numbers
+      assertEquals("0 docs processed. One minute rate: 0.00 docs/sec. Mean pipeline latency: 0.00 ms/doc.",
+          pool.statusMessage(true));
+
+      // what a HybridWorkerMessenger for the pipeline registers
+      KafkaConsumerMetrics.forWorker(pipeline);
+      registry.meter(pipeline + HybridWorkerMessenger.INDEXER_QUEUE_FULL_SUFFIX).mark(3);
+
+      String periodic = pool.statusMessage(true);
+      assertTrue(periodic, periodic.contains(" Kafka: 0 polls, mean 0.00 ms; 0 commits, mean 0.00 ms, 0 failed."));
+      assertTrue(periodic, periodic.endsWith(" Indexer queue: 3 docs waited for space, lowest remaining capacity 0."));
+      String onStop = pool.statusMessage(false);
+      assertTrue(onStop, onStop.endsWith(" Indexer queue: 3 docs waited for space."));
+    } finally {
+      registry.removeMatching(MetricFilter.startsWith(pipeline + "."));
+    }
+  }
 }

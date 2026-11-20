@@ -53,7 +53,7 @@ Once the parent document has passed through all pipeline stages, the Worker plac
 
 The Indexer thread is blocking on `indexingQueue.poll()`. It accumulates documents in a batch. When the batch reaches its configured size (`indexer.batchSize`, default 100 documents) or its timeout elapses (`indexer.batchTimeoutMs`, default 100ms), the Indexer issues a single bulk API call to the search backend.
 
-Before sending, the Indexer strips reserved internal fields (`___dropped`, `___skipped`, `___children`) and applies any configured `includeFields` or `excludeFields`. The document that reaches the search backend contains only the fields you want indexed.
+Before sending, the Indexer omits the `___children` and `___failure_*` fields and applies any configured `includeFields` or `excludeFields`. Other reserved fields, such as `run_id` and `___skipped`, reach the search backend unless that filter leaves them out.
 
 The search backend accepts the document. The document now exists in the index.
 
@@ -124,7 +124,7 @@ Everything from the Happy Path, plus:
 Everything from the Happy Path, plus:
 
 - **Dropped documents.** If the document is dropped (`___dropped = true`), it does NOT go to the indexing queue. The Worker sends a DROP event to the Publisher and discards it. The document's lifecycle ends here.
-- **Skipped documents.** If the document is skipped (`___skipped = true`), it DOES go to the indexing queue — it bypassed enrichment stages but still needs to reach the Indexer (typically to issue a delete against the search backend).
+- **Skipped documents.** If the document is skipped (`___skipped = true`), it DOES go to the indexing queue — it bypassed enrichment stages but still needs to reach the Indexer (typically a deletion marker, which the Indexer deletes from the search backend when `indexer.deletionMarker` matches it).
 - **Metrics.** The Worker's processing Timer stops — the elapsed time contributes to "Mean pipeline latency" in periodic logs.
 - **Offset management.** In distributed mode, the Worker commits the Kafka offset for this document. In WorkerIndexer mode, the commit is deferred until after indexing succeeds.
 - **Serialization to indexing queue.** In distributed mode, the document is serialized to JSON again and produced to the Kafka dest topic (again with the document ID as the message key). In local mode or WorkerIndexer mode, the Document object is placed directly on an in-memory queue.
@@ -136,8 +136,8 @@ Everything from the Happy Path, plus:
 - **Index routing.** If `indexer.indexOverrideField` is configured and the document has that field, the document is routed to a different index/collection than the default. With MultiBatch, it goes into a separate batch for that destination.
 - **Deletion handling.** If the document is marked for deletion (via `deletionMarker`), the Indexer issues a delete operation instead of an index operation. If it also has both fields that `deleteByQuery` names, it's a delete-by-query.
 - **ID override.** If `indexer.idOverrideField` is configured, the document's ID in the search backend is taken from that field rather than the internal document ID.
-- **Field filtering.** The configured `includeFields`/`excludeFields` filter is applied — only the desired fields reach the search backend. `___children` is always omitted. The other reserved fields (such as `run_id` and `___skipped`) are treated like any other field and reach the backend unless `includeFields` leaves them out or `excludeFields` names them.
-- **Retries.** If the bulk API call fails with a retryable status code (429, 503) and `indexer.maxRetries > 0`, the entire batch is retried with exponential backoff. The document may be sent multiple times before succeeding or being declared failed.
+- **Field filtering.** The configured `includeFields`/`excludeFields` filter is applied — only the desired fields reach the search backend. `___children` and the `___failure_*` fields are always omitted. The other reserved fields (such as `run_id` and `___skipped`) are treated like any other field and reach the backend unless `includeFields` leaves them out or `excludeFields` names them.
+- **Retries.** If the bulk API call fails with a retryable status code (429, 503) and `indexer.maxRetries > 0`, the documents that were not applied are retried with exponential backoff. A document may be sent multiple times before succeeding or being declared failed.
 - **Metrics.** The Indexer's Meter and Histogram record the batch: docs/sec throughput and per-doc backend latency.
 
 ### Step 8 — The Indexer sends a FINISH event

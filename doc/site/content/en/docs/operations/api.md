@@ -6,7 +6,7 @@ description: >
   HTTP REST API for managing Lucille configs and triggering runs without the CLI.
 ---
 
-The `lucille-api` plugin adds an HTTP REST API built on [Dropwizard](https://www.dropwizard.io/) that allows managing configs and triggering runs over HTTP rather than via the CLI. It includes a Swagger UI and optional basic authentication.
+The `lucille-api` plugin adds an HTTP REST API built on [Dropwizard](https://www.dropwizard.io/) that allows managing configs and triggering runs over HTTP rather than via the CLI. It includes a Swagger UI and password authentication, which is on by default (see [Authentication](#authentication)).
 
 **Current limitation:** The REST API launches all runs in local mode (in-memory queues, Workers and Indexer as threads within the API server's JVM). It cannot currently trigger a distributed Kafka-based ingest. If you need distributed mode, use the CLI Runner with `-distributed`.
 
@@ -23,21 +23,34 @@ The `lucille-api` plugin adds an HTTP REST API built on [Dropwizard](https://www
 
 ## Starting the API Server
 
-The API uses a Dropwizard YAML configuration file. An example config is provided at [`lucille-plugins/lucille-api/conf/api.yml`](https://github.com/kmwtechnology/lucille/blob/main/lucille-plugins/lucille-api/conf/api.yml).
+The API uses a Dropwizard YAML configuration file. An example config is provided at [`lucille-plugins/lucille-api/conf/api.yml`](https://github.com/kmwtechnology/lucille/blob/main/lucille-plugins/lucille-api/conf/api.yml). It turns authentication on, so set `LUCILLE_API_PASSWORD` before you start the server, or it refuses to start (see [Authentication](#authentication)).
+
+With Docker:
 
 ```bash
-java \
-  -cp 'lucille-plugins/lucille-api/target/lucille-api-{version}.jar:lucille-plugins/lucille-api/target/lib/*' \
-  com.kmwllc.lucille.api.APIApplication server lucille-plugins/lucille-api/conf/api.yml
+docker run --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 kmwtechnology/lucille-api:VERSION.0
+```
+
+From source, build the shaded API JAR, then run it from the `lucille-api` module:
+
+```bash
+mvn clean install -DskipTests -Pshaded-plugin-jars
+cd lucille-plugins/lucille-api
+export LUCILLE_API_PASSWORD=<password>
+java -jar target/lucille-api-plugin.jar server conf/api.yml
 ```
 
 The server listens on port `8080` by default. Swagger UI is available at `http://localhost:8080/swagger`.
 
+### Logging
+
+The API logs through Log4j2 with Lucille's default configuration, the same as the CLI and the `lucille` Docker image: console output plus files under `./log/`, relative to the directory the API was started in. Pipelines started through the API log the same way. To use your own configuration, pass `-Dlog4j2.configurationFile=/path/to/log4j2.xml`; in the `lucille-api` Docker image, edit `/lucille-api/conf/log4j2.xml` or set `LUCILLE_LOG4J_CONF`. See [Logging Setup]({{< relref "docs/operations/logging" >}}).
+
 ### Using a Plugin
 
-The `lucille-api` JAR bundles only `lucille-core`. 
-Lucille discovers indexer types from the classpath, so making a plugin indexer available to the API is just a matter of putting the plugin JAR on the classpath. 
-You can append the plugin's shaded JAR. Here is an example for OpenSearch:
+The `lucille-api-plugin.jar` bundles `lucille-core`, `lucille-logging` and Dropwizard, but no other plugins.
+Lucille discovers indexer types from the classpath, so making a plugin indexer available to the API is just a matter of putting the plugin JAR on the classpath.
+`java -jar` ignores any other JARs on the classpath, so use `-cp` with the main class and append the plugin's shaded JAR. Here is an example for OpenSearch:
 
 Build the plugin's shaded JAR first with the `shaded-plugin-jars` profile, e.g.:
 
@@ -46,10 +59,23 @@ mvn -pl lucille-plugins/lucille-opensearch,lucille-plugins/lucille-api -am -Psha
 ```
 
 ```bash
+export LUCILLE_API_PASSWORD=<password>
 java \
-  -cp 'lucille-plugins/lucille-api/target/lucille-api-{version}.jar:lucille-plugins/lucille-opensearch/target/lucille-opensearch-plugin.jar' \
-  com.kmwllc.lucille.APIApplication server lucille-plugins/lucille-api/conf/api.yml
+  -cp 'lucille-plugins/lucille-api/target/lucille-api-plugin.jar:lucille-plugins/lucille-opensearch/target/lucille-opensearch-plugin.jar' \
+  com.kmwllc.lucille.api.APIApplication server lucille-plugins/lucille-api/conf/api.yml
 ```
+
+### Using Every Plugin
+
+To have every plugin available, use the classpath `lucille-all` assembles, which includes the API (and the Admin UI when built with `-Padmin-ui`):
+
+```bash
+mvn clean install -DskipTests -Padmin-ui
+java -cp 'lucille-all/target/lib/*' \
+  com.kmwllc.lucille.api.APIApplication server lucille-plugins/lucille-api/conf/api.yml
+```
+
+The `lucille-all` Docker image runs the API the same way when started with `LUCILLE_ROLE=api`. See [UI]({{< relref "docs/operations/deployment/ui#choosing-which-components-are-available" >}}).
 ---
 
 ## Admin UI (optional)
@@ -68,34 +94,71 @@ java -cp 'lucille-plugins/lucille-api/target/lucille-api-plugin.jar:lucille-plug
   com.kmwllc.lucille.api.APIApplication server lucille-plugins/lucille-api/conf/api.yml
 ```
 
-The released `lucille-api` Docker image includes both jars, so the UI is available out of the box.
+The released `lucille-api` Docker image includes both jars, so the UI is available out of the box. The `lucille-all` image also includes them, along with every plugin, when started with `LUCILLE_ROLE=api`.
 Maven users can add the `com.kmwllc:lucille-admin-ui` dependency (version managed by `lucille-bom`) alongside `lucille-api`.
 To work on the UI, run the API on its own and start the UI with `npm run dev`.
+
+For setting the admin password, signing in, and running with Docker, see [UI]({{< relref "docs/operations/deployment/ui" >}}).
+
+---
+
+## Authentication
+
+The shipped `conf/api.yml` enables authentication and reads the password from the `LUCILLE_API_PASSWORD` environment variable:
+
+```yaml
+auth:
+  type: "basicAndBearer"
+  enabled: true
+  password: ${LUCILLE_API_PASSWORD:-}
+```
+
+If `LUCILLE_API_PASSWORD` is unset or blank, the API refuses to start with `auth.password must be set and not blank when auth.enabled is true.`
+
+While auth is enabled, every `/v1` endpoint except `/v1/livez`, `/v1/readyz`, `/v1/login` and `/v1/auth-info` requires credentials. The Swagger UI (`/swagger`) and the Admin UI page (`/admin`) load without them. A request can authenticate with either scheme:
+
+- **HTTP Basic:** `Authorization: Basic <base64(user:password)>`, e.g. `curl -u admin:<password> ...`. Only the password is checked; any non-empty username works.
+- **Bearer token:** `POST /v1/login` with `{"password": "<password>"}` returns `{"token": "<jwt>"}`. Send it as `Authorization: Bearer <jwt>`. Tokens expire after 4 hours and are invalidated when the API restarts. This is the flow the Admin UI uses.
+
+```bash
+curl -X POST http://localhost:8080/v1/login -H "Content-Type: application/json" -d '{"password": "<password>"}'
+```
+
+Over plain HTTP the password and tokens travel unencrypted, and the API logs a warning at startup. Configure an HTTPS connector (see the example `conf/https_api.yml`) or terminate TLS in front of the API.
+
+To turn authentication off for local experimentation, set `enabled: false` under `auth` in a copy of `conf/api.yml`. `GET /v1/auth-info` reports which mode the API is in.
 
 ---
 
 ## Endpoints
 
-All endpoints are under the `/v1` prefix.
+All endpoints are under the `/v1` prefix. Endpoints marked **auth** require credentials while authentication is enabled.
 
 ### Config Management
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/v1/config` | Submit a config as a JSON object. Returns a `configId` UUID. Up to 10,000 configs can be stored. |
-| `GET` | `/v1/config` | List all stored configs. |
-| `GET` | `/v1/config/{configId}` | Retrieve a specific config by ID. |
-| `DELETE` | `/v1/config/{configId}` | Delete a specific config by ID. |
+| `POST` | `/v1/config` | **auth.** Submit a config as JSON (`Content-Type: application/json`) or HOCON (`application/hocon`). Returns a `configId` UUID. Up to 10,000 configs can be stored. |
+| `GET` | `/v1/config` | **auth.** List all stored configs. |
+| `GET` | `/v1/config/{configId}` | **auth.** Retrieve a specific config by ID. |
+| `DELETE` | `/v1/config/{configId}` | **auth.** Delete a specific config by ID. |
 
-**Note:** Uploaded configs cannot resolve / use environment variables.
+**Note:** Uploaded configs cannot resolve / use environment variables or `include` other files.
 
 ### Run Management
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/v1/run` | Start a run. Request body: `{"configId": "<uuid>"}`. Returns `RunDetails`. |
-| `GET` | `/v1/run` | List all runs and their status. |
-| `GET` | `/v1/run/{runId}` | Get details for a specific run. Details for the last 10,000 runs are stored. |
+| `POST` | `/v1/run` | **auth.** Start a run. Request body: `{"configId": "<uuid>"}`. Returns `RunDetails`. |
+| `GET` | `/v1/run` | **auth.** List all runs and their status. |
+| `GET` | `/v1/run/{runId}` | **auth.** Get details for a specific run. Details for the last 10,000 runs are stored. |
+
+### Authentication
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/v1/login` | Exchange the password for a bearer token. Request body: `{"password": "<password>"}`. Returns `{"token": "<jwt>"}`; 401 if the password is wrong. |
+| `GET` | `/v1/auth-info` | Whether authentication is enabled: `{"authEnabled": true}`. |
 
 ### Health and Observability
 
@@ -103,16 +166,23 @@ All endpoints are under the `/v1` prefix.
 |---|---|---|
 | `GET` | `/v1/livez` | Liveness check — returns 200 if the service is running. |
 | `GET` | `/v1/readyz` | Readiness check — returns 200 if the service is ready. |
-| `GET` | `/v1/systemstats` | CPU, RAM, JVM heap, and disk usage as JSON. |
-| `GET` | `/v1/systemstats/metrics` | Dropwizard Codahale metrics registry as JSON. |
+| `GET` | `/v1/systemstats/metrics` | **auth.** Dropwizard Codahale metrics registry as JSON. |
 
 ---
 
 ## Typical Workflow
 
-1. `POST /v1/config` with your HOCON config as JSON — receive a `configId`.
+1. `POST /v1/config` with your config — receive a `configId`.
 2. `POST /v1/run` with `{"configId": "<uuid>"}` — receive a `runId`.
 3. `GET /v1/run/{runId}` — poll for run status until complete.
+
+```bash
+curl -u admin:<password> -X POST http://localhost:8080/v1/config -H "Content-Type: application/hocon" --data-binary @my-config.conf
+curl -u admin:<password> -X POST http://localhost:8080/v1/run -H "Content-Type: application/json" -d '{"configId": "<configId>"}'
+curl -u admin:<password> http://localhost:8080/v1/run/<runId>
+```
+
+Drop `-u` if authentication is disabled.
 
 ---
 

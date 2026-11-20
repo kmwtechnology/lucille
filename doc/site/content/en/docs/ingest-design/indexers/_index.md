@@ -147,11 +147,15 @@ When `indexOverrideField` is set, the Indexer keeps a separate batch per distinc
 
 ### Retries
 
-Retries are disabled unless `maxRetries` is set. When enabled, a batch is resent (the whole batch, including documents that already succeeded) when:
+Retries are disabled unless `maxRetries` is set. When enabled, another attempt is made when:
 - the send throws a retryable exception whose status code is in `retryableStatusCodes`, or
 - any document in the response failed with a status code in `retryableStatusCodes`.
 
-Which failures carry a status code depends on the indexer; see each indexer's page. Once retries are exhausted, the last outcome is used: per-document failures get FAIL events for those documents only, and a thrown exception fails the whole batch. Each attempt counts toward [Kafka's poll interval](#kafka-offset-commits).
+A retry sends only the documents that are still pending. A document that the destination accepted, or that failed with a status code that is not retryable, is not sent again. After a send that throws, nothing is known about its documents, so all of them are sent again.
+
+If the destination applied a request but its response was lost (for example, a timeout), the indexer cannot know that, and the retry sends those documents a second time.
+
+Which failures carry a status code depends on the indexer; see each indexer's page. Once retries are exhausted, per-document failures get FAIL events for those documents only. A thrown exception fails the documents that were still pending, which is the whole batch unless an earlier attempt had already settled some of them. Each attempt counts toward [Kafka's poll interval](#kafka-offset-commits).
 
 ### Concurrent Batches
 

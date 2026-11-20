@@ -16,25 +16,28 @@
 # You can use a config file inside the image (this Dockerfile copies conf/* into the image)
 # You can also use a config file on your local filesystem.
 #
+# conf/api.yml enables authentication and reads the password from LUCILLE_API_PASSWORD, so set it when you launch.
 # To launch the container with the example config file that's inside the image, run this:
-#   docker run --env DROPWIZARD_CONF=conf/api.yml -p 8080:8080 lucille-api
+#   docker run --env DROPWIZARD_CONF=conf/api.yml --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 lucille-api
 # In the above command, "conf/api.yml" is a path inside the image
 #
 # To use a config file on your local filesystem, assuming that the file lives at <absolute-path-on-local-fs>/conf/my_file.conf
 # run this:
 #
-#   docker run --env DROPWIZARD_CONF=/mnt/conf/api_conf.yml -v <absolute-path-on-local-fs>/conf:/mnt/conf -p 8080:8080 lucille-api
+#   docker run --env DROPWIZARD_CONF=/mnt/conf/api_conf.yml --env LUCILLE_API_PASSWORD=<password> -v <absolute-path-on-local-fs>/conf:/mnt/conf -p 8080:8080 lucille-api
 #
-# By default, Lucille log output is written both to STDOUT and to file in the a "log" directory that is created where Lucille is run
+# The API logs through log4j2 with Lucille's default logging config, the same as the lucille image. The image ships an
+# editable copy at /lucille-api/conf/log4j2.xml; set LUCILLE_LOG4J_CONF to use a different file (for example one you mount).
+# By default, log output is written both to STDOUT and to files in /lucille-api/log.
 # Since log output goes to STDOUT you will see it in the container's output.
 # If you want to view it after the container terminates you can run "docker ps -a" to find the ID of the terminated container.
 # Once you have the ID, you can then run "docker logs <ID>" to see the output.
 # If you would like the container to write logs to your local filesystem, you can add a parameter like the following one
-# when you launch the container. Output written to "/log" inside the container will then be go to your chosen
+# when you launch the container. Output written to "/lucille-api/log" inside the container will then go to your chosen
 # local directory which is specified here as <absolute-path-on-local-fs>/mylog. The "mylog" directory will be created if
 # it does not already exist:
 #
-#       -v <absolute-path-on-local-fs>/mylog:/log
+#       -v <absolute-path-on-local-fs>/mylog:/lucille-api/log
 #
 # What follows is the main content of this Dockerfile:
 #
@@ -59,10 +62,13 @@ RUN groupadd -r lucille \
 COPY --chown=lucille:lucille conf/ /lucille-api/conf/
 COPY --chown=lucille:lucille target/lucille-api-plugin.jar /lucille-api/lib/lucille-api-plugin.jar
 COPY --chown=lucille:lucille lucille-admin-ui/target/lucille-admin-ui.jar /lucille-api/lib/lucille-admin-ui.jar
+# Editable default logging config: lucille-logging's lucille-log4j2.xml, copied to target/conf by the Maven build
+COPY --chown=lucille:lucille target/conf/lucille-log4j2.xml /lucille-api/conf/log4j2.xml
 
 # Set the necessary environment variables
 ENV JAVA_OPTS=""
 ENV DROPWIZARD_CONF="conf/api.yml"
+ENV LUCILLE_LOG4J_CONF="/lucille-api/conf/log4j2.xml"
 
 # Expose port 8080 so we can make requests to the API
 EXPOSE 8080

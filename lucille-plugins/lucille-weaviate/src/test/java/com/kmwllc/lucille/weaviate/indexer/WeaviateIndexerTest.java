@@ -13,6 +13,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerFailure;
+import com.kmwllc.lucille.core.PendingSend;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
@@ -258,7 +259,7 @@ public class WeaviateIndexerTest {
     Document failedDoc2 = Document.create("failedDoc2", "test_run");
 
     WeaviateIndexer indexer = new WeaviateIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null), mockClient);
-    List<IndexerFailure> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3, failedDoc1, failedDoc2));
+    List<IndexerFailure> failedDocs = indexer.sendToIndex(PendingSend.of(List.of(doc, doc2, doc3, failedDoc1, failedDoc2)));
 
     assertEquals(2, failedDocs.size());
 
@@ -300,7 +301,7 @@ public class WeaviateIndexerTest {
     Document second = Document.create("doc1", "test_run");
     respondWith(List.of("doc1", "doc1"), List.of(true, true));
 
-    List<IndexerFailure> failures = indexerWithConfig("").sendToIndex(List.of(first, second));
+    List<IndexerFailure> failures = indexerWithConfig("").sendToIndex(PendingSend.of(List.of(first, second)));
 
     assertEquals(2, failures.size());
     assertSame(first, failures.get(0).document());
@@ -315,7 +316,7 @@ public class WeaviateIndexerTest {
     second.setField("other_id", "shared");
     respondWith(List.of("shared", "shared"), List.of(true, true));
 
-    List<IndexerFailure> failures = indexerWithConfig("idOverrideField: \"other_id\"").sendToIndex(List.of(first, second));
+    List<IndexerFailure> failures = indexerWithConfig("idOverrideField: \"other_id\"").sendToIndex(PendingSend.of(List.of(first, second)));
 
     assertEquals(2, failures.size());
     assertSame(first, failures.get(0).document());
@@ -328,7 +329,7 @@ public class WeaviateIndexerTest {
     Document second = Document.create("doc1", "test_run");
     respondWith(List.of("doc1", "doc1"), List.of(false, true));
 
-    List<IndexerFailure> failures = indexerWithConfig("").sendToIndex(List.of(first, second));
+    List<IndexerFailure> failures = indexerWithConfig("").sendToIndex(PendingSend.of(List.of(first, second)));
 
     assertEquals(1, failures.size());
     assertSame(second, failures.get(0).document());
@@ -392,7 +393,7 @@ public class WeaviateIndexerTest {
     }
 
     @Override
-    public List<IndexerFailure> sendToIndex(List<Document> docs) throws IndexerException {
+    public List<IndexerFailure> sendToIndex(PendingSend send) throws IndexerException {
       throw new IndexerException("Test that errors when sending to indexer are correctly handled");
     }
   }

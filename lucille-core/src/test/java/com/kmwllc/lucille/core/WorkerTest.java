@@ -248,6 +248,23 @@ public class WorkerTest {
   }
 
   @Test
+  public void testPollFailureDoesNotCommit() throws Exception {
+    // a poll that fails may have advanced the consumer past records it did not return (a poll of several records, for
+    // example), so the worker must not commit on its way out
+    Document doc = Document.create("doc1", "run1");
+    TestMessenger messenger = Mockito.spy(new TestMessenger());
+    Mockito.doReturn(doc).doThrow(new IllegalStateException("Kafka poll returned more than 1 message"))
+        .when(messenger).pollDocToProcess();
+
+    Worker worker = new Worker(PIPELINES, messenger, "run1", "nop", "metrics");
+    worker.run();
+
+    assertTrue(worker.getThrowable() instanceof IllegalStateException);
+    // only the commit that followed doc1
+    Mockito.verify(messenger, Mockito.times(1)).commitPendingDocOffsets();
+  }
+
+  @Test
   public void testRetryCountIsRemovedWhenTheCommitFails() throws Exception {
     // the document was processed, so a count left behind could send a later, healthy redelivery to the dead letter queue
     TestMessenger messenger = Mockito.spy(new TestMessenger());

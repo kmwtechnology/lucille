@@ -239,7 +239,8 @@ public class IndexerBatchAccountingTest {
     }
 
     @Override
-    protected List<IndexerFailure> sendToIndex(List<Document> documents) {
+    protected List<IndexerFailure> sendToIndex(PendingSend send) {
+      List<Document> documents = send.documents();
       sends.add(documents);
       return failures.apply(documents);
     }

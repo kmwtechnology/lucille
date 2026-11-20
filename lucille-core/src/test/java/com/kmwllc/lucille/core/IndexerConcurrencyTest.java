@@ -918,7 +918,7 @@ public class IndexerConcurrencyTest {
    * An Indexer whose every send blocks until the test releases it, letting a test drive the order in which concurrent
    * sends finish.
    *
-   * <p> {@link #blockSendsFor(String...)} installs a latch per document id; {@link #sendToIndex(List)} waits on the
+   * <p> {@link #blockSendsFor(String...)} installs a latch per document id; {@link #sendToIndex(PendingSend)} waits on the
    * latch until {@link #releaseSends(String...)} opens it. {@link #sendsStarted} and {@link #sendsFinished} record, in
    * order, the document ids whose sends have begun and finished, and {@link #peakConcurrentSends} records the
    * high-water mark of simultaneous sends.
@@ -1137,7 +1137,8 @@ public class IndexerConcurrencyTest {
     }
 
     @Override
-    protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
+    protected List<IndexerFailure> sendToIndex(PendingSend send) throws IndexerException {
+      List<Document> documents = send.documents();
       String docId = documents.get(0).getId();
       sendAttempts.computeIfAbsent(docId, k -> new AtomicInteger()).incrementAndGet();
       peakConcurrentSends.accumulateAndGet(concurrentSends.incrementAndGet(), Math::max);

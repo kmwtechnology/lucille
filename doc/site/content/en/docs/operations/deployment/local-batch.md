@@ -20,7 +20,7 @@ All components (Connector, Workers, Indexer) run as threads in a single JVM. Com
 To run Lucille in local mode you need:
 
 1. **A Lucille configuration file** — specifies connectors, pipelines, stages, and indexer settings. See [Configuration]({{< relref "docs/operations/configuration" >}}) for details.
-2. **The Lucille JAR and lib directory** — the compiled JAR plus its dependency libraries, both placed on the classpath.
+2. **Lucille and its dependencies on the classpath** — after a source build, `lucille-all/target/lib/` holds lucille-core, lucille-logging, every plugin and their dependencies. Or use the `kmwtechnology/lucille-all` Docker image, which sets up the classpath for you.
 
 ### Running from the Command Line
 
@@ -29,8 +29,9 @@ A typical invocation looks like:
 ```bash
 java \
   -Xmx4g \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=/path/to/application.conf \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.Runner
 ```
 
@@ -40,8 +41,13 @@ If Lucille is a dependency in your own project, you can trigger a run from Java 
 
 ```java
 Config config = ConfigFactory.load("application.conf");
-Runner.run(config);
+RunResult result = Runner.run(config, Runner.RunType.LOCAL);
+if (!result.getStatus()) {
+    System.err.println(result.getMessage());
+}
 ```
+
+To also log the run summary and metrics as the command-line Runner does, call `Runner.runAndLogResult(config, Runner.RunType.LOCAL, true)` instead.
 
 ### Scaling in Local Mode
 

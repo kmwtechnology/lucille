@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.node.LongNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerFailure;
+import com.kmwllc.lucille.core.PendingSend;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.IndexerMessenger;
@@ -121,7 +122,7 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
       doc1.setField("name_s", "one");
       Document doc2 = Document.create("doc2");
       doc2.setField("name_s", "two");
-      assertEquals(List.of(), indexer.sendToIndex(List.of(doc1, doc2)));
+      assertEquals(List.of(), indexer.sendToIndex(PendingSend.of(List.of(doc1, doc2))));
 
       assertEquals(List.of("doc1", "doc2"), idsInSolr());
     } finally {
@@ -163,7 +164,7 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
       deleteById.setField("is_delete", "true");
       deletes.add(deleteById);
 
-      assertEquals(List.of(), indexer.sendToIndex(deletes));
+      assertEquals(List.of(), indexer.sendToIndex(PendingSend.of(deletes)));
       assertEquals(List.of("john", "keep", "smith"), idsInSolr());
     } finally {
       indexer.closeConnection();
@@ -180,11 +181,11 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
       Document doc1 = Document.create("doc1");
       doc1.setField("name_s", "one");
       doc1.setField("other_s", "dropped");
-      assertEquals(List.of(), whitelist.sendToIndex(List.of(doc1)));
+      assertEquals(List.of(), whitelist.sendToIndex(PendingSend.of(List.of(doc1))));
 
       Document doc2 = Document.create("doc2");
       doc2.setField("other_id", "overridden");
-      assertEquals(List.of(), blacklistWithOverride.sendToIndex(List.of(doc2)));
+      assertEquals(List.of(), blacklistWithOverride.sendToIndex(PendingSend.of(List.of(doc2))));
 
       assertEquals(List.of("doc1", "overridden"), idsInSolr());
     } finally {
@@ -200,7 +201,7 @@ public class SolrIndexerStandaloneIT extends SolrTestCaseJ4 {
       Document bad = Document.create("bad");
       bad.setField("count_i", "not a number");
 
-      List<IndexerFailure> failed = indexer.sendToIndex(List.of(bad));
+      List<IndexerFailure> failed = indexer.sendToIndex(PendingSend.of(List.of(bad)));
 
       assertEquals(1, failed.size());
       IndexerFailure failure = failed.get(0);

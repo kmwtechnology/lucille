@@ -14,16 +14,18 @@ To create a FileHandler, extend `BaseFileHandler`, which implements the `FileHan
 
 - **Discovery by file extension** — FileHandlers are mapped to file extensions in the connector's `fileHandlers` config block. The framework instantiates your handler and routes files to it based on their extension.
 - **Config validation** — The `BaseFileHandler` constructor validates `config` against your class's `SPEC` field, so missing or unrecognized properties fail at startup.
-- **Publishing** — `BaseFileHandler` implements `processFileAndPublish()` by iterating `processFile()` and publishing each document, with handling for unreadable records.
-- **Document ID prefix** — `BaseFileHandler` reads the standard `docIdPrefix` property into the protected `docIdPrefix` field.
-- **InputStream management** — The framework opens the file (from local disk, S3, Azure, GCS, or inside archives) and passes you an `InputStream`. You don't need to know where the file came from.
+- **Publishing** — `FileHandler` provides a default `processFileAndPublish()` that iterates `processFile()` and publishes each document, skipping records that can't be read (see [The Iterator Contract](#the-iterator-contract)).
+- **Document ID prefix** — `BaseFileHandler` reads the standard `docIdPrefix` property. Build every document id with `createDocId(id)`, which applies the prefix and refuses a blank id.
+- **InputStream management** — The framework opens the file (from local disk, S3, Azure, GCS, or inside archives) and passes you an `InputStream`. You don't need to know where the file came from. The default `processFileAndPublish()` closes the stream however it ends, including when publishing fails partway through the file.
+- **One instance per thread** — Lucille creates a separate handler instance for each thread that uses it, so your handler doesn't need to be thread-safe. Keeping a parser or reader in a field is fine.
 
 **What you implement:**
 
 | Method | Required | Purpose |
 |---|---|---|
-| `processFile(InputStream, String pathStr)` | Yes | Parse the stream and return an `Iterator<Document>`. The iterator should close resources when exhausted. |
-| `processFileAndPublish(Publisher, InputStream, String)` | No | Parse and publish directly. `BaseFileHandler` provides this; override it only if you need to manage resources differently or publish in batches. |
+| `processFile(InputStream, String pathStr)` | Yes | Parse the stream and return an `Iterator<Document>` that follows [the iterator contract](#the-iterator-contract). |
+| `processFileAndPublish(Publisher, InputStream, String)` | No | Parse and publish directly. `FileHandler` provides a default; override it only for a format that can't be read through an iterator, or that needs to manage resources differently. An override must close the stream however it ends, and log a failure to close it rather than throw, since the file has been read by then. |
+| `supportsProcessFile()` | No | Return `false` if your handler can only publish, and throws from `processFile()`. Defaults to `true`. Stages that need an iterator, such as `ApplyFileHandlers`, reject such a handler when they start. |
 
 **What you declare:** a `public static final Spec SPEC`, built with `SpecBuilder.fileHandler()`, which already includes `class` and `docIdPrefix`.
 
@@ -90,6 +92,7 @@ import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import org.apache.commons.io.IOUtils;
 import org.yaml.snakeyaml.Yaml;
 
 /**
@@ -127,26 +130,33 @@ public class YamlFileHandler extends BaseFileHandler {
 
       @Override
       public boolean hasNext() {
-        return yamlDocs.hasNext();
+        if (yamlDocs.hasNext()) {
+          return true;
+        }
+        // the file is finished: close the stream
+        IOUtils.closeQuietly(inputStream);
+        return false;
       }
 
       @Override
       public Document next() {
         Object raw = yamlDocs.next();
+        int current = index++;
         if (!(raw instanceof Map)) {
-          throw new RuntimeException("YAML document at index " + index + " in " + pathStr
+          // one bad record: the caller skips it and carries on with the next
+          throw new IllegalArgumentException("YAML document at index " + current + " in " + pathStr
               + " is not a mapping");
         }
 
         @SuppressWarnings("unchecked")
         Map<String, Object> fields = (Map<String, Object>) raw;
 
-        // Determine document ID
+        // createDocId applies docIdPrefix
         String id;
         if (idField != null && fields.containsKey(idField)) {
-          id = docIdPrefix + fields.get(idField).toString();
+          id = createDocId(fields.get(idField).toString());
         } else {
-          id = docIdPrefix + pathStr + "-" + index;
+          id = createDocId(pathStr + "-" + current);
         }
 
         Document doc = Document.create(id);
@@ -154,7 +164,6 @@ public class YamlFileHandler extends BaseFileHandler {
           doc.setField(entry.getKey(), entry.getValue().toString());
         }
 
-        index++;
         return doc;
       }
     };
@@ -164,13 +173,25 @@ public class YamlFileHandler extends BaseFileHandler {
 
 ---
 
+## The Iterator Contract
+
+The iterator returned by `processFile()` is read by the default `processFileAndPublish()` and by the `ApplyFileHandlers` stage, which both rely on this contract:
+
+- **A bad record** — When one record can't be turned into a Document, throw from `next()`. The iterator must stay usable afterwards: the caller logs and skips that record, then calls `hasNext()` again to carry on with the next one.
+- **A file that can't be read** — When reading can't continue (an I/O error, a file in the wrong format, too many bad records in a row), throw a RuntimeException from `hasNext()`. The caller stops reading the file, and `processFileAndPublish()` reports it as a `FileHandlerException`.
+- **Nothing to return** — `next()` may return `null`, which the caller skips.
+- **Closing** — Close your resources, including the InputStream, when `hasNext()` returns false and before `hasNext()` throws. Keep them open when `next()` throws for a bad record, because reading carries on.
+
+`processFile()` itself throws `FileHandlerException` when the file can't be read at all, for example when its header is missing.
+
+---
+
 ## Guidelines
 
 - **Return a lazy iterator** — Don't load the entire file into memory. Parse incrementally when the format supports it (YAML's `loadAll`, JSON streaming, etc.).
-- **Close resources when exhausted** — If your iterator opens readers or parsers, close them when `hasNext()` returns false or when an exception is thrown.
+- **Build ids with `createDocId`** — It applies `docIdPrefix` the same way as every other handler. If a record's id may be blank, check it with `Document.isValidId(id)` and skip the record; `createDocId` throws on a blank id.
 - **Use `pathStr` for IDs and logging** — The path string identifies the file for error messages and can be used as part of document ID generation. Don't use it to open the file — the InputStream is already open.
-- **Handle malformed input gracefully** — Throw `FileHandlerException` with a descriptive message rather than letting raw parsing exceptions propagate.
-- **Leave `processFileAndPublish` to the base class** — `BaseFileHandler` iterates `processFile()` and publishes each document. Override it only if you need to manage resources differently or publish in batches.
+- **Leave `processFileAndPublish` to the default** — It iterates `processFile()`, publishes each document and closes the stream. Override it only for a format that can't be read through an iterator, as `XMLFileHandler` does; then also return `false` from `supportsProcessFile()`.
 
 ---
 

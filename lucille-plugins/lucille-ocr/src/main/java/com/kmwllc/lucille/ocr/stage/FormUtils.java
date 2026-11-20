@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.ocr.stage;
 
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.io.RandomAccessReadBuffer;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
 
@@ -18,13 +20,13 @@ public class FormUtils {
   public static List<BufferedImage> loadPdf(String filename) throws IOException {
     // Loading an existing PDF document
     File file = new File(filename);
-    try (PDDocument document = PDDocument.load(file)) {
+    try (PDDocument document = Loader.loadPDF(file)) {
       return loadPdf(document);
     }
   }
 
   public static List<BufferedImage> loadPdf(InputStream stream) throws IOException {
-    try (PDDocument document = PDDocument.load(stream)) {
+    try (PDDocument document = Loader.loadPDF(new RandomAccessReadBuffer(stream))) {
       return loadPdf(document);
     }
   }

@@ -98,7 +98,7 @@ A property that takes a duration *string*, such as `"1h"` or `"30s"`, doesn't ne
 |---|---|---|
 | `percentX` | A percentage on a 0–100 scale | `percentTrue`, `percentToDrop`, `percentOverlap` |
 | `minNumX`, `maxNumX`, `numX` | A count of things | `minNumTerms`, `maxNumObjects`, `numDocs` |
-| `maxX` | An upper limit | `maxRetries`, `maxThreads`, `maxLength` |
+| `maxX` | An upper limit | `maxRetries`, `maxConcurrentPaths`, `maxLength` |
 
 A property named as a percentage should take a percentage. If a setting is really a probability between 0 and 1, don't call it a percentage.
 

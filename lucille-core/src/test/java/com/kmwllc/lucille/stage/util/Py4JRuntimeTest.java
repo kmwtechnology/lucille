@@ -49,8 +49,8 @@ public class Py4JRuntimeTest {
 
   @Test
   public void testRequestedPortIsHonored() throws Exception {
-    int requested = findFreePortPair();
-    Py4JRuntime runtime = startRuntime(requested, SCRIPT);
+    Py4JRuntime runtime = startOnFreePortPair(SCRIPT);
+    int requested = runtime.getRequestedPort();
 
     assertEquals(Integer.valueOf(requested), runtime.getGatewayPort());
     assertTrue(runtime.isReady());
@@ -94,6 +94,23 @@ public class Py4JRuntimeTest {
     runtimes.add(runtime);
     runtime.start();
     return runtime;
+  }
+
+  // findFreePortPair() releases its probe sockets before start() binds them, so another test fork can claim one of the
+  // ports in between. When that happens the port is not really taken for good, so retry with a freshly probed pair.
+  private Py4JRuntime startOnFreePortPair(String script) throws Exception {
+    final int maxAttempts = 5;
+    for (int attempt = 1; ; attempt++) {
+      int requested = findFreePortPair();
+      try {
+        return startRuntime(requested, script);
+      } catch (StageException e) {
+        boolean portTaken = e.getMessage() != null && e.getMessage().contains("is not available");
+        if (!portTaken || attempt >= maxAttempts) {
+          throw e;
+        }
+      }
+    }
   }
 
   // Runs the venv's Python with py4j against the gateway. Returns true only if the call succeeds.

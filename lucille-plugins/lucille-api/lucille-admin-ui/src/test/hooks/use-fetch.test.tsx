@@ -22,10 +22,10 @@ describe("useFetch", () => {
   it("never surfaces an error when a 500 coincides with the API being down", async () => {
     mockFetch({
       "/v1/livez": { status: 500 },
-      "/v1/systemstats": { status: 500, json: { message: "proxy error" } },
+      "/v1/config": { status: 500, json: { message: "proxy error" } },
     })
 
-    const { result } = renderFetch("/v1/systemstats")
+    const { result } = renderFetch("/v1/config")
 
     await waitFor(() => expect(result.current.health).toBe("unavailable"))
     expect(result.current.fetch.status).toBe("loading")
@@ -35,7 +35,7 @@ describe("useFetch", () => {
   it("never surfaces an error on a network failure while the API is down", async () => {
     mockFetchReject()
 
-    const { result } = renderFetch("/v1/systemstats")
+    const { result } = renderFetch("/v1/config")
 
     await waitFor(() => expect(result.current.health).toBe("unavailable"))
     expect(result.current.fetch.status).toBe("loading")
@@ -46,10 +46,10 @@ describe("useFetch", () => {
     mockFetch({
       "/v1/livez": { status: 200 },
       "/v1/readyz": { status: 200 },
-      "/v1/systemstats": { status: 500, json: { message: "boom" } },
+      "/v1/config": { status: 500, json: { message: "boom" } },
     })
 
-    const { result } = renderFetch("/v1/systemstats")
+    const { result } = renderFetch("/v1/config")
 
     await waitFor(() => expect(result.current.fetch).toEqual({ status: "error", error: "boom" }))
   })

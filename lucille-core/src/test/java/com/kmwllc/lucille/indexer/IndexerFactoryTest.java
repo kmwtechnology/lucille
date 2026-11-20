@@ -83,6 +83,30 @@ public class IndexerFactoryTest {
   }
 
   @Test
+  public void testDeletionMarkerAloneDoesNotSelectIndexer() {
+    // deletionMarker is an object, but a generic setting, so without a type or a nested backend no indexer is selected
+    Config config = ConfigFactory.parseString("indexer { deletionMarker { field: \"is_deleted\", value: \"true\" } }");
+    Assert.assertFalse(IndexerFactory.isIndexerSelected(config));
+    Exception exception = assertThrows(IndexerException.class,
+        () -> IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing"));
+    Assert.assertTrue(exception.getMessage(), exception.getMessage().contains("No indexer is selected"));
+  }
+
+  @Test
+  public void testDeletionBlocksDoNotCountAsSeveralNestedBlocks() {
+    // the nested csv block selects the indexer. CSV does not support deletion, so the error comes from CSV's own settings
+    // check, which shows the selection itself worked.
+    Config config = ConfigFactory.parseString(
+        "indexer { csv { columns: [\"id\"], path: \"target/x.csv\" }, deletionMarker { field: \"is_deleted\", value: \"true\" },"
+            + " deleteByQuery { fieldNameField: \"name\", valueField: \"value\" } }");
+    Assert.assertTrue(IndexerFactory.isIndexerSelected(config));
+    Exception exception = assertThrows(IllegalArgumentException.class,
+        () -> IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing"));
+    Assert.assertTrue(exception.getMessage(), exception.getMessage().contains("CSVIndexer does not support"));
+    Assert.assertTrue(exception.getMessage(), exception.getMessage().contains("deletionMarker"));
+  }
+
+  @Test
   public void testTypeChoosesAmongNestedBlocks() throws Exception {
     Config config = ConfigFactory.parseString(
         "indexer { type: \"CSV\", csv { columns: [\"id\"], path: \"target/x.csv\" }, nop {} }");

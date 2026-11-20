@@ -7,7 +7,7 @@ description: Marks a document as skipped so it bypasses downstream Stages but st
 
 `com.kmwllc.lucille.stage.SkipDocument`
 
-Marks every document it processes as skipped. A skipped document bypasses all downstream Stages but still reaches the Indexer. Intended for deletes, where a document representing a delete should reach the Indexer without further processing. Usually combined with `conditions`.
+Marks every document it processes as skipped. A skipped document bypasses all downstream Stages but still reaches the Indexer. Intended for deletes, where a document representing a delete should reach the Indexer without further processing. Skipping does not delete the document: the Indexer deletes it only when `indexer.deletionMarker` matches it, and otherwise indexes it like any other document. Usually combined with `conditions`.
 
 This stage has no parameters beyond the shared stage parameters.
 

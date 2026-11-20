@@ -3,10 +3,18 @@ package com.kmwllc.lucille.core;
 import com.kmwllc.lucille.util.EmbeddedKafkaUtils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.codahale.metrics.Gauge;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
+import com.kmwllc.lucille.message.HybridWorkerMessenger;
+import com.kmwllc.lucille.message.KafkaConsumerMetrics;
 import com.kmwllc.lucille.message.KafkaUtils;
+import com.kmwllc.lucille.message.LocalMessenger;
+import com.kmwllc.lucille.util.LogUtils;
 import com.kmwllc.lucille.util.CounterUtils;
 import com.kmwllc.lucille.util.RecordingLinkedBlockingQueue;
 import com.typesafe.config.Config;
@@ -410,7 +418,18 @@ public class HybridKafkaTest {
 
     CounterUtils.waitUnique(idSet, 1000);
 
+    MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+    String gaugeName = "pipeline1" + WorkerIndexerPool.INDEXER_QUEUE_REMAINING_CAPACITY_SUFFIX;
+    Gauge<?> queueGauge = metrics.getGauges().get(gaugeName);
+    assertNotNull(queueGauge);
+    // every document has been indexed, so every pair's indexer queue is empty
+    assertEquals(LocalMessenger.DEFAULT_QUEUE_CAPACITY, queueGauge.getValue());
+    assertTrue(metrics.timer("pipeline1" + KafkaConsumerMetrics.WORKER_POLL_TIME_SUFFIX).getCount() > 0);
+    assertTrue(metrics.timer("pipeline1" + KafkaConsumerMetrics.WORKER_COMMIT_TIME_SUFFIX).getCount() > 0);
+
     pool.stop();
+
+    assertNull(metrics.getGauges().get(gaugeName));
 
     Properties props = new Properties();
     props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));

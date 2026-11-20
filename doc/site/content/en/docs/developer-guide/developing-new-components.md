@@ -58,6 +58,7 @@ Your components and applications interact with these classes. They are public AP
 
 **Indexer support**
 - `IndexerContext`: what the framework provides to an Indexer's constructor, apart from its config. Your constructor takes it and passes it to `super`. It includes a messenger, which is internal: the base class does all polling, event sending, and offset handling, so your Indexer never calls it.
+- `PendingSend`: what `sendToIndex()` receives: the documents to send, and which attempt this is.
 - `IndexerFailure`: what `sendToIndex()` returns for each document that could not be indexed.
 
 **Base classes and types for file handling**

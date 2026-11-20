@@ -49,9 +49,9 @@ pipelines: [
       # Combine title and body into a single text field for embedding
       {
         class: "com.kmwllc.lucille.stage.Concatenate"
-        source: ["title", "body"]
         dest: "text_to_embed"
-        delimiter: " "
+        formatString: "{title} {body}"
+        defaultInputs: { title: "", body: "" }
       },
       # Generate a vector embedding using OpenAI
       {
@@ -71,20 +71,22 @@ indexer {
   pinecone {
     apiKey: ${PINECONE_API_KEY}
     index: "articles-index"
-    vectorField: "content_vector"
-    namespace: "articles"
+    defaultEmbeddingField: "content_vector"
   }
 }
 ```
 
-## Recipe 2: PDF Files → Tika → Chunk → Local Embeddings (JLama) → Pinecone
+## Recipe 2: PDF Files → Tika → Local Embeddings (JLama) → Pinecone
 
 Index PDF documents without sending data to an external API. The `JlamaEmbed` stage generates embeddings locally.
+
+`JlamaEmbed` embeds a field of the Document itself, not attached child chunks, so this recipe embeds each PDF's whole extracted text as one vector. For a vector per chunk, chunk with `ChunkText` and embed with `OpenAIEmbed` and `embedChildren: true` (see Recipe 5).
 
 **Prerequisites:**
 - `lucille-tika` plugin (for text extraction)
 - `lucille-jlama` plugin (for local embedding)
 - `lucille-pinecone` plugin (for indexing)
+- A Pinecone index with 384 dimensions, the output size of `intfloat/e5-small-v2`
 
 ```hocon
 connectors: [
@@ -111,34 +113,17 @@ pipelines: [
       # Extract text from PDF bytes using Apache Tika
       {
         class: "com.kmwllc.lucille.tika.stage.TextExtractor"
-        source: "file_content"
-        dest: "extracted_text"
+        byteArrayField: "file_content"
+        textField: "extracted_text"
       },
-      # Split long text into smaller chunks (each chunk → attached child document)
-      {
-        class: "com.kmwllc.lucille.stage.ChunkText"
-        source: "extracted_text"
-        dest: "text"
-        chunkingMethod: "sentence"
-        chunksToMerge: 5
-        chunksToOverlap: 1
-        cleanChunks: true
-        characterLimit: 2000
-      },
-      # Generate embeddings locally (no external API call) — only embed child chunks
+      # Generate an embedding of the whole text locally (no external API call)
       {
         class: "com.kmwllc.lucille.jlama.stage.JlamaEmbed"
-        source: "text"
+        source: "extracted_text"
         dest: "content_vector"
-        modelDownloadPath: "/models/all-MiniLM-L6-v2"
-        embedDocument: false
-        embedChildren: true
-      },
-      # Emit each chunk as its own Document; Pinecone does not index attached children.
-      # Drop the parent, which has no vector.
-      {
-        class: "com.kmwllc.lucille.stage.EmitNestedChildren"
-        dropParent: true
+        modelName: "intfloat/e5-small-v2"
+        # directory the model is downloaded to and loaded from
+        modelDownloadPath: "/models"
       }
     ]
   }
@@ -148,7 +133,7 @@ indexer {
   pinecone {
     apiKey: ${PINECONE_API_KEY}
     index: "pdf-index"
-    vectorField: "content_vector"
+    defaultEmbeddingField: "content_vector"
   }
 }
 ```
@@ -168,6 +153,7 @@ connectors: [
     class: "com.kmwllc.lucille.parquet.connector.ParquetConnector"
     pipeline: "vector-pipeline"
     path: "/data/embeddings.parquet"
+    fileSystemUri: "file:///"
     idField: "doc_id"
   }
 ]
@@ -183,7 +169,7 @@ indexer {
   pinecone {
     apiKey: ${PINECONE_API_KEY}
     index: "my-vectors"
-    vectorField: "embedding"
+    defaultEmbeddingField: "embedding"
   }
 }
 ```
@@ -339,6 +325,8 @@ connectors: [
     pipeline: "enrich-embed"
     driver: "org.postgresql.Driver"
     connectionString: "jdbc:postgresql://localhost:5432/mydb"
+    jdbcUser: ${DB_USER}
+    jdbcPassword: ${DB_PASSWORD}
     sql: "SELECT id, title, body FROM documents"
     idField: "id"
   }

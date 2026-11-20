@@ -53,7 +53,7 @@ The Bill of Materials POM. It declares all Lucille modules (lucille-core, lucill
     <dependency>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-bom</artifactId>
-      <version>0.9.0</version>
+      <version>1.0.0-alpha</version>
       <type>pom</type>
       <scope>import</scope>
     </dependency>
@@ -83,8 +83,8 @@ The framework itself. Contains:
 - The core architecture: `Runner`, `Worker`, `Indexer`, `Publisher`, `Pipeline`, `Document`
 - The messenger abstractions: `LocalMessenger`, `TestMessenger`, `KafkaWorkerMessenger`, etc.
 - Built-in Stages (field manipulation, regex, date parsing, text operations, database enrichment, HTTP enrichment, scripting, etc.)
-- Built-in Connectors (FileConnector, DatabaseConnector, SolrConnector, etc.)
-- Built-in Indexers (SolrIndexer, OpenSearchIndexer, ElasticsearchIndexer, CSVIndexer)
+- Built-in Connectors (FileConnector, DatabaseConnector, KafkaConnector, RSSConnector, etc.)
+- Built-in Indexers (CSVIndexer, NopIndexer). The Solr, OpenSearch and Elasticsearch indexers are in the `lucille-solr`, `lucille-opensearch` and `lucille-elasticsearch` plugins.
 - The SPEC validation system
 - Test mode, a supported dry-run mode for pipeline development and tests (`Runner.runInTestMode`, `TestMessenger`)
 
@@ -186,8 +186,9 @@ mvn clean install -pl lucille-plugins/lucille-tika
 
 ### What artifacts are produced
 
-- **lucille-core:** `target/lucille.jar` — a thin JAR containing only Lucille's own classes (named `lucille.jar` via `finalName` in the POM). Runtime dependencies are copied to `target/lib/`. To run Lucille, both must be on the classpath: `-cp 'target/lucille.jar:target/lib/*'` (or simply `-cp 'target/lib/*'` since the lucille JAR is also copied there).
-- **Each plugin:** a **shaded (fat) JAR** that bundles the plugin's own dependencies into a single artifact. This avoids classpath conflicts when multiple plugins are used together. Plugins that produce shaded JARs include: lucille-tika, lucille-pinecone, lucille-relevan, lucille-weaviate, lucille-jlama, lucille-parquet, lucille-ocr, lucille-video, and lucille-api. The shaded JAR (`target/<plugin>-plugin.jar`) is built only when the `shaded-plugin-jars` profile is active, e.g. `mvn clean install -Pshaded-plugin-jars`; a default build produces only the plugin's thin JAR, which keeps `mvn verify` fast since tests do not use the shaded JARs. The lucille-api shaded JAR never contains the admin UI; the UI is a separate `lucille-admin-ui` jar that the API serves at `/admin` when it is on the classpath. It is only built when the `admin-ui` profile is active (`-Padmin-ui`).
+- **lucille-core:** `target/lucille.jar` — a thin JAR containing only Lucille's own classes (named `lucille.jar` via `finalName` in the POM). Runtime dependencies are copied to `target/lib/`; the lucille JAR itself is not. `target/lib/` has no logging backend: that comes from `lucille-logging` (`lucille-logging/target/lucille-logging.jar` plus `lucille-logging/target/lib/`).
+- **lucille-all:** `target/lib/` holds lucille-core, lucille-logging, every plugin, and all their runtime dependencies. This is the simplest classpath for command-line runs, and what the `kmwtechnology/lucille-all` Docker image contains.
+- **Each plugin:** a thin JAR, and optionally a **shaded (fat) JAR** that bundles the plugin's own dependencies into a single artifact. Plugins have no `target/lib/`. Every plugin module (including lucille-solr, lucille-opensearch, lucille-elasticsearch and lucille-api) can produce a shaded JAR. Shading does not relocate packages, so it does not isolate a plugin's dependencies from core's or other plugins'. The shaded JAR (`target/<plugin>-plugin.jar`) is built only when the `shaded-plugin-jars` profile is active, e.g. `mvn clean install -Pshaded-plugin-jars`; a default build produces only the plugin's thin JAR, which keeps `mvn verify` fast since tests do not use the shaded JARs. The lucille-api shaded JAR never contains the admin UI; the UI is a separate `lucille-admin-ui` jar that the API serves at `/admin` when it is on the classpath. It is only built when the `admin-ui` profile is active (`-Padmin-ui`).
 - **Each example:** a thin JAR plus `target/lib/` containing all runtime dependencies (via `maven-dependency-plugin` copy-dependencies).
 
 ### Thin JAR vs. Shaded JAR
@@ -195,21 +196,22 @@ mvn clean install -pl lucille-plugins/lucille-tika
 | Module | JAR Type | Why |
 |---|---|---|
 | `lucille-core` | Thin JAR + `target/lib/` | Core is always on the classpath alongside its dependencies. No need to shade. |
-| Plugins (tika, pinecone, etc.) | Shaded (fat) JAR with `-Pshaded-plugin-jars` | Plugins bundle their heavyweight dependencies to avoid version conflicts with core or other plugins. A single plugin JAR can be dropped onto the classpath without worrying about transitive dependency management. |
+| Plugins (tika, pinecone, etc.) | Thin JAR; shaded (fat) JAR with `-Pshaded-plugin-jars` | A shaded plugin JAR can be dropped onto the classpath without collecting its transitive dependencies. Packages are not relocated, so it can still clash with other versions of the same libraries on the classpath. |
 | Examples | Thin JAR + `target/lib/` | Examples are runnable projects, not libraries. Dependencies are copied for easy classpath setup. |
 
 **When running Lucille from the command line**, the classpath typically looks like:
 
 ```bash
-java -Dconfig.file=config.conf \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*:lucille-plugins/lucille-tika/target/lucille-tika-*.jar' \
+java -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
+  -Dconfig.file=config.conf \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.Runner
 ```
 
-Or more simply from an example directory where everything is in `target/lib/`:
+Or from an example directory, where the example's dependencies are in `target/lib/`:
 
 ```bash
-java -Dconfig.file=conf/my-config.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner
+java -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml -Dconfig.file=conf/my-config.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner
 ```
 
 ### Running an example
@@ -217,7 +219,7 @@ java -Dconfig.file=conf/my-config.conf -cp 'target/lib/*' com.kmwllc.lucille.cor
 After building, from an example's directory:
 
 ```bash
-java -Dconfig.file=conf/file-to-file-example.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner
+java -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml -Dconfig.file=conf/file-to-file-example.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner
 ```
 
 ---
@@ -236,7 +238,7 @@ If you write your own Connector or Stage in a separate Maven project, you need t
     <dependency>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-bom</artifactId>
-      <version>0.9.0</version>
+      <version>1.0.0-alpha</version>
       <type>pom</type>
       <scope>import</scope>
     </dependency>
@@ -316,7 +318,7 @@ lucille-core/
 
 ### Test JARs
 
-lucille-core produces a test JAR (`lucille-core-0.9.0-SNAPSHOT-tests.jar`) that is available to other modules for testing. The examples module depends on this test JAR, which provides test utilities and base classes for writing integration tests against the framework.
+lucille-core produces a test JAR (`lucille-core-{version}-tests.jar`) that is available to other modules for testing. The examples module depends on this test JAR, which provides test utilities and base classes for writing integration tests against the framework.
 
 ---
 

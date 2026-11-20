@@ -22,10 +22,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.azure.core.http.rest.PagedIterable;
+import com.azure.core.util.polling.LongRunningOperationStatus;
+import com.azure.core.util.polling.PollResponse;
+import com.azure.core.util.polling.SyncPoller;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
+import com.azure.storage.blob.models.BlobCopyInfo;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobItemProperties;
 import com.azure.storage.blob.models.ListBlobsOptions;
@@ -51,6 +55,14 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.Test;
@@ -80,10 +92,12 @@ public class AzureStorageClientTest {
     azureStorageClient = new AzureStorageClient(cloudOptions);
 
     try (MockedConstruction<BlobServiceClientBuilder> builder = Mockito.mockConstruction(BlobServiceClientBuilder.class, (mock,context) -> {
+      when(mock.endpoint(anyString())).thenReturn(mock);
       when(mock.credential((StorageSharedKeyCredential) any())).thenReturn(mock);
       when(mock.buildClient()).thenReturn(mock(BlobServiceClient.class));
     })) {
       azureStorageClient.start();
+      verify(builder.constructed().get(0), times(1)).endpoint("https://accountName.blob.core.windows.net");
       verify(builder.constructed().get(0), times(1)).credential(any(StorageSharedKeyCredential.class));
     }
 
@@ -324,17 +338,17 @@ public class AzureStorageClientTest {
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar
     Document doc1 = docs.get(0);
-    assertEquals(DigestUtils.md5Hex(doc1.getString("source")) + "-1", doc1.getId());
+    assertEquals(DigestUtils.md5Hex(doc1.getString("file_path")) + "-1", doc1.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar"
-        + ARCHIVE_FILE_SEPARATOR + "default.csv", doc1.getString("source"));
+        + ARCHIVE_FILE_SEPARATOR + "default.csv", doc1.getString("file_path"));
     Document doc2 = docs.get(1);
-    assertEquals(DigestUtils.md5Hex(doc2.getString("source")) + "-2", doc2.getId());
+    assertEquals(DigestUtils.md5Hex(doc2.getString("file_path")) + "-2", doc2.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar"
-        + ARCHIVE_FILE_SEPARATOR + "default.csv", doc2.getString("source"));
+        + ARCHIVE_FILE_SEPARATOR + "default.csv", doc2.getString("file_path"));
     Document doc3 = docs.get(2);
-    assertEquals(DigestUtils.md5Hex(doc3.getString("source")) + "-3", doc3.getId());
+    assertEquals(DigestUtils.md5Hex(doc3.getString("file_path")) + "-3", doc3.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar"
-        + ARCHIVE_FILE_SEPARATOR + "default.csv", doc3.getString("source"));
+        + ARCHIVE_FILE_SEPARATOR + "default.csv", doc3.getString("file_path"));
     Document doc4 = docs.get(3);
     assertEquals("2", doc4.getId());
     assertEquals("Gorgeous Woman Mug", doc4.getString("name"));
@@ -353,17 +367,17 @@ public class AzureStorageClientTest {
 
     // check documents published from jsonlCsvAndFolderWithFooTxt.tar.gz
     Document doc9 = docs.get(8);
-    assertEquals(DigestUtils.md5Hex(doc9.getString("source")) + "-1", doc9.getId());
+    assertEquals(DigestUtils.md5Hex(doc9.getString("file_path")) + "-1", doc9.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar.gz"
-        + ARCHIVE_FILE_SEPARATOR + "default.csv", doc9.getString("source"));
+        + ARCHIVE_FILE_SEPARATOR + "default.csv", doc9.getString("file_path"));
     Document doc10 = docs.get(9);
-    assertEquals(DigestUtils.md5Hex(doc10.getString("source")) + "-2", doc10.getId());
+    assertEquals(DigestUtils.md5Hex(doc10.getString("file_path")) + "-2", doc10.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar.gz"
-        + ARCHIVE_FILE_SEPARATOR + "default.csv", doc10.getString("source"));
+        + ARCHIVE_FILE_SEPARATOR + "default.csv", doc10.getString("file_path"));
     Document doc11 = docs.get(10);
-    assertEquals(DigestUtils.md5Hex(doc11.getString("source")) + "-3", doc11.getId());
+    assertEquals(DigestUtils.md5Hex(doc11.getString("file_path")) + "-3", doc11.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/jsonlCsvAndFolderWithFooTxt.tar.gz"
-        + ARCHIVE_FILE_SEPARATOR + "default.csv", doc11.getString("source"));
+        + ARCHIVE_FILE_SEPARATOR + "default.csv", doc11.getString("file_path"));
     Document doc12 = docs.get(11);
     assertEquals("2", doc12.getId());
     assertEquals("Gorgeous Woman Mug", doc12.getString("name"));
@@ -375,17 +389,17 @@ public class AzureStorageClientTest {
         + ARCHIVE_FILE_SEPARATOR + "FolderWithFooTxt/foo.txt", doc14.getString(FILE_PATH));
     // check documents published from zipped.csv.zip
     Document doc15 = docs.get(14);
-    assertEquals(DigestUtils.md5Hex(doc15.getString("source")) + "-1", doc15.getId());
+    assertEquals(DigestUtils.md5Hex(doc15.getString("file_path")) + "-1", doc15.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/zipped.csv.zip"
-        + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc15.getString("source"));
+        + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc15.getString("file_path"));
     Document doc16 = docs.get(15);
-    assertEquals(DigestUtils.md5Hex(doc16.getString("source")) + "-2", doc16.getId());
+    assertEquals(DigestUtils.md5Hex(doc16.getString("file_path")) + "-2", doc16.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/zipped.csv.zip"
-        + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc16.getString("source"));
+        + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc16.getString("file_path"));
     Document doc17 = docs.get(16);
-    assertEquals(DigestUtils.md5Hex(doc17.getString("source")) + "-3", doc17.getId());
+    assertEquals(DigestUtils.md5Hex(doc17.getString("file_path")) + "-3", doc17.getId());
     assertEquals("https://storagename.blob.core.windows.net/folder/zipped.csv.zip"
-        + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc17.getString("source"));
+        + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc17.getString("file_path"));
     // check documents published from zippedFolder.zip
     Document doc18 = docs.get(17);
     assertEquals("https://storagename.blob.core.windows.net/folder/zippedFolder.zip"
@@ -424,44 +438,29 @@ public class AzureStorageClientTest {
     when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockContainerClient);
     azureStorageClient.setServiceClientForTesting(mockServiceClient);
 
-    // this is the client ew call beginCopy on
     BlobClient mockSourceBlobClient = mock(BlobClient.class);
     when(mockContainerClient.getBlobClient(eq("blob1"))).thenReturn(mockSourceBlobClient);
     when(mockContainerClient.getBlobClient(eq("blob2"))).thenReturn(mockSourceBlobClient);
     when(mockContainerClient.getBlobClient(eq("blob3"))).thenReturn(mockSourceBlobClient);
     when(mockContainerClient.getBlobClient(eq("blob4"))).thenReturn(mockSourceBlobClient);
+    when(mockSourceBlobClient.getBlobUrl()).thenReturn("sourceUrl");
 
-    // This is the client we call .getBlobURL() on
-    BlobClient mockTargetBlobClient1 = mock(BlobClient.class);
-    BlobClient mockTargetBlobClient2 = mock(BlobClient.class);
-    BlobClient mockTargetBlobClient3 = mock(BlobClient.class);
-    BlobClient mockTargetBlobClient4 = mock(BlobClient.class);
-
-    when(mockContainerClient.getBlobClient("processed/blob1")).thenReturn(mockTargetBlobClient1);
-    when(mockContainerClient.getBlobClient("processed/blob2")).thenReturn(mockTargetBlobClient2);
-    when(mockContainerClient.getBlobClient("processed/blob3")).thenReturn(mockTargetBlobClient3);
-    when(mockContainerClient.getBlobClient("processed/blob4")).thenReturn(mockTargetBlobClient4);
-
-    when(mockTargetBlobClient1.getBlobUrl()).thenReturn("blob1");
-    when(mockTargetBlobClient2.getBlobUrl()).thenReturn("blob2");
-    when(mockTargetBlobClient3.getBlobUrl()).thenReturn("blob3");
-    when(mockTargetBlobClient4.getBlobUrl()).thenReturn("blob4");
-
-    when(mockSourceBlobClient.beginCopy(any(), any())).thenAnswer(invocationOnMock -> {
-      String url = invocationOnMock.getArgument(0, String.class);
-
-      assertTrue(url.equals("blob1")
-          || url.equals("blob2")
-          || url.equals("blob3")
-          || url.equals("blob4"));
-
-      return null;
-    });
+    List<BlobClient> mockTargetBlobClients = new ArrayList<>();
+    for (String blob : List.of("blob1", "blob2", "blob3", "blob4")) {
+      BlobClient mockTargetBlobClient = mock(BlobClient.class);
+      SyncPoller<BlobCopyInfo, Void> copy = completedCopy();
+      when(mockTargetBlobClient.beginCopy(any(), any())).thenReturn(copy);
+      when(mockContainerClient.getBlobClient("processed/" + blob)).thenReturn(mockTargetBlobClient);
+      mockTargetBlobClients.add(mockTargetBlobClient);
+    }
 
     azureStorageClient.initializeForTesting();
     azureStorageClient.traverse(publisher, params);
 
-    verify(mockSourceBlobClient, times(4)).beginCopy(any(), any());
+    for (BlobClient mockTargetBlobClient : mockTargetBlobClients) {
+      verify(mockTargetBlobClient).beginCopy(eq("sourceUrl"), any());
+    }
+    verify(mockSourceBlobClient, times(4)).delete();
 
     azureStorageClient.stop();
     assertEquals(4, messenger.getDocsSentForProcessing().size());
@@ -475,7 +474,7 @@ public class AzureStorageClientTest {
 
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         "fileOptions", Map.of(
-            "moveToAfterProcessing", "https://storagename.blob.core.windows.net/container/processed/",
+            "moveToAfterProcessing", "https://storagename.blob.core.windows.net/processed/",
             "getFileContent", false
         )
     ));
@@ -495,46 +494,31 @@ public class AzureStorageClientTest {
     when(mockServiceClient.getBlobContainerClient(eq("container"))).thenReturn(mockContainerClient);
     azureStorageClient.setServiceClientForTesting(mockServiceClient);
 
-    // The clients in "container" we call .beginCopy on - using all the same since the mocked method body is the same
     BlobClient mockSourceBlobClient = mock(BlobClient.class);
     when(mockContainerClient.getBlobClient(eq("blob1"))).thenReturn(mockSourceBlobClient);
     when(mockContainerClient.getBlobClient(eq("blob2"))).thenReturn(mockSourceBlobClient);
     when(mockContainerClient.getBlobClient(eq("blob3"))).thenReturn(mockSourceBlobClient);
     when(mockContainerClient.getBlobClient(eq("blob4"))).thenReturn(mockSourceBlobClient);
-
-    // The clients we call .getBlobURL() on
-    BlobClient mockProcessedBlobClient1 = mock(BlobClient.class);
-    BlobClient mockProcessedBlobClient2 = mock(BlobClient.class);
-    BlobClient mockProcessedBlobClient3 = mock(BlobClient.class);
-    BlobClient mockProcessedBlobClient4 = mock(BlobClient.class);
+    when(mockSourceBlobClient.getBlobUrl()).thenReturn("sourceUrl");
 
     when(mockServiceClient.getBlobContainerClient(eq("processed"))).thenReturn(mockProcessedContainerClient);
 
-    when(mockProcessedContainerClient.getBlobClient("blob1")).thenReturn(mockProcessedBlobClient1);
-    when(mockProcessedContainerClient.getBlobClient("blob2")).thenReturn(mockProcessedBlobClient2);
-    when(mockProcessedContainerClient.getBlobClient("blob3")).thenReturn(mockProcessedBlobClient3);
-    when(mockProcessedContainerClient.getBlobClient("blob4")).thenReturn(mockProcessedBlobClient4);
-
-    when(mockProcessedBlobClient1.getBlobUrl()).thenReturn("blob1");
-    when(mockProcessedBlobClient2.getBlobUrl()).thenReturn("blob2");
-    when(mockProcessedBlobClient3.getBlobUrl()).thenReturn("blob3");
-    when(mockProcessedBlobClient4.getBlobUrl()).thenReturn("blob4");
-
-    when(mockSourceBlobClient.beginCopy(any(), any())).thenAnswer(invocationOnMock -> {
-      String url = invocationOnMock.getArgument(0, String.class);
-
-      assertTrue(url.equals("blob1")
-          || url.equals("blob2")
-          || url.equals("blob3")
-          || url.equals("blob4"));
-
-      return null;
-    });
+    List<BlobClient> mockProcessedBlobClients = new ArrayList<>();
+    for (String blob : List.of("blob1", "blob2", "blob3", "blob4")) {
+      BlobClient mockProcessedBlobClient = mock(BlobClient.class);
+      SyncPoller<BlobCopyInfo, Void> copy = completedCopy();
+      when(mockProcessedBlobClient.beginCopy(any(), any())).thenReturn(copy);
+      when(mockProcessedContainerClient.getBlobClient(blob)).thenReturn(mockProcessedBlobClient);
+      mockProcessedBlobClients.add(mockProcessedBlobClient);
+    }
 
     azureStorageClient.initializeForTesting();
     azureStorageClient.traverse(publisher, params);
 
-    verify(mockSourceBlobClient, times(4)).beginCopy(any(), any());
+    for (BlobClient mockProcessedBlobClient : mockProcessedBlobClients) {
+      verify(mockProcessedBlobClient).beginCopy(eq("sourceUrl"), any());
+    }
+    verify(mockSourceBlobClient, times(4)).delete();
 
     azureStorageClient.stop();
     assertEquals(4, messenger.getDocsSentForProcessing().size());
@@ -630,13 +614,15 @@ public class AzureStorageClientTest {
     when(mockServiceClient.getBlobContainerClient("archive")).thenReturn(mockDestContainer);
     when(mockSourceContainer.getBlobClient("a/b/c.txt")).thenReturn(mockSourceBlobClient);
     when(mockDestContainer.getBlobClient("processed/2024/a/b/c.txt")).thenReturn(mockDestBlobClient);
-    when(mockDestBlobClient.getBlobUrl()).thenReturn("destUrl");
+    when(mockSourceBlobClient.getBlobUrl()).thenReturn("sourceUrl");
+    SyncPoller<BlobCopyInfo, Void> copy = completedCopy();
+    when(mockDestBlobClient.beginCopy(any(), any())).thenReturn(copy);
 
     storageClient.setServiceClientForTesting(mockServiceClient);
     storageClient.moveFile(URI.create("https://storagename.blob.core.windows.net/container/a/b/c.txt"),
         URI.create("https://storagename.blob.core.windows.net/archive/processed/2024/"));
 
-    verify(mockSourceBlobClient).beginCopy(eq("destUrl"), any());
+    verify(mockDestBlobClient).beginCopy(eq("sourceUrl"), any());
     verify(mockSourceBlobClient).delete();
   }
 
@@ -655,13 +641,15 @@ public class AzureStorageClientTest {
     when(mockServiceClient.getBlobContainerClient("archive")).thenReturn(mockDestContainer);
     when(mockSourceContainer.getBlobClient("a/b/c.txt")).thenReturn(mockSourceBlobClient);
     when(mockDestContainer.getBlobClient("a/b/c.txt")).thenReturn(mockDestBlobClient);
-    when(mockDestBlobClient.getBlobUrl()).thenReturn("destUrl");
+    when(mockSourceBlobClient.getBlobUrl()).thenReturn("sourceUrl");
+    SyncPoller<BlobCopyInfo, Void> copy = completedCopy();
+    when(mockDestBlobClient.beginCopy(any(), any())).thenReturn(copy);
 
     storageClient.setServiceClientForTesting(mockServiceClient);
     storageClient.moveFile(URI.create("https://storagename.blob.core.windows.net/container/a/b/c.txt"),
         URI.create("https://storagename.blob.core.windows.net/archive"));
 
-    verify(mockSourceBlobClient).beginCopy(eq("destUrl"), any());
+    verify(mockDestBlobClient).beginCopy(eq("sourceUrl"), any());
     verify(mockSourceBlobClient).delete();
   }
 
@@ -705,7 +693,9 @@ public class AzureStorageClientTest {
       when(mockContainerClient.getBlobClient(blobName)).thenReturn(mockBlobClient);
 
       BlobClient mockDestBlobClient = mock(BlobClient.class);
-      when(mockDestBlobClient.getBlobUrl()).thenReturn("destUrl");
+      SyncPoller<BlobCopyInfo, Void> copy = completedCopy();
+      when(mockDestBlobClient.beginCopy(any(), any())).thenReturn(copy);
+      when(mockBlobClient.getBlobUrl()).thenReturn("sourceUrl");
       when(mockContainerClient.getBlobClient("processed/" + blobName)).thenReturn(mockDestBlobClient);
 
       BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
@@ -723,7 +713,8 @@ public class AzureStorageClientTest {
       // the published path can be used to read and move the blob it came from
       assertEquals(blobName, new String(storageClient.getFileContentStream(fileURI).readAllBytes()));
       storageClient.moveFile(fileURI, URI.create("https://storagename.blob.core.windows.net/container/processed/"));
-      verify(mockBlobClient).beginCopy(eq("destUrl"), any());
+      verify(mockDestBlobClient).beginCopy(eq("sourceUrl"), any());
+      verify(mockBlobClient).delete();
 
       storageClient.stop();
     }
@@ -741,6 +732,13 @@ public class AzureStorageClientTest {
     assertThrows(IllegalArgumentException.class,
         () -> storageClient.moveFile(URI.create("https://storagename.blob.core.windows.net//a.txt"),
             URI.create("https://storagename.blob.core.windows.net/container/")));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static SyncPoller<BlobCopyInfo, Void> completedCopy() {
+    SyncPoller<BlobCopyInfo, Void> poller = mock(SyncPoller.class);
+    when(poller.waitForCompletion()).thenReturn(new PollResponse<>(LongRunningOperationStatus.SUCCESSFULLY_COMPLETED, null));
+    return poller;
   }
 
   private Stream<BlobItem> getCompressedAndArchivedBlobStream() {
@@ -942,6 +940,127 @@ public class AzureStorageClientTest {
     ));
 
     pathsToSkipTesting(connectorConfig);
+  }
+
+  private static final String AZURE_ROOT = "https://storagename.blob.core.windows.net/folder/";
+  private static final List<String> NESTED_BLOBS = List.of("1.txt", "a/2.txt", "a/x/3.txt", "b/4.txt", "c/5.txt");
+
+  private static BlobItem fakeBlob(String name, boolean prefix) {
+    BlobItem blob = new BlobItem();
+    blob.setName(name);
+    if (prefix) {
+      blob.setIsPrefix(true);
+    }
+    OffsetDateTime time = OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC"));
+    blob.setProperties(new BlobItemProperties().setCreationTime(time).setLastModified(time).setContentLength(1L));
+    return blob;
+  }
+
+  // A fake container that applies Azure's prefix and delimiter rules to the given names.
+  @SuppressWarnings("unchecked")
+  private static BlobContainerClient fakeContainer(List<String> names, Consumer<String> onList) {
+    BlobContainerClient container = mock(BlobContainerClient.class);
+
+    when(container.listBlobsByHierarchy(any(), any(), any())).thenAnswer(inv -> {
+      String prefix = ((ListBlobsOptions) inv.getArgument(1)).getPrefix();
+      onList.accept(prefix);
+      List<BlobItem> items = new ArrayList<>();
+      Set<String> directories = new TreeSet<>();
+      for (String name : names) {
+        if (name.startsWith(prefix)) {
+          int slash = name.indexOf('/', prefix.length());
+          if (slash >= 0) {
+            directories.add(name.substring(0, slash + 1));
+          } else {
+            items.add(fakeBlob(name, false));
+          }
+        }
+      }
+      directories.forEach(directory -> items.add(fakeBlob(directory, true)));
+      PagedIterable<BlobItem> iterable = mock(PagedIterable.class);
+      when(iterable.stream()).thenReturn(items.stream());
+      return iterable;
+    });
+
+    when(container.listBlobs(any(ListBlobsOptions.class), any())).thenAnswer(inv -> {
+      String prefix = ((ListBlobsOptions) inv.getArgument(0)).getPrefix();
+      onList.accept("flat:" + prefix);
+      PagedIterable<BlobItem> iterable = mock(PagedIterable.class);
+      when(iterable.stream()).thenReturn(names.stream().filter(name -> name.startsWith(prefix)).map(name -> fakeBlob(name, false)));
+      return iterable;
+    });
+
+    return container;
+  }
+
+  private static Set<String> publishedFromContainer(BlobContainerClient container, String start, Map<String, Object> connectorConfig,
+      Map<String, Object> traversalSettings) throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    AzureStorageClient client = new AzureStorageClient(ConfigFactory.parseMap(Map.of("connectionString", "connectionString")));
+
+    BlobServiceClient service = mock(BlobServiceClient.class);
+    when(service.getBlobContainerClient(any())).thenReturn(container);
+    client.setServiceClientForTesting(service);
+    client.initializeForTesting();
+
+    Map<String, Object> fullConfig = new HashMap<>(connectorConfig);
+    fullConfig.put("fileOptions", Map.of("getFileContent", false));
+    fullConfig.put("traversal", traversalSettings);
+    TraversalParams params = new TraversalParams(ConfigFactory.parseMap(fullConfig), URI.create(start), "");
+    client.validateTraversal(params);
+    client.traverse(publisher, params);
+
+    Set<String> paths = new HashSet<>();
+    messenger.getDocsSentForProcessing().forEach(doc -> paths.add(doc.getString(FILE_PATH)));
+    assertEquals(paths.size(), messenger.getDocsSentForProcessing().size());
+    return paths;
+  }
+
+  // Sibling listings wait for each other, so this only passes if they run at the same time.
+  @Test
+  public void testTraversalThreadsListDirectoriesInParallel() throws Exception {
+    CyclicBarrier siblings = new CyclicBarrier(3);
+    BlobContainerClient container = fakeContainer(NESTED_BLOBS, prefix -> {
+      if (Set.of("a/", "b/", "c/").contains(prefix)) {
+        try {
+          siblings.await(20, TimeUnit.SECONDS);
+        } catch (Exception e) {
+          throw new IllegalStateException("The sibling directories weren't listed at the same time.", e);
+        }
+      }
+    });
+
+    Set<String> parallel = publishedFromContainer(container, AZURE_ROOT, Map.of(), Map.of("threadsPerPath", 3));
+
+    assertEquals(publishedFromContainer(fakeContainer(NESTED_BLOBS, prefix -> { }), AZURE_ROOT, Map.of(), Map.of()), parallel);
+    assertEquals(5, parallel.size());
+  }
+
+  // a flat listing doesn't set BlobItem.isPrefix
+  @Test
+  public void testFlatListing() throws Exception {
+    Set<String> prefixes = ConcurrentHashMap.newKeySet();
+    BlobContainerClient container = fakeContainer(NESTED_BLOBS, prefixes::add);
+
+    assertEquals(5, publishedFromContainer(container, AZURE_ROOT, Map.of(), Map.of("listingMode", "flat")).size());
+    assertEquals(Set.of("flat:"), prefixes);
+  }
+
+  @Test
+  public void testMaxDocuments() throws Exception {
+    assertEquals(2, publishedFromContainer(fakeContainer(NESTED_BLOBS, prefix -> { }), AZURE_ROOT, Map.of(), Map.of("maxDocuments", 2)).size());
+  }
+
+  // a start directory in pathsToSkip used to be listed anyway
+  @Test
+  public void testPathsToSkipOnTheStartDirectory() throws Exception {
+    Set<String> prefixes = ConcurrentHashMap.newKeySet();
+    BlobContainerClient container = fakeContainer(NESTED_BLOBS, prefixes::add);
+    Map<String, Object> skip = Map.of("filterOptions", Map.of("pathsToSkip", List.of(AZURE_ROOT + "a/")));
+
+    assertEquals(Set.of(), publishedFromContainer(container, AZURE_ROOT + "a/", skip, Map.of()));
+    assertEquals(Set.of(), prefixes);
   }
 
   private void pathsToSkipTesting(Config connectorConfig) throws Exception {

@@ -32,6 +32,7 @@ public class WorkerIndexer {
   private Indexer indexer;
   private Thread indexerThread;
   private WorkerThread workerThread;
+  private BlockingQueue<Document> pipelineDest;
 
   /**
    * Starts paired Worker and Indexer threads for the pipeline named by the first argument (or by
@@ -66,6 +67,7 @@ public class WorkerIndexer {
       Set<String> idSet) throws Exception {
 
     log.info("Starting WorkerIndexer for pipeline: {}", pipelineName);
+    this.pipelineDest = pipelineDest;
 
     HybridWorkerMessenger workerMessageManager =
         new HybridWorkerMessenger(config, pipelineName, pipelineDest);
@@ -118,6 +120,13 @@ public class WorkerIndexer {
 
   public WorkerThread getWorker() {
     return workerThread;
+  }
+
+  /**
+   * @return The queue the worker puts processed documents on for the indexer, or null if this pair has not been started.
+   */
+  BlockingQueue<Document> getIndexerQueue() {
+    return pipelineDest;
   }
 
 

@@ -10,6 +10,7 @@ import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerFailure;
+import com.kmwllc.lucille.core.PendingSend;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.TestMessenger;
@@ -37,7 +38,7 @@ public class IndexerFailTopicTest {
     }
 
     @Override
-    protected List<IndexerFailure> sendToIndex(List<Document> documents) {
+    protected List<IndexerFailure> sendToIndex(PendingSend send) {
       throw new IllegalStateException("Simulated indexing failure");
     }
   }
@@ -116,7 +117,8 @@ public class IndexerFailTopicTest {
     messenger.sendForIndexing(Document.create("doc2", "run1"));
     Indexer indexer = new ErroringNopIndexer(config("IndexerFailTopicTest/sendFailedEnabled.conf").withValue("batchSize", ConfigValueFactory.fromAnyRef(2)), messenger) {
       @Override
-      protected List<IndexerFailure> sendToIndex(List<Document> documents) {
+      protected List<IndexerFailure> sendToIndex(PendingSend send) {
+        List<Document> documents = send.documents();
         return List.of(new IndexerFailure(documents.get(1), new IndexerException("rejected")));
       }
     };

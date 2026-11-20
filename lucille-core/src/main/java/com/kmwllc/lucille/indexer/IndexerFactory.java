@@ -189,11 +189,12 @@ public class IndexerFactory {
     return matches;
   }
 
-  // Returns the names of the objects in the "indexer" block. The generic indexer settings are all scalars and lists.
+  // Returns the names of the indexer's own blocks in the "indexer" block: the objects, other than the generic blocks
+  // such as deletionMarker and deleteByQuery, which apply to any indexer and so do not select one.
   private static List<String> getNestedBlocks(Config indexerConfig) {
     List<String> blocks = new ArrayList<>();
     for (Map.Entry<String, ConfigValue> entry : indexerConfig.root().entrySet()) {
-      if (entry.getValue().valueType() == ConfigValueType.OBJECT) {
+      if (entry.getValue().valueType() == ConfigValueType.OBJECT && !Indexer.GENERIC_BLOCKS.contains(entry.getKey())) {
         blocks.add(entry.getKey());
       }
     }

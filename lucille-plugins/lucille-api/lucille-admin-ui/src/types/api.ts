@@ -31,13 +31,6 @@ export interface Run {
   error: RunError | null
 }
 
-export interface SystemStats {
-  cpu: { percent: number; used: number; available: number; total: number; loadAverage: number }
-  ram: { total: number; available: number; used: number; percent: number }
-  jvm: { total: number; free: number; used: number; percent: number }
-  storage: { total: number; available: number; used: number; percent: number }
-}
-
 export interface ConfigObject {
   connectors?: Array<Record<string, unknown>>
   pipelines?: Array<{ name?: string; stages?: Array<Record<string, unknown>> }>

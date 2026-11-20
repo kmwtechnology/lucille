@@ -37,20 +37,32 @@ Point Lucille at a config file declaring your **connectors**, **pipelines**, and
 
 ### Run the Runner
 
-From the repository root:
+From the repository root, after `mvn clean install`:
 
 ```bash
 java \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=<PATH/TO/YOUR/CONFIG.conf> \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.Runner
 ```
 
 | Flag | What it does |
 |---|---|
+| `-Dlog4j2.configurationFile=...` | Selects the Lucille logging config bundled in `lucille-logging`. Without it, Log4j2 logs only errors |
 | `-Dconfig.file=...` | Path to your HOCON configuration file |
-| `-cp '...'` | Lucille core JAR and all runtime dependencies |
+| `-cp '...'` | `lucille-all/target/lib` holds lucille-core, lucille-logging, every plugin module (Solr, OpenSearch, Elasticsearch, Tika, and so on), and all their runtime dependencies |
 | `com.kmwllc.lucille.core.Runner` | Boots the Lucille engine in local mode and runs the configured pipeline to completion |
+
+If your config uses only components in lucille-core, a smaller classpath is enough: `'lucille-core/target/lucille.jar:lucille-core/target/lib/*:lucille-logging/target/lucille-logging.jar:lucille-logging/target/lib/*'`. Leaving out `lucille-logging` gives `No SLF4J providers were found` and no log output.
+
+Alternatively, run the published Docker image. `kmwtechnology/lucille-all` contains every plugin; `kmwtechnology/lucille` contains only core and logging:
+
+```bash
+docker run --rm -v "$PWD":/lucille/work -w /lucille/work \
+  -e LUCILLE_CONF=/lucille/work/<YOUR-CONFIG.conf> \
+  kmwtechnology/lucille-all:VERSION.0
+```
 
 See the [troubleshooting guide]({{< relref "docs/operations/troubleshooting" >}}) if Lucille doesn't start as expected.
 
@@ -72,8 +84,9 @@ The Runner publishes documents to the Kafka source topic, listens for pipeline r
 
 ```bash
 java \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=<PATH/TO/YOUR/CONFIG.conf> \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.Runner \
   -distributed
 ```
@@ -84,8 +97,9 @@ Each Worker consumes documents from the Kafka source topic, processes each docum
 
 ```bash
 java \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=<PATH/TO/YOUR/CONFIG.conf> \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.Worker \
   <pipeline-name>
 ```
@@ -98,19 +112,23 @@ The Indexer consumes documents from the Kafka destination topic and sends batche
 
 ```bash
 java \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=<PATH/TO/YOUR/CONFIG.conf> \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.Indexer \
   <pipeline-name>
 ```
 
 | Flag | What it does |
 |---|---|
+| `-Dlog4j2.configurationFile=...` | Selects the Lucille logging config. Without it, Log4j2 logs only errors |
 | `-Dconfig.file=...` | Path to your HOCON configuration file |
-| `-cp '...'` | Lucille core JAR and all runtime dependencies |
+| `-cp '...'` | lucille-core, lucille-logging, every plugin module, and their runtime dependencies |
 | `Runner -distributed` | Starts the run and coordinates with Kafka |
 | `Worker <pipeline-name>` | Processes documents through the named pipeline |
 | `Indexer <pipeline-name>` | Writes processed documents to the configured backend |
+
+With Docker, run each component from the `kmwtechnology/lucille-all` image: set `LUCILLE_ROLE` to `runner` (with `LUCILLE_OPTS=-distributed`), `worker` or `indexer`, and set `LUCILLE_PIPELINE` to the pipeline name for workers and indexers.
 
 See the [troubleshooting guide]({{< relref "docs/operations/troubleshooting" >}}) if components don't connect as expected.
 

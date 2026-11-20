@@ -17,7 +17,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 - **Field filtering** — Applies `includeFields`/`excludeFields` filtering before documents reach `sendToIndex()`. Use `getConvertedIndexerDoc(doc)` to get the filtered field map as plain Java values, or `getRawIndexerDoc(doc)` when your client serializes it to JSON with Jackson.
 - **Batching** — Configurable batch size and timeout, with support for per-document index routing via `indexOverrideField`.
 - **Concurrent sends** — When `indexer.maxConcurrentBatches` is above 1, sends several batches to the destination at once while keeping writes to the same document id in order and completing batches in dispatch order. See [Concurrent Sends](#concurrent-sends) below.
-- **Retry with backoff** — When `indexer.maxRetries` is configured, retries failed batches with exponential backoff and jitter. Your `sendToIndex()` returns per-document failures; the base class decides whether to retry based on status codes. A retry sends the entire batch again, including documents the destination already accepted. That is safe where writing a document twice has the same effect as writing it once. An append-only destination, or one using external versions, must not report retryable failures unless it can handle receiving those documents again.
+- **Retry with backoff** — When `indexer.maxRetries` is configured, retries failed batches with exponential backoff and jitter. Your `sendToIndex()` returns per-document failures; the base class decides whether to retry based on status codes. A retry sends only the documents that are still pending, not the whole batch. See [Retries and the `sendToIndex()` Contract](#retries-and-the-sendtoindex-contract).
 - **Event accounting** — Sends FINISH or FAIL events for each document so the Runner can track run completion.
 - **Metrics** — Tracks documents indexed, throughput rate, and batch latency automatically.
 - **ID and index overrides** — Supports `idOverrideField` and `indexOverrideField` for routing documents to different IDs or indices. Use `getDestinationId(doc)` for the ID to write under, which is the `idOverrideField` value or else the document ID, and `getIndexOverride(doc)` for the target index, which is null when the document has no override.
@@ -33,7 +33,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 
 | Method | Required | Purpose |
 |---|---|---|
-| `sendToIndex(List<Document> docs)` | Yes | Send a batch to the destination. Return an `IndexerFailure(document, cause)` for each per-document failure, holding the instance that was passed in, and report each instance only once; a failure that breaks either rule fails the rest of the batch. Return an empty list if all succeeded. Not called in bypass mode. Throw `IndexerException` if the whole batch could not be attempted, or `IndexerRetryableException` if that failure may be transient, so the retry policy applies. |
+| `sendToIndex(PendingSend send)` | Yes | Send `send.documents()` to the destination. Return an `IndexerFailure(document, cause)` for each document that was not applied, holding the instance from `send.documents()`, and report each instance only once; a failure that breaks either rule fails the rest of the send. Return an empty list if all succeeded. Not called in bypass mode. Throw `IndexerException` if nothing in the send was applied, or `IndexerRetryableException` if that failure may be transient, so the retry policy applies. See [Retries and the `sendToIndex()` Contract](#retries-and-the-sendtoindex-contract). |
 | `checkConnection()` | Yes | Return `true` if the destination is reachable and the target index/collection exists. Called before the consumption loop starts, through the base class's `validateConnection()`. Not called in bypass mode. |
 | `closeConnection()` | Yes | Close the client or connection to the destination. |
 | `supportsConcurrentSends()` | No | Return `true` only if `sendToIndex()` and your destination client are safe to call from several threads at once. The default is `false`, which makes the base class reject `indexer.maxConcurrentBatches` above 1. See [Concurrent Sends](#concurrent-sends). |
@@ -65,6 +65,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerFailure;
+import com.kmwllc.lucille.core.PendingSend;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -109,9 +110,10 @@ public class ExampleIndexer extends Indexer {
   }
 
   @Override
-  protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
-    // Send the batch using your destination client.
-    // Wrap a client failure that stops the whole batch in IndexerException, or in IndexerRetryableException
+  protected List<IndexerFailure> sendToIndex(PendingSend send) throws IndexerException {
+    List<Document> documents = send.documents();
+    // Send the documents using your destination client.
+    // Wrap a client failure that stops the whole send in IndexerException, or in IndexerRetryableException
     // (with the HTTP status, if there is one) when a retry may succeed.
     // Use getConvertedIndexerDoc(doc) for the filtered field map as plain Java values,
     // or getRawIndexerDoc(doc) if your client serializes it to JSON with Jackson.
@@ -126,6 +128,55 @@ public class ExampleIndexer extends Indexer {
   }
 }
 ```
+
+## Retries and the `sendToIndex()` Contract
+
+`sendToIndex()` takes one argument, a `PendingSend`, which describes the call the base class is about to make:
+
+| Method | Returns |
+|---|---|
+| `documents()` | The documents to send now, in the order they were batched. On the first attempt this is the whole batch; on a retry it is only the documents still pending. The list is unmodifiable, and the documents are the same instances on every attempt. |
+| `attempt()` | This attempt's number, starting at 1. |
+| `isFinal()` | `true` when no retry can follow this attempt, whatever its outcome. Always `true` when `indexer.maxRetries` is not set. |
+| `PendingSend.of(documents)` | A send made once, with no retry (`attempt()` is 1, `isFinal()` is `true`). Use it to call `sendToIndex()` directly in a test. |
+
+Most indexers only read `send.documents()`. The base class creates a new `PendingSend` for each attempt, and more members may be added to it in later releases without changing your indexer.
+
+**The contract.** `sendToIndex()` sends the documents in `send.documents()` and returns one `IndexerFailure` for each of them that was not applied.
+
+1. A document that is not in the returned list counts as applied. That includes a document you collapsed into a later operation on the same id.
+2. Each returned failure must hold a `Document` instance from `send.documents()`, and each instance may be reported only once. A failure that breaks either rule cannot be matched to a document, so no retry is made and every document in that send without a failure of its own is failed. Documents that an earlier attempt applied or failed are not in the send, and keep their results.
+3. Throw only when nothing in the call was applied, or when you cannot tell. If you applied part of the send before an error, return per-document failures instead. The base class cannot see inside a call that throws, so after a throw it treats every document in the send as still pending.
+4. Use an `IndexerRetryableException` as the cause of a failure that may be transient, and an `IndexerException` for a permanent one.
+5. If you stop part-way on purpose, because a later document must not be sent before an earlier one that will be retried, report each document you held back with `IndexerFailure.notSent(document)`. Hold documents back only behind a failure for which `isRetryable(cause)` is true, and only when `send.isFinal()` is false (see [Order across attempts](#order-across-attempts)).
+
+**What the base class does with the result.** After each attempt, every document in the send is in one of three states:
+
+| The attempt... | The document... |
+|---|---|
+| does not report it | was applied. It is never sent again. |
+| reports it with a cause that is not retryable | has failed for good. It is never sent again. |
+| reports it with a retryable cause, or as not sent | is still pending. |
+
+A cause is retryable if it is an `IndexerRetryableException` whose status code is in `indexer.retryableStatusCodes`. If an attempt returned at least one retryable failure and attempts remain, the base class waits and calls `sendToIndex()` again with the pending documents, in their original order. Otherwise the batch is finished: applied documents get FINISH events, and every other document gets a FAIL event with its cause.
+
+- **A not-sent document** never causes a retry by itself. If no further attempt is made, it fails, and its FAIL event names the first retryable failure of the last attempt.
+- **A thrown retryable exception** leads to another attempt with the same documents.
+- **A thrown exception that ends the attempts** (it is not retryable, or retries have run out) fails the documents that are still pending. Documents that an earlier attempt applied still get FINISH events. If no earlier attempt applied or permanently failed anything, the whole batch fails.
+- **Without `indexer.maxRetries`** there is one call, with the whole batch.
+
+### Order across attempts
+
+A retry can send a document after a later document from the same batch has been applied. If order matters to your destination (for example, a delete-by-query must not run before an earlier upload that it should remove), stop at the first failure that will be retried and return the rest as `notSent`.
+
+A failure will be retried only if both of these hold:
+
+- `isRetryable(cause)` is true. This is a method of the `Indexer` base class. It checks that the cause is an `IndexerRetryableException` and that its status code is in `indexer.retryableStatusCodes`. Checking the exception type yourself is not enough: a 500 wrapped in an `IndexerRetryableException` is not retried under the default codes (429, 503 and -1).
+- `send.isFinal()` is false.
+
+In every other case, keep going and send the documents that are left. A not-sent document never causes a retry by itself, so documents held back behind a failure that is not retried fail without ever being sent.
+
+**In-doubt requests.** If the destination applied a write but the response was lost (for example, a timeout), the write is not known to have been applied, and it is sent again.
 
 ## Packaging an Indexer in a Plugin Module
 
@@ -296,7 +347,7 @@ assertEquals("doc1", captor.getValue().get(0).getId());
 - **Field translation** — your `sendToIndex()` correctly maps Document fields to the destination's format.
 - **ID override** — documents are written under `getDestinationId(doc)` when `idOverrideField` is configured.
 - **Deletion** — documents marked for deletion trigger delete operations instead of adds.
-- **Per-document failures** — your `sendToIndex()` returns the correct `IndexerFailure`s when individual documents fail.
+- **Per-document failures** — your `sendToIndex()` returns the correct `IndexerFailure`s when individual documents fail. To call it directly, pass `PendingSend.of(documents)`.
 - **checkConnection()** — returns false when the destination is unreachable.
 - **closeConnection()** — releases client resources without throwing.
 

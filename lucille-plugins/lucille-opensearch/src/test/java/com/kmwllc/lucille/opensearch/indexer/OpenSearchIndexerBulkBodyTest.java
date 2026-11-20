@@ -1,6 +1,9 @@
 package com.kmwllc.lucille.opensearch.indexer;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -8,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.POJONode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.KafkaDocument;
@@ -20,6 +24,7 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -29,6 +34,7 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.opensearch.client.json.JsonpMapper;
+import org.opensearch.client.json.JsonpSerializable;
 import org.opensearch.client.json.NdJsonpSerializable;
 import org.opensearch.client.json.jackson.JacksonJsonpMapper;
 import org.opensearch.client.opensearch.OpenSearchClient;
@@ -198,6 +204,92 @@ public class OpenSearchIndexerBulkBodyTest {
 
     assertEquals("{\"update\":{\"_id\":\"doc1\",\"_index\":\"lucille-default\"}}\n"
         + "{\"doc_as_upsert\":true,\"doc\":" + SCALARS_BODY + "}\n", bulkBody(config("indexer.opensearch.update: true"), doc));
+  }
+
+  private OpenSearchIndexer indexer(Config config) {
+    return new OpenSearchIndexer(config.getConfig("indexer"), new IndexerContext(new TestMessenger(), false, "testing", null), mockClient);
+  }
+
+  // The streamed body of a JsonDocument is byte for byte the JSON of the Map body it replaces, for the same documents
+  // and configurations, including values the Map path converts because they contain nulls.
+  @Test
+  public void testStreamedBodyMatchesMapBody() throws Exception {
+    Document scalars = Document.create("doc1");
+    populateScalars(scalars);
+    scalars.setField("instant", Instant.parse("2024-01-02T03:04:05.678Z"));
+    scalars.setField("nan", Double.NaN);
+
+    Document nested = Document.create("doc2");
+    nested.setField("obj", MAPPER.readTree(NESTED_JSON));
+    ObjectNode withNulls = MAPPER.createObjectNode();
+    withNulls.put("dec", new BigDecimal("12345678901234567890.123456789"));
+    withNulls.put("int", new BigInteger("123456789012345678901234567890"));
+    withNulls.put("f", 1.1f);
+    withNulls.put("bytes", new byte[] {1, 2, 3});
+    withNulls.putNull("n");
+    withNulls.putArray("arr").addNull().add(2.5f).addObject().putNull("x").put("y", "z");
+    nested.setField("withNulls", withNulls);
+    nested.setField("topNull", (String) null);
+    nested.setField("pojo", new POJONode(List.of("p", 1)));
+
+    Document jsonDoc = Document.createFromJson("{\"id\":\"doc3\",\"big\":12345678901234567890,\"d\":1.0E-7,"
+        + "\"s\":\"\\u00e9\\n\\\"\",\"a\":[[],{}],\"o\":{\"n\":null}}");
+
+    Document parent = Document.create("doc4");
+    parent.setField("kids", "replaced in place");
+    parent.setField("after", "a");
+    Document child = Document.create("child1");
+    child.setField("c", MAPPER.readTree("{\"n\":null,\"v\":[null,1]}"));
+    child.setField("ignored", "x");
+    child.addChild(Document.create("grandchild1"));
+    parent.addChild(child);
+    parent.addChild(Document.create("child2"));
+
+    Document nullKids = Document.create("doc5");
+    nullKids.setField("kids", (String) null);
+    nullKids.setField("other_id", "other5");
+    nullKids.addChild(Document.create("child3"));
+
+    List<Document> docs = List.of(scalars, nested, jsonDoc, parent, nullKids);
+    List<String> configs = List.of("",
+        "indexer.opensearch.childDocumentsField: \"kids\"",
+        "indexer.opensearch.childDocumentsField: \"kids\"\nindexer.excludeFields: [\"ignored\", \"str\", \"kids\"]",
+        "indexer.includeFields: [\"id\", \"obj\", \"kids\", \"c\", \"after\"]\nindexer.opensearch.childDocumentsField: \"kids\"",
+        "indexer.idOverrideField: \"other_id\"",
+        "indexer.idOverrideField: \"other_id\"\nindexer.excludeFields: [\"id\"]");
+
+    JacksonJsonpMapper mapper = new JacksonJsonpMapper();
+    for (String overrides : configs) {
+      OpenSearchIndexer indexer = indexer(config(overrides));
+      for (Document doc : docs) {
+        String docId = doc.has("other_id") && overrides.contains("idOverrideField") ? doc.getString("other_id") : doc.getId();
+        Object streamed = indexer.getUploadBody(doc, docId);
+        byte[] expected = serialize(indexer.getMapBody(doc, docId), mapper);
+        assertArrayEquals("config [" + overrides + "], document " + doc.getId() + ": expected "
+                + new String(expected, StandardCharsets.UTF_8) + " but was "
+                + new String(serialize(streamed, mapper), StandardCharsets.UTF_8),
+            expected, serialize(streamed, mapper));
+      }
+    }
+  }
+
+
+  // The streamed body can only be written to a Jackson generator, and says so.
+  @Test
+  public void testStreamedBodyRequiresJacksonGenerator() {
+    JsonpSerializable body = indexer(config("")).getUploadBody(Document.create("doc1"), "doc1");
+    JsonGenerator generator = Mockito.mock(JsonGenerator.class);
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> body.serialize(generator, new JacksonJsonpMapper()));
+    assertTrue(e.getMessage().contains("Jackson generator"));
+  }
+
+  private static byte[] serialize(Object value, JsonpMapper mapper) {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    JsonGenerator generator = mapper.jsonProvider().createGenerator(out);
+    mapper.serialize(value, generator);
+    generator.close();
+    return out.toByteArray();
   }
 
   // nullField is absent: the client's JacksonJsonpMapper leaves out null map values, at any depth, while

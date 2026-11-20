@@ -287,10 +287,10 @@ These documents were sent to the `{pipeline}_fail` Kafka topic. Consume that top
 jq 'select(.level == "ERROR" and .id != null)' lucille-json.log
 ```
 
-**In test mode** (Java), use the `RunResult` API to get failed document IDs programmatically:
+**In test mode** (Java), collect the IDs of FAIL events from the connector's `TestMessenger`:
 ```java
-RunResult result = Runner.runInTestMode(config);
-List<Event> events = result.getEvents("my-connector");
+TestMessenger history = Runner.runInTestMode(config).get("my-connector");
+List<Event> events = history.getSentEvents();
 List<String> failedIds = events.stream()
     .filter(e -> e.getType() == Event.Type.FAIL)
     .map(Event::getDocumentId)

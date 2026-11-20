@@ -130,8 +130,9 @@ In distributed mode, start a Worker as a separate process:
 
 ```bash
 java \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=<PATH/TO/YOUR/CONFIG.conf> \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.Worker \
   <pipeline-name>
 ```
@@ -152,8 +153,9 @@ The pipeline name argument tells the Worker which pipeline to run and which Kafk
 
 ```bash
 java \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=<PATH/TO/YOUR/CONFIG.conf> \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.WorkerIndexer \
   <pipeline-name>
 ```

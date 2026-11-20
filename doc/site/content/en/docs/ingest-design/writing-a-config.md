@@ -106,7 +106,7 @@ To validate your config without starting a run, use the `-validate` flag:
 java -Dconfig.file=my-config.conf -cp '...' com.kmwllc.lucille.core.Runner -validate
 ```
 
-All errors are reported together — not just the first one — so you can fix them all at once.
+All errors are reported together — not just the first one — so you can fix them all at once. The process exits with status 1 if the config has errors and 0 if it is valid, so a CI step can fail on an invalid config. Combined with `-render`, the config is printed first and the exit status is the same.
 
 Each built-in component declares a SPEC that enumerates its legal configuration properties. The validator checks your config against these SPECs. For details on how validation works internally and how to declare SPECs for custom components, see [SPEC Validation System]({{< relref "docs/developer-guide/spec-validation" >}}).
 

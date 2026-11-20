@@ -15,8 +15,9 @@ In streaming mode, Lucille runs without a Runner or Connector. An external syste
 
 ```bash
 java \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=/path/to/config.conf \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.Worker \
   my-pipeline-name
 ```
@@ -25,8 +26,9 @@ Or use `WorkerIndexer` to co-locate processing and indexing in one process:
 
 ```bash
 java \
+  -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
   -Dconfig.file=/path/to/config.conf \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  -cp 'lucille-all/target/lib/*' \
   com.kmwllc.lucille.core.WorkerIndexer \
   my-pipeline-name
 ```

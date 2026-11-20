@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core.filehandler;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -9,10 +10,21 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
+import java.io.ByteArrayInputStream;
 import java.util.Map;
 import org.junit.Test;
 
 public class FileHandlerTest {
+
+  @Test
+  public void testSupportsProcessFile() {
+    assertTrue(FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of()))).supportsProcessFile());
+    assertTrue(FileHandler.create("json", ConfigFactory.parseMap(Map.of("json", Map.of()))).supportsProcessFile());
+    FileHandler xml = FileHandler.create("xml",
+        ConfigFactory.parseMap(Map.of("xml", Map.of("xmlRootPath", "path", "xmlIdPath", "idPath"))));
+    assertFalse(xml.supportsProcessFile());
+    assertThrows(FileHandlerException.class, () -> xml.processFile(new ByteArrayInputStream(new byte[0]), "test.xml"));
+  }
 
   @Test
   public void testCreate() {

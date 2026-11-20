@@ -39,7 +39,7 @@ public class LocalStorageClient extends BaseStorageClient {
   protected void shutdownStorageClient() throws IOException { }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws IOException {
     Path root = toPath(params.getURI());
 
     // Fail rather than finish a traversal that saw nothing: with state, every file previously published under a missing

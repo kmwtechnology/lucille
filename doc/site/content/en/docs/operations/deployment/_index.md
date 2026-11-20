@@ -20,3 +20,4 @@ Choose a deployment mode based on your scale requirements. The same pipeline con
 | [Docker Compose]({{< relref "docker-compose" >}}) | Quick distributed setup with all components in containers |
 | [Kubernetes]({{< relref "kubernetes" >}}) | Production at scale with CronJobs, Deployments, and HPA |
 | [Production Operations]({{< relref "production-operations" >}}) | Memory sizing, backpressure, graceful shutdown, monitoring |
+| [UI]({{< relref "ui" >}}) | The Admin UI, served by the [REST API]({{< relref "docs/operations/api" >}}) — the API must be running |

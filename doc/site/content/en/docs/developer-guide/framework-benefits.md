@@ -150,11 +150,11 @@ You just call `publisher.publish(doc)` and the framework handles everything else
 
 ### What the framework handles (you don't have to)
 
-**Batching with size and timeout.** The base `Indexer` class accumulates documents in a `Batch` and flushes when either the configured `batchSize` is reached or `batchTimeoutMs` milliseconds have elapsed. Your `sendToIndex()` method receives a pre-batched list of documents. You never manage batch accumulation or timeout logic.
+**Batching with size and timeout.** The base `Indexer` class accumulates documents in a `Batch` and flushes when either the configured `batchSize` is reached or `batchTimeoutMs` milliseconds have elapsed. Your `sendToIndex()` method receives the batched documents in a `PendingSend`. You never manage batch accumulation or timeout logic.
 
 **MultiBatch for index routing.** When `indexOverrideField` is configured, the framework uses a `MultiBatch` that maintains separate batches per destination index, flushing them independently. Your implementation receives documents already grouped by destination.
 
-**Retry with exponential backoff.** When `indexer.maxRetries` is configured, the framework wraps your `sendToIndex()` call in a Resilience4j retry. If you throw an `IndexerRetryableException` with a status code in the configured retryable list, the framework retries automatically with exponential backoff. You just throw the right exception type; the framework handles retry logic.
+**Retry with exponential backoff.** When `indexer.maxRetries` is configured, the framework wraps your `sendToIndex()` call in a Resilience4j retry. If you throw an `IndexerRetryableException` with a status code in the configured retryable list, or return one as a document's failure, the framework retries automatically with exponential backoff. It keeps track of which documents were applied and resends only the ones still pending. You just use the right exception type; the framework handles retry logic.
 
 **Concurrent sends.** With `indexer.maxConcurrentBatches` above 1, the framework sends several batches to your backend at once, each on its own thread, calling your `sendToIndex()` from a pool. It never has two batches in flight that write the same destination id (a document's id, its `idOverrideField` value, or its children's ids), so an upsert and a delete of the same document still reach the backend in order. A batch containing a delete-by-query runs alone, and batches are completed (events emitted, Kafka offsets committed) in the order they were dispatched. You write the same single-batch `sendToIndex()`; see [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}).
 

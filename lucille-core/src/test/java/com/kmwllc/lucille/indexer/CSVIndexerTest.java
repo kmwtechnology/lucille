@@ -2,6 +2,7 @@ package com.kmwllc.lucille.indexer;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.IndexerContext;
+import com.kmwllc.lucille.core.PendingSend;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.ConfigValidator;
 import com.kmwllc.lucille.message.TestMessenger;
@@ -95,7 +96,7 @@ public class CSVIndexerTest {
     try {
       indexer = new CSVIndexer(config.getConfig("indexer"), new IndexerContext(messenger, false, "testing", null));
       // uses sendToIndex() rather than run() to demonstrate the flushing behavior before the indexer is shut down.
-      indexer.sendToIndex(List.of(doc, doc2));
+      indexer.sendToIndex(PendingSend.of(List.of(doc, doc2)));
       lines = Files.readAllLines(outputFile.toPath());
     } finally {
       if (indexer != null) {
@@ -262,7 +263,7 @@ public class CSVIndexerTest {
     List<String> lines;
     try {
       assertTrue(indexer.validateConnection());
-      indexer.sendToIndex(List.of(doc));
+      indexer.sendToIndex(PendingSend.of(List.of(doc)));
       lines = Files.readAllLines(outputFile.toPath());
     } finally {
       indexer.closeConnection();

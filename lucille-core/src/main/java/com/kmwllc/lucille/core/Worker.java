@@ -194,8 +194,12 @@ class Worker implements Runnable {
             log.debug("Poll ended by shutdown", e);
             break;
           }
+          // the failed poll may have advanced the consumer past records it did not return, so the consumer's position
+          // is not committed on exit. (A messenger that commits only completed records, as the hybrid one does from
+          // its close(), is unaffected.)
           log.error("Worker stopping: error polling for a document to process", e);
           failure = e;
+          commitOnExit = false;
           break;
         }
 

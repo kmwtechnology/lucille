@@ -1,5 +1,11 @@
 package com.kmwllc.lucille.connector;
 
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.LISTING_MODE;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_CONCURRENT_PATHS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_DOCUMENTS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.THREADS_PER_PATH;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.TRAVERSAL;
+
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import java.io.IOException;
@@ -57,10 +63,20 @@ import com.typesafe.config.Config;
  * <ul>
  *   <li>paths (List&lt;String&gt;, Required) : Paths or URIs to traverse (local paths or cloud storage URIs). s3 URIs must be
  *   percent-encoded; unencoded spaces or special characters will not be recognized. For example, use s3://test/folder%20with%20spaces.</li>
- *   <li>maxThreads (Int, Optional) : Number of threads to traverse the paths on. 1 traverses them sequentially.
- *   A larger value traverses them concurrently on up to that many threads, with paths beyond the cap waiting for a free
- *   thread. -1 uses one thread per path. Concurrent traversal requires that the paths do not overlap. Must be -1 or at
- *   least 1. Defaults to 1.</li>
+ *   <li>traversal.maxConcurrentPaths (Int, Optional) : The most paths to traverse at once. 1 traverses them one after
+ *   another. A larger value traverses them concurrently, each on its own thread, with paths beyond the cap waiting for a
+ *   free thread. -1 traverses every path at once. Concurrent traversal requires that the paths do not overlap, and can't
+ *   be combined with collapse. Must be -1 or at least 1. Defaults to 1.</li>
+ *   <li>traversal.threadsPerPath (Int, Optional) : The number of threads that traverse one path's directories. Only
+ *   s3, gs and https (azure) paths support a value above 1. Up to maxConcurrentPaths times this many threads list and
+ *   process files at once. Must be at least 1, and can't be above 1 with collapse. Defaults to 1.</li>
+ *   <li>traversal.maxDocuments (Long, Optional) : For s3, gs and https (azure) paths only. Once this many
+ *   documents have been published, no new file is started. Files already started are finished, so a few more documents
+ *   can be published. The count includes documents from file handlers and archives, and covers all of the connector's
+ *   paths. Must be at least 1. Can't be combined with state. No limit by default.</li>
+ *   <li>traversal.listingMode (String, Optional) : For s3, gs and https (azure) paths only. 'hierarchical' lists each
+ *   directory; 'flat' lists every key under the path at once, and can't be combined with threadsPerPath above 1 or
+ *   filterOptions.pathsToSkip. Defaults to 'flat' on s3 when neither of those is set, and otherwise to 'hierarchical'.</li>
  *   <li>filterOptions.includes (List&lt;String&gt;, Optional) : Regex patterns to include files.</li>
  *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
  *   <li>filterOptions.pathsToSkip (List&lt;String&gt;, Optional) : URIs of paths to directories that should be skipped and not traversed.</li>
@@ -180,7 +196,9 @@ public class FileConnector extends AbstractConnector {
 
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredList("paths", new TypeReference<List<String>>(){})
-      .optionalNumber("maxThreads")
+      .optionalParent(TRAVERSAL, SpecBuilder.withoutDefaults()
+          .optionalNumber(MAX_CONCURRENT_PATHS, THREADS_PER_PATH, MAX_DOCUMENTS)
+          .optionalString(LISTING_MODE).build())
       .optionalParent("filterOptions", SpecBuilder.withoutDefaults()
           .optionalList("includes", new TypeReference<List<String>>(){})
           .optionalList("excludes", new TypeReference<List<String>>(){})
@@ -204,7 +222,7 @@ public class FileConnector extends AbstractConnector {
 
   private final FileConnectorStateManager stateManager;
 
-  private final int maxThreads;
+  private final int maxConcurrentPaths;
   private final boolean concurrent;
 
   // Built at startup so that invalid fileOptions, filterOptions and fileHandlers fail there rather than when a
@@ -215,13 +233,13 @@ public class FileConnector extends AbstractConnector {
   public FileConnector(Config config) throws ConnectorException {
     super(config);
 
-    this.maxThreads = ConfigUtils.getIntOrDefault(config, "maxThreads", 1);
+    this.maxConcurrentPaths = ConfigUtils.getIntOrDefault(config, TRAVERSAL + "." + MAX_CONCURRENT_PATHS, 1);
 
-    if (maxThreads < 1 && maxThreads != -1) {
-      throw new IllegalArgumentException("maxThreads must be -1 or >= 1.");
+    if (maxConcurrentPaths < 1 && maxConcurrentPaths != -1) {
+      throw new IllegalArgumentException(TRAVERSAL + "." + MAX_CONCURRENT_PATHS + " must be -1 or at least 1, but was " + maxConcurrentPaths + ".");
     }
 
-    this.concurrent = maxThreads != 1;
+    this.concurrent = maxConcurrentPaths != 1;
 
     List<String> paths = config.getStringList("paths");
     this.storageURIs = new ArrayList<>();
@@ -280,11 +298,33 @@ public class FileConnector extends AbstractConnector {
 
     // A collapsing Publisher is not safe for concurrent publish() calls - it would merge and drop documents silently
     if (concurrent && requiresCollapsingPublisher()) {
-      throw new IllegalArgumentException("FileConnector does not support concurrent traversal and collapse. Set maxThreads to 1 or disable collapse.");
+      throw new IllegalArgumentException("FileConnector does not support concurrent traversal and collapse. Set "
+          + TRAVERSAL + "." + MAX_CONCURRENT_PATHS + " to 1 or disable collapse.");
+    }
+    if (startupParams.getThreadsPerPath() > 1 && requiresCollapsingPublisher()) {
+      throw new IllegalArgumentException("FileConnector does not support concurrent traversal and collapse. Set "
+          + TRAVERSAL + "." + THREADS_PER_PATH + " to 1 or disable collapse.");
+    }
+
+    // the files a capped traversal never reaches would look deleted, and be tombstoned and removed from state
+    if (startupParams.getMaxDocuments() != null && stateManager != null) {
+      throw new IllegalArgumentException(TRAVERSAL + "." + MAX_DOCUMENTS + " can't be combined with state: files the traversal "
+          + "doesn't reach would be treated as deleted.");
     }
 
     if (concurrent) {
       validateNonOverlappingPaths();
+    }
+
+    for (URI uri : storageURIs) {
+      StorageClient client = StorageClient.clientFor(uri, storageClientMap, config);
+      if (client != null) {
+        try {
+          client.validateTraversal(startupParams);
+        } catch (IllegalArgumentException e) {
+          throw new IllegalArgumentException("Can't traverse " + uri + ": " + e.getMessage(), e);
+        }
+      }
     }
 
     // lastPublishedCutoff is only applied in incremental mode with state; anywhere else it would be silently ignored
@@ -423,7 +463,7 @@ public class FileConnector extends AbstractConnector {
   }
 
   /**
-   * Traverses the storage paths concurrently, on up to maxThreads threads. Requires the paths to not overlap, so that
+   * Traverses the storage paths concurrently, up to maxConcurrentPaths at once. Requires the paths to not overlap, so that
    * concurrent traversals never touch the same row of the state database.
    */
   private void traversePathsConcurrently(Publisher publisher) throws ConnectorException {
@@ -431,7 +471,7 @@ public class FileConnector extends AbstractConnector {
         .namingPattern(ThreadNameUtils.createName("PathTraversal") + "-%d")
         .build();
     // -1 means one thread per path
-    int poolSize = maxThreads == -1 ? storageURIs.size() : Math.min(maxThreads, storageURIs.size());
+    int poolSize = maxConcurrentPaths == -1 ? storageURIs.size() : Math.min(maxConcurrentPaths, storageURIs.size());
     ExecutorService executor = Executors.newFixedThreadPool(poolSize, threadFactory);
 
     try {

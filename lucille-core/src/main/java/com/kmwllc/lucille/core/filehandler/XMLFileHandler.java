@@ -8,6 +8,7 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.XMLUtils;
 import com.typesafe.config.Config;
 import java.io.IOException;
+import org.apache.commons.io.input.CloseShieldInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
@@ -100,24 +101,36 @@ public class XMLFileHandler extends BaseFileHandler {
   }
 
   @Override
+  public boolean supportsProcessFile() {
+    return false;
+  }
+
+  @Override
   public Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException {
-    throw new FileHandlerException("Unsupported Operation");
+    throw new FileHandlerException("XMLFileHandler does not support processFile, only processFileAndPublish. (" + pathStr + ")");
   }
 
   @Override
   public void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException {
-    // set up Factory, parser, reader and handler
-    ChunkingXMLHandler xmlHandler = setUpParserReaderAndHandlerIfNeeded(publisher, pathStr);
+    // closed however this ends, including when setting up the parser fails before parsing starts
+    try {
+      // set up Factory, parser, reader and handler
+      ChunkingXMLHandler xmlHandler = setUpParserReaderAndHandlerIfNeeded(publisher, pathStr);
 
-    RecordingInputStream ris = new RecordingInputStream(inputStream, maxRecordBytes);
+      // the parser closes its input at the end of the document; shielded, so that the stream is closed only below
+      RecordingInputStream ris = new RecordingInputStream(CloseShieldInputStream.wrap(inputStream), maxRecordBytes);
 
-    setEncodingAndParse(xmlHandler, ris, pathStr);
+      setEncodingAndParse(xmlHandler, ris, pathStr);
+    } finally {
+      FileHandlerUtils.closeStream(inputStream, pathStr);
+    }
   }
 
   private void setEncodingAndParse(ChunkingXMLHandler xmlHandler, RecordingInputStream ris, String path) throws FileHandlerException {
     ris.setEncoding(encoding);
-    try (InputStreamReader inputStreamReader = new InputStreamReader(ris, encoding)) {
-      InputSource xmlSource = new InputSource(inputStreamReader);
+    // the reader is not closed here: it holds nothing but the stream, which processFileAndPublish closes
+    try {
+      InputSource xmlSource = new InputSource(new InputStreamReader(ris, encoding));
       xmlHandler.setRis(ris);
       xmlReader.parse(xmlSource);
     } catch (UnsupportedEncodingException e) {
@@ -192,7 +205,7 @@ public class XMLFileHandler extends BaseFileHandler {
     xmlHandler.setOutputField(outputField);
     xmlHandler.setPublisher(publisher);
     xmlHandler.setDocumentRootPath(xmlRootPath);
-    xmlHandler.setDocIDPrefix(docIdPrefix);
+    xmlHandler.setDocIdCreator(this::createDocId);
     xmlHandler.setSkipEmptyId(skipEmptyId);
 
     xmlReader.setContentHandler(xmlHandler);

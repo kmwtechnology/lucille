@@ -25,6 +25,16 @@ In a deployment the UI is a separate jar, `lucille-admin-ui.jar`, and the API se
 2. Replace the placeholders with your config file names or export them as environment variables. See [Configuration](#configuration) for more information
 3. Run the image, passing the auth password (required while auth is enabled): `docker run --env DROPWIZARD_CONF=${DROPWIZARD_CONF} --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 lucille-api`
 
+### Running with every plugin
+
+This module depends only on `lucille-core`, so the runs above can use core components only. To have every plugin's connectors, stages and indexers available (in the API and the UI), use `lucille-all`, which bundles this API with every plugin:
+
+- **From source:** run `mvn clean install -DskipTests -Padmin-ui` from the repo root, then, from the repo root:
+  `java -cp 'lucille-all/target/lib/*' com.kmwllc.lucille.api.APIApplication server lucille-plugins/lucille-api/conf/api.yml`
+- **Docker:** `docker run --env LUCILLE_ROLE=api --env LUCILLE_API_PASSWORD=<password> -p 8080:8080 kmwtechnology/lucille-all:<version>`, or build it with `docker build --target all -t lucille-all .` from the repo root. See [`doc/docker.md`](../../doc/docker.md).
+
+To add just one plugin instead, put its shaded jar (`-Pshaded-plugin-jars`) on the classpath next to this one.
+
 ### Upload Lucille Config
 1. This should be a HOCON file
 2. `curl -u user:${LUCILLE_API_PASSWORD} -X POST http://localhost:8080/v1/config -H "Content-Type: application/hocon" -d @${LUCILLE_CONF}` (drop `-u` if auth is disabled)
@@ -45,11 +55,7 @@ the table requires Basic Auth credentials, except the liveness and readiness pro
 |--------|------|-------------|------|
 | GET    | `/v1/livez`                          | Liveness probe — returns 200 if the process is running | — |
 | GET    | `/v1/readyz`                         | Readiness probe — returns 200 once the app is ready to serve | — |
-| GET    | `/v1/systemstats`                    | CPU, memory, and JVM resource usage | — |
 | GET    | `/v1/systemstats/metrics`            | Detailed metrics breakdown | — |
-| GET    | `/v1/config-info/connector-list`     | Lists the available connector classes | — |
-| GET    | `/v1/config-info/stage-list`         | Lists the available stage classes | — |
-| GET    | `/v1/config-info/indexer-list`       | Lists the available indexer classes | — |
 | POST   | `/v1/config`                         | Register a new Lucille config. Responds with a generated `configId` to use in `POST /v1/run`. You may store up to 10,000 Configs. | Full Lucille config as JSON (see [Upload Lucille Config](#upload-lucille-config)) |
 | GET    | `/v1/config`                         | List all registered configs, keyed by `configId` | — |
 | GET    | `/v1/config/{configId}`              | Get a specific registered config | — |
@@ -70,29 +76,6 @@ curl -k -u user:${LUCILLE_API_PASSWORD} https://localhost:8443/v1/run
 
 The API Configuration file can be supplied via the `DROPWIZARD_CONF` environment variable. If building via Docker, this file should
 reside in the `conf/` directory, or be mounted as volume when starting the Docker container (more details in Dockerfile).
-
-### Giving the API access to custom components
-
-By default, the `/v1/config-info/*` endpoints only know about Stage, Connector, 
-and Indexer implementations under `com.kmwllc.lucille`. To make the API aware of
-custom implementations shipped in other packages, pass their package prefixes using
-the `scan.extra.packages` system property at startup:
-
-```
--Dscan.extra.packages=com.company.lucille
-```
-
-The value is a comma-separated list of package prefixes without spaces. Subpackages
-are included automatically; `com.company.lucille` covers `com.company.lucille.stage`,
-`com.company.lucille.indexer`, for example. To register components from multiple
-sources:
-
-```
-java -Dscan.extra.packages=com.company.lucille,com.other.lucille \
-   -jar target/lucille-api-X.X.X-SNAPSHOT.jar server ${DROPWIZARD_CONF}
-```
-
-If unset, only `com.kmwllc.lucille` will be scanned.
 
 ### DropWizard Configuration
 
@@ -237,31 +220,20 @@ to place these "included" configs in another directory so they are not loaded by
 **Note:** Environment variables for preset configs are resolved _once_ during the initialization of the API. They are not reevaluated 
 while the API is in use.
 
-## Logging and Integration Testing with Dropwizard
+## Logging
 
-### Important Notes for Logging Configuration
+The API logs through Log4j2 with Lucille's default configuration (`lucille-log4j2.xml` from `lucille-logging`), the same as the CLI and the `lucille` Docker image: console output plus files under `./log/`. Pipelines started through the API log the same way.
 
-The lucille-api module uses Dropwizard, which is tightly coupled with Logback for logging, especially during integration and test runs. If you attempt to use Log4j2 or mix multiple SLF4J providers (e.g., log4j-slf4j2-impl and logback-classic), you will encounter errors such as:
+- **Custom configuration:** pass `-Dlog4j2.configurationFile=/path/to/log4j2.xml`. Without it, the API uses the bundled `classpath:lucille-log4j2.xml`.
+- **Docker image:** the image ships an editable copy at `/lucille-api/conf/log4j2.xml` and writes log files to `/lucille-api/log`. Set `LUCILLE_LOG4J_CONF` to use a different file.
 
-- `NoClassDefFoundError: ch/qos/logback/classic/LoggerContext`
-- `IllegalStateException: Unable to acquire the logger context`
-- SLF4J multiple provider warnings
+### Why Logback is on the classpath too
 
-#### **Best Practices for Integration Tests:**
-- **Use only Logback for integration and test runs.**
-- Remove all log4j2 dependencies and configuration files from the classpath for tests.
-- Ensure only `logback-classic` is present as a test dependency in your `pom.xml`.
-- Exclude `log4j-slf4j2-impl` from any transitive dependencies (such as lucille-core) to prevent SLF4J provider conflicts.
-- If you want to use Log4j2 for production, you can do so in your main application module, but keep Logback for Dropwizard-based tests.
+Dropwizard depends on Logback directly, so `logback-classic` stays on the classpath even though the API doesn't log through it. With two SLF4J providers present, `APIApplication` selects Log4j2 by setting `slf4j.provider` (and a default `log4j2.configurationFile`) before its logger is created, unless you set either property yourself. Because Log4j2 is the backend, `api.yml` keeps `logging: type: external`, Dropwizard's `logging:` block does not configure anything, and Dropwizard's `log-level` admin task does not work. Set levels in `log4j2.xml` instead.
 
-#### **Troubleshooting**
-If you see logger context or SLF4J errors during integration tests:
-- Make sure no log4j2 SLF4J bridge jars are present in the test classpath.
-- Check your dependency tree for `log4j-slf4j2-impl` and exclude it if found.
-- Make sure only one SLF4J provider (logback-classic) is on the test classpath.
-- Free up any ports (e.g., 8080) required by integration tests before running them.
+### Tests
 
-This setup ensures reliable Dropwizard integration testing and avoids logger conflicts.
+Dropwizard's test support (`ResourceExtension`, `DropwizardAppExtension`) bootstraps Logback directly and fails with errors such as `Unable to acquire the logger context` if Log4j2 is the provider. The module's surefire configuration therefore sets `slf4j.provider` to Logback for tests. If you run the tests outside Maven, pass `-Dslf4j.provider=ch.qos.logback.classic.spi.LogbackServiceProvider`.
 
 **Note**: The API will only store details for the last 10,000 runs. If you need this information,
 you will need to persist it yourself. Similarly, only 10,000 configs can be stored by the API.

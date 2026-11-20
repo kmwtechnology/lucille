@@ -57,10 +57,14 @@ connectors: [
     # Path(s) to the source file(s)
     paths: ["my-source.csv"]
 
-    # Apply the CSV file handler (with default options) to *.csv files.
+    # Apply the CSV file handler to *.csv files.
     # Each CSV file is parsed row by row; one Document is emitted per row.
+    # idField uses the "id" column as the Document id. Without it, ids are
+    # generated from the file path and row number.
     fileHandlers: {
-      csv: {}
+      csv: {
+        idField: "id"
+      }
     }
   }
 ]
@@ -86,9 +90,10 @@ pipelines: [
       # Stage 2: Add a static field to every document
       {
         name: "add-source-tag"
-        class: "com.kmwllc.lucille.stage.SetStaticFieldValue"
-        fieldName: "source"
-        fieldValue: "my-first-pipeline"
+        class: "com.kmwllc.lucille.stage.SetStaticValues"
+        staticValues: {
+          source: "my-first-pipeline"
+        }
       }
     ]
   }
@@ -115,23 +120,38 @@ indexer {
 
 ## Step 3: Run It
 
+From the repository root:
+
 ```bash
-java -Dconfig.file=my-first-pipeline.conf \
-  -cp 'lucille-core/target/lucille-core-*.jar:lucille-core/target/lib/*' \
+java -Dlog4j2.configurationFile=classpath:lucille-log4j2.xml \
+  -Dconfig.file=my-first-pipeline.conf \
+  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*:lucille-logging/target/lucille-logging.jar:lucille-logging/target/lib/*' \
   com.kmwllc.lucille.core.Runner
 ```
+
+The classpath needs `lucille-logging` as well as `lucille-core`: core ships only the SLF4J API, so without the logging module you get `No SLF4J providers were found` and no log output. The `-Dlog4j2.configurationFile` flag selects the Lucille logging config; without it, Log4j2 logs only errors.
+
+Alternatively, run the published `kmwtechnology/lucille` Docker image, which already contains core and logging. Mount the directory holding your files and point `LUCILLE_CONF` at the config:
+
+```bash
+docker run --rm -v "$PWD":/lucille/work -w /lucille/work \
+  -e LUCILLE_CONF=/lucille/work/my-first-pipeline.conf \
+  kmwtechnology/lucille:VERSION.0
+```
+
+The container runs as a non-root `lucille` user. On Linux, add `--user "$(id -u):$(id -g)"` if it can't write `my-output.csv` into the mounted directory.
 
 ## Step 4: Check the Output
 
 Open `my-output.csv`:
 
 ```csv
-id,book_title,author,year,source
-1,The Great Gatsby,F. Scott Fitzgerald,1925,my-first-pipeline
-2,To Kill a Mockingbird,Harper Lee,1960,my-first-pipeline
-3,1984,George Orwell,1949,my-first-pipeline
-4,Pride and Prejudice,Jane Austen,1813,my-first-pipeline
-5,The Catcher in the Rye,J.D. Salinger,1951,my-first-pipeline
+"id","book_title","author","year","source"
+"1","The Great Gatsby","F. Scott Fitzgerald","1925","my-first-pipeline"
+"2","To Kill a Mockingbird","Harper Lee","1960","my-first-pipeline"
+"3","1984","George Orwell","1949","my-first-pipeline"
+"4","Pride and Prejudice","Jane Austen","1813","my-first-pipeline"
+"5","The Catcher in the Rye","J.D. Salinger","1951","my-first-pipeline"
 ```
 
 The `title` field was renamed to `book_title`, and a `source` field was added to every document.
@@ -141,18 +161,29 @@ The `title` field was renamed to `book_title`, and a `source` field was added to
 You should see output like:
 
 ```
-INFO  Runner: Pipeline Configuration is valid.
-INFO  Runner: Connector Configuration is valid.
-INFO  Runner: Indexer Configuration is valid.
-INFO  Runner: Starting run with id ...
-INFO  Runner: Running connector csv-reader feeding to pipeline my-pipeline
-INFO  PublisherImpl: First doc published after ... ms
-INFO  WorkerPool: 5 docs processed. One minute rate: ... docs/sec. Mean pipeline latency: ... ms/doc.
-INFO  Stage: Stage rename-title metrics. Docs processed: 5. Mean latency: ... ms/doc. Children: 0. Errors: 0.
-INFO  Stage: Stage add-source-tag metrics. Docs processed: 5. Mean latency: ... ms/doc. Children: 0. Errors: 0.
-INFO  Runner: RUN SUMMARY: Success. 1/1 connectors complete. All published docs succeeded.
-INFO  Runner: Run took ... secs.
+... INFO ConfigValidator: Pipeline Configuration is valid.
+... INFO ConfigValidator: Connector Configuration is valid.
+... INFO ConfigValidator: Indexer Configuration is valid.
+... INFO ConfigValidator: Other (Publisher, Runner, etc.) Configuration is valid.
+... INFO Runner: Starting run with id <run-id>
+... INFO WorkerPool: Starting 1 worker threads for pipeline my-pipeline
+... INFO Runner: Running connector csv-reader feeding to pipeline my-pipeline
+... INFO PublisherImpl: First doc published after ... ms
+... INFO PublisherImpl: 5 docs published. 0 children created. 5 success events. 0 failure events. 0 drop events.
+... INFO PublisherImpl: All documents SUCCEEDED.
+... INFO Runner: Connector csv-reader feeding to pipeline my-pipeline complete. Time: ... secs.
+... INFO Stage: Stage rename-title metrics. Docs processed: 5. Mean latency: ... ms/doc. Children: 0. Errors: 0.
+... INFO Stage: Stage add-source-tag metrics. Docs processed: 5. Mean latency: ... ms/doc. Children: 0. Errors: 0.
+... INFO Runner:
+
+RUN SUMMARY: Success. 1/1 connectors complete. All published docs succeeded.
+
+csv-reader: complete. 5 docs succeeded. 0 docs failed. 0 docs dropped. Time: ... secs.
+
+... INFO Runner: Run took ... secs.
 ```
+
+Each line starts with a timestamp and the run id, shown here as `...`. A few lines vary between runs: periodic `WorkerPool: N docs processed` metrics lines can appear, and the publisher's rate lines are omitted here.
 
 ## Understanding the Config Structure
 
@@ -198,13 +229,13 @@ Replace the CSV indexer with a real search backend — OpenSearch, Elasticsearch
 ```hocon
 indexer {
   opensearch {
-    url: ${?OPENSEARCH_URL}
+    url: "http://localhost:9200"
     index: "my-books"
   }
 }
 ```
 
-That's the only change. The connector, the pipeline, the stages — everything else stays exactly the same. If you later want to switch from OpenSearch to Solr, you change the `indexer` block and add a `solr {}` block. No code, no build cycle, no rewrite.
+This needs the `lucille-opensearch` plugin on the classpath: run with the `kmwtechnology/lucille-all` image, or with `-cp 'lucille-all/target/lib/*'` after a source build. Other than that, the indexer block is the only change. The connector, the pipeline, the stages — everything else stays exactly the same. If you later want to switch from OpenSearch to Solr, you change the `indexer` block and add a `solr {}` block. No code, no build cycle, no rewrite.
 
 ### 2. Iterate on your pipeline
 

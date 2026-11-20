@@ -7,7 +7,7 @@
     <parent>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-plugins</artifactId>
-      <version>0.13.0-SNAPSHOT</version>
+      <version>1.0.0-SNAPSHOT</version>
       <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -20,6 +20,11 @@
            Pin the whole Jetty 12.1.x set to 12.1.13 via the Jetty BOMs (modules must share one version). -->
       <jetty.version>12.1.13</jetty.version>
       <jjwt.version>0.12.6</jjwt.version>
+      <!-- Lifecycle phase the generate-json-docs execution below is bound to. "none" skips it. The step writes the
+           Javadoc JSON files that the ConfigInfo endpoints read, and ConfigInfo is not registered in APIApplication.
+           Both are kept because they may be used again. Activate the generate-json-docs profile to run the step:
+           mvn package -Pgenerate-json-docs -->
+      <generate-json-docs.phase>none</generate-json-docs.phase>
     </properties>
 
     <dependencyManagement>
@@ -35,6 +40,13 @@
           <groupId>org.eclipse.jetty.ee10</groupId>
           <artifactId>jetty-ee10-bom</artifactId>
           <version>${jetty.version}</version>
+          <type>pom</type>
+          <scope>import</scope>
+        </dependency>
+        <dependency>
+          <groupId>io.opentelemetry</groupId>
+          <artifactId>opentelemetry-bom</artifactId>
+          <version>${opentelemetry.version}</version>
           <type>pom</type>
           <scope>import</scope>
         </dependency>
@@ -123,7 +135,17 @@
         <version>${slf4j.version}</version>
       </dependency>
 
-      <!-- ConfigInfo scans the classpath for components and parses their javadoc. Versions match lucille-core's. -->
+      <!-- Lucille's logging backend (log4j2) and default config, the same as the CLI and the lucille image use.
+           Logback stays on the classpath below because Dropwizard's classes need it, so APIApplication selects log4j2
+           at startup; the tests select Logback (see surefire below). -->
+      <dependency>
+        <groupId>com.kmwllc</groupId>
+        <artifactId>lucille-logging</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
+      <!-- Used by ConfigInfo, which scans the classpath for components and parses their javadoc. ConfigInfo is not
+           currently registered; these stay so that it still compiles and can be restored. Versions match lucille-core's. -->
       <dependency>
         <groupId>io.github.classgraph</groupId>
         <artifactId>classgraph</artifactId>
@@ -133,13 +155,6 @@
         <groupId>org.jsoup</groupId>
         <artifactId>jsoup</artifactId>
         <version>1.23.2</version>
-      </dependency>
-
-      <!-- OSHI for system-level stats -->
-      <dependency>
-        <groupId>com.github.oshi</groupId>
-        <artifactId>oshi-core</artifactId>
-        <version>6.4.1</version>
       </dependency>
 
       <dependency>
@@ -152,7 +167,7 @@
       <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-classic</artifactId>
-        <version>1.6.3</version>
+        <version>1.6.6</version>
       </dependency>
 
       <dependency>
@@ -206,6 +221,14 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.2.4</version>
+                <!-- Provides Log4j2PluginCacheFileTransformer (used below) -->
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-transform-maven-shade-plugin-extensions</artifactId>
+                        <version>0.2.0</version>
+                    </dependency>
+                </dependencies>
                 <configuration>
                 <finalName>${project.artifactId}-plugin</finalName>
                     <createDependencyReducedPom>false</createDependencyReducedPom>
@@ -229,6 +252,9 @@
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                                <!-- Merges each log4j2 jar's Log4j2Plugins.dat. Without it only log4j-core's survives, and
+                                     plugins from other jars (JsonTemplateLayout, the OpenSearch appender) are not found. -->
+                                <transformer implementation="org.apache.logging.log4j.maven.plugins.shade.transformer.Log4j2PluginCacheFileTransformer" />
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.kmwllc.lucille.api.APIApplication</mainClass>
                                 </transformer>
@@ -245,7 +271,7 @@
               <executions>
                 <execution>
                   <id>generate-json-docs</id>
-                  <phase>generate-resources</phase>
+                  <phase>${generate-json-docs.phase}</phase>
                   <goals><goal>exec</goal></goals>
                   <configuration>
                     <executable>bash</executable>
@@ -257,6 +283,51 @@
                 </execution>
               </executions>
             </plugin>
+
+            <!-- Copies lucille-logging's default config to target/conf/lucille-log4j2.xml, which the Dockerfile ships as the
+                 editable conf/log4j2.xml (the Docker build context is this module, so it cannot reach lucille-logging). -->
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-resources-plugin</artifactId>
+              <executions>
+                <execution>
+                  <id>copy-log4j2-config</id>
+                  <phase>prepare-package</phase>
+                  <goals><goal>copy-resources</goal></goals>
+                  <configuration>
+                    <outputDirectory>${project.build.directory}/conf</outputDirectory>
+                    <resources>
+                      <resource>
+                        <directory>${project.basedir}/../../lucille-logging/src/main/resources</directory>
+                        <includes>
+                          <include>lucille-log4j2.xml</include>
+                        </includes>
+                      </resource>
+                    </resources>
+                  </configuration>
+                </execution>
+              </executions>
+            </plugin>
+
+            <!-- Dropwizard's test support (ResourceExtension, DropwizardAppExtension) bootstraps Logback directly, so the
+                 tests select Logback as the SLF4J provider. The API itself selects log4j2 (see APIApplication). -->
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-surefire-plugin</artifactId>
+              <configuration>
+                <systemPropertyVariables>
+                  <slf4j.provider>ch.qos.logback.classic.spi.LogbackServiceProvider</slf4j.provider>
+                </systemPropertyVariables>
+              </configuration>
+            </plugin>
         </plugins>
     </build>
+    <profiles>
+      <profile>
+        <id>generate-json-docs</id>
+        <properties>
+          <generate-json-docs.phase>generate-resources</generate-json-docs.phase>
+        </properties>
+      </profile>
+    </profiles>
 </project>

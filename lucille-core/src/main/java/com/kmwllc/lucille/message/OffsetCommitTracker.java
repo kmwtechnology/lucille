@@ -74,6 +74,8 @@ class OffsetCommitTracker {
   private static final Logger log = LoggerFactory.getLogger(OffsetCommitTracker.class);
 
   private final Consumer<?, ?> consumer;
+  // Times each commit and counts the ones that throw. Null when the caller has none (some tests).
+  private final KafkaConsumerMetrics metrics;
 
   // Run at the start of onPartitionsRevoked, before offsets are committed: the Indexer flushes its open batch and
   // drains in-flight batches so their offsets reach pendingOffsets and are committed before the partition is handed
@@ -94,7 +96,24 @@ class OffsetCommitTracker {
   private final Map<TopicPartition, Set<Long>> notSent = new HashMap<>();
 
   OffsetCommitTracker(Consumer<?, ?> consumer) {
+    this(consumer, null);
+  }
+
+  /**
+   * @param metrics times every commit this tracker sends to the consumer, including the one made on revocation, and
+   *     counts those that throw; may be null
+   */
+  OffsetCommitTracker(Consumer<?, ?> consumer, KafkaConsumerMetrics metrics) {
     this.consumer = consumer;
+    this.metrics = metrics;
+  }
+
+  private void commitSync(Map<TopicPartition, OffsetAndMetadata> offsets) {
+    if (metrics == null) {
+      consumer.commitSync(offsets);
+    } else {
+      metrics.commit(() -> consumer.commitSync(offsets));
+    }
   }
 
   /** The rebalance listener to register with the consumer's subscription, so revocations are handled here. */
@@ -248,7 +267,7 @@ class OffsetCommitTracker {
       return;
     }
     Map<TopicPartition, OffsetAndMetadata> toCommit = new HashMap<>(pendingOffsets);
-    consumer.commitSync(toCommit);
+    commitSync(toCommit);
     toCommit.forEach(pendingOffsets::remove);
   }
 
@@ -278,7 +297,7 @@ class OffsetCommitTracker {
       }
       if (!toCommit.isEmpty()) {
         try {
-          consumer.commitSync(toCommit);
+          commitSync(toCommit);
         } catch (Exception e) {
           log.warn("Could not commit offsets {} on revocation; those documents will be re-delivered.", toCommit, e);
         }

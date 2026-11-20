@@ -12,6 +12,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.xml.parsers.DocumentBuilder;
@@ -56,7 +57,8 @@ class ChunkingXMLHandler implements ContentHandler, DeclHandler {
 
   private boolean skipEmptyId;
 
-  private String docIDPrefix = "";
+  // applies the handler's docIdPrefix; see BaseFileHandler.createDocId
+  private UnaryOperator<String> docIdCreator = UnaryOperator.identity();
   private RecordingInputStream ris;
 
   // the file's internal general entities, name to replacement text; only collected when a DOCTYPE is allowed
@@ -143,14 +145,14 @@ class ChunkingXMLHandler implements ContentHandler, DeclHandler {
 
       // always publish a Document we successfully got *some* usable ID String for; a blank one counts as none
       if (Document.isValidId(id)) {
-        Document doc = Document.create(docIDPrefix + id);
+        Document doc = Document.create(docIdCreator.apply(id));
         doc.setField(outputField, xml);
         internalPublishDocument(doc);
       } else if (!skipEmptyId) {
         // if we didn't get the id from evaluating the docIDExpression / using docIdPathStr, use a random UUID
         id = UUID.randomUUID().toString();
 
-        Document doc = Document.create(docIDPrefix + id);
+        Document doc = Document.create(docIdCreator.apply(id));
         doc.setField(outputField, xml);
         internalPublishDocument(doc);
       } else {
@@ -260,12 +262,12 @@ class ChunkingXMLHandler implements ContentHandler, DeclHandler {
     this.docIdExpression = xpath.compile(xpathIdPath);
   }
 
-  public String getDocIDPrefix() {
-    return docIDPrefix;
-  }
-
-  public void setDocIDPrefix(String docIDPrefix) {
-    this.docIDPrefix = docIDPrefix;
+  /**
+   * Sets how the id of each published Document is created from the id read from its record. XMLFileHandler passes its
+   * createDocId, which applies docIdPrefix.
+   */
+  public void setDocIdCreator(UnaryOperator<String> docIdCreator) {
+    this.docIdCreator = docIdCreator;
   }
 
   public RecordingInputStream getRis() {

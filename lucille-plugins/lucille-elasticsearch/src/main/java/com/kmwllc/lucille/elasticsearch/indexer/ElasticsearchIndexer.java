@@ -19,6 +19,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerFailure;
+import com.kmwllc.lucille.core.PendingSend;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.KafkaDocument;
@@ -203,7 +204,8 @@ public class ElasticsearchIndexer extends Indexer {
   }
 
   @Override
-  protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
+  protected List<IndexerFailure> sendToIndex(PendingSend send) throws IndexerException {
+    List<Document> documents = send.documents();
     Map<String, Document> documentsToUpload = new LinkedHashMap<>();
     // the document that marked each id for deletion, so deleteById can send its version
     Map<String, Document> idsToDelete = new LinkedHashMap<>();
@@ -311,7 +313,7 @@ public class ElasticsearchIndexer extends Indexer {
           continue;
         }
         // a 409 on a versioned delete means the index already holds this version or a newer one: either this delete
-        // was applied on an earlier attempt of the batch (a retry resends it), or a newer document superseded it
+        // was applied on an earlier attempt that then threw (a retry resends it), or a newer document superseded it
         if (item.status() == 409 && i < versioned.size() && versioned.get(i)) {
           log.debug("Versioned delete of id: {} already applied or superseded: {}", item.id(), item.error().reason());
           continue;

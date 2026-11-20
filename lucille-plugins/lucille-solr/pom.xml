@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-plugins</artifactId>
-    <version>0.13.0-SNAPSHOT</version>
+    <version>1.0.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -25,7 +25,9 @@
     <dependencies>
       <!-- Pin OTel API/context — solr-core 10 requires 1.56.0+; some transitives pull older versions that
            lack DoubleGauge. Moved here from lucille-parent once Solr became the only consumer of the pin
-           (elasticsearch-java, the other former consumer, now lives in lucille-elasticsearch). -->
+           (elasticsearch-java, the other former consumer, now lives in lucille-elasticsearch).
+           Not ${opentelemetry.version}: Solr 10's embedded test server needs the 1.56 SDK (test deps below),
+           which breaks on API 1.67. -->
       <dependency>
         <groupId>io.opentelemetry</groupId>
         <artifactId>opentelemetry-api</artifactId>

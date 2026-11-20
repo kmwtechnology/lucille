@@ -60,13 +60,22 @@ classpath.
 
 From the repository root, build the API jar and the UI jar (Maven installs its own pinned Node for
 the UI, so no local Node is needed), then start the API with both on the classpath. `conf/api.yml`
-ships with auth disabled, so no credentials are needed.
+enables auth and reads the password from `LUCILLE_API_PASSWORD`, which is also what you sign in with.
 
 ```bash
 mvn -B -Pshaded-plugin-jars -Padmin-ui -pl lucille-plugins/lucille-api,lucille-plugins/lucille-api/lucille-admin-ui -am package -DskipTests
 cd lucille-plugins/lucille-api
+export LUCILLE_API_PASSWORD=<password>
 java -cp 'target/lucille-api-plugin.jar:lucille-admin-ui/target/lucille-admin-ui.jar' \
   com.kmwllc.lucille.api.APIApplication server conf/api.yml
+```
+
+That API only has `lucille-core`'s components. To get every plugin's components in the UI, run it
+from `lucille-all`'s classpath instead (from the repository root, after `mvn clean install -DskipTests -Padmin-ui`):
+
+```bash
+java -cp 'lucille-all/target/lib/*' \
+  com.kmwllc.lucille.api.APIApplication server lucille-plugins/lucille-api/conf/api.yml
 ```
 
 Then open:
@@ -145,8 +154,9 @@ http://<api-host>:8080/admin
 
 The servlet falls back to `index.html` for client-side routes (for example
 `/admin/configs/<id>`), so refreshing or deep-linking into the app works. When the UI jar is not on
-the classpath, the API does not register the servlet and `/admin` is not served. The released Docker
-image includes both jars.
+the classpath, the API does not register the servlet and `/admin` is not served. The released
+`lucille-api` Docker image includes both jars, and so does the `lucille-all` image (run it with
+`LUCILLE_ROLE=api`), which also has every plugin.
 
 ## Project layout
 
