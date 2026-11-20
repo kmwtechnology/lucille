@@ -1,6 +1,6 @@
 ---
 title: ApplyOcr
-weight: 120
+weight: 140
 date: 2025-06-09
 description: Performs optical character recognition on image and PDF files using Tesseract, with optional template-based form extraction.
 ---

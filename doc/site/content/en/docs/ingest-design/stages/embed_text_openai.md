@@ -1,6 +1,6 @@
 ---
 title: EmbedTextOpenAI
-weight: 330
+weight: 360
 aliases:
   - /docs/ingest-design/stages/openai_embed/
 date: 2025-06-09

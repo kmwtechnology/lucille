@@ -1,6 +1,6 @@
 ---
 title: HashFieldValueToBucket
-weight: 420
+weight: 450
 date: 2025-06-09
 description: Assigns each Document to one of a list of bucket labels by hashing, and writes the label to a field.
 ---

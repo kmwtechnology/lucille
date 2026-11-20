@@ -1,6 +1,6 @@
 ---
 title: EmbedTextJlama
-weight: 320
+weight: 350
 aliases:
   - /docs/ingest-design/stages/jlama_embed/
 date: 2025-06-09

@@ -1,6 +1,6 @@
 ---
 title: DecodeBase64
-weight: 250
+weight: 280
 aliases:
   - /docs/ingest-design/stages/base64_decode/
 date: 2025-06-09

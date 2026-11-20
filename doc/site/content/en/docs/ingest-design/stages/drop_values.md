@@ -1,6 +1,6 @@
 ---
 title: DropValues
-weight: 300
+weight: 330
 date: 2025-06-09
 description: Removes values that exactly match a given list from the source fields.
 ---

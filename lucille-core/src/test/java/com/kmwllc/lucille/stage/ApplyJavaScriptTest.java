@@ -22,9 +22,9 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertThrows;
 
-public class RunJavaScriptTest {
+public class ApplyJavaScriptTest {
 
-  private final StageFactory factory = StageFactory.of(RunJavaScript.class);
+  private final StageFactory factory = StageFactory.of(ApplyJavaScript.class);
 
   private Stage stageWithInlineScript(String js) throws StageException {
     Config conf = ConfigFactory.empty()
@@ -42,7 +42,7 @@ public class RunJavaScriptTest {
    */
   @Test
   public void testValidExternalScript() throws StageException {
-    Stage stage = factory.get("RunJavaScriptTest/valid.conf");
+    Stage stage = factory.get("ApplyJavaScriptTest/valid.conf");
 
     Document d1 = Document.create("d1");
     d1.setField("a", 2);
@@ -87,7 +87,7 @@ public class RunJavaScriptTest {
   public void testBadScriptPath() {
     assertThrows(StageException.class,
         // Non-existent script path
-        () -> factory.get("RunJavaScriptTest/badPath.conf"));
+        () -> factory.get("ApplyJavaScriptTest/badPath.conf"));
   }
 
   @Test

@@ -1,6 +1,6 @@
 ---
 title: ApplyXPath
-weight: 150
+weight: 180
 aliases:
   - /docs/ingest-design/stages/xpath_extractor/
 date: 2025-06-09

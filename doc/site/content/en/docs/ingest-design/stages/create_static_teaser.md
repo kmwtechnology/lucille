@@ -1,6 +1,6 @@
 ---
 title: CreateStaticTeaser
-weight: 240
+weight: 270
 date: 2025-06-09
 description: Creates a teaser of at most a given number of characters from text fields.
 ---

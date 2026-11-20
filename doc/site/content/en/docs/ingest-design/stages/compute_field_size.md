@@ -1,6 +1,6 @@
 ---
 title: ComputeFieldSize
-weight: 180
+weight: 210
 date: 2025-06-09
 description: Stores the length in bytes of a byte array field.
 ---

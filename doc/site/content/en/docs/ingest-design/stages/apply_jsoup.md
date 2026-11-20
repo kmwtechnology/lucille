@@ -1,6 +1,6 @@
 ---
 title: ApplyJsoup
-weight: 110
+weight: 130
 date: 2025-06-09
 description: Parses HTML using JSoup and extracts text, attribute values, or HTML using CSS selectors.
 ---

@@ -1,6 +1,6 @@
 ---
 title: NormalizeFieldNames
-weight: 440
+weight: 470
 date: 2025-06-09
 description: Renames fields by replacing spaces with underscores and removing other non-alphanumeric characters.
 ---

@@ -63,7 +63,7 @@ import java.util.Set;
  *   <li>storageClients (Map, Optional) : If your javascript file is held in storage with a custom StorageClient. See FileConnector for the appropriate arguments to provide.</li>
  * </ul>
  */
-public class RunJavaScript extends Stage {
+public class ApplyJavaScript extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("scriptPath")
@@ -77,7 +77,7 @@ public class RunJavaScript extends Stage {
   private Context context;
   private Engine engine;
 
-  public RunJavaScript(Config config) {
+  public ApplyJavaScript(Config config) {
     super(config);
     this.scriptPath = ConfigUtils.getStringOrDefault(config, "scriptPath", null);
     this.inlineScript = ConfigUtils.getStringOrDefault(config, "script", null);

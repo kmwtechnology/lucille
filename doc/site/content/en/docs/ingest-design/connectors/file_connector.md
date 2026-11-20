@@ -112,7 +112,7 @@ s3 {
 
 ### Azure Hosts
 
-An `https` URI is only read with the Azure client if its authority (host and port) contains one of `azure.allowedHosts`, which defaults to `["blob.core.windows.net"]`. This is a substring match. It applies both to `paths` and to files read by stages, such as the script for `RunJavaScript` or the URIs fetched by `FetchFileContent`. An `https` path on any other host fails at startup, and a stage reading one fails with `No Storage Client available`. Set it to read from an Azure-compatible endpoint on another hostname. The setting only selects the Azure client: requests go to the endpoint given by the Azure credentials, so that endpoint must also be in `connectionString`. The list replaces the default, so include `blob.core.windows.net` if you still need it.
+An `https` URI is only read with the Azure client if its authority (host and port) contains one of `azure.allowedHosts`, which defaults to `["blob.core.windows.net"]`. This is a substring match. It applies both to `paths` and to files read by stages, such as the script for `ApplyJavaScript` or the URIs fetched by `FetchFileContent`. An `https` path on any other host fails at startup, and a stage reading one fails with `No Storage Client available`. Set it to read from an Azure-compatible endpoint on another hostname. The setting only selects the Azure client: requests go to the endpoint given by the Azure credentials, so that endpoint must also be in `connectionString`. The list replaces the default, so include `blob.core.windows.net` if you still need it.
 
 ```hocon
 azure {
@@ -159,7 +159,7 @@ Rules:
 - `file` can't be configured: local files are always read with the built-in client.
 - Schemes must be at least two characters long, since one-letter schemes are read as Windows drive letters.
 
-The same settings apply to stages that read files by URI, such as `FetchFileContent` and `RunJavaScript`. See [Developing Storage Clients]({{< relref "docs/developer-guide/developing-storage-clients" >}}).
+The same settings apply to stages that read files by URI, such as `FetchFileContent` and `ApplyJavaScript`. See [Developing Storage Clients]({{< relref "docs/developer-guide/developing-storage-clients" >}}).
 
 ---
 

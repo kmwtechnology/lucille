@@ -1,6 +1,6 @@
 ---
 title: ParseFloats
-weight: 480
+weight: 510
 date: 2025-06-09
 description: Parses a JSON array string into a multi-valued field of floats.
 ---

@@ -23,9 +23,9 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
-public class RunPythonTest {
+public class ApplyPythonTest {
 
-  private final StageFactory factory = StageFactory.of(RunPython.class);
+  private final StageFactory factory = StageFactory.of(ApplyPython.class);
 
   private Stage stageWithInline(String py) throws StageException {
     Config conf = ConfigFactory.empty().withValue("script", ConfigValueFactory.fromAnyRef(py));
@@ -44,7 +44,7 @@ public class RunPythonTest {
 
   @Test
   public void testValidExternalScript() throws StageException {
-    stage = factory.get("RunPythonTest/valid.conf");
+    stage = factory.get("ApplyPythonTest/valid.conf");
 
     Document d1 = Document.create("d1");
     d1.setField("a", 2);
@@ -122,7 +122,7 @@ public class RunPythonTest {
   public void testBadScriptPath() {
     assertThrows(StageException.class,
         // Non-existent script path
-        () -> factory.get("RunPythonTest/badPath.conf"));
+        () -> factory.get("ApplyPythonTest/badPath.conf"));
   }
 
   @Test

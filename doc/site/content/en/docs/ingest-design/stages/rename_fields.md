@@ -1,6 +1,6 @@
 ---
 title: RenameFields
-weight: 570
+weight: 600
 date: 2025-06-09
 description: Renames fields by mapping old names to new names.
 ---

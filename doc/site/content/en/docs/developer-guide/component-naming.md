@@ -52,14 +52,11 @@ Stages that do the same kind of job use the same verb:
 |---|---|---|
 | `Fetch` | Reads bytes from a location | `FetchFileContent` |
 | `Query` | Runs a search against an external system | `QueryDatabase` |
-| `Apply` | Runs an expression language, model or set of handlers | `ApplyRegex`, `ApplyJSONata`, `ApplyXPath`, `ApplyFileHandlers`, `ApplyOpenNLPNameFinders` |
-| `Run` | Runs user-supplied code on each document | `RunPython`, `RunExternalPython`, `RunJavaScript` |
+| `Apply` | Runs an expression language, model, set of handlers, or stage logic written in Python or JavaScript | `ApplyRegex`, `ApplyJSONata`, `ApplyXPath`, `ApplyFileHandlers`, `ApplyOpenNLPNameFinders`, `ApplyPython`, `ApplyJavaScript` |
 | `Add` | Writes a generated value to a field | `AddRandomInt`, `AddRandomString` |
 | `Set` | Writes values given in the config to a field | `SetStaticValues` |
 | `Extract` | Pulls values out of content | `ExtractEntities`, `ExtractFirstCharacter` |
 | `Emit` | Produces child documents | `EmitNestedChildren`, `EmitDocsToDeleteByPrefix` |
-
-A `Run` stage starts its interpreter, or for `RunExternalPython` its Python process, when the stage starts, not for each document.
 
 Stages that do different jobs keep different verbs, even when they look alike. `ApplyRegex` extracts the matches of a regular expression and `ReplacePatterns` finds and replaces, so each has its own verb.
 

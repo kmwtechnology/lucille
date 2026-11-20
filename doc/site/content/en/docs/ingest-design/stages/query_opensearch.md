@@ -1,6 +1,6 @@
 ---
 title: QueryOpenSearch
-weight: 530
+weight: 560
 date: 2025-06-06
 description: Execute an OpenSearch Template using information from a Document, and add the response to it.
 ---

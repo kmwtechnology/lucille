@@ -1,6 +1,6 @@
 ---
 title: DictionaryLookup
-weight: 280
+weight: 310
 date: 2025-06-09
 description: Looks up whole field values in a dictionary and writes their payloads, or a true/false membership flag, to destination fields.
 ---

@@ -1,6 +1,6 @@
 ---
 title: CollapseChildren
-weight: 170
+weight: 200
 aliases:
   - /docs/ingest-design/stages/collapse_children_documents/
 date: 2025-06-09

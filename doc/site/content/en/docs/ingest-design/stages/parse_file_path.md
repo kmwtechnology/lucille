@@ -1,6 +1,6 @@
 ---
 title: ParseFilePath
-weight: 470
+weight: 500
 date: 2025-06-09
 description: Parses a file path field into filename, folder, normalized path, extension, and the list of parent paths.
 ---

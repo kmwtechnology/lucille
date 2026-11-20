@@ -57,7 +57,7 @@ Lucille is probably not the best choice when:
 - **You need a massive SaaS connector catalog.** Lucille's built-in connectors cover databases, filesystems, Kafka, RSS, and search engines. If you need to ingest from hundreds of SaaS applications (Salesforce, HubSpot, Zendesk), tools with larger connector ecosystems may be more practical.
 - **Sub-second real-time indexing latency is a hard requirement.** Lucille's streaming mode is continuous but routes through Kafka, a Worker pipeline, and a batching Indexer — adding latency that dedicated CDC-to-search connectors can avoid.
 - **A visual workflow editor is required.** Lucille pipelines are defined in configuration files. There is no drag-and-drop UI or graphical pipeline designer.
-- **Your team has no Java engineers and no interest in Java.** Custom connectors and stages are Java classes. The `RunPython` and `RunExternalPython` stages provide a Python authoring path for enrichment logic, but the framework itself is Java.
+- **Your team has no Java engineers and no interest in Java.** Custom connectors and stages are Java classes. The `ApplyPython` and `ApplyExternalPython` stages provide a Python authoring path for enrichment logic, but the framework itself is Java.
 
 ---
 

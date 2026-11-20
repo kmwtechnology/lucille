@@ -327,7 +327,7 @@ public void start() throws StageException {
 
 Use `stop()` for:
 
-- **Closing connections** — JDBC connections, HTTP clients, script engine contexts. `QueryDatabase` closes its connection and prepared statement here; `FetchUri` closes its HTTP client here; `RunJavaScript` closes its GraalVM context here.
+- **Closing connections** — JDBC connections, HTTP clients, script engine contexts. `QueryDatabase` closes its connection and prepared statement here; `FetchUri` closes its HTTP client here; `ApplyJavaScript` closes its GraalVM context here.
 - **Flushing output** — `Print` closes its writer here if one was opened.
 
 ```java

@@ -1,6 +1,6 @@
 ---
 title: ExtractText
-weight: 390
+weight: 420
 aliases:
   - /docs/ingest-design/stages/text_extractor/
 date: 2025-06-09

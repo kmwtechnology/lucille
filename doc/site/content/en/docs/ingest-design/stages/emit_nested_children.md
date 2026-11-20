@@ -1,6 +1,6 @@
 ---
 title: EmitNestedChildren
-weight: 350
+weight: 380
 date: 2025-06-09
 description: Emits a Document's attached child Documents as independent Documents, optionally copying fields from the parent.
 ---

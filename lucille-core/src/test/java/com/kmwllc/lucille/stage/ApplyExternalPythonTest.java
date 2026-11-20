@@ -17,9 +17,9 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
-public class RunExternalPythonTest {
+public class ApplyExternalPythonTest {
 
-  private final StageFactory factory = StageFactory.of(RunExternalPython.class);
+  private final StageFactory factory = StageFactory.of(ApplyExternalPython.class);
   private Stage stage;
 
   @After
@@ -32,7 +32,7 @@ public class RunExternalPythonTest {
 
   @Test
   public void testPythonUpdateToDoc() throws Exception {
-    String confPath = "RunExternalPythonTest/process_document_1.conf";
+    String confPath = "ApplyExternalPythonTest/process_document_1.conf";
     stage = factory.get(confPath);
     Document doc = Document.create("doc1");
     stage.processDocument(doc);
@@ -43,7 +43,7 @@ public class RunExternalPythonTest {
 
   @Test
   public void testPythonUpdateToDocMultiThreaded() throws Exception {
-    String confPath = "RunExternalPythonTest/copy_doc_id.conf";
+    String confPath = "ApplyExternalPythonTest/copy_doc_id.conf";
     int numThreads = 5;
     int numDocsPerThread = 20;
     Thread[] threads = new Thread[numThreads];
@@ -92,7 +92,7 @@ public class RunExternalPythonTest {
 
   @Test
   public void testNoReturn() throws Exception {
-    String confPath = "RunExternalPythonTest/no_return.conf";
+    String confPath = "ApplyExternalPythonTest/no_return.conf";
     stage = factory.get(confPath);
     Document doc = Document.create("doc1");
     doc.setField("field1", "field1val");
@@ -107,7 +107,7 @@ public class RunExternalPythonTest {
 
   @Test
   public void testCustomFunctionName() throws Exception {
-    String confPath = "RunExternalPythonTest/custom_method.conf";
+    String confPath = "ApplyExternalPythonTest/custom_method.conf";
     stage = factory.get(confPath);
     Document doc = Document.create("doc1");
 
@@ -118,7 +118,7 @@ public class RunExternalPythonTest {
 
   @Test
   public void testCustomPort() throws Exception {
-    String confPath = "RunExternalPythonTest/custom_port.conf";
+    String confPath = "ApplyExternalPythonTest/custom_port.conf";
     stage = factory.get(confPath);
     Document doc = Document.create("doc1");
 
@@ -129,7 +129,7 @@ public class RunExternalPythonTest {
 
   @Test
   public void testRequirementsInstallAndUsage() throws Exception {
-    String confPath = "RunExternalPythonTest/numpy.conf";
+    String confPath = "ApplyExternalPythonTest/numpy.conf";
     stage = factory.get(confPath);
     Document doc = Document.create("doc1");
 
@@ -142,20 +142,20 @@ public class RunExternalPythonTest {
   public void testConflictingConfigs() throws Exception {
     // We can initialize two PythonStage instances that use the same config,
     // therefore passing the same parameters to Py4JRuntimeManager.acquire()
-    Stage stage1 = factory.get("RunExternalPythonTest/process_document_1.conf");
-    Stage stage2 = factory.get("RunExternalPythonTest/process_document_1.conf");
+    Stage stage1 = factory.get("ApplyExternalPythonTest/process_document_1.conf");
+    Stage stage2 = factory.get("ApplyExternalPythonTest/process_document_1.conf");
 
     // An exception should be thrown if we attempt to initialize a PythonStage instance
     // that results in different parameters being passed to Py4jRuntimeManager.acquire()
-    assertThrows(StageException.class, () -> factory.get("RunExternalPythonTest/copy_doc_id.conf"));
+    assertThrows(StageException.class, () -> factory.get("ApplyExternalPythonTest/copy_doc_id.conf"));
 
     stage1.stop();
-    assertThrows(StageException.class, () -> factory.get("RunExternalPythonTest/copy_doc_id.conf"));
+    assertThrows(StageException.class, () -> factory.get("ApplyExternalPythonTest/copy_doc_id.conf"));
     stage2.stop();
 
     // Once we have stopped all existing PythonStage instances we should be able to
     // create a new instance with a different config
-    Stage stage3 = factory.get("RunExternalPythonTest/copy_doc_id.conf");
+    Stage stage3 = factory.get("ApplyExternalPythonTest/copy_doc_id.conf");
     stage3.stop();
   }
 
@@ -168,8 +168,8 @@ public class RunExternalPythonTest {
     // this scenario works because both functions are available in the same python script
     // at the same scriptPath
 
-    Stage stage1 = factory.get("RunExternalPythonTest/custom_method.conf");
-    Stage stage2 = factory.get("RunExternalPythonTest/custom_method2.conf");
+    Stage stage1 = factory.get("ApplyExternalPythonTest/custom_method.conf");
+    Stage stage2 = factory.get("ApplyExternalPythonTest/custom_method2.conf");
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
 
@@ -184,7 +184,7 @@ public class RunExternalPythonTest {
 
   @Test
   public void testDocWithNestedJson() throws Exception {
-    String confPath = "RunExternalPythonTest/process_document_1.conf";
+    String confPath = "ApplyExternalPythonTest/process_document_1.conf";
     stage = factory.get(confPath);
     String json = "{\"id\":\"doc1\", \"field1\": {\"field2\": [1, 2, 3], \"field4\": false, \"field5\": {\"field6\": true}}}";
     Document doc = Document.createFromJson(json);
@@ -196,7 +196,7 @@ public class RunExternalPythonTest {
 
   @Test
   public void testRemoveField() throws Exception {
-    String confPath = "RunExternalPythonTest/remove_field.conf";
+    String confPath = "ApplyExternalPythonTest/remove_field.conf";
     stage = factory.get(confPath);
     Document doc = Document.create("doc1");
     doc.setField("field1", "field1Value");
@@ -210,11 +210,11 @@ public class RunExternalPythonTest {
   @Test
   public void testPythonStartupTimeout() throws Exception {
     // slow_startup.py sleeps for 5 seconds before reporting readiness, so a 1 second timeout should fire first
-    Config config = ConfigFactory.parseResources("RunExternalPythonTest/slow_startup.conf");
+    Config config = ConfigFactory.parseResources("ApplyExternalPythonTest/slow_startup.conf");
     String scriptPath = config.getString("scriptPath");
 
-    // Mock RunExternalPython.start() so the runtime it starts is built with a 1000ms startup timeout via the test constructor
-    RunExternalPython externalPython = Mockito.spy(new RunExternalPython(config));
+    // Mock ApplyExternalPython.start() so the runtime it starts is built with a 1000ms startup timeout via the test constructor
+    ApplyExternalPython externalPython = Mockito.spy(new ApplyExternalPython(config));
     Mockito.doAnswer(invocation -> {
       Py4JRuntime runtime = new Py4JRuntime("python3", scriptPath, null, null, 1000);
       runtime.start();

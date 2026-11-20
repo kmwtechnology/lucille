@@ -392,7 +392,7 @@ connectors: [{
 - The scheme must be a valid URI scheme of at least two characters. One-letter schemes are read as Windows drive letters (e.g. `C:/data`).
 - A StorageClient for `s3`, `gs`, or `https` replaces the built-in client for that scheme, and that scheme's built-in block (`s3`, `gcp`, or `azure`) can't also be given. The built-in blocks only ever configure the built-in clients. For `https`, `azure.allowedHosts` doesn't apply to a registered client, so your client must check the host itself if it should reject some hosts.
 - `file` can't be configured in `storageClients`.
-- Stages that read files by URI, such as `FetchFileContent`, `ApplyFileHandlers`, `RunJavaScript`, and the dictionary-based stages, accept the same `storageClients` config.
+- Stages that read files by URI, such as `FetchFileContent`, `ApplyFileHandlers`, `ApplyJavaScript`, and the dictionary-based stages, accept the same `storageClients` config.
 
 `StorageClient.create()` and `StorageClient.createClients()` throw an `IllegalArgumentException` if an entry breaks one of these rules or its class can't be created.
 

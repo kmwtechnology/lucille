@@ -1,6 +1,6 @@
 ---
 title: ExtractEntities
-weight: 360
+weight: 390
 date: 2025-06-09
 description: Finds dictionary terms in text fields using an Aho-Corasick trie and writes the matches or their payloads to destination fields.
 ---

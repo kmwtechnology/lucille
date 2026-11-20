@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
  * Config Parameters:
  * <ul>
  *   <li>scriptPath (String, Required) : Path to the python script that contains the processing function. NOTE: The path must be
- *    within one of these specific directories: ./src/test/resources, ./src/main/resources, ./python, or ./src/test/resources/RunExternalPythonTest.
+ *    within one of these specific directories: ./src/test/resources, ./src/main/resources, ./python, or ./src/test/resources/ApplyExternalPythonTest.
  *   </li>
  *   <li>pythonExecutable (String, Optional) : Path of the base Python executable used to create and manage
  *   the virtual environment. Defaults to python3.</li>
@@ -39,7 +39,7 @@ import org.slf4j.LoggerFactory;
  *   pair is automatically selected starting from the default range.</li>
  * </ul>
  */
-public final class RunExternalPython extends Stage {
+public final class ApplyExternalPython extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("scriptPath")
@@ -47,7 +47,7 @@ public final class RunExternalPython extends Stage {
       .optionalNumber("port")
       .build();
 
-  private static final Logger log = LoggerFactory.getLogger(RunExternalPython.class);
+  private static final Logger log = LoggerFactory.getLogger(ApplyExternalPython.class);
 
   private final String scriptPath;
   private final String pythonExecutable;
@@ -57,7 +57,7 @@ public final class RunExternalPython extends Stage {
   private Py4JRuntime runtime;
   private final ObjectMapper mapper = new ObjectMapper();
 
-  public RunExternalPython(Config config) {
+  public ApplyExternalPython(Config config) {
     super(config);
 
     this.scriptPath = config.getString("scriptPath");

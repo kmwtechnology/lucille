@@ -1,6 +1,6 @@
 ---
 title: ExtractEntitiesFst
-weight: 370
+weight: 400
 date: 2025-06-09
 description: Finds dictionary terms in text fields using a Lucene FST and writes the matches or their payloads to destination fields.
 ---

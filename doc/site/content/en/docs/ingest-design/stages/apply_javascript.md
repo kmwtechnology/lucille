@@ -1,13 +1,11 @@
 ---
-title: RunJavaScript
-weight: 600
-aliases:
-  - /docs/ingest-design/stages/apply_javascript/
+title: ApplyJavaScript
+weight: 110
 date: 2025-06-09
 description: Runs a JavaScript snippet per document using GraalVM's JavaScript engine.
 ---
 
-`com.kmwllc.lucille.stage.RunJavaScript`
+`com.kmwllc.lucille.stage.ApplyJavaScript`
 
 Runs a JavaScript snippet per document using GraalVM's JavaScript engine. The script is read once at startup and evaluated once per document. The document is bound as `doc` (a proxy for reading and writing fields) and as `rawDoc` (the underlying Java `Document`).
 
@@ -31,5 +29,5 @@ Field access through `doc`:
 Any error thrown by the script fails the document.
 
 ```hocon
-{ class: "com.kmwllc.lucille.stage.RunJavaScript", script: "doc.title = doc.title.toUpperCase();" }
+{ class: "com.kmwllc.lucille.stage.ApplyJavaScript", script: "doc.title = doc.title.toUpperCase();" }
 ```

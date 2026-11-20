@@ -1,6 +1,6 @@
 ---
 title: QueryDatabase
-weight: 520
+weight: 550
 date: 2025-06-09
 description: Executes a JDBC prepared statement using document field values and merges the result onto the document.
 ---

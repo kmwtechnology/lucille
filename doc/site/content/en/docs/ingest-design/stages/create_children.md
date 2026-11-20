@@ -1,6 +1,6 @@
 ---
 title: CreateChildren
-weight: 230
+weight: 260
 aliases:
   - /docs/ingest-design/stages/create_children_stage/
 date: 2025-06-09

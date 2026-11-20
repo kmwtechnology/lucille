@@ -1,17 +1,17 @@
 ---
-title: RunExternalPython
-weight: 590
+title: ApplyExternalPython
+weight: 90
 aliases:
   - /docs/ingest-design/stages/external_python/
 date: 2025-12-16
 description: Run a document through an external Py4J Python environment.
 ---
 
-`com.kmwllc.lucille.stage.RunExternalPython`
+`com.kmwllc.lucille.stage.ApplyExternalPython`
 
 ### Why Use It?
 
-RunExternalPython delegates per-document processing to an external Python process using [Py4J](https://www.py4j.org/). Lucille serializes the Document into a request, calls a Python function with the document as a dict, receives a JSON response, and applies that response back onto the document.
+ApplyExternalPython delegates per-document processing to an external Python process using [Py4J](https://www.py4j.org/). Lucille serializes the Document into a request, calls a Python function with the document as a dict, receives a JSON response, and applies that response back onto the document.
 
 The returned object replaces the document's fields: every field in the response is set on the document, and every field not in the response is removed. Reserved fields such as `id` are never changed or removed. If the function returns `None`, the document is left unchanged. The function may return a dict or a JSON string. An error in the Python function fails the document.
 
@@ -19,18 +19,18 @@ At startup, Lucille creates a virtual environment at `./python/venv` (relative t
 
 The Py4J gateway and callback server listen only on the loopback address (`127.0.0.1`). Each run generates two random authentication tokens, which are passed to the Python process through environment variables rather than command-line arguments. The Python client removes them from its environment before your script runs, and refuses to start without them. Python startup must finish within 30 seconds. If it times out or the Python process exits first, the error includes the captured Python output. A failed startup stops the Python process, so a later attempt can retry. The Python process is also stopped when the JVM shuts down.
 
-All RunExternalPython stages in one JVM share a single Python process. They must use the same `scriptPath`, `pythonExecutable`, `requirementsPath`, and `port`, or startup fails. They can call different functions in that script via `functionName`.
+All ApplyExternalPython stages in one JVM share a single Python process. They must use the same `scriptPath`, `pythonExecutable`, `requirementsPath`, and `port`, or startup fails. They can call different functions in that script via `functionName`.
 
 ### When To Use It
 
-Use RunExternalPython when you need one or more of the following:
+Use ApplyExternalPython when you need one or more of the following:
 - Real Python compatibility (including packages with native dependencies).
 - Dependency management via a requirements.txt installed into a managed venv.
 - Process isolation apart from the JVM.
 
-### When To Use RunPython Instead
+### When To Use ApplyPython Instead
 
-Avoid RunExternalPython and use RunPython when you need one or more of the following:
+Avoid ApplyExternalPython and use ApplyPython when you need one or more of the following:
 - Minimal operational overhead (ports, subprocess lifecycle, venv creation, pip installs).
 - No use of any external Python libraries or native dependencies that require a real Python environment.
 - Lightweight field enrichment/transformation.
@@ -40,7 +40,7 @@ Your python file must be directly inside (not in a subdirectory of) one of the f
 - `./python`
 - `./src/main/resources`
 - `./src/test/resources`
-- `./src/test/resources/RunExternalPythonTest` (for testing)
+- `./src/test/resources/ApplyExternalPythonTest` (for testing)
 
 ### Example
 
@@ -94,8 +94,8 @@ def process_document(doc):
 
 ```hocon
 {
-  name: "RunExternalPython-Example"
-  class: "com.kmwllc.lucille.stage.RunExternalPython"
+  name: "ApplyExternalPython-Example"
+  class: "com.kmwllc.lucille.stage.ApplyExternalPython"
 
   scriptPath: "python/my_script.py"
 
@@ -154,8 +154,8 @@ numpy
 
 ```hocon
 {
-  name: "RunExternalPython-Numpy"
-  class: "com.kmwllc.lucille.stage.RunExternalPython"
+  name: "ApplyExternalPython-Numpy"
+  class: "com.kmwllc.lucille.stage.ApplyExternalPython"
 
   scriptPath: "python/my_numpy_script.py"
   requirementsPath: "/path/to/requirements.txt"

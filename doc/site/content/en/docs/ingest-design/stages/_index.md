@@ -222,16 +222,16 @@ Every Stage has its own page, listed alphabetically in the navigation under **St
 ### AI / ML
 
 - [AddRandomVector]({{< relref "docs/ingest-design/stages/add_random_vector" >}}) — Generate a random float vector (useful for testing vector search).
+- [ApplyExternalPython]({{< relref "docs/ingest-design/stages/apply_external_python" >}}) — Delegate per-document processing to an external Python process via Py4J.
+- [ApplyJavaScript]({{< relref "docs/ingest-design/stages/apply_javascript" >}}) — Run a JavaScript snippet per document using GraalVM.
 - [ApplyJSONata]({{< relref "docs/ingest-design/stages/apply_jsonata" >}}) — Apply a JSONata expression to a field, or to the whole Document.
+- [ApplyPython]({{< relref "docs/ingest-design/stages/apply_python" >}}) — Run per-document Python code inside the JVM using GraalPy.
 - [ChunkText]({{< relref "docs/ingest-design/stages/chunk_text" >}}) — Split long text fields into chunks for embedding and RAG pipelines.
 - [DetectLanguage]({{< relref "docs/ingest-design/stages/detect_language" >}}) — Detect the language of a text field and write the ISO language code.
 - [EmbedTextOpenAI]({{< relref "docs/ingest-design/stages/embed_text_openai" >}}) — Generate vector embeddings using the OpenAI Embeddings API.
 - [ExtractEntities]({{< relref "docs/ingest-design/stages/extract_entities" >}}) — Find dictionary terms in text fields (Aho-Corasick) and write the matches or their payloads to destination fields.
 - [ExtractEntitiesFst]({{< relref "docs/ingest-design/stages/extract_entities_fst" >}}) — Find dictionary terms in text fields using a Lucene FST and write the matches or their payloads to destination fields.
 - [PromptOllama]({{< relref "docs/ingest-design/stages/prompt_ollama" >}}) — Send document fields to an LLM on an Ollama server and merge the response.
-- [RunExternalPython]({{< relref "docs/ingest-design/stages/run_external_python" >}}) — Delegate per-document processing to an external Python process via Py4J.
-- [RunJavaScript]({{< relref "docs/ingest-design/stages/run_javascript" >}}) — Run a JavaScript snippet per document using GraalVM.
-- [RunPython]({{< relref "docs/ingest-design/stages/run_python" >}}) — Run per-document Python code inside the JVM using GraalPy.
 - [ApplyOpenNLPNameFinders]({{< relref "docs/ingest-design/stages/apply_opennlp_name_finders" >}}) — Perform named entity recognition using Apache OpenNLP models. *(requires `lucille-entity-extraction`)*
 - [EmbedTextJlama]({{< relref "docs/ingest-design/stages/embed_text_jlama" >}}) — Generate vector embeddings locally inside the JVM via Jlama. *(requires `lucille-jlama`)*
 
