@@ -9,6 +9,7 @@ import com.kmwllc.lucille.core.IndexerContext;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerFailure;
 import com.kmwllc.lucille.core.IndexerRetryableException;
+import com.kmwllc.lucille.core.PendingSend;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerType;
@@ -150,7 +151,8 @@ public class RelevanIndexer extends Indexer {
   }
 
   @Override
-  protected List<IndexerFailure> sendToIndex(List<Document> documents) throws IndexerException {
+  protected List<IndexerFailure> sendToIndex(PendingSend send) throws IndexerException {
+    List<Document> documents = send.documents();
     Map<String, List<Document>> documentsByIndex = new LinkedHashMap<>();
     for (Document doc : documents) {
       String override = getIndexOverride(doc);
