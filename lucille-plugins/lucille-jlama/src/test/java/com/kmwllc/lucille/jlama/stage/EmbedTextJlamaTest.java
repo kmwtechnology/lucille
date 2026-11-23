@@ -281,7 +281,7 @@ public class EmbedTextJlamaTest {
     configValues.put("deleteModelOnStop", true);
 
     try {
-      Stage stage = new JlamaEmbed(ConfigFactory.parseMap(configValues));
+      Stage stage = new EmbedTextJlama(ConfigFactory.parseMap(configValues));
       stage.stop();
       assertTrue(testModelConfigJson.exists());
     } finally {
