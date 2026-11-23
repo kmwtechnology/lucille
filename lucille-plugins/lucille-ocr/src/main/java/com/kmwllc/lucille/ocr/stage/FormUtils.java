@@ -38,7 +38,7 @@ public class FormUtils {
     int numPages = document.getNumberOfPages();
     for (int i = 0; i < numPages; i++) {
       // Rendering an image from the PDF document
-      BufferedImage image = renderer.renderImageWithDPI(i, ApplyOCR.SOURCE_RESOLUTION);
+      BufferedImage image = renderer.renderImageWithDPI(i, ApplyOcr.SOURCE_RESOLUTION);
       images.add(image);
       // System.out.println("Image created");
     }

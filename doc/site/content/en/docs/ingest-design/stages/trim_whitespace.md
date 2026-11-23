@@ -1,6 +1,6 @@
 ---
 title: TrimWhitespace
-weight: 630
+weight: 650
 date: 2025-06-09
 description: Trims leading and trailing whitespace from every value of the given fields.
 ---

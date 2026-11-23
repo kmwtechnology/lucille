@@ -31,13 +31,13 @@ import org.slf4j.LoggerFactory;
  *   <li>
  *     fileHandlers (Map) : Specifies which file types should be handled / processed by this stage. Valid options include:
  *     <ul>
- *       <li>csv (Map, Optional) : For handling CSV files. Config will be passed to CSVFileHandler (if no alternate <code>class</code> is provided).</li>
+ *       <li>csv (Map, Optional) : For handling CSV files. Config will be passed to CsvFileHandler (if no alternate <code>class</code> is provided).</li>
  *       <li>json (Map, Optional) : For handling JSON or JSONL files. Config will be passed to JsonFileHandler (if no alternate <code>class</code> is provided).</li>
  *       <li>Custom <code>FileHandler</code> implementations.</li>
  *     </ul>
  *     <p> <b>Note:</b> An Exception is thrown if your <code>fileHandlers</code> Config is empty.
  *     <p> <b>Note:</b> See {@link FileHandler#createFromConfig(Config)} for notes on JSON and JSONL configuration.
- *     <p> <b>Note:</b> Lucille's XMLFileHandler is not supported, nor is any handler whose <code>supportsProcessFile()</code>
+ *     <p> <b>Note:</b> Lucille's XmlFileHandler is not supported, nor is any handler whose <code>supportsProcessFile()</code>
  *     returns false. The stage throws when it starts if one is configured.
  *   </li>
  *   <li>filePathField (String, Optional) : The field in your documents which will has the file path you want to apply handlers to.

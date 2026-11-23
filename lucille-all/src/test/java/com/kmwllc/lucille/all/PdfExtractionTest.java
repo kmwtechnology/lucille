@@ -5,7 +5,7 @@ import static org.junit.Assert.assertTrue;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.stage.StageFactory;
-import com.kmwllc.lucille.tika.stage.TextExtractor;
+import com.kmwllc.lucille.tika.stage.ExtractText;
 import java.nio.file.Paths;
 import java.util.Map;
 import org.junit.Test;
@@ -18,7 +18,7 @@ public class PdfExtractionTest {
 
   @Test
   public void testTextExtractorParsesPdfOnCombinedClasspath() throws Exception {
-    Stage stage = StageFactory.of(TextExtractor.class).get(Map.of(
+    Stage stage = StageFactory.of(ExtractText.class).get(Map.of(
         "textField", "text",
         "filePathField", "path"));
     Document doc = Document.create("doc1");

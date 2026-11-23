@@ -15,7 +15,7 @@ import java.util.Map;
  * Each implementation of the FileHandler handles a specific file type and is able to process the file and return an Iterator
  * of documents. It can also publish straight to the Lucille pipeline if given a Publisher.
  *
- * <p><b>Threads:</b> a FileHandler need not be thread-safe, and Lucille's handlers are not (XMLFileHandler, for one, keeps
+ * <p><b>Threads:</b> a FileHandler need not be thread-safe, and Lucille's handlers are not (XmlFileHandler, for one, keeps
  * its parser in fields). Lucille creates one instance for each thread that uses it, so a handler is only ever called
  * from one thread at a time. A caller sharing handlers across threads must do the same.
  *
@@ -101,7 +101,7 @@ public interface FileHandler {
   /**
    * From the given Config, returns a map of supported file extensions to their FileHandlers.The returned map is not modifiable.
    * Configs mapped to <code>csv</code>, <code>xml</code>, <code>json</code>, and <code>jsonl</code> without a <code>class</code>
-   * specified will use Lucille's <code>CSVFileHandler</code>, <code>XMLFileHandler</code>, or <code>JsonFileHandler</code>, respectively.
+   * specified will use Lucille's <code>CsvFileHandler</code>, <code>XmlFileHandler</code>, or <code>JsonFileHandler</code>, respectively.
    * Configs mapped to another file extension (a custom <code>FileHandler</code>) must include <code>class</code> in their Config, or an Exception will be thrown.
    *
    * <br> <b>Note:</b> If <code>json</code> config is included, but <code>jsonl</code> is not (or vice versa), both extensions will
@@ -174,10 +174,10 @@ public interface FileHandler {
         return new JsonFileHandler(fileExtensionConfig);
       }
       case "csv" -> {
-        return new CSVFileHandler(fileExtensionConfig);
+        return new CsvFileHandler(fileExtensionConfig);
       }
       case "xml" -> {
-        return new XMLFileHandler(fileExtensionConfig);
+        return new XmlFileHandler(fileExtensionConfig);
       }
       default -> {
         throw new IllegalArgumentException("No \"class\" provided for FileHandler config " + fileExtension + ".");

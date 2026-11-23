@@ -1,0 +1,87 @@
+package com.kmwllc.lucille.stage;
+
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.typesafe.config.Config;
+
+import java.util.Iterator;
+
+/**
+ * Creates a designated number of children documents.
+ * <br> This stage is intended for use in testing only.
+ * <br> It is included in the main source tree so that it can be used in manual tests run against an artifact
+ * that excludes the test tree.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>numChildren (int, optional) : the total number of child documents to emit.</li>
+ *   <li>dropParent (boolean, optional) : if true, marks the parent document as dropped.</li>
+ *   <li>failAfter (int) : if set, throws an exception once this many children have been generated.</li>
+ *   <li>dropChild (int) : if set, marks the child with this 1‑based index as dropped.</li>
+ * </ul>
+ */
+public class CreateChildren extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .optionalNumber("numChildren", "failAfter", "dropChild")
+      .optionalBoolean("dropParent").build();
+
+  private final int numChildren;
+  private final boolean dropParent;
+  private final Integer failAfter;
+  private final Integer dropChild;
+
+  public CreateChildren(Config config) {
+    super(config);
+    this.numChildren = ConfigUtils.getIntOrDefault(config, "numChildren", 3);
+    this.dropParent = ConfigUtils.getBooleanOrDefault(config, "dropParent", false);
+    this.failAfter = ConfigUtils.getIntOrDefault(config, "failAfter", null);
+    this.dropChild = ConfigUtils.getIntOrDefault(config, "dropChild", null);
+  }
+
+  @Override
+  public Iterator<Document> processDocument(Document doc) throws StageException {
+
+    if (dropParent) {
+      doc.setDropped(true);
+    }
+
+    return new Iterator<>() {
+      int count = 0;
+
+      @Override
+      public boolean hasNext() {
+        return count < numChildren;
+      }
+
+      @Override
+      public Document next() {
+
+        if ((failAfter != null) && (count >= failAfter)) {
+          throw new RuntimeException();
+        }
+
+        if (count >= numChildren) {
+          return null;
+        }
+        count = count + 1;
+        Document child = Document.create(doc.getId() + "_child" + count);
+
+        if ((dropChild != null) && (count == dropChild)) {
+          child.setDropped(true);
+        }
+
+        return child;
+      }
+
+      @Override
+      public void remove() {
+        throw new UnsupportedOperationException();
+      }
+    };
+  }
+}

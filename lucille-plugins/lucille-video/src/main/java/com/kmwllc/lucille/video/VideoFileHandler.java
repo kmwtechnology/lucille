@@ -69,9 +69,9 @@ public class VideoFileHandler extends BaseFileHandler {
 
     this.docIdFormat = ConfigUtils.getStringOrDefault(config, "docIdFormat", null);
     this.frameStride = Math.max(1, ConfigUtils.getIntOrDefault(config, "frameStride", 1));
-    // the same field the storage clients, CSVFileHandler and ApplyFileHandlers use for the path
+    // the same field the storage clients, CsvFileHandler and ApplyFileHandlers use for the path
     this.filePathField = ConfigUtils.getStringOrDefault(config, "filePathField", "file_path");
-    // the same default as CSVFileHandler
+    // the same default as CsvFileHandler
     this.filenameField = ConfigUtils.getStringOrDefault(config, "filenameField", "filename");
     this.frameIndexField = ConfigUtils.getStringOrDefault(config, "frameIndexField", "frame_index");
     this.frameTimeMsField = ConfigUtils.getStringOrDefault(config, "frameTimeMsField", "frame_time_ms");

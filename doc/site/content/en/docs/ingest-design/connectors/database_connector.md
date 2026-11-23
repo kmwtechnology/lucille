@@ -90,12 +90,12 @@ If `preSql` or `postSql` fails, the error is logged and the run continues. `post
 
 For each primary row, every matching row from `otherSqls` is attached to the Document as a child Document, with all of the secondary query's lowercased column names (including the join column) becoming fields on the child and `NULL` values skipped. Child values use the same type mapping as the main query, so an unsupported column type fails the run, as does a child column named `id` or another reserved field. Child Document IDs have the form `<parentId>_<n>`, where `n` counts the parent's children across all `otherSqls` starting at `0`, so they are unique. The values are not merged into multi-valued fields on the parent, and whether children reach the index depends on the Indexer.
 
-To flatten the children into multi-valued fields, add the [`CollapseChildrenDocuments`]({{< relref "docs/ingest-design/stages/collapse_children_documents" >}}) Stage to the pipeline:
+To flatten the children into multi-valued fields, add the [`CollapseChildren`]({{< relref "docs/ingest-design/stages/collapse_children" >}}) Stage to the pipeline:
 
 ```hocon
 {
   name: "collapse-children"
-  class: "com.kmwllc.lucille.stage.CollapseChildrenDocuments"
+  class: "com.kmwllc.lucille.stage.CollapseChildren"
   fieldsToCopy: ["tag_name"]
   dropChildren: true
 }

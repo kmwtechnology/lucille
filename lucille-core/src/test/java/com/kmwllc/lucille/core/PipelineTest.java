@@ -3,7 +3,7 @@ import com.kmwllc.lucille.stage.StartStopCaptureStage;
 
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.stage.CreateChildrenStage;
+import com.kmwllc.lucille.stage.CreateChildren;
 import com.kmwllc.lucille.stage.DropDocument;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -163,7 +163,7 @@ public class PipelineTest {
     Config config = ConfigFactory.parseString("numChildren: 100");
 
     for (int i = 0; i < 100; i++) {
-      pipeline.addStage(new CreateChildrenStage(config));
+      pipeline.addStage(new CreateChildren(config));
     }
 
     Document doc = Document.create("d1");
