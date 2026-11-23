@@ -51,7 +51,7 @@ public class ElasticsearchLookup extends Stage {
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchLookup.class);
 
-  private final ElasticsearchClient client;
+  private ElasticsearchClient client;
   private final String index;
 
   private final List<String> sourceFields;
@@ -60,12 +60,6 @@ public class ElasticsearchLookup extends Stage {
 
   public ElasticsearchLookup(Config config) throws StageException {
     super(config);
-
-    try {
-      this.client = ElasticsearchUtils.getElasticsearchOfficialClient(config);
-    } catch (Exception e) {
-      throw new StageException("Couldn't create ElasticsearchClient", e);
-    }
 
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
 
@@ -77,6 +71,11 @@ public class ElasticsearchLookup extends Stage {
   @Override
   public void start() throws StageException {
     StageUtils.validateFieldNumsEqual(sourceFields, destFields, "Elasticsearch Lookup");
+    try {
+      client = ElasticsearchUtils.getElasticsearchOfficialClient(config);
+    } catch (Exception e) {
+      throw new StageException("Couldn't create ElasticsearchClient", e);
+    }
     if (client == null) {
       throw new StageException("Client was not created.");
     }
@@ -100,6 +99,7 @@ public class ElasticsearchLookup extends Stage {
         log.error("Error closing ElasticsearchClient", e);
       }
     }
+    client = null;
   }
 
   @Override

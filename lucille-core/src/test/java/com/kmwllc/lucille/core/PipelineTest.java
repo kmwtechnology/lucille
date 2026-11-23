@@ -419,6 +419,42 @@ public class PipelineTest {
   }
 
   @Test
+  public void testStartFailureStopsTheStageThatFailed() throws Exception {
+    // a stage whose start() throws may have acquired some resources first, so it is stopped too
+    FailingStartStage failing = new FailingStartStage(ConfigFactory.empty());
+    Pipeline pipeline = new Pipeline();
+    pipeline.addStage(failing);
+    assertThrows(StageException.class, pipeline::startStages);
+    assertTrue(failing.stopCalled);
+  }
+
+  private static class FailingStartStage extends Stage {
+
+    public static final Spec SPEC = SpecBuilder.stage().build();
+
+    private boolean stopCalled = false;
+
+    public FailingStartStage(Config conf) {
+      super(conf);
+    }
+
+    @Override
+    public void start() throws StageException {
+      throw new StageException("start failed");
+    }
+
+    @Override
+    public void stop() {
+      stopCalled = true;
+    }
+
+    @Override
+    public Iterator<Document> processDocument(Document doc) {
+      return null;
+    }
+  }
+
+  @Test
   public void testStopContinuesPastAFailingStage() throws Exception {
     // STG-32: the stages after a stage whose stop() throws must still be stopped
     StartStopCaptureStage.reset();

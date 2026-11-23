@@ -23,6 +23,10 @@ import org.slf4j.LoggerFactory;
  *      execute() is called if preExecute() succeeds
  *      postExecute() is called if preExecute() and execute() succeed
  *      close() is always called
+ *
+ * Lucille also constructs a Connector to validate its config and then closes it without calling preExecute(). So
+ * close() must release only what was actually opened, and must not assume that preExecute() or execute() ran. Open
+ * connections in preExecute() where possible; a client created in the constructor is released by close().
  */
 public interface Connector extends AutoCloseable {
 

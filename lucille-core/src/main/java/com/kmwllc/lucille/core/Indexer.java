@@ -473,7 +473,11 @@ public abstract class Indexer implements Runnable {
    */
   protected abstract List<IndexerFailure> sendToIndex(PendingSend send) throws IndexerException;
 
-  /** Close the client or connection to the destination search engine. */
+  /**
+   * Close the client or connection to the destination search engine. This is also called on an Indexer constructed
+   * only to validate a config. Lucille constructs that Indexer in bypass mode, in which an implementation should not
+   * create its client (see {@link #isBypass()}), so the client may be null here.
+   */
   public abstract void closeConnection();
 
   private void close() {
