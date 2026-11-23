@@ -5,7 +5,7 @@ date: 2025-06-09
 description: Configuration reference for the CSV Indexer, which writes pipeline output to a CSV file.
 ---
 
-`com.kmwllc.lucille.indexer.CSVIndexer`
+`com.kmwllc.lucille.indexer.CsvIndexer`
 
 Config block: `indexer.csv { ... }`
 
@@ -25,7 +25,7 @@ indexer {
 }
 ```
 
-**Limitations:** CSVIndexer does not support `indexer.indexOverrideField`, `indexer.idOverrideField`, `indexer.includeFields`, `indexer.excludeFields`, `indexer.deletionMarker`, `indexer.deleteByQuery`, or `indexer.maxConcurrentBatches` greater than 1. If any of these is set, the indexer fails at startup, though an empty `includeFields` or `excludeFields` counts as not set. Use `columns` to choose what is written. If the output file cannot be opened, an error is logged and the run stops at startup with "Indexer could not connect."
+**Limitations:** CsvIndexer does not support `indexer.indexOverrideField`, `indexer.idOverrideField`, `indexer.includeFields`, `indexer.excludeFields`, `indexer.deletionMarker`, `indexer.deleteByQuery`, or `indexer.maxConcurrentBatches` greater than 1. If any of these is set, the indexer fails at startup, though an empty `includeFields` or `excludeFields` counts as not set. Use `columns` to choose what is written. If the output file cannot be opened, an error is logged and the run stops at startup with "Indexer could not connect."
 
 ---
 
@@ -39,7 +39,7 @@ A column whose field is missing from a document is written as an empty value. Ot
 
 ## Multi-Valued Fields
 
-When a document field is multi-valued, CSVIndexer writes the list's `toString()` representation (e.g., `[val1, val2]`). This is a lossy representation: the square brackets and commas become part of the string. If you need a different delimiter or format for multi-valued fields, flatten them in a pipeline stage before indexing.
+When a document field is multi-valued, CsvIndexer writes the list's `toString()` representation (e.g., `[val1, val2]`). This is a lossy representation: the square brackets and commas become part of the string. If you need a different delimiter or format for multi-valued fields, flatten them in a pipeline stage before indexing.
 
 ---
 
@@ -62,25 +62,25 @@ indexer {
 
 ## Deletion Not Supported
 
-CSVIndexer fails at startup if `deletionMarker` or `deleteByQuery` is set. To leave documents out of the file, drop them earlier in the pipeline.
+CsvIndexer fails at startup if `deletionMarker` or `deleteByQuery` is set. To leave documents out of the file, drop them earlier in the pipeline.
 
 ---
 
 ## sendEnabled
 
-When `indexer.sendEnabled` is `false` (bypass mode), CSVIndexer writes nothing and does not create the file. Documents still complete.
+When `indexer.sendEnabled` is `false` (bypass mode), CsvIndexer writes nothing and does not create the file. Documents still complete.
 
 ---
 
 ## Directory Creation
 
-CSVIndexer creates parent directories automatically if they don't exist. You can specify a path like `./output/results/data.csv` without creating the directories first.
+CsvIndexer creates parent directories automatically if they don't exist. You can specify a path like `./output/results/data.csv` without creating the directories first.
 
 ---
 
 ## Use Cases
 
-CSVIndexer is primarily useful for:
+CsvIndexer is primarily useful for:
 - **Testing:** Verify pipeline output without a search backend.
 - **Debugging:** Inspect what fields and values reach the indexer after pipeline processing.
 - **Exporting:** Produce a file for import into another system.

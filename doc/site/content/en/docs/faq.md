@@ -89,9 +89,9 @@ The most common use case is chunking: a `ChunkText` Stage attaches text chunks t
 
 Two options are available depending on how much Python environment you need.
 
-`EmbeddedPython` runs Python code via an embedded GraalPy interpreter with no external Python installation required. It accepts either an inline `script` string or a `scriptPath` to a file. This is the simpler option for self-contained scripts with no third-party dependencies.
+`ApplyPython` runs Python code via an embedded GraalPy interpreter with no external Python installation required. It accepts either an inline `script` string or a `scriptPath` to a file. This is the simpler option for self-contained scripts with no third-party dependencies.
 
-`ExternalPython` manages a CPython virtualenv, installs dependencies from a `requirements.txt`, and calls your Python function per document via Py4J. Use this when your logic depends on PyPI packages (NumPy, spaCy, transformers, etc.).
+`ApplyExternalPython` manages a CPython virtualenv, installs dependencies from a `requirements.txt`, and calls your Python function per document via Py4J. Use this when your logic depends on PyPI packages (NumPy, spaCy, transformers, etc.).
 
 Constraints that apply to both: only one Python stage configuration can be active per JVM at a time; the function cannot emit child documents; any field absent from the returned dict is removed from the document.
 

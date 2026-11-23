@@ -1,13 +1,13 @@
 ---
 title: ExtractEntities
-weight: 320
+weight: 390
 date: 2025-06-09
 description: Finds dictionary terms in text fields using an Aho-Corasick trie and writes the matches or their payloads to destination fields.
 ---
 
 `com.kmwllc.lucille.stage.ExtractEntities`
 
-Finds occurrences of dictionary terms anywhere inside the values of each `source` field, using an Aho-Corasick trie, and writes the payloads of the matched terms to the corresponding `dest` field. See also [ExtractEntitiesFST]({{< relref "docs/ingest-design/stages/extract_entities_fst" >}}), which does the same with a Lucene FST, and [DictionaryLookup]({{< relref "docs/ingest-design/stages/dictionary_lookup" >}}), which matches whole field values.
+Finds occurrences of dictionary terms anywhere inside the values of each `source` field, using an Aho-Corasick trie, and writes the payloads of the matched terms to the corresponding `dest` field. See also [ExtractEntitiesFst]({{< relref "docs/ingest-design/stages/extract_entities_fst" >}}), which does the same with a Lucene FST, and [DictionaryLookup]({{< relref "docs/ingest-design/stages/dictionary_lookup" >}}), which matches whole field values.
 
 Dictionaries are CSV files read as UTF-8. Each row is `term` or `term, payload`; columns after the second are ignored. A row with no payload uses the term as its payload. Terms and payloads are trimmed. Rows containing malformed characters are skipped with a warning. All dictionaries are loaded at startup, and a dictionary that cannot be read fails the stage at startup.
 

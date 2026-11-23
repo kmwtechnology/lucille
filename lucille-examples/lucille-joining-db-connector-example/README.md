@@ -41,12 +41,12 @@ Those statements are wired together in `conf/joining-db-connector-example.conf` 
 
 Because the child result set is ordered by the join key, all meals for a given animal arrive as a contiguous run of rows. The connector attaches each of those rows as a child document on the parent, with ids of the form `<parentId>_<n>` (`1_0`, `1_1`, ...), numbered across all `otherSqls`.
 
-The pipeline then uses `CollapseChildrenDocuments` to copy selected child fields onto the parent as **multi-valued** fields and drop the children:
+The pipeline then uses `CollapseChildren` to copy selected child fields onto the parent as **multi-valued** fields and drop the children:
 
 ```hocon
 {
   name: collapseChildren
-  class: com.kmwllc.lucille.stage.CollapseChildrenDocuments
+  class: com.kmwllc.lucille.stage.CollapseChildren
   fieldsToCopy: ["meal_id", "meal_type"]
   dropChildren: true
 }

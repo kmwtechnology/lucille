@@ -48,7 +48,7 @@ import org.slf4j.MDC.MDCCloseable;
  *
  * <p> An Indexer's configuration is the <code>indexer</code> block. It holds generic settings and, nested under a certain key,
  * configuration for the specific implementation. For example, <code>indexer.solr</code> holds configuration for a SolrIndexer,
- * <code>indexer.csv</code> holds configuration for a CSVIndexer, etc.
+ * <code>indexer.csv</code> holds configuration for a CsvIndexer, etc.
  *
  * <p> All implementations must declare a <code>public static Spec SPEC</code> defining the specific implementation's properties.
  * This Spec will be accessed reflectively in the super constructor, so the Indexer will not function without declaring a Spec.
@@ -66,9 +66,9 @@ import org.slf4j.MDC.MDCCloseable;
  * <ul>
  *   <li>indexer.idOverrideField (String, Optional) : Name of a document field whose value will be used as the document's ID
  *   in the destination, overriding {@link com.kmwllc.lucille.core.Document#ID_FIELD}. The document's internal ID is not modified.
- *   Has no effect in Indexer implementations that do not interact with a search engine (e.x. CSVIndexer).</li>
+ *   Has no effect in Indexer implementations that do not interact with a search engine (e.x. CsvIndexer).</li>
  *   <li>indexer.indexOverrideField (String, Optional) : Name of a document field whose value will be used as the destination
- *   index, overriding the default index specified in the Indexer's configuration. Not supported by CSVIndexer or
+ *   index, overriding the default index specified in the Indexer's configuration. Not supported by CsvIndexer or
  *   ElasticSearchIndexer classes.</li>
  *   <li>indexer.excludeFields (List&lt;String&gt;, Optional) : Fields to exclude from the document sent to the destination.</li>
  *   <li>indexer.includeFields (List&lt;String&gt;, Optional) : Only include these fields from the document when sending to the

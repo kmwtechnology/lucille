@@ -70,7 +70,7 @@ DetectLanguage/profiles
 .claude/
 CLAUDE.md
 
-# Python files created from ExternalPython resources
+# Python files created from ApplyExternalPython resources
 python/
 
 # Local preview directory for the versioned docs site

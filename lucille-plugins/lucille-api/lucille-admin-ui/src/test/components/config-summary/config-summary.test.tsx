@@ -29,8 +29,8 @@ describe("indexerLabel", () => {
 
   // When an indexer class is set, its short name is used as the label.
   it("prefers the short class name when class is set", () => {
-    const config: ConfigObject = { indexer: { class: "com.kmwllc.lucille.indexer.CSVIndexer" } }
-    expect(indexerLabel(config)).toBe("CSVIndexer")
+    const config: ConfigObject = { indexer: { class: "com.kmwllc.lucille.indexer.CsvIndexer" } }
+    expect(indexerLabel(config)).toBe("CsvIndexer")
   })
 
   // With no class, the indexer `type` is used instead.

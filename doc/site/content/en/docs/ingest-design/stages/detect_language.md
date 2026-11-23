@@ -1,6 +1,6 @@
 ---
 title: DetectLanguage
-weight: 240
+weight: 300
 date: 2025-06-09
 description: Detects the language of text fields and writes the language code and confidence to fields.
 ---

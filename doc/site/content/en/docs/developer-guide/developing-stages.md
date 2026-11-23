@@ -108,6 +108,10 @@ There are legitimate exceptions. Some stages return early from `processDocument(
 
 For the full conditions reference and all other control flow options — skipping, dropping, error handling, child documents, and connector sequencing — see [Control Flow]({{< relref "docs/ingest-design/control-flow" >}}).
 
+## Naming a Stage
+
+A stage's class name is what users put in `class`, so it is hard to change once the stage is released: a rename breaks every config that uses it. Name it with a verb phrase, such as `CopyFields` or `ExtractEntities`, following the conventions in [Component Naming]({{< relref "docs/developer-guide/component-naming#stage-names" >}}).
+
 ## Stage Scope: One Stage or Several?
 
 When designing a stage, you'll sometimes face the question of whether to build one stage that performs multiple internal steps, or several smaller stages that the user composes in config.
