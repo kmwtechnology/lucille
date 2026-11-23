@@ -76,6 +76,8 @@ public class EmbedTextJlama extends Stage {
   private final String dest;
   private final boolean deleteModelOnStop;
   private AbstractModel model;
+  // set once start() has downloaded or found the model, so stop() never deletes a model this stage did not use
+  private boolean modelDownloaded;
 
   private static final Logger log = LoggerFactory.getLogger(EmbedTextJlama.class);
 
@@ -99,6 +101,7 @@ public class EmbedTextJlama extends Stage {
       synchronized (EmbedTextJlama.class) {
         localModelPath = SafeTensorSupport.maybeDownloadModel(pathToStoreModel, embeddingModel);
       }
+      modelDownloaded = true;
       model = ModelSupport.loadEmbeddingModel(localModelPath,
           getDType(workingMemoryType, DType.F32),
           getDType(workingQuantizationType, DType.I8));
@@ -117,9 +120,11 @@ public class EmbedTextJlama extends Stage {
   public void stop() throws StageException {
     if (model != null) {
       model.close();
+      model = null;
     }
 
-    if (deleteModelOnStop) {
+    if (deleteModelOnStop && modelDownloaded) {
+      modelDownloaded = false;
       // using the same process as how Jlama creates the path to store the model
       String[] parts = embeddingModel.split("/");
       if (parts.length != 0 && parts.length <= 2) {

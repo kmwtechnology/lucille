@@ -22,7 +22,7 @@ To create a Stage, extend the abstract `Stage` class and implement `processDocum
 |---|---|---|
 | `processDocument(Document doc)` | Yes | Transform the document. Return `null` if no child documents are emitted, or an `Iterator<Document>` of children. |
 | `start()` | No | Acquire resources (connections, models, compiled expressions) before processing begins. Called once per worker thread. |
-| `stop()` | No | Release resources after processing ends. Called once per worker thread. |
+| `stop()` | No | Release resources after processing ends. Called once per worker thread, and also when `start()` was never called or failed (see below). |
 
 **What you declare:**
 
@@ -31,6 +31,8 @@ To create a Stage, extend the abstract `Stage` class and implement `processDocum
 | `public static final Spec SPEC` | Yes | Declares the legal config properties for your stage. Accessed reflectively by the base class constructor. |
 
 Your constructor must call `super(config)` — this triggers SPEC validation and condition parsing. After `super()` returns, you can safely read config values into instance fields.
+
+Acquire resources in `start()`, not in the constructor. Lucille constructs every stage when it validates a config, then calls `stop()` on it without calling `start()`. It also calls `stop()` on a stage whose `start()` threw. So `stop()` must release only what was actually acquired, for example by checking fields for `null`, and must not do anything that assumes the stage ran, such as deleting files the stage would have created.
 
 **What's in `config`:** The `Config` passed to your Stage constructor contains only the properties defined inside your stage's config block — the `{ ... }` element from the `stages` list. It does not contain the full Lucille config. You read your parameters directly: `config.getString("myParam")`. Your SPEC should declare only the properties that belong to your stage.
 

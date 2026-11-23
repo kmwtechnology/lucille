@@ -116,14 +116,18 @@ public abstract class Stage {
   }
 
   /**
-   * Starts this stage, performing any setup if needed.
+   * Starts this stage, performing any setup if needed. Acquire resources such as connections, clients and models here,
+   * not in the constructor: a stage may be constructed only to validate its config and then stopped without being
+   * started.
    * @throws StageException If an error occurs.
    */
   public void start() throws StageException {
   }
 
   /**
-   * Stops this stage, freeing any resources / closing any connections as needed.
+   * Stops this stage, freeing any resources / closing any connections as needed. This may be called when
+   * {@link #start()} was never called, as when the stage was constructed only to validate its config, or when
+   * {@link #start()} failed partway. Release only what was acquired, and do nothing else that assumes the stage ran.
    * @throws StageException If an error occurs.
    */
   public void stop() throws StageException {

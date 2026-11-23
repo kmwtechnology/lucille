@@ -23,22 +23,23 @@ public class Pipeline {
   }
 
   /**
-   * Starts every stage in order. If a stage fails to start, the stages started before it are stopped again so they do
-   * not leak the resources they opened, and the failure is rethrown.
+   * Starts every stage in order. If a stage fails to start, that stage and the stages started before it are stopped so
+   * they do not leak the resources they opened, and the failure is rethrown. The failed stage is stopped too because its
+   * start() may have acquired some resources before it threw.
    */
   public void startStages() throws StageException {
-    List<Stage> started = new ArrayList<>();
+    List<Stage> attempted = new ArrayList<>();
     try {
       for (Stage stage : stages) {
+        attempted.add(stage);
         stage.start();
-        started.add(stage);
       }
     } catch (StageException | RuntimeException e) {
-      for (Stage stage : started) {
+      for (Stage stage : attempted) {
         try {
           stage.stop();
         } catch (Exception stopException) {
-          log.error("Error stopping stage {} after a later stage failed to start", stage.getName(), stopException);
+          log.error("Error stopping stage {} after a stage failed to start", stage.getName(), stopException);
         }
       }
       throw e;
