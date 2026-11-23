@@ -1,3 +1,4 @@
-# XML fixtures must keep LF line endings on checkout: tests compare the parsed XML against Java strings with "\n",
-# and a Windows checkout (core.autocrlf=true) would otherwise convert them to CRLF.
-**/src/test/resources/**/*.xml text=auto eol=lf
+# Store and check out text files with LF line endings on every platform, so that Windows editors and
+# core.autocrlf=true can't introduce CRLF. Tests also rely on it: XML fixtures are compared against Java
+# strings with "\n". Files git detects as binary are left unchanged.
+* text=auto eol=lf
