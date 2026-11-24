@@ -305,6 +305,8 @@ The fail topic (`{pipeline}_fail`, or the name set with `kafka.failTopic`) acts 
 
 Workers and Indexers resolve the topic name the same way, once at startup, so with the same config they always write to the same topic. `kafka.failTopic` must be a literal topic name (letters, digits, `.`, `_` and `-`, at most 249 characters); any other value fails at startup.
 
+A messenger for which the fail topic is enabled checks at construction that the topic exists (`KafkaUtils.requireFailTopic`, which asks the producer for the topic's partitions), so a missing topic stops a Worker or Indexer at startup instead of when its first document fails. Lucille does not create the fail topic; on a broker that auto-creates topics, the check creates it.
+
 Each send waits for the broker to acknowledge the record. See [The Fail Topic]({{< relref "docs/architecture/internals/error-handling#the-fail-topic-dead-letter-queue" >}}) for the failure metadata stamped on each document and for what happens when the fail topic can't take one.
 
 ## Kafka Configuration Options

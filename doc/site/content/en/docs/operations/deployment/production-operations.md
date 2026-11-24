@@ -152,5 +152,5 @@ When the Runner receives a signal (e.g. Kubernetes sending `SIGTERM` during a sc
 - [ ] Use environment variable substitution for credentials (`${?VAR_NAME}`) — never hard-code secrets in config files.
 - [ ] Route `DocLogger` output to a separate file in production (see [Logging]({{< relref "docs/operations/logging" >}})).
 - [ ] Enable `runner.metricsLoggingLevel: "INFO"` for stage-by-stage metrics at run completion.
-- [ ] Configure `worker.maxRetries` and ZooKeeper if poison-pill protection is needed — without this, a document that repeatedly crashes a Worker will stall the pipeline indefinitely. Failed documents are routed to the `{pipeline}_fail` topic (or `kafka.failTopic`) for inspection and replay.
+- [ ] Configure `worker.maxRetries` and ZooKeeper if poison-pill protection is needed — without this, a document that repeatedly crashes a Worker will stall the pipeline indefinitely. Failed documents are routed to the `{pipeline}_fail` topic (or `kafka.failTopic`) for inspection and replay. The topic must exist before Workers and Indexers start, unless the broker auto-creates topics: they check for it at startup.
 - [ ] Set `runner.connectorTimeoutMs` if any connector might run longer than 24 hours (the default timeout).

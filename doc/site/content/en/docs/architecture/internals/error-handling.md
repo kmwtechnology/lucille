@@ -196,10 +196,12 @@ In all cases the FAIL event and the `FailedDocuments` log are emitted regardless
 
 ### When the fail topic can't take a document
 
+A Worker or Indexer for which the fail topic is enabled (by `worker.maxRetries` or `worker.sendFailedDocsToTopic` for a Worker, by `indexer.sendFailedDocsToTopic` for an Indexer) checks at startup that the topic exists, and does not start if it is missing. The message names the topic and the setting that enabled it. The check uses the producer that later sends to the topic, so it needs no extra permission; on a broker that auto-creates topics it creates the topic, as the first send would have. Each topic is checked once per JVM. A missing topic is therefore found before any document is processed, rather than when the first one fails.
+
 The document is written to the fail topic before its FAIL event is sent. If that write fails:
 
 - **The topic rejects that document** (for example, a record too large for the topic): the failure is logged and the document fails as usual, since sending it again would only repeat the rejection. It does not reach the fail topic, though the FAIL event and the `FailedDocuments` log still record it.
-- **Any other failure, in a Worker:** this is a messenger failure like any other, so the Worker stops without sending a FAIL event or committing the document's offset, and the document is redelivered.
+- **Any other failure, in a Worker:** this is a messenger failure like any other, so the Worker thread stops without sending a FAIL event or committing the document's offset, and the document is redelivered. The standard `Worker` and `WorkerIndexer` launches then exit with status 1. An application that runs a `WorkerPool` itself must watch `isFailed()` (not only `isAlive()`, which stays true while any worker thread runs) or register `setFailureListener`; one that runs a `WorkerIndexerPool` must watch `isAlive()`, which turns false as soon as any thread of the pool has stopped.
 - **Any other failure, in an Indexer:** the failure is logged and the document fails as usual. The copy is best-effort, since the FAIL event and the `FailedDocuments` log still record the document, so the batch's offsets are committed and the Indexer goes on. The other failed documents in the same batch are not copied either, so that an unavailable fail topic delays a batch by one Kafka producer timeout rather than one per document.
 
 A child document announced before its parent failed gets a FAIL event but is not copied to the fail topic.

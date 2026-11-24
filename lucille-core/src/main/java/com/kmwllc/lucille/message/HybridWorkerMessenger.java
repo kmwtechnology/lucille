@@ -152,6 +152,20 @@ public class HybridWorkerMessenger implements WorkerMessenger {
 
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     this.indexerQueueFull = metrics.meter(pipelineName + INDEXER_QUEUE_FULL_SUFFIX);
+
+    if (failTopicProducer != null) {
+      try {
+        KafkaUtils.requireFailTopic(failTopicProducer, failTopic, config, KafkaUtils.workerFailTopicSettings(config));
+      } catch (RuntimeException e) {
+        // the caller gets no messenger to close
+        try {
+          close();
+        } catch (Exception closeException) {
+          e.addSuppressed(closeException);
+        }
+        throw e;
+      }
+    }
   }
 
   public HybridWorkerMessenger(Config config, String pipelineName, BlockingQueue<Document> pipelineDest) {

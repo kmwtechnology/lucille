@@ -12,10 +12,13 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigUtil;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.Admin;
@@ -33,6 +36,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.RecordTooLargeException;
@@ -79,6 +83,10 @@ public class KafkaUtils {
 
   // A name made only of the characters Kafka allows in a topic name. Any other name can't be a topic, so it is a regex.
   static final Pattern LITERAL_TOPIC_NAME = Pattern.compile("[a-zA-Z0-9._-]+");
+
+  // The fail topics already found to exist, each with the cluster it is on, so that a topic is checked once per JVM
+  // rather than once per worker thread. Guarded by the class lock.
+  private static final Set<String> CONFIRMED_FAIL_TOPICS = new HashSet<>();
 
   /** Default for <code>kafka.pollIntervalMs</code>: how long a consumer poll blocks waiting for records. */
   public static final int DEFAULT_POLL_INTERVAL_MS = 2000;
@@ -474,6 +482,66 @@ public class KafkaUtils {
    */
   public static boolean indexerFailTopicEnabled(Config config) {
     return ConfigUtils.getBooleanOrDefault(config, "indexer.sendFailedDocsToTopic", false);
+  }
+
+  /**
+   * The settings in the given config that let a Worker send documents to the fail topic (see
+   * {@link #workerFailTopicEnabled}), for a message: "worker.maxRetries", "worker.sendFailedDocsToTopic", or both.
+   */
+  static String workerFailTopicSettings(Config config) {
+    List<String> settings = new ArrayList<>();
+    if (config.hasPath("worker.maxRetries")) {
+      settings.add("worker.maxRetries");
+    }
+    if (ConfigUtils.getBooleanOrDefault(config, "worker.sendFailedDocsToTopic", false)) {
+      settings.add("worker.sendFailedDocsToTopic");
+    }
+    return String.join(" and ", settings);
+  }
+
+  /** The setting that lets an Indexer send documents to the fail topic (see {@link #indexerFailTopicEnabled}). */
+  static String indexerFailTopicSettings() {
+    return "indexer.sendFailedDocsToTopic";
+  }
+
+  /**
+   * Checks that the fail topic exists, so that a missing topic stops a Worker or Indexer when it starts rather than
+   * when its first document fails, when that document would be written nowhere. Called by a messenger that may send to
+   * the fail topic, as it is constructed.
+   *
+   * <p>The check asks the given producer for the topic's partitions, so it uses the connection, credentials and
+   * permissions of the sends that follow, and needs no admin client. On a broker that creates topics automatically it
+   * does what the first send would have done: the topic is created. On any other broker a missing topic fails the check
+   * once the producer has waited <code>max.block.ms</code> (60 seconds unless configured) for its metadata.
+   *
+   * <p>A topic found to exist is not checked again in this JVM, so the worker threads of a pool check it once between
+   * them.
+   *
+   * @param producer The producer that will send to the fail topic.
+   * @param failTopic The fail topic's name, from {@link #getFailTopicName}.
+   * @param config The Lucille config.
+   * @param enabledBy The settings that enabled the fail topic, for the message.
+   * @throws IllegalStateException if the topic can't be found. It names the topic, the settings that enabled it and
+   * what to do.
+   */
+  static synchronized void requireFailTopic(Producer<?, ?> producer, String failTopic, Config config, String enabledBy) {
+    // the same topic name on another cluster is another topic
+    String cluster = ConfigUtils.getStringOrDefault(config, "kafka.producerPropertiesPath",
+        ConfigUtils.getStringOrDefault(config, "kafka.bootstrapServers", ""));
+    String key = cluster + "/" + failTopic;
+    if (CONFIRMED_FAIL_TOPICS.contains(key)) {
+      return;
+    }
+    try {
+      producer.partitionsFor(failTopic);
+    } catch (KafkaException e) {
+      throw new IllegalStateException("The fail topic \"" + failTopic + "\" could not be found (" + e.getMessage()
+          + "). It is enabled by " + enabledBy + ", and without it a document that fails would be written nowhere. "
+          + "Create the topic, or set kafka.failTopic to the name of an existing topic. Lucille does not create the "
+          + "fail topic; a broker with auto.create.topics.enable=true does.", e);
+    }
+    CONFIRMED_FAIL_TOPICS.add(key);
+    log.info("Fail topic {} exists.", failTopic);
   }
 
   /**

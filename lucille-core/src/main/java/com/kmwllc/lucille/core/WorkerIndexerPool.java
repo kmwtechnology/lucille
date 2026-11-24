@@ -20,6 +20,19 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.BlockingQueue;
 
+/**
+ * Starts a set of {@link WorkerIndexer} pairs, each a Worker thread and an Indexer thread, for one pipeline.
+ *
+ * <p>An application that runs a pool itself, rather than through the WorkerIndexer launch, has to watch it:
+ * <ul>
+ *   <li>{@link #start()} throws if a pair can't be started, having stopped the pairs it had already started. A Kafka
+ *   messenger whose fail topic is enabled and does not exist fails this way.</li>
+ *   <li>After that, check {@link #isAlive()}, which is false as soon as either thread of any pair has stopped. A Worker
+ *   thread stops, for instance, when its messenger fails, such as when a document can't be written to the fail topic.
+ *   The WorkerIndexer launch exits non-zero when it sees this. The pool has no <code>isFailed()</code> and does not
+ *   record the cause; it is in the log.</li>
+ * </ul>
+ */
 public class WorkerIndexerPool {
 
   /**

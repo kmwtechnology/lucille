@@ -64,6 +64,21 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
     this.deserializationErrorHandler =
         new DeserializationErrorHandler(config, sourceConsumer);
     this.consumerMetrics = KafkaConsumerMetrics.forWorker(pipelineName);
+
+    // this messenger always has a document producer, but only sends to the fail topic when it is enabled
+    if (KafkaUtils.workerFailTopicEnabled(config)) {
+      try {
+        KafkaUtils.requireFailTopic(kafkaDocumentProducer, failTopic, config, KafkaUtils.workerFailTopicSettings(config));
+      } catch (RuntimeException e) {
+        // the caller gets no messenger to close
+        try {
+          close();
+        } catch (Exception closeException) {
+          e.addSuppressed(closeException);
+        }
+        throw e;
+      }
+    }
   }
 
   /**

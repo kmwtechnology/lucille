@@ -573,7 +573,19 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
     assertEquals(List.of("fromHybridWorker", "fromHybridIndexer", "fromWorker", "fromIndexer"), ids);
     // nothing went to the default name
-    assertFalse(admin.listTopics().names().get().contains(pipeline + "_fail"));
+    assertFalse(topicExists(pipeline + "_fail"));
+  }
+
+  @Test
+  public void testStartupCheckLetsTheBrokerCreateTheFailTopic() throws Exception {
+    // this broker creates topics automatically, so the check does what the first failed document would have done
+    String pipeline = newPipeline(1);
+    String failTopic = "auto-created." + pipeline;
+    Config config = config(pipeline, 1, Map.of("indexer.sendFailedDocsToTopic", true, "kafka.failTopic", failTopic));
+
+    new HybridIndexerMessenger(config, new LinkedBlockingQueue<>(), null, null, pipeline).close();
+
+    waitFor(() -> topicExists(failTopic));
   }
 
   @Test
@@ -799,6 +811,14 @@ public class KafkaConcurrentIndexerEndToEndTest {
       return result;
     } catch (Exception e) {
       throw new RuntimeException(e);
+    }
+  }
+
+  private static boolean topicExists(String topic) {
+    try {
+      return admin.listTopics().names().get().contains(topic);
+    } catch (Exception e) {
+      throw new AssertionError("could not list topics", e);
     }
   }
 

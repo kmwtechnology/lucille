@@ -59,6 +59,20 @@ public class HybridIndexerMessenger implements IndexerMessenger {
     this.pipelineName = pipelineName;
     this.config = config;
     this.eventFieldConfig = EventFieldConfig.fromConfig(config);
+
+    if (failTopicProducer != null) {
+      try {
+        KafkaUtils.requireFailTopic(failTopicProducer, failTopic, config, KafkaUtils.indexerFailTopicSettings());
+      } catch (RuntimeException e) {
+        // the caller gets no messenger to close
+        try {
+          close();
+        } catch (Exception closeException) {
+          e.addSuppressed(closeException);
+        }
+        throw e;
+      }
+    }
   }
 
   @Override

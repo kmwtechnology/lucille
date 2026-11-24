@@ -4,6 +4,9 @@ import com.kmwllc.lucille.core.Document;
 import com.typesafe.config.Config;
 import com.kmwllc.lucille.core.ConfigValidator;
 import com.typesafe.config.ConfigFactory;
+import org.apache.kafka.common.PartitionInfo;
+import org.apache.kafka.common.KafkaException;
+import org.apache.kafka.clients.producer.MockProducer;
 import java.time.Duration;
 import java.util.List;
 import java.util.Set;
@@ -29,6 +32,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -463,6 +467,65 @@ public class KafkaUtilsTest {
     Config config = ConfigFactory.parseString("connectors: [], pipelines: [], indexer { type: \"Nop\" }\n"
         + BASE_KAFKA + "kafka.failTopic: \"dead_letter\"");
     assertTrue(ConfigValidator.validate(config).toString(), ConfigValidator.validate(config).isEmpty());
+  }
+
+  // A producer whose fail topic lookup is counted, and fails while failure is set.
+  private static final class CountingProducer extends MockProducer<String, Document> {
+    private int lookups = 0;
+    private KafkaException failure;
+
+    @Override
+    public synchronized List<PartitionInfo> partitionsFor(String topic) {
+      lookups++;
+      if (failure != null) {
+        throw failure;
+      }
+      return List.of(new PartitionInfo(topic, 0, null, null, null));
+    }
+  }
+
+  @Test
+  public void testFailTopicIsCheckedOncePerJvm() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA);
+    CountingProducer producer = new CountingProducer();
+    // as two worker threads' messengers would
+    KafkaUtils.requireFailTopic(producer, "checkedOnce_fail", config, "worker.maxRetries");
+    KafkaUtils.requireFailTopic(producer, "checkedOnce_fail", config, "worker.maxRetries");
+    assertEquals(1, producer.lookups);
+
+    // another topic, and the same name on another cluster, are checked themselves
+    KafkaUtils.requireFailTopic(producer, "checkedOnce_other_fail", config, "worker.maxRetries");
+    Config otherCluster = ConfigFactory.parseString("kafka.bootstrapServers: \"elsewhere:9092\"");
+    KafkaUtils.requireFailTopic(producer, "checkedOnce_fail", otherCluster, "worker.maxRetries");
+    assertEquals(3, producer.lookups);
+  }
+
+  @Test
+  public void testMissingFailTopicFailsWithAMessageNamingIt() {
+    Config config = ConfigFactory.parseString(BASE_KAFKA);
+    CountingProducer producer = new CountingProducer();
+    producer.failure = new org.apache.kafka.common.errors.TimeoutException("Topic missing_fail not present in metadata after 60000 ms.");
+
+    IllegalStateException e = assertThrows(IllegalStateException.class,
+        () -> KafkaUtils.requireFailTopic(producer, "missing_fail", config, "worker.maxRetries"));
+    assertTrue(e.getMessage(), e.getMessage().contains("\"missing_fail\""));
+    assertTrue(e.getMessage(), e.getMessage().contains("worker.maxRetries"));
+    assertTrue(e.getMessage(), e.getMessage().contains("kafka.failTopic"));
+    assertSame(producer.failure, e.getCause());
+
+    // a failed check is not remembered: once the topic exists, the next messenger finds it
+    producer.failure = null;
+    KafkaUtils.requireFailTopic(producer, "missing_fail", config, "worker.maxRetries");
+    assertEquals(2, producer.lookups);
+  }
+
+  @Test
+  public void testWorkerFailTopicSettings() {
+    assertEquals("worker.maxRetries", KafkaUtils.workerFailTopicSettings(ConfigFactory.parseString("worker.maxRetries: 2")));
+    assertEquals("worker.sendFailedDocsToTopic",
+        KafkaUtils.workerFailTopicSettings(ConfigFactory.parseString("worker.sendFailedDocsToTopic: true")));
+    assertEquals("worker.maxRetries and worker.sendFailedDocsToTopic", KafkaUtils.workerFailTopicSettings(
+        ConfigFactory.parseString("worker { sendFailedDocsToTopic: true, maxRetries: 2 }")));
   }
 
   @Test

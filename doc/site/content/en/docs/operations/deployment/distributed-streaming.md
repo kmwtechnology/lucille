@@ -69,6 +69,8 @@ Streaming mode uses the same pipeline and Kafka configuration as distributed bat
 - **No `connectors` block** — external producers push documents to the Kafka source topic.
 - **No Publisher** — there is no run boundary and no completion accounting.
 
+Streaming deployments usually set `worker.maxRetries`, which enables the fail topic. When it is enabled, the fail topic (`{pipeline}_fail`, or `kafka.failTopic`) must exist before a `Worker` or `WorkerIndexer` starts, unless the broker auto-creates topics: each checks for it at startup and does not start without it. See [Kafka Topic Setup]({{< relref "docs/operations/deployment/distributed-batch#kafka-topic-setup" >}}).
+
 #### Run IDs in Streaming Mode
 
 In batch mode, the Publisher stamps a `run_id` on every document at publication time. In streaming mode there is no Publisher, so documents arriving from an external system typically have no `run_id` field. This is normal and expected — the `run_id` is a batch-mode concept.

@@ -79,6 +79,20 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     this.deserializationErrorHandler =
         new DeserializationErrorHandler(config, destConsumer);
     this.pollInterval = KafkaUtils.getPollInterval(config);
+
+    if (failTopicProducer != null) {
+      try {
+        KafkaUtils.requireFailTopic(failTopicProducer, failTopic, config, KafkaUtils.indexerFailTopicSettings());
+      } catch (RuntimeException e) {
+        // the caller gets no messenger to close
+        try {
+          close();
+        } catch (Exception closeException) {
+          e.addSuppressed(closeException);
+        }
+        throw e;
+      }
+    }
   }
 
   /**
