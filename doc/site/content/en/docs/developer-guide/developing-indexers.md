@@ -35,7 +35,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 |---|---|---|
 | `sendToIndex(PendingSend send)` | Yes | Send `send.documents()` to the destination. Return an `IndexerFailure(document, cause)` for each document that was not applied, holding the instance from `send.documents()`, and report each instance only once; a failure that breaks either rule fails the rest of the send. Return an empty list if all succeeded. Not called in bypass mode. Throw `IndexerException` if nothing in the send was applied, or `IndexerRetryableException` if that failure may be transient, so the retry policy applies. See [Retries and the `sendToIndex()` Contract](#retries-and-the-sendtoindex-contract). |
 | `checkConnection()` | Yes | Return `true` if the destination is reachable and the target index/collection exists. Called before the consumption loop starts, through the base class's `validateConnection()`. Not called in bypass mode. |
-| `closeConnection()` | Yes | Close the client or connection to the destination. |
+| `closeConnection()` | Yes | Close the client or connection to the destination. Also called on an indexer constructed only to validate a config, whose client may be `null` (see below). |
 | `supportsConcurrentSends()` | No | Return `true` only if `sendToIndex()` and your destination client are safe to call from several threads at once. The default is `false`, which makes the base class reject `indexer.maxConcurrentBatches` above 1. See [Concurrent Sends](#concurrent-sends). |
 | `getIndexerConfigKey()` | Yes | Return the key of your implementation-specific block inside the `indexer` block (e.g., `"solr"`, `"opensearch"`). Return `null` if your indexer takes no additional config. |
 | `getUnsupportedSettings()` | No | Return the names of generic `indexer` settings your indexer can't apply, so that setting one fails at startup instead of being ignored. The default is none. |
@@ -47,6 +47,8 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 | `public static final Spec SPEC` | Yes | Declares the legal properties for your implementation-specific config block (not the generic `indexer` block — that's validated by the base class). |
 
 Your constructor must call `super(config, context)` — this triggers config validation, sets up batching, and initializes metrics. The constructor signature must be `(Config, IndexerContext)` because the `IndexerFactory` instantiates indexers reflectively using this signature. `IndexerContext` holds what the framework provides apart from config, such as the messenger and the metrics prefix. Pass it through to `super`; the base class exposes what you need, such as `isBypass()`.
+
+Create the destination client in the constructor, but not in bypass mode: when `isBypass()` is true, nothing is sent and `checkConnection()` is not called, so leave the client `null`. Lucille constructs the indexer in bypass mode when it validates a config, then calls `closeConnection()` on it, so `closeConnection()` must handle a `null` client. The built-in indexers follow this pattern.
 
 **What's in `config`:** Like Stages and Connectors, your Indexer receives its own block: the `Config` passed to your constructor is the `indexer` block. The base class reads generic settings from it, such as `idOverrideField`. Your implementation reads its nested block via `config.getConfig("mykey")` (e.g., `config.getConfig("solr")`). Your SPEC declares only the properties within your implementation-specific block — write `"url"`, not `"solr.url"`. The base class validates the generic settings separately.
 
@@ -128,7 +130,7 @@ public class ExampleIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    // Close client resources
+    // Close client resources; the client is null in bypass mode
   }
 }
 ```
@@ -324,9 +326,9 @@ assertEquals(Event.Type.FINISH, events.get(1).getType());
 Indexers that talk to external systems (Solr, OpenSearch, Elasticsearch) should inject a mock client. The common pattern is a constructor overload:
 
 ```java
-// Production constructor — creates a real client
+// Production constructor — creates a real client, except in bypass mode
 public MyIndexer(Config config, IndexerContext context) {
-  this(config, context, createRealClient(config));
+  this(config, context, context.bypass() ? null : createRealClient(config));
 }
 
 // Test constructor — accepts a mock

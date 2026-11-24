@@ -266,4 +266,26 @@ public class EmbedTextJlamaTest {
       fail();
     }
   }
+
+  @Test
+  public void testStopWithoutStartKeepsModel() throws Exception {
+    // a stage constructed only to validate its config is stopped without being started; it must not delete the model
+    File testFile = new File("src/test/resources/owner_unstarted");
+    File testModelConfigJson = new File(testFile, "config.json");
+    FileUtils.writeStringToFile(testModelConfigJson, "{}", StandardCharsets.UTF_8);
+
+    Map<String, Object> configValues = new HashMap<>();
+    configValues.put("source", "source");
+    configValues.put("modelDownloadPath", "src/test/resources");
+    configValues.put("modelName", "owner/unstarted");
+    configValues.put("deleteModelOnStop", true);
+
+    try {
+      Stage stage = new EmbedTextJlama(ConfigFactory.parseMap(configValues));
+      stage.stop();
+      assertTrue(testModelConfigJson.exists());
+    } finally {
+      FileUtils.deleteDirectory(testFile);
+    }
+  }
 }
