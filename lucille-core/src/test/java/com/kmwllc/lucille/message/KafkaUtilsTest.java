@@ -2,6 +2,7 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Document;
 import com.typesafe.config.Config;
+import com.kmwllc.lucille.core.ConfigValidator;
 import com.typesafe.config.ConfigFactory;
 import java.time.Duration;
 import java.util.List;
@@ -432,6 +433,36 @@ public class KafkaUtilsTest {
         ConfigFactory.parseString("indexer.sendFailedDocsToTopic: true")));
     assertFalse(KafkaUtils.indexerFailTopicEnabled(
         ConfigFactory.parseString("indexer.sendFailedDocsToTopic: false")));
+  }
+
+  @Test
+  public void testFailTopicName() {
+    assertEquals("pipeline1_fail", KafkaUtils.getFailTopicName(ConfigFactory.empty(), "pipeline1"));
+    assertEquals("tenant-a.dead_letter",
+        KafkaUtils.getFailTopicName(ConfigFactory.parseString("kafka.failTopic: \"tenant-a.dead_letter\""), "pipeline1"));
+  }
+
+  @Test
+  public void testInvalidFailTopicNameIsRejected() {
+    // a fail topic is written to, never subscribed to, so it can't be a pattern
+    for (String name : List.of("orders_.*_fail", "fail topic", "fail/topic", "")) {
+      Config config = ConfigFactory.parseMap(Map.of("kafka.failTopic", name));
+      IllegalArgumentException e =
+          assertThrows(IllegalArgumentException.class, () -> KafkaUtils.getFailTopicName(config, "pipeline1"));
+      assertTrue(e.getMessage(), e.getMessage().contains("kafka.failTopic"));
+    }
+
+    Config tooLong = ConfigFactory.parseMap(Map.of("kafka.failTopic", "a".repeat(250)));
+    assertThrows(IllegalArgumentException.class, () -> KafkaUtils.getFailTopicName(tooLong, "pipeline1"));
+    assertEquals("a".repeat(249),
+        KafkaUtils.getFailTopicName(ConfigFactory.parseMap(Map.of("kafka.failTopic", "a".repeat(249))), "pipeline1"));
+  }
+
+  @Test
+  public void testFailTopicIsAKnownKafkaProperty() throws Exception {
+    Config config = ConfigFactory.parseString("connectors: [], pipelines: [], indexer { type: \"Nop\" }\n"
+        + BASE_KAFKA + "kafka.failTopic: \"dead_letter\"");
+    assertTrue(ConfigValidator.validate(config).toString(), ConfigValidator.validate(config).isEmpty());
   }
 
   @Test

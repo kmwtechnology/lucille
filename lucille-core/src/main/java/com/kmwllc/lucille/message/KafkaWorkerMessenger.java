@@ -26,6 +26,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   private static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
   private final KafkaProducer<String, Document> kafkaDocumentProducer;
+  private final String failTopic;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final Config config;
   private final Duration pollInterval;
@@ -55,6 +56,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
     this.pollInterval = KafkaUtils.getPollInterval(config);
     this.pipelineName = pipelineName;
     this.eventFieldConfig = EventFieldConfig.fromConfig(config);
+    this.failTopic = KafkaUtils.getFailTopicName(config, pipelineName);
     this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.sourceConsumer = sourceConsumer;
@@ -127,7 +129,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   }
 
   public void sendFailed(Document document) throws MessengerException {
-    KafkaUtils.sendToFailTopic(kafkaDocumentProducer, pipelineName, document);
+    KafkaUtils.sendToFailTopic(kafkaDocumentProducer, failTopic, document);
   }
 
   @Override

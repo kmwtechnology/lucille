@@ -25,7 +25,9 @@ public static String getDestTopicName(String pipelineName) {
     return pipelineName + "_dest";
 }
 
-public static String getFailTopicName(String pipelineName) {
+public static String getFailTopicName(Config config, String pipelineName) {
+    // Override: kafka.failTopic
+    // Default: {pipelineName}_fail
     return pipelineName + "_fail";
 }
 
@@ -40,7 +42,7 @@ public static String getEventTopicName(Config config, String pipelineName, Strin
 |-------|---------|-----------|-----------|
 | `{pipeline}_source` | Documents waiting to be processed | Publisher | Workers |
 | `{pipeline}_dest` | Processed documents waiting to be indexed | Workers | Indexers |
-| `{pipeline}_fail` | Poison-pill documents (dead letter queue) | Workers | External monitoring |
+| `{pipeline}_fail` | Failed documents (dead letter queue) | Workers, Indexers | External monitoring |
 | `{pipeline}_event_{runId}` | Lifecycle events back to Publisher | Workers, Indexers | Publisher |
 
 The event topic is **per-run** (includes the runId) because each run needs its own isolated event stream. The source, dest, and fail topics are per-pipeline and persist across runs.
@@ -295,11 +297,13 @@ See [Streaming Mode Configuration]({{< relref "docs/operations/deployment" >}}) 
 
 ## The Fail Topic (Dead Letter Queue)
 
-The fail topic (`{pipeline}_fail`) acts as a dead letter queue. Documents here can be inspected, fixed, and replayed. Documents are sent to it in three cases:
+The fail topic (`{pipeline}_fail`, or the name set with `kafka.failTopic`) acts as a dead letter queue. Documents here can be inspected, fixed, and replayed. Documents are sent to it in three cases:
 
 - A Worker sends a document whose retry count (tracked in ZooKeeper) exceeds `worker.maxRetries`.
 - With `worker.sendFailedDocsToTopic`, a Worker copies a document that fails during pipeline processing.
 - With `indexer.sendFailedDocsToTopic`, an Indexer copies a document that fails to index.
+
+Workers and Indexers resolve the topic name the same way, once at startup, so with the same config they always write to the same topic. `kafka.failTopic` must be a literal topic name (letters, digits, `.`, `_` and `-`, at most 249 characters); any other value fails at startup.
 
 Each send waits for the broker to acknowledge the record. See [The Fail Topic]({{< relref "docs/architecture/internals/error-handling#the-fail-topic-dead-letter-queue" >}}) for the failure metadata stamped on each document and for what happens when the fail topic can't take one.
 
@@ -318,6 +322,7 @@ All Kafka settings live under the `kafka` config prefix:
 | `kafka.metadataMaxAgeMs` | Metadata cache TTL | No (default: 30000) |
 | `kafka.sourceTopic` | Override source topic name | No |
 | `kafka.eventTopic` | Override event topic name | No |
+| `kafka.failTopic` | Override fail topic name, for Workers and Indexers | No (default: `{pipeline}_fail`) |
 | `kafka.eventTopicReplicationFactor` | Replication factor of the event topic Lucille creates | No (default: the broker's default) |
 | `kafka.eventTopicMinInsyncReplicas` | `min.insync.replicas` of the event topic Lucille creates | No (default: the broker's default) |
 | `kafka.events` | Enable/disable event production | No (default: true) |

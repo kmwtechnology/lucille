@@ -37,7 +37,7 @@ public class KafkaMessengerTest {
         KafkaUtils.createDocumentConsumer(config, "com.kmwllc.lucille-worker-foo-random");
       }).thenReturn(mockConsumer);
       kafkaUtils.when(() -> {
-        KafkaUtils.getFailTopicName("foo");
+        KafkaUtils.getFailTopicName(config, "foo");
       }).thenReturn("foo_fail");
       kafkaUtils.when(() -> KafkaUtils.sendToFailTopic(Mockito.any(), Mockito.any(), Mockito.any())).thenCallRealMethod();
       KafkaWorkerMessenger messenger = new KafkaWorkerMessenger(config, "foo");

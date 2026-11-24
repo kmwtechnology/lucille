@@ -68,7 +68,7 @@ public class KafkaUtils {
       .optionalBoolean("events")
       .optionalString("documentSerializer", "documentDeserializer", "consumerPropertiesPath",
           "producerPropertiesPath", "adminPropertiesPath", "securityProtocol", "sourceTopic", "eventTopic",
-          "onDeserializationError")
+          "failTopic", "onDeserializationError")
       .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors",
           "eventTopicReplicationFactor", "eventTopicMinInsyncReplicas")
       .optionalParent("consumer", new TypeReference<Map<String, Object>>(){})
@@ -435,8 +435,29 @@ public class KafkaUtils {
     return pipelineName + "_dest";
   }
 
-  public static String getFailTopicName(String pipelineName) {
-    return pipelineName + "_fail";
+  /**
+   * Returns the name of the fail topic, which Workers and Indexers running the given pipeline send failed documents to:
+   * <code>kafka.failTopic</code> when it is set, and otherwise <code>{pipelineName}_fail</code>.
+   *
+   * @param config The Lucille config.
+   * @param pipelineName The name of the pipeline.
+   * @return The fail topic name.
+   * @throws IllegalArgumentException if <code>kafka.failTopic</code> is not a literal topic name: letters, digits,
+   * <code>.</code>, <code>_</code> and <code>-</code> only, and at most 249 characters.
+   */
+  public static String getFailTopicName(Config config, String pipelineName) {
+    if (!config.hasPath("kafka.failTopic")) {
+      return pipelineName + "_fail";
+    }
+    String topicName = config.getString("kafka.failTopic");
+    if (!LITERAL_TOPIC_NAME.matcher(topicName).matches()) {
+      throw new IllegalArgumentException("Invalid kafka.failTopic \"" + topicName
+          + "\": a topic name may contain only letters, digits, '.', '_' and '-'.");
+    }
+    if (topicName.length() > 249) {
+      throw new IllegalArgumentException("Invalid kafka.failTopic because it is too long (max 249 characters): " + topicName);
+    }
+    return topicName;
   }
 
   /**
@@ -456,16 +477,16 @@ public class KafkaUtils {
   }
 
   /**
-   * Sends the document to the pipeline's fail topic, blocking until the broker acknowledges it so that the write is
-   * durable before the caller goes on to commit the document's offset.
+   * Sends the document to the given fail topic (see {@link #getFailTopicName}), blocking until the broker acknowledges
+   * it so that the write is durable before the caller goes on to commit the document's offset.
    */
-  static void sendToFailTopic(Producer<String, Document> producer, String pipelineName, Document document)
+  static void sendToFailTopic(Producer<String, Document> producer, String failTopic, Document document)
       throws MessengerException {
     if (producer == null) {
       throw new IllegalStateException("Sending document " + document.getId() + " to the fail topic, which is not enabled");
     }
     ProducerRecord<String, Document> producerRecord =
-        new ProducerRecord<>(getFailTopicName(pipelineName), document.getId(), document);
+        new ProducerRecord<>(failTopic, document.getId(), document);
     try {
       producer.send(producerRecord).get();
     } catch (ExecutionException e) {

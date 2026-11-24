@@ -95,6 +95,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   private final KafkaProducer<String, String> kafkaEventProducer;
   // only created when the fail topic is enabled, so a worker that doesn't use it needs no document producer config
   private final KafkaProducer<String, Document> failTopicProducer;
+  private final String failTopic;
   private final BlockingQueue<Document> pipelineDest;
   private final OffsetCommitTracker offsetCommitTracker;
   private final ConsumerRebalanceListener trackerListener;
@@ -143,6 +144,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     this.trackerListener = offsetCommitTracker.rebalanceListener();
     KafkaUtils.subscribeToSource(sourceConsumer, KafkaUtils.getSourceTopicName(pipelineName, config), new RebalanceListener());
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    this.failTopic = KafkaUtils.getFailTopicName(config, pipelineName);
     this.failTopicProducer = KafkaUtils.workerFailTopicEnabled(config) ? KafkaUtils.createDocumentProducer(config) : null;
     this.eventFieldConfig = EventFieldConfig.fromConfig(config);
     this.deserializationErrorHandler =
@@ -416,7 +418,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
 
   @Override
   public void sendFailed(Document document) throws MessengerException {
-    KafkaUtils.sendToFailTopic(failTopicProducer, pipelineName, document);
+    KafkaUtils.sendToFailTopic(failTopicProducer, failTopic, document);
   }
 
   @Override

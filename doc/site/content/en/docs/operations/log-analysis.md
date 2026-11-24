@@ -280,7 +280,7 @@ Each match includes the document ID and the reason (e.g., mapping error, version
 ```
 grep "Document FAILED: retry count exceeded" lucille.log
 ```
-These documents were sent to the `{pipeline}_fail` Kafka topic. Consume that topic to retrieve the full document content for inspection or replay.
+These documents were sent to the `{pipeline}_fail` Kafka topic (or `kafka.failTopic`). Consume that topic to retrieve the full document content for inspection or replay.
 
 **In structured/JSON logging**, filter by the `id` MDC field and ERROR level:
 ```

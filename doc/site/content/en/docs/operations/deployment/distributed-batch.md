@@ -75,6 +75,9 @@ kafka {
   # Override source topic name (default: auto-generated from pipeline name)
   sourceTopic: "my-pipeline-source"
 
+  # Override fail topic name (default: {pipeline}_fail). Used by Workers and Indexers.
+  # failTopic: "my-pipeline-dead-letter"
+
   # CAUTION: Setting eventTopic disables per-run topic isolation. Only use this
   # in streaming/connectorless mode where no Runner is coordinating the run.
   # In batch mode with a Runner, omit this — Lucille generates a per-run event topic
@@ -106,7 +109,7 @@ Create the following topics before starting Lucille:
 | Source | `{pipeline}_source` | `kafka.sourceTopic` | ≥ total Worker threads across all processes | Admin |
 | Dest | `{pipeline}_dest` | — (not overridable) | ≥ number of Indexer processes (typically 1) | Admin |
 | Event | `{pipeline}_event_{runId}` | `kafka.eventTopic` | Exactly 1 (required for ordering) | Lucille creates this automatically via Admin API, with the broker's default replication factor unless `kafka.eventTopicReplicationFactor` is set |
-| Fail | `{pipeline}_fail` | — (not overridable) | ≥ 1 | Admin (only needed if `worker.maxRetries` is configured) |
+| Fail | `{pipeline}_fail` | `kafka.failTopic` | ≥ 1 | Admin (only needed if `worker.maxRetries` is configured) |
 
 **Example** — for a pipeline named `my-pipeline` with 8 Worker threads:
 
@@ -149,13 +152,13 @@ Lucille creates this topic explicitly via the Kafka Admin API at the start of ea
 
 In streaming mode (no Runner), you can either disable events entirely (`kafka.events: false`) or set a fixed topic name (`kafka.eventTopic: "my_fixed_event_topic"`) and pre-create it with 1 partition.
 
-**Fail topic** (`{pipeline}_fail`)
+**Fail topic** (`{pipeline}_fail`, or the name set with `kafka.failTopic`)
 
 The Worker publishes poison-pill documents here when they exceed `worker.maxRetries` (which also requires ZooKeeper). Workers and Indexers also copy failed documents here when `worker.sendFailedDocsToTopic` or `indexer.sendFailedDocsToTopic` is set. If none of these is configured, this topic is never written to and doesn't need to exist.
 
 Documents in the fail topic can be inspected with standard Kafka tooling, corrected if needed, and replayed by pointing a connector at the topic. The topic relies on auto-creation or must be pre-created by an admin — Lucille does not create it via the Admin API. A missing topic is not detected at startup, only when the first document fails. See [The Fail Topic]({{< relref "docs/architecture/internals/error-handling#the-fail-topic-dead-letter-queue" >}}) for what happens when a document can't be written to it.
 
-The name is not overridable — it is always `{pipeline}_fail`.
+The name defaults to `{pipeline}_fail`. Set `kafka.failTopic` to use another topic, for example to keep the failed documents of several deployments of one pipeline apart. Workers and Indexers both read the setting, so give them the same value. The name must be a literal topic name: letters, digits, `.`, `_` and `-`, at most 249 characters.
 
 ### Permissions required
 
