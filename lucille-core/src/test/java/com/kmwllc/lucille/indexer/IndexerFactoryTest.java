@@ -36,7 +36,7 @@ public class IndexerFactoryTest {
     File outputFile = new File(config.getString("indexer.csv.path"));
     FileUtils.deleteQuietly(outputFile);
     Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
-    Assert.assertTrue(indexer instanceof CSVIndexer);
+    Assert.assertTrue(indexer instanceof CsvIndexer);
     indexer.closeConnection();
 
     // creating the indexer does not create its output file
@@ -70,7 +70,7 @@ public class IndexerFactoryTest {
   public void testNestedBlockSelectsIndexer() throws Exception {
     Config config = ConfigFactory.parseString("indexer { csv { columns: [\"id\"], path: \"target/x.csv\" } }");
     Indexer indexer = IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing");
-    Assert.assertTrue(indexer instanceof CSVIndexer);
+    Assert.assertTrue(indexer instanceof CsvIndexer);
     indexer.closeConnection();
   }
 
@@ -102,7 +102,7 @@ public class IndexerFactoryTest {
     Assert.assertTrue(IndexerFactory.isIndexerSelected(config));
     Exception exception = assertThrows(IllegalArgumentException.class,
         () -> IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing"));
-    Assert.assertTrue(exception.getMessage(), exception.getMessage().contains("CSVIndexer does not support"));
+    Assert.assertTrue(exception.getMessage(), exception.getMessage().contains("CsvIndexer does not support"));
     Assert.assertTrue(exception.getMessage(), exception.getMessage().contains("deletionMarker"));
   }
 
@@ -111,7 +111,7 @@ public class IndexerFactoryTest {
     Config config = ConfigFactory.parseString(
         "indexer { type: \"CSV\", csv { columns: [\"id\"], path: \"target/x.csv\" }, nop {} }");
     Indexer indexer = IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing");
-    Assert.assertTrue(indexer instanceof CSVIndexer);
+    Assert.assertTrue(indexer instanceof CsvIndexer);
     indexer.closeConnection();
   }
 
@@ -130,7 +130,7 @@ public class IndexerFactoryTest {
     Exception exception = assertThrows(IllegalArgumentException.class,
         () -> IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing"));
     Assert.assertTrue(exception.getMessage(), exception.getMessage().contains("Unknown config block indexer.filter"));
-    Assert.assertTrue(exception.getMessage(), exception.getMessage().contains("CSV"));
+    Assert.assertTrue(exception.getMessage(), exception.getMessage().contains("CsvIndexer"));
   }
 
   @Test
@@ -203,7 +203,7 @@ public class IndexerFactoryTest {
     Config config = ConfigFactory.parseString(
         "csv { columns: [\"id\"] }, indexer { csv: ${csv} { path: \"target/x.csv\" } }").resolve();
     Indexer indexer = IndexerFactory.fromConfig(config, new TestMessenger(), true, "testing");
-    Assert.assertTrue(indexer instanceof CSVIndexer);
+    Assert.assertTrue(indexer instanceof CsvIndexer);
     indexer.closeConnection();
   }
 
@@ -228,12 +228,12 @@ public class IndexerFactoryTest {
 
   @Test
   public void testSelectIndexerClassRejectsDuplicateTypes() {
-    List<Class<? extends Indexer>> matches = List.of(CSVIndexer.class, CSVIndexer.class);
+    List<Class<? extends Indexer>> matches = List.of(CsvIndexer.class, CsvIndexer.class);
     Exception exception = assertThrows(IndexerException.class,
         () -> IndexerFactory.selectIndexerClass("Dup", matches, List.of("Dup")));
     Assert.assertTrue(exception.getMessage().contains("Ambiguous indexer.type configuration of:"));
     // The message lists the names of the conflicting class(es) so the user can find them.
-    Assert.assertTrue(exception.getMessage().contains(CSVIndexer.class.getName()));
+    Assert.assertTrue(exception.getMessage().contains(CsvIndexer.class.getName()));
   }
 
   @Test
@@ -246,7 +246,7 @@ public class IndexerFactoryTest {
   @Test
   public void testSelectIndexerClassReturnsSingleMatch() throws Exception {
     Class<? extends Indexer> selected =
-        IndexerFactory.selectIndexerClass("CSV", List.of(CSVIndexer.class), List.of("CSV"));
-    Assert.assertEquals(CSVIndexer.class, selected);
+        IndexerFactory.selectIndexerClass("CSV", List.of(CsvIndexer.class), List.of("CSV"));
+    Assert.assertEquals(CsvIndexer.class, selected);
   }
 }

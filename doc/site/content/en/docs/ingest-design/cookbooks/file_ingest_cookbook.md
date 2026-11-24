@@ -238,7 +238,7 @@ When a file is deleted from the filesystem, Lucille creates a tombstone Document
 
 ## Recipe 9: Extract Text from PDF, Office, and Other Formats (Tika)
 
-Use the `lucille-tika` plugin to extract text from arbitrary file formats. Set `getFileContent: true` in `fileOptions` to read raw bytes into `file_content`, then pass it to the `TextExtractor` stage.
+Use the `lucille-tika` plugin to extract text from arbitrary file formats. Set `getFileContent: true` in `fileOptions` to read raw bytes into `file_content`, then pass it to the `ExtractText` stage.
 
 ```hocon
 connectors: [
@@ -259,7 +259,7 @@ pipelines: [
     name: "docs-pipeline"
     stages: [
       {
-        class: "com.kmwllc.lucille.tika.stage.TextExtractor"
+        class: "com.kmwllc.lucille.tika.stage.ExtractText"
         byteArrayField: "file_content"
         textField: "extracted_text"
       }
@@ -268,7 +268,7 @@ pipelines: [
 ]
 ```
 
-Requires the `lucille-tika` Maven dependency. See [TextExtractor]({{< relref "docs/ingest-design/stages/text_extractor" >}}) for setup.
+Requires the `lucille-tika` Maven dependency. See [ExtractText]({{< relref "docs/ingest-design/stages/extract_text" >}}) for setup.
 
 ## Filter Options Reference
 

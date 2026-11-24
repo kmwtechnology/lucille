@@ -1,6 +1,6 @@
 ---
 title: SplitFieldValues
-weight: 600
+weight: 640
 date: 2025-06-09
 description: Splits the values of a field by a delimiter and adds the pieces to an output field.
 ---

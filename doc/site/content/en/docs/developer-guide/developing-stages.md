@@ -22,7 +22,7 @@ To create a Stage, extend the abstract `Stage` class and implement `processDocum
 |---|---|---|
 | `processDocument(Document doc)` | Yes | Transform the document. Return `null` if no child documents are emitted, or an `Iterator<Document>` of children. |
 | `start()` | No | Acquire resources (connections, models, compiled expressions) before processing begins. Called once per worker thread. |
-| `stop()` | No | Release resources after processing ends. Called once per worker thread. |
+| `stop()` | No | Release resources after processing ends. Called once per worker thread, and also when `start()` was never called or failed (see below). |
 
 **What you declare:**
 
@@ -31,6 +31,8 @@ To create a Stage, extend the abstract `Stage` class and implement `processDocum
 | `public static final Spec SPEC` | Yes | Declares the legal config properties for your stage. Accessed reflectively by the base class constructor. |
 
 Your constructor must call `super(config)` — this triggers SPEC validation and condition parsing. After `super()` returns, you can safely read config values into instance fields.
+
+Acquire resources in `start()`, not in the constructor. Lucille constructs every stage when it validates a config, then calls `stop()` on it without calling `start()`. It also calls `stop()` on a stage whose `start()` threw. So `stop()` must release only what was actually acquired, for example by checking fields for `null`, and must not do anything that assumes the stage ran, such as deleting files the stage would have created.
 
 **What's in `config`:** The `Config` passed to your Stage constructor contains only the properties defined inside your stage's config block — the `{ ... }` element from the `stages` list. It does not contain the full Lucille config. You read your parameters directly: `config.getString("myParam")`. Your SPEC should declare only the properties that belong to your stage.
 
@@ -105,6 +107,10 @@ Conditions are configured by the user in the stage's config block. Here's what t
 There are legitimate exceptions. Some stages return early from `processDocument()` when a required source field is absent or empty — for example, `FetchUri` returns immediately if the URL field is missing or blank, `DetectLanguage` returns early if the accumulated text is shorter than a minimum length, and `ParseJson` returns early if its source field doesn't exist. These are cases where the stage's logic fundamentally cannot proceed and the check is more nuanced than a simple field-existence condition (e.g., checking `isEmpty()`, or evaluating a computed threshold). When you do return early, do so silently — don't throw a `StageException` for ordinary data variation.
 
 For the full conditions reference and all other control flow options — skipping, dropping, error handling, child documents, and connector sequencing — see [Control Flow]({{< relref "docs/ingest-design/control-flow" >}}).
+
+## Naming a Stage
+
+A stage's class name is what users put in `class`, so it is hard to change once the stage is released: a rename breaks every config that uses it. Name it with a verb phrase, such as `CopyFields` or `ExtractEntities`, following the conventions in [Component Naming]({{< relref "docs/developer-guide/component-naming#stage-names" >}}).
 
 ## Stage Scope: One Stage or Several?
 

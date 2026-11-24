@@ -1,11 +1,11 @@
 ---
-title: ApplyJSoup
-weight: 100
+title: ApplyJsoup
+weight: 130
 date: 2025-06-09
 description: Parses HTML using JSoup and extracts text, attribute values, or HTML using CSS selectors.
 ---
 
-`com.kmwllc.lucille.stage.ApplyJSoup`
+`com.kmwllc.lucille.stage.ApplyJsoup`
 
 Parses HTML using [JSoup](https://jsoup.org/) and extracts text, attribute values, or HTML from the elements matched by [CSS selectors](https://jsoup.org/cookbook/extracting-data/selector-syntax). The HTML is read from one of three sources: a file path, a string, or a byte array held in a document field.
 
@@ -34,7 +34,7 @@ Missing `selector` or `type`, or a missing `attribute` for `attribute` extractio
 
 ```hocon
 {
-  class: "com.kmwllc.lucille.stage.ApplyJSoup"
+  class: "com.kmwllc.lucille.stage.ApplyJsoup"
   byteArrayField: "html_content"
   selectors: {
     title: { type: "text", selector: "h1" }

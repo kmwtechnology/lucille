@@ -9,7 +9,7 @@ import org.apache.tika.metadata.Metadata;
  * of a configured set of prefixes. Tika consults the selector before opening each embedded part, so
  * skipping avoids the stream open, detection, and parse for that part entirely.
  *
- * <p>Driven by {@link TextExtractor}'s {@code skipEmbeddedContentTypePrefixes} config. A common use
+ * <p>Driven by {@link ExtractText}'s {@code skipEmbeddedContentTypePrefixes} config. A common use
  * is {@code ["image/"]} to skip embedded images when only text is wanted.
  *
  * <p>A null content type always returns {@code true} (parse), regardless of the configured prefixes:

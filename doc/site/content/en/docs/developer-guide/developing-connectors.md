@@ -26,7 +26,7 @@ By contrast, `Stage` and `Indexer` are abstract classes because the framework ma
 | `execute(Publisher publisher)` | Yes | Read from your data source and call `publisher.publish(doc)` for each document. |
 | `preExecute(String runId)` | No | Setup work before execution (e.g., delete stale records from an index). |
 | `postExecute(String runId)` | No | Post-success work (e.g., commit an index). Only called if `execute()` succeeds. |
-| `close()` | No | Release resources. Always called, even if earlier methods threw. |
+| `close()` | No | Release resources. Always called, even if earlier methods threw, and also when `preExecute()` never ran (see below). |
 
 **The Publisher:**
 
@@ -48,6 +48,8 @@ The `Publisher` passed to `execute()` is your interface to the rest of the Lucil
 | `public static final Spec SPEC` | Yes | Declares the legal config properties for your connector. |
 
 Your constructor must call `super(config)` — this triggers SPEC validation and parses the common connector properties.
+
+Open connections in `preExecute()` where possible, not in the constructor. Lucille constructs every connector when it validates a config, then calls `close()` on it without calling `preExecute()`. So `close()` must release only what was actually opened, for example by checking fields for `null`, and must not do anything that assumes the run happened. A client created in the constructor is fine, because `close()` releases it.
 
 **What's in `config`:** The `Config` passed to your Connector constructor contains only the properties defined inside your connector's config block — the `{ ... }` element from the `connectors` list. It does not contain the full Lucille config. You read your parameters directly: `config.getString("sourceUri")`. Your SPEC should declare only the properties that belong to your connector.
 
@@ -92,6 +94,10 @@ This connector runs before any publishing connector in the same config. If it th
 See [Control Flow: Setup-Only Connectors]({{< relref "docs/ingest-design/control-flow#setup-only-connectors-no-pipeline" >}}) for the config-level view of this pattern.
 
 ---
+
+## Naming a Connector
+
+A connector's class name is what users put in `class`, so it is hard to change once the connector is released: a rename breaks every config that uses it. Name it for the source it reads from, followed by `Connector`, such as `KafkaConnector` or `DatabaseConnector`, following the conventions in [Component Naming]({{< relref "docs/developer-guide/component-naming#connectors" >}}).
 
 ## Connector Skeleton
 
@@ -148,7 +154,7 @@ public class ExampleConnector extends AbstractConnector {
     
   @Override
   public void close() throws ConnectorException {
-    // Optional: Close network or file handlers.
+    // Optional: Close network or file handlers. Check for null: close() also runs when preExecute() did not.
   }
 }
 ```

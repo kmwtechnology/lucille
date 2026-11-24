@@ -1,6 +1,6 @@
 ---
 title: ParseJson
-weight: 470
+weight: 520
 date: 2025-06-09
 description: Parses a JSON string field and copies its fields, or values selected with JsonPath, onto the Document.
 ---

@@ -1,6 +1,6 @@
 ---
 title: EmitDocsToDeleteByPrefix
-weight: 295
+weight: 370
 date: 2025-06-09
 description: Emits a deletion Document for every Pinecone vector whose ID starts with the ID of a Document marked for deletion.
 ---

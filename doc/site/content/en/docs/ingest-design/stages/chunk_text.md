@@ -1,6 +1,6 @@
 ---
 title: ChunkText
-weight: 150
+weight: 190
 date: 2025-06-09
 description: Split a long text field into smaller, optionally overlapping chunks for embedding and RAG pipelines. Each chunk is attached to the Document as a child Document.
 ---
@@ -128,7 +128,7 @@ pipelines: [
     stages: [
       # 1. Extract text from PDF bytes
       {
-        class: "com.kmwllc.lucille.tika.stage.TextExtractor"
+        class: "com.kmwllc.lucille.tika.stage.ExtractText"
         byteArrayField: "file_content"
         textField: "body"
       },
@@ -145,7 +145,7 @@ pipelines: [
       },
       # 3. Embed each chunk (only the attached children, which carry the chunk text)
       {
-        class: "com.kmwllc.lucille.stage.OpenAIEmbed"
+        class: "com.kmwllc.lucille.stage.EmbedTextOpenAI"
         source: "chunk_text"
         dest: "chunk_vector"
         embedDocument: false
@@ -164,7 +164,7 @@ pipelines: [
 
 ## Tips
 
-- Use `embedDocument: false, embedChildren: true` in `OpenAIEmbed` to only embed chunks, not the full parent document.
+- Use `embedDocument: false, embedChildren: true` in `EmbedTextOpenAI` to only embed chunks, not the full parent document.
 - Set `characterLimit` to stay within your embedding model's input limit. The limit is in characters, not tokens.
 - Use `cleanChunks: true` when the source text has formatting artifacts (embedded newlines from PDF extraction). Cleaning runs after splitting, so it does not change `paragraph` boundaries.
 - `chunksToOverlap` and `chunksToMerge` work together: if you merge 5 sentences with 1 overlap, each chunk shares its last sentence with the next chunk, helping the model retrieve context that spans a chunk boundary. `chunksToOverlap` must be smaller than `chunksToMerge`.

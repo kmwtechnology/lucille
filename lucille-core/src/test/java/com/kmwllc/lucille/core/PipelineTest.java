@@ -3,7 +3,7 @@ import com.kmwllc.lucille.stage.StartStopCaptureStage;
 
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.stage.CreateChildrenStage;
+import com.kmwllc.lucille.stage.CreateChildren;
 import com.kmwllc.lucille.stage.DropDocument;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -163,7 +163,7 @@ public class PipelineTest {
     Config config = ConfigFactory.parseString("numChildren: 100");
 
     for (int i = 0; i < 100; i++) {
-      pipeline.addStage(new CreateChildrenStage(config));
+      pipeline.addStage(new CreateChildren(config));
     }
 
     Document doc = Document.create("d1");
@@ -416,6 +416,42 @@ public class PipelineTest {
     assertTrue(StartStopCaptureStage.startCalled);
     assertTrue(StartStopCaptureStage.stopCalled);
     StartStopCaptureStage.reset();
+  }
+
+  @Test
+  public void testStartFailureStopsTheStageThatFailed() throws Exception {
+    // a stage whose start() throws may have acquired some resources first, so it is stopped too
+    FailingStartStage failing = new FailingStartStage(ConfigFactory.empty());
+    Pipeline pipeline = new Pipeline();
+    pipeline.addStage(failing);
+    assertThrows(StageException.class, pipeline::startStages);
+    assertTrue(failing.stopCalled);
+  }
+
+  private static class FailingStartStage extends Stage {
+
+    public static final Spec SPEC = SpecBuilder.stage().build();
+
+    private boolean stopCalled = false;
+
+    public FailingStartStage(Config conf) {
+      super(conf);
+    }
+
+    @Override
+    public void start() throws StageException {
+      throw new StageException("start failed");
+    }
+
+    @Override
+    public void stop() {
+      stopCalled = true;
+    }
+
+    @Override
+    public Iterator<Document> processDocument(Document doc) {
+      return null;
+    }
   }
 
   @Test

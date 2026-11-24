@@ -1,6 +1,6 @@
 ---
 title: CopyFields
-weight: 200
+weight: 240
 date: 2025-06-09
 description: Copies source fields to one or more destination fields.
 ---

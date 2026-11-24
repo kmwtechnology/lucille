@@ -35,7 +35,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 |---|---|---|
 | `sendToIndex(PendingSend send)` | Yes | Send `send.documents()` to the destination. Return an `IndexerFailure(document, cause)` for each document that was not applied, holding the instance from `send.documents()`, and report each instance only once; a failure that breaks either rule fails the rest of the send. Return an empty list if all succeeded. Not called in bypass mode. Throw `IndexerException` if nothing in the send was applied, or `IndexerRetryableException` if that failure may be transient, so the retry policy applies. See [Retries and the `sendToIndex()` Contract](#retries-and-the-sendtoindex-contract). |
 | `checkConnection()` | Yes | Return `true` if the destination is reachable and the target index/collection exists. Called before the consumption loop starts, through the base class's `validateConnection()`. Not called in bypass mode. |
-| `closeConnection()` | Yes | Close the client or connection to the destination. |
+| `closeConnection()` | Yes | Close the client or connection to the destination. Also called on an indexer constructed only to validate a config, whose client may be `null` (see below). |
 | `supportsConcurrentSends()` | No | Return `true` only if `sendToIndex()` and your destination client are safe to call from several threads at once. The default is `false`, which makes the base class reject `indexer.maxConcurrentBatches` above 1. See [Concurrent Sends](#concurrent-sends). |
 | `getIndexerConfigKey()` | Yes | Return the key of your implementation-specific block inside the `indexer` block (e.g., `"solr"`, `"opensearch"`). Return `null` if your indexer takes no additional config. |
 | `getUnsupportedSettings()` | No | Return the names of generic `indexer` settings your indexer can't apply, so that setting one fails at startup instead of being ignored. The default is none. |
@@ -48,11 +48,17 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 
 Your constructor must call `super(config, context)` — this triggers config validation, sets up batching, and initializes metrics. The constructor signature must be `(Config, IndexerContext)` because the `IndexerFactory` instantiates indexers reflectively using this signature. `IndexerContext` holds what the framework provides apart from config, such as the messenger and the metrics prefix. Pass it through to `super`; the base class exposes what you need, such as `isBypass()`.
 
+Create the destination client in the constructor, but not in bypass mode: when `isBypass()` is true, nothing is sent and `checkConnection()` is not called, so leave the client `null`. Lucille constructs the indexer in bypass mode when it validates a config, then calls `closeConnection()` on it, so `closeConnection()` must handle a `null` client. The built-in indexers follow this pattern.
+
 **What's in `config`:** Like Stages and Connectors, your Indexer receives its own block: the `Config` passed to your constructor is the `indexer` block. The base class reads generic settings from it, such as `idOverrideField`. Your implementation reads its nested block via `config.getConfig("mykey")` (e.g., `config.getConfig("solr")`). Your SPEC declares only the properties within your implementation-specific block — write `"url"`, not `"solr.url"`. The base class validates the generic settings separately.
 
 **Two-level config:** The generic settings in `indexer {}` (batch size, field filtering, deletion markers, retries) are validated and consumed by the base class. Your implementation-specific block nested inside it (e.g., `solr {}`, `opensearch {}`) is validated against your `SPEC` and read in your constructor. Your SPEC should only declare properties within your block — write `"url"`, not `"solr.url"`.
 
 ---
+
+## Naming an Indexer
+
+An indexer's class name is what users put in `indexer.class`, and the part before `Indexer` is its type name for `indexer.type`, so both are hard to change once the indexer is released: a rename breaks every config that uses them. Name it for the destination it writes to, followed by `Indexer`, such as `OpenSearchIndexer` or `CsvIndexer`, following the conventions in [Component Naming]({{< relref "docs/developer-guide/component-naming#indexers" >}}).
 
 ## Indexer Skeleton
 
@@ -124,7 +130,7 @@ public class ExampleIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    // Close client resources
+    // Close client resources; the client is null in bypass mode
   }
 }
 ```
@@ -182,7 +188,7 @@ In every other case, keep going and send the documents that are left. A not-sent
 
 Indexers that pull in a heavy or backend-specific dependency (a search client, a vector-store SDK, native libraries) do **not** live in `lucille-core`. 
 They live in their own plugin module under `lucille-plugins/`, so that `lucille-core` stays lightweight and users only pull in the client stacks they actually use. 
-The Solr, OpenSearch, and Elasticsearch indexers are packaged this way. `CSVIndexer` and `NopIndexer` are still built-in.
+The Solr, OpenSearch, and Elasticsearch indexers are packaged this way. `CsvIndexer` and `NopIndexer` are still built-in.
 
 If your indexer needs no third-party dependency, put it in `lucille-core` and you are done, skip this section. 
 Otherwise, follow the checklist below to add a new plugin module. The same module mechanics apply to a plugin stage or connector. Only the `indexer.type` registration step is indexer-specific.
@@ -320,9 +326,9 @@ assertEquals(Event.Type.FINISH, events.get(1).getType());
 Indexers that talk to external systems (Solr, OpenSearch, Elasticsearch) should inject a mock client. The common pattern is a constructor overload:
 
 ```java
-// Production constructor — creates a real client
+// Production constructor — creates a real client, except in bypass mode
 public MyIndexer(Config config, IndexerContext context) {
-  this(config, context, createRealClient(config));
+  this(config, context, context.bypass() ? null : createRealClient(config));
 }
 
 // Test constructor — accepts a mock
