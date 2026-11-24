@@ -31,7 +31,11 @@ public class WorkerIndexerPool {
 
   public static final int DEFAULT_POOL_SIZE = 1;
 
-  private static final Logger log = LoggerFactory.getLogger(WorkerPool.class);
+  // worker settings that only WorkerPool's watcher thread acts on; a WorkerIndexerPool has no watcher
+  static final List<String> IGNORED_WORKER_SETTINGS =
+      List.of("worker.enableHeartbeat", "worker.maxProcessingSecs", "worker.exitOnTimeout");
+
+  private static final Logger log = LoggerFactory.getLogger(WorkerIndexerPool.class);
 
   private final List<WorkerIndexer> workerIndexers = new ArrayList<>();
   // the indexer queue of each pair, read by the remaining-capacity gauge and the status log line
@@ -63,6 +67,18 @@ public class WorkerIndexerPool {
     }
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.intervalSecs", LogUtils.DEFAULT_LOG_SECONDS);
     this.idSet = idSet;
+    warnAboutIgnoredWorkerSettings();
+  }
+
+  // The heartbeat and stuck-worker settings are read from the same worker block a WorkerIndexer uses, but do nothing
+  // here, so say so once rather than leave a liveness probe or a timeout that silently never fires.
+  private void warnAboutIgnoredWorkerSettings() {
+    List<String> present = IGNORED_WORKER_SETTINGS.stream().filter(config::hasPath).toList();
+    if (!present.isEmpty()) {
+      log.warn("{} {} set but {} no effect in a WorkerIndexer: this mode writes no heartbeat log and does not detect "
+          + "or interrupt a stuck worker.", String.join(", ", present), present.size() == 1 ? "is" : "are",
+          present.size() == 1 ? "has" : "have");
+    }
   }
 
   public void start() throws Exception {

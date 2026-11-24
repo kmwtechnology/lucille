@@ -48,11 +48,13 @@ worker {
 
   # Maximum time (seconds) between Kafka polls before the worker shuts down
   # (only relevant in Kafka mode; requires exitOnTimeout: true)
+  # Has no effect in a WorkerIndexer.
   # Must be greater than Lucille's internal poll timeout (50ms local, 2s distributed),
   # otherwise an idle worker can be incorrectly flagged as stuck.
   maxProcessingSecs: 600
 
   # Shut down if no message is polled within maxProcessingSecs
+  # Has no effect in a WorkerIndexer.
   exitOnTimeout: true
 
   # Maximum number of processing attempts for any document across all workers.
@@ -68,6 +70,7 @@ worker {
 
   # Write a heartbeat.log file periodically for liveness checks.
   # Frequency is controlled by log.intervalSecs.
+  # Has no effect in a WorkerIndexer.
   enableHeartbeat: true
 }
 
@@ -167,6 +170,8 @@ worker {
   threads: 4   # 4 Worker+Indexer thread pairs in this JVM
 }
 ```
+
+**Heartbeat and stuck-worker settings do not apply.** `worker.enableHeartbeat`, `worker.maxProcessingSecs` and `worker.exitOnTimeout` have no effect in a WorkerIndexer. These settings are acted on by the watcher thread of a `WorkerPool`, which a WorkerIndexer does not have. In this mode no heartbeat log is written, so do not point a liveness probe at it, and a Worker that is stuck on one document is not reported or interrupted. A WorkerIndexer logs a warning at startup when any of the three is set.
 
 In a multi-node deployment, you can run multiple WorkerIndexer processes consuming from the same Kafka topic. Kafka's consumer group protocol distributes source documents across them automatically. WorkerIndexer is particularly useful in [streaming mode]({{< relref "docs/operations/deployment#streaming-mode-connectorless" >}}) where no Runner is coordinating the run.
 

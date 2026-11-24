@@ -216,10 +216,10 @@ The average time (ms/doc) to process a single document through all pipeline stag
 The average time (ms/doc) for the search engine to accept a batch, normalized by batch size (total batch time / number of documents in batch).
 
 **WorkerWatcherExecutorService**
-A daemon thread started by the WorkerPool that logs periodic pipeline statistics, detects stuck workers, and emits heartbeats for Kubernetes liveness probes.
+A daemon thread started by the WorkerPool that logs periodic pipeline statistics, detects stuck workers, and emits heartbeats for Kubernetes liveness probes. A WorkerIndexer has no watcher, so it has no stuck-worker detection and no heartbeat.
 
 **Heartbeat**
-A periodic log message written to a dedicated logger (`com.kmwllc.lucille.core.Heartbeat`) that Kubernetes liveness probes can monitor. Enabled via `worker.enableHeartbeat`.
+A periodic log message written to a dedicated logger (`com.kmwllc.lucille.core.Heartbeat`) that Kubernetes liveness probes can monitor. Enabled via `worker.enableHeartbeat`. Not written by a WorkerIndexer, where the setting has no effect.
 
 ---
 

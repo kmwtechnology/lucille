@@ -255,6 +255,8 @@ if (enableHeartbeat) {
 
 When `worker.enableHeartbeat` is `true`, the watcher writes to a dedicated heartbeat logger. This can be configured (via logback) to write to a specific file that a Kubernetes liveness probe checks. If the file stops being updated, the probe fails and the pod is restarted.
 
+A WorkerIndexer has no watcher thread, so it writes no heartbeat and does no stuck-worker detection: `worker.enableHeartbeat`, `worker.maxProcessingSecs` and `worker.exitOnTimeout` have no effect there, and it logs a warning at startup when any of them is set.
+
 At DEBUG level, it also dumps all thread stacks — useful for diagnosing what a stuck worker is doing.
 
 ## End-of-Run Metrics Reporting
