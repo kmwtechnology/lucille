@@ -207,6 +207,7 @@ kafka {
 
 When a property file is specified, it **completely replaces** the programmatic Kafka client configuration (except for `CLIENT_ID_CONFIG` which is always set by Lucille). 
 A consumer properties file must set `enable.auto.commit=false`, and must leave `max.poll.records` unset or set it to `1` (Lucille then sets it to `1`); otherwise Workers and Indexers fail at startup.
+Workers and Indexers default `auto.offset.reset` to `earliest` whether or not a file is used, so a new consumer group processes the records already in its topic. A file that sets `auto.offset.reset=latest` is honored, with a warning at startup.
 Properties can also be declared in the `admin` section of the `kafka` config, which allows for the use of environment variables. 
 This gives you full control over every Kafka client property.
 

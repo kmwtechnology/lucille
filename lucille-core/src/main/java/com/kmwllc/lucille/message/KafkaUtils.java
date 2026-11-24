@@ -242,9 +242,30 @@ public class KafkaUtils {
   private static KafkaConsumer<String, KafkaDocument> createDocumentConsumer(Properties consumerProps, Config config) {
     requireAutoCommitDisabled(consumerProps);
     requireOneRecordPerPoll(consumerProps);
+    defaultOffsetResetToEarliest(consumerProps);
     String deserializerClass = ConfigUtils.getStringOrDefault(config, "kafka.documentDeserializer", KafkaDocumentDeserializer.class.getName());
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deserializerClass);
     return new KafkaConsumer<>(consumerProps);
+  }
+
+  /**
+   * Sets {@code auto.offset.reset} to {@code earliest} on a document consumer's properties when it is unset, so that a
+   * consumer group with no committed offset starts at the beginning of its topic and processes the records already
+   * there. The non-property-file path sets it, but a {@code kafka.consumerPropertiesPath} that omits it would otherwise
+   * get the kafka-clients default of {@code latest}, and a new group would skip every record written before it first
+   * polled. A value that is set is kept; {@code latest} is logged as a warning.
+   */
+  // access set to package so unit tests can check the resolved value without initializing a Consumer
+  static void defaultOffsetResetToEarliest(Properties consumerProps) {
+    Object offsetReset = consumerProps.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG);
+    if (offsetReset == null) {
+      consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+    } else if ("latest".equalsIgnoreCase(offsetReset.toString().trim())) {
+      log.warn("{} is set to latest (in kafka.consumerPropertiesPath or kafka.consumer.{}). A consumer group with no "
+          + "committed offset will start at the end of its topic and skip the records already there, and records "
+          + "written to a new partition before the group notices it. Lucille's default is earliest.",
+          ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, ConsumerConfig.AUTO_OFFSET_RESET_CONFIG);
+    }
   }
 
   /**
