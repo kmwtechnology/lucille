@@ -1,10 +1,10 @@
 # PostgreSQL + pgvector Example
 
-This example indexes documents into PostgreSQL with the `JDBCIndexer`, storing an embedding per document in a
+This example indexes documents into PostgreSQL with the `DatabaseIndexer`, storing an embedding per document in a
 [pgvector](https://github.com/pgvector/pgvector) column next to the text, tags and JSON metadata. Postgres then serves
 vector similarity search, full-text search, and both combined, from one table.
 
-The `JDBCIndexer` runs a SQL statement you write for each document. Everything Postgres-specific is in that statement:
+The `DatabaseIndexer` runs a SQL statement you write for each document. Everything Postgres-specific is in that statement:
 an `ON CONFLICT` upsert, and casts to `jsonb` and `vector`. The indexer itself has no Postgres code, so the same approach
 works for any database with a JDBC driver.
 
@@ -106,7 +106,7 @@ The sample data carries its embeddings so the example runs without an API key. I
 ```hocon
 {
   name: "embed"
-  class: "com.kmwllc.lucille.stage.OpenAIEmbed"
+  class: "com.kmwllc.lucille.stage.EmbedTextOpenAI"
   source: "body"
   dest: "embeddings"
   apiKey: ${OPENAI_API_KEY}

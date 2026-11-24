@@ -41,27 +41,27 @@ import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 
-public class JDBCIndexerTest {
+public class DatabaseIndexerTest {
 
   @Rule
-  public final DBTestHelper dbHelper = new DBTestHelper("JDBCIndexerTest/start.sql");
+  public final DBTestHelper dbHelper = new DBTestHelper("DatabaseIndexerTest/start.sql");
 
-  private final Config config = ConfigFactory.parseResourcesAnySyntax("JDBCIndexerTest/config.conf").getConfig("indexer");
+  private final Config config = ConfigFactory.parseResourcesAnySyntax("DatabaseIndexerTest/config.conf").getConfig("indexer");
 
   // closed after each test, since DBTestHelper fails a test that leaves a connection open
-  private final List<JDBCIndexer> indexers = new ArrayList<>();
+  private final List<DatabaseIndexer> indexers = new ArrayList<>();
 
   @After
   public void closeIndexers() {
-    indexers.forEach(JDBCIndexer::closeConnection);
+    indexers.forEach(DatabaseIndexer::closeConnection);
   }
 
-  private JDBCIndexer newIndexer(Config indexerConfig) {
+  private DatabaseIndexer newIndexer(Config indexerConfig) {
     return newIndexer(indexerConfig, new TestMessenger(), false);
   }
 
-  private JDBCIndexer newIndexer(Config indexerConfig, TestMessenger messenger, boolean bypass) {
-    JDBCIndexer indexer = new JDBCIndexer(indexerConfig, new IndexerContext(messenger, bypass, "testing", null));
+  private DatabaseIndexer newIndexer(Config indexerConfig, TestMessenger messenger, boolean bypass) {
+    DatabaseIndexer indexer = new DatabaseIndexer(indexerConfig, new IndexerContext(messenger, bypass, "testing", null));
     indexers.add(indexer);
     return indexer;
   }
@@ -153,7 +153,7 @@ public class JDBCIndexerTest {
 
   @Test
   public void testFailingRowsAreIsolated() throws Exception {
-    JDBCIndexer indexer = newIndexer(with(config, "jdbc.sql",
+    DatabaseIndexer indexer = newIndexer(with(config, "database.sql",
         "INSERT INTO docs (id, title, n, meta, tags, ts) VALUES (?, ?, ?, ? FORMAT JSON, ?, ?)"));
     Document first = Document.create("first");
     Document duplicate = Document.create("existing");
@@ -214,7 +214,7 @@ public class JDBCIndexerTest {
     Document negative = Document.create("negative");
     negative.setField("n", -1);
 
-    JDBCIndexer indexer = newIndexer(config);
+    DatabaseIndexer indexer = newIndexer(config);
     IndexerException e = assertThrows(IndexerException.class,
         () -> indexer.sendToIndex(PendingSend.of(List.of(first, transientDoc, negative))));
 
@@ -229,7 +229,7 @@ public class JDBCIndexerTest {
   public void testRetryableFailureIsRetried() throws Exception {
     addTransientFailureTrigger(0, 1);
     TestMessenger messenger = new TestMessenger();
-    JDBCIndexer indexer = newIndexer(with(with(config, "maxRetries", 2), "retryWaitDurationMs", 10), messenger, false);
+    DatabaseIndexer indexer = newIndexer(with(with(config, "maxRetries", 2), "retryWaitDurationMs", 10), messenger, false);
     Document doc = Document.create("doc1", "run1");
     doc.setField("title", "transient");
     messenger.sendForIndexing(doc);
@@ -245,7 +245,7 @@ public class JDBCIndexerTest {
   public void testRetryableFailureFailsDocumentsWithoutRetries() throws Exception {
     addTransientFailureTrigger(0, 1);
     TestMessenger messenger = new TestMessenger();
-    JDBCIndexer indexer = newIndexer(config, messenger, false);
+    DatabaseIndexer indexer = newIndexer(config, messenger, false);
     Document doc = Document.create("doc1", "run1");
     doc.setField("title", "transient");
     messenger.sendForIndexing(doc);
@@ -258,7 +258,7 @@ public class JDBCIndexerTest {
   @Test
   public void testReconnectsAfterTheServerClosesTheConnection() throws Exception {
     List<Integer> sessionsBefore = sessionIds();
-    JDBCIndexer indexer = newIndexer(config);
+    DatabaseIndexer indexer = newIndexer(config);
     indexer.sendToIndex(PendingSend.of(List.of(Document.create("before"))));
     List<Integer> indexerSessions = sessionIds();
     indexerSessions.removeAll(sessionsBefore);
@@ -290,7 +290,7 @@ public class JDBCIndexerTest {
 
   @Test
   public void testConnectionFailureIsRetryable() {
-    JDBCIndexer indexer = newIndexer(with(config, "jdbc.connectionString", "jdbc:nonexistent:db"));
+    DatabaseIndexer indexer = newIndexer(with(config, "database.connectionString", "jdbc:nonexistent:db"));
 
     IndexerException e = assertThrows(IndexerException.class,
         () -> indexer.sendToIndex(PendingSend.of(List.of(Document.create("doc1")))));
@@ -300,8 +300,8 @@ public class JDBCIndexerTest {
 
   @Test
   public void testRetryableSqlStatesCanBeChanged() {
-    JDBCIndexer indexer = newIndexer(with(with(with(config, "jdbc.connectionString", "jdbc:nonexistent:db"),
-        "jdbc.retryableSqlStates", List.of("40")), "maxRetries", 1));
+    DatabaseIndexer indexer = newIndexer(with(with(with(config, "database.connectionString", "jdbc:nonexistent:db"),
+        "database.retryableSqlStates", List.of("40")), "maxRetries", 1));
 
     IndexerException e = assertThrows(IndexerException.class,
         () -> indexer.sendToIndex(PendingSend.of(List.of(Document.create("doc1")))));
@@ -312,7 +312,7 @@ public class JDBCIndexerTest {
   @Test
   public void testRunSendsFinishAndFailEvents() throws Exception {
     TestMessenger messenger = new TestMessenger();
-    JDBCIndexer indexer = newIndexer(config, messenger, false);
+    DatabaseIndexer indexer = newIndexer(config, messenger, false);
     Document good = Document.create("good", "run1");
     Document negative = Document.create("negative", "run1");
     negative.setField("n", -1);
@@ -330,13 +330,13 @@ public class JDBCIndexerTest {
   @Test
   public void testCheckConnection() {
     assertTrue(newIndexer(config).validateConnection());
-    assertFalse(newIndexer(with(config, "jdbc.validateSql", "SELECT id FROM missing_table")).validateConnection());
-    assertFalse(newIndexer(with(config, "jdbc.connectionString", "jdbc:nonexistent:db")).validateConnection());
+    assertFalse(newIndexer(with(config, "database.validateSql", "SELECT id FROM missing_table")).validateConnection());
+    assertFalse(newIndexer(with(config, "database.connectionString", "jdbc:nonexistent:db")).validateConnection());
   }
 
   @Test
   public void testBypassDoesNotConnect() {
-    JDBCIndexer indexer = newIndexer(config, new TestMessenger(), true);
+    DatabaseIndexer indexer = newIndexer(config, new TestMessenger(), true);
 
     assertTrue(indexer.validateConnection());
     assertEquals(1, dbHelper.countConnections());
@@ -345,33 +345,33 @@ public class JDBCIndexerTest {
   @Test
   public void testDeletionMarkerRequiresDeleteSql() {
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-        () -> newIndexer(config.withoutPath("jdbc.deleteSql")));
+        () -> newIndexer(config.withoutPath("database.deleteSql")));
 
     assertTrue(e.getMessage().contains("deleteSql"));
   }
 
   @Test
   public void testInvalidParamsRejected() {
-    assertThrows(IllegalArgumentException.class, () -> newIndexer(with(config, "jdbc.params",
+    assertThrows(IllegalArgumentException.class, () -> newIndexer(with(config, "database.params",
         List.of(Map.of("field", "id"), Map.of("field", "tags", "format", "csv")))));
-    assertThrows(IllegalArgumentException.class, () -> newIndexer(with(config, "jdbc.params",
+    assertThrows(IllegalArgumentException.class, () -> newIndexer(with(config, "database.params",
         List.of(Map.of("field", "id"), Map.of("field", "tags", "format", "array")))));
-    assertThrows(IllegalArgumentException.class, () -> newIndexer(with(config, "jdbc.params",
+    assertThrows(IllegalArgumentException.class, () -> newIndexer(with(config, "database.params",
         List.of(Map.of("field", "id"), Map.of("field", "n", "sqlType", "NOT_A_TYPE")))));
-    assertThrows(IllegalArgumentException.class, () -> newIndexer(with(config, "jdbc.params",
+    assertThrows(IllegalArgumentException.class, () -> newIndexer(with(config, "database.params",
         List.of(Map.of("field", "id"), Map.of("field", "title", "arrayType", "text")))));
   }
 
   @Test
   public void testSqlTypeIsCaseInsensitive() {
-    newIndexer(with(with(config, "jdbc.sql", "MERGE INTO docs (id, n) KEY (id) VALUES (?, ?)"), "jdbc.params",
+    newIndexer(with(with(config, "database.sql", "MERGE INTO docs (id, n) KEY (id) VALUES (?, ?)"), "database.params",
         List.of(Map.of("field", "id"), Map.of("field", "n", "sqlType", "integer"))));
   }
 
   @Test
   public void testValuesOfTheWrongKindFailOnlyThatDocument() throws Exception {
-    JDBCIndexer indexer = newIndexer(with(with(config, "jdbc.sql", "MERGE INTO docs (id, title, n) KEY (id) VALUES (?, ?, ?)"),
-        "jdbc.params", List.of(Map.of("field", "id"), Map.of("field", "title"), Map.of("field", "n", "format", "bytes"))));
+    DatabaseIndexer indexer = newIndexer(with(with(config, "database.sql", "MERGE INTO docs (id, title, n) KEY (id) VALUES (?, ?, ?)"),
+        "database.params", List.of(Map.of("field", "id"), Map.of("field", "title"), Map.of("field", "n", "format", "bytes"))));
     Document object = Document.create("object");
     object.setField("title", new ObjectMapper().readTree("{\"k\": 1}"));
     Document notBase64 = Document.create("notBase64");
@@ -392,39 +392,39 @@ public class JDBCIndexerTest {
   public void testDeleteSettingsRequireDeletionMarker() {
     assertThrows(IllegalArgumentException.class, () -> newIndexer(config.withoutPath("deletionMarker")));
     assertThrows(IllegalArgumentException.class, () -> newIndexer(config.withoutPath("deletionMarker")
-        .withoutPath("jdbc.deleteSql").withValue("jdbc.deleteParams", ConfigValueFactory.fromAnyRef(
+        .withoutPath("database.deleteSql").withValue("database.deleteParams", ConfigValueFactory.fromAnyRef(
             List.of(Map.of("field", "id"))))));
   }
 
   @Test
   public void testRetryableSqlStatesRequireMaxRetries() {
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-        () -> newIndexer(with(config, "jdbc.retryableSqlStates", List.of("40"))));
+        () -> newIndexer(with(config, "database.retryableSqlStates", List.of("40"))));
 
     assertTrue(e.getMessage().contains("maxRetries"));
   }
 
   @Test
   public void testPlaceholderCountMustMatchParams() {
-    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> newIndexer(with(config, "jdbc.sql",
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> newIndexer(with(config, "database.sql",
         "MERGE INTO docs (id, title) KEY (id) VALUES (?, ?)")));
-    assertTrue(e.getMessage().contains("2 ? placeholders but indexer.jdbc.params has 6 entries"));
+    assertTrue(e.getMessage().contains("2 ? placeholders but indexer.database.params has 6 entries"));
 
-    e = assertThrows(IllegalArgumentException.class, () -> newIndexer(with(config, "jdbc.deleteSql",
+    e = assertThrows(IllegalArgumentException.class, () -> newIndexer(with(config, "database.deleteSql",
         "DELETE FROM docs WHERE id = ? AND title = ?")));
-    assertTrue(e.getMessage().contains("indexer.jdbc.deleteSql has 2"));
+    assertTrue(e.getMessage().contains("indexer.database.deleteSql has 2"));
   }
 
   @Test
   public void testCountPlaceholders() {
-    assertEquals(3, JDBCIndexer.countPlaceholders("INSERT INTO t (a, b, c) VALUES (?, ?::jsonb, ?::vector)", true));
-    assertEquals(1, JDBCIndexer.countPlaceholders("UPDATE t SET note = 'why?', \"odd?col\" = ? WHERE `x?` = 'it''s?'",
+    assertEquals(3, DatabaseIndexer.countPlaceholders("INSERT INTO t (a, b, c) VALUES (?, ?::jsonb, ?::vector)", true));
+    assertEquals(1, DatabaseIndexer.countPlaceholders("UPDATE t SET note = 'why?', \"odd?col\" = ? WHERE `x?` = 'it''s?'",
         false));
-    assertEquals(1, JDBCIndexer.countPlaceholders("SELECT ? -- what?\nFROM t /* really? */", false));
+    assertEquals(1, DatabaseIndexer.countPlaceholders("SELECT ? -- what?\nFROM t /* really? */", false));
     // ?? escapes a literal ? only in the PostgreSQL driver
-    assertEquals(1, JDBCIndexer.countPlaceholders("SELECT * FROM t WHERE meta ?? 'key' AND id = ?", true));
-    assertEquals(3, JDBCIndexer.countPlaceholders("SELECT * FROM t WHERE meta ?? 'key' AND id = ?", false));
-    assertEquals(0, JDBCIndexer.countPlaceholders("SELECT 'unterminated ?", false));
+    assertEquals(1, DatabaseIndexer.countPlaceholders("SELECT * FROM t WHERE meta ?? 'key' AND id = ?", true));
+    assertEquals(3, DatabaseIndexer.countPlaceholders("SELECT * FROM t WHERE meta ?? 'key' AND id = ?", false));
+    assertEquals(0, DatabaseIndexer.countPlaceholders("SELECT 'unterminated ?", false));
   }
 
   @Test

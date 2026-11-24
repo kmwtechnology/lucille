@@ -25,7 +25,7 @@ indexer {
 }
 ```
 
-The nested block's name is resolved at runtime from the classpath: `solr`, `opensearch`, `elasticsearch`, `csv`, `jdbc`, `pinecone`, or `weaviate`. Backends other than `csv` and `jdbc` live in their own plugin modules and resolve only when that module is on the classpath (see the per-indexer pages below for the exact Maven dependency).
+The nested block's name is resolved at runtime from the classpath: `solr`, `opensearch`, `elasticsearch`, `csv`, `database`, `pinecone`, or `weaviate`. Backends other than `csv` and `database` live in their own plugin modules and resolve only when that module is on the classpath (see the per-indexer pages below for the exact Maven dependency).
 
 Lucille chooses the indexer as follows:
 
@@ -74,17 +74,17 @@ The generic settings and the backend block are validated when the indexer is con
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `type` | String | No | Selects the indexer by its registered type (case-insensitive): `Solr`, `OpenSearch`, `Elasticsearch`, `Pinecone`, `Weaviate` (each requires its plugin module on the classpath), `CSV`, `JDBC`, or `Nop`. Usually not needed, because the nested block's name selects the indexer. |
+| `type` | String | No | Selects the indexer by its registered type (case-insensitive): `Solr`, `OpenSearch`, `Elasticsearch`, `Pinecone`, `Weaviate` (each requires its plugin module on the classpath), `CSV`, `Database`, or `Nop`. Usually not needed, because the nested block's name selects the indexer. |
 | `class` | String | No | Fully qualified class name, for a custom indexer. Takes precedence over `type` if both are set. |
 | `batchSize` | Integer | No | Number of documents a batch holds before it is sent. If only `batchByteSize` is set, count-based batching is disabled. Default: `100`. |
 | `batchByteSize` | Long | No | Estimated size in bytes a batch may hold before it is sent. The size is estimated from the document's JSON structure, not measured from the serialized request. When set alone, count-based batching is disabled. When set alongside `batchSize`, whichever limit is reached first sends the batch. Default: disabled. |
 | `batchTimeoutMs` | Integer | No | Milliseconds since the last add or flush after which a partly filled batch is sent. Default: `100`. |
 | `maxConcurrentBatches` | Integer | No | Maximum number of batches in flight to the destination at once. `1` sends each batch synchronously on the indexer thread. Values below 1 fail at startup. Values above 1 are accepted only by the Solr, OpenSearch, and Elasticsearch indexers (and NopIndexer); other indexers fail at startup. See [Concurrent Batches](#concurrent-batches). Default: `1`. |
 | `idOverrideField` | String | No | Document field whose value is used as the ID at the destination instead of `id`. The document's own `id` is not changed. If a document lacks the field, its `id` is used. A multi-valued field uses its first value. |
-| `indexOverrideField` | String | No | Document field whose value selects the target index or collection for that document. Enables per-index batching. Used by the Solr and OpenSearch indexers. The Elasticsearch, CSV, JDBC, Pinecone, and Weaviate indexers fail at startup if it is set. |
+| `indexOverrideField` | String | No | Document field whose value selects the target index or collection for that document. Enables per-index batching. Used by the Solr and OpenSearch indexers. The Elasticsearch, CSV, Database, Pinecone, and Weaviate indexers fail at startup if it is set. |
 | `includeFields` | List\<String\> | No | Only these fields are sent to the destination. Fields in `excludeFields` are still excluded. |
 | `excludeFields` | List\<String\> | No | These fields are never sent to the destination. |
-| `sendEnabled` | Boolean | No | Set to `false` to run without sending anything to the destination. The Solr, OpenSearch, Elasticsearch, Pinecone, and Weaviate indexers then skip creating their client and their connection check, and report every document as succeeded. The CSV indexer writes no file and also reports every document as succeeded. The JDBC indexer does not connect to the database and also reports every document as succeeded. Default: `true`. |
+| `sendEnabled` | Boolean | No | Set to `false` to run without sending anything to the destination. The Solr, OpenSearch, Elasticsearch, Pinecone, and Weaviate indexers then skip creating their client and their connection check, and report every document as succeeded. The CSV indexer writes no file and also reports every document as succeeded. The Database indexer does not connect to the database and also reports every document as succeeded. Default: `true`. |
 | `sendFailedDocsToTopic` | Boolean | No | Copy each document that fails to index to the pipeline's fail topic. Only takes effect in Kafka and Hybrid modes. See [The Fail Topic]({{< relref "docs/architecture/internals/error-handling#the-fail-topic-dead-letter-queue" >}}). Default: `false`. |
 | `deletionMarker` | Object | No | Marks documents for deletion. `field` is the document field to check, and `value` the value of that field that marks a document for deletion. The value is compared with the field's value as a string (first value, if multi-valued), so `"true"` matches a boolean `true` field. Both keys are required. |
 | `deleteByQuery` | Object | No | Turns a marked document into a delete-by-query. `fieldNameField` is the document field holding the name of the destination field to match, and `valueField` the document field holding the value to match. Both keys are required, and so is `deletionMarker`. |
@@ -101,9 +101,9 @@ The generic settings and the backend block are validated when the indexer is con
 
 The filter applies to every top-level field, including `id` and `run_id`. `run_id` is sent as a regular field unless you add it to `excludeFields` (or leave it out of `includeFields`). For the OpenSearch and Elasticsearch indexers, filtering `id` out removes it from the document body only; the destination ID is still set from `id` or `idOverrideField`. The Solr indexer always sends the `id` field, set from `idOverrideField` or `id`, because Solr needs it on every document. The Weaviate indexer always writes the ID to its `idDestinationName` property. The filter is also applied to each child document.
 
-The Solr, OpenSearch, Elasticsearch, Pinecone, and Weaviate indexers apply `includeFields`, `excludeFields`, and `idOverrideField`. The Pinecone indexer filters before selecting `metadataFields` and writes the `idOverrideField` value as the vector ID; the Weaviate indexer writes it to `idDestinationName` and derives the object UUID from it. The CSV indexer fails at startup if any of the three is set, because `columns` decides what it writes. The JDBC indexer applies `idOverrideField` to the `id` parameter, and fails at startup if `includeFields` or `excludeFields` is set, because `params` decides what it writes.
+The Solr, OpenSearch, Elasticsearch, Pinecone, and Weaviate indexers apply `includeFields`, `excludeFields`, and `idOverrideField`. The Pinecone indexer filters before selecting `metadataFields` and writes the `idOverrideField` value as the vector ID; the Weaviate indexer writes it to `idDestinationName` and derives the object UUID from it. The CSV indexer fails at startup if any of the three is set, because `columns` decides what it writes. The Database indexer applies `idOverrideField` to the `id` parameter, and fails at startup if `includeFields` or `excludeFields` is set, because `params` decides what it writes.
 
-`___children` is never sent as a regular field. The Solr indexer sends children as nested child documents; the OpenSearch and Elasticsearch indexers embed them in `childDocumentsField` when it is set, and otherwise skip them with a warning. Children of children are dropped by all three. The Pinecone, Weaviate, and JDBC indexers do not send children.
+`___children` is never sent as a regular field. The Solr indexer sends children as nested child documents; the OpenSearch and Elasticsearch indexers embed them in `childDocumentsField` when it is set, and otherwise skip them with a warning. Children of children are dropped by all three. The Pinecone, Weaviate, and Database indexers do not send children.
 
 ### Deletion Mechanics
 
@@ -127,7 +127,7 @@ indexer {
 }
 ```
 
-Deletion is performed by the Solr, OpenSearch, and Elasticsearch indexers. The Pinecone indexer supports delete by ID only, and fails at startup if `deleteByQuery` is set. The JDBC indexer deletes by running its `deleteSql`, which is required when `deletionMarker` is set, and fails at startup if `deleteByQuery` is set. The CSV and Weaviate indexers do not support deletion, and fail at startup if `deletionMarker` or `deleteByQuery` is set.
+Deletion is performed by the Solr, OpenSearch, and Elasticsearch indexers. The Pinecone indexer supports delete by ID only, and fails at startup if `deleteByQuery` is set. The Database indexer deletes by running its `deleteSql`, which is required when `deletionMarker` is set, and fails at startup if `deleteByQuery` is set. The CSV and Weaviate indexers do not support deletion, and fail at startup if `deletionMarker` or `deleteByQuery` is set.
 
 ### Batching Behavior
 
@@ -185,7 +185,7 @@ A record on the destination topic that cannot be deserialized stops the indexer,
 ### Core Indexers
 
 - [CSV Indexer]({{< relref "docs/ingest-design/indexers/csv_indexer" >}}) — Write pipeline output to a CSV file.
-- [JDBC Indexer]({{< relref "docs/ingest-design/indexers/jdbc_indexer" >}}) — Write documents to a relational database with a SQL statement you write, such as PostgreSQL with pgvector.
+- [Database Indexer]({{< relref "docs/ingest-design/indexers/database_indexer" >}}) — Write documents to a relational database with a SQL statement you write, such as PostgreSQL with pgvector.
 - [NopIndexer]({{< relref "docs/ingest-design/indexers/nop_indexer" >}}) — No-op indexer for testing.
 
 ### Plugin Indexers

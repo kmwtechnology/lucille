@@ -1,15 +1,15 @@
 ---
-title: JDBC Indexer
+title: Database Indexer
 weight: 8
 date: 2026-11-23
-description: Configuration reference for the JDBC Indexer, which writes documents to a relational database with a SQL statement you write.
+description: Configuration reference for the Database Indexer, which writes documents to a relational database with a SQL statement you write.
 ---
 
-`com.kmwllc.lucille.indexer.JDBCIndexer`
+`com.kmwllc.lucille.indexer.DatabaseIndexer`
 
-Config block: `indexer.jdbc { ... }`
+Config block: `indexer.database { ... }`
 
-The JDBC Indexer runs a parameterized SQL statement for each document. The statement is yours, so database-specific behavior, such as an upsert or a cast to a JSON or vector type, is written in SQL. Any database with a JDBC driver works. The driver is not bundled: put its jar on the classpath, as for the [Database Connector]({{< relref "docs/ingest-design/connectors/database_connector" >}}).
+The Database Indexer runs a parameterized SQL statement for each document. The statement is yours, so database-specific behavior, such as an upsert or a cast to a JSON or vector type, is written in SQL. Any database with a JDBC driver works. The driver is not bundled: put its jar on the classpath, as for the [Database Connector]({{< relref "docs/ingest-design/connectors/database_connector" >}}).
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
@@ -26,7 +26,7 @@ The JDBC Indexer runs a parameterized SQL statement for each document. The state
 
 ```hocon
 indexer {
-  jdbc {
+  database {
     driver: "org.postgresql.Driver"
     connectionString: "jdbc:postgresql://localhost:5432/lucille"
     jdbcUser: "lucille"
@@ -47,7 +47,7 @@ indexer {
 
 Mismatched or unused settings, such as a placeholder count that doesn't match `params`, fail at startup.
 
-**Limitations:** the JDBC Indexer does not support `indexer.indexOverrideField`, `indexer.includeFields`, `indexer.excludeFields`, `indexer.deleteByQuery`, or `indexer.maxConcurrentBatches` greater than 1. Use `params` to choose what is written. Child documents are not written.
+**Limitations:** the Database Indexer does not support `indexer.indexOverrideField`, `indexer.includeFields`, `indexer.excludeFields`, `indexer.deleteByQuery`, or `indexer.maxConcurrentBatches` greater than 1. Use `params` to choose what is written. Child documents are not written.
 
 ---
 
@@ -125,7 +125,7 @@ indexer {
     field: "deleted"
     value: "true"
   }
-  jdbc {
+  database {
     # ... connection settings, sql and params ...
     deleteSql: "DELETE FROM documents WHERE id = ?"
   }

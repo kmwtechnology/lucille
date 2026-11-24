@@ -34,7 +34,7 @@
       <artifactId>lucille-core</artifactId>
     </dependency>
 
-    <!-- the JDBCIndexer loads the driver named in the config; it only has to be on the classpath -->
+    <!-- the DatabaseIndexer loads the driver named in the config; it only has to be on the classpath -->
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>

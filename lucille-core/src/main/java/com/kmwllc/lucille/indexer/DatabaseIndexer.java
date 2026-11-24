@@ -83,8 +83,8 @@ import org.slf4j.LoggerFactory;
  * </ul>
  */
 @AutoService(Indexer.class)
-@IndexerType("JDBC")
-public class JDBCIndexer extends Indexer {
+@IndexerType("Database")
+public class DatabaseIndexer extends Indexer {
 
   private static final Spec PARAM_SPEC = SpecBuilder.withoutDefaults()
       .requiredString("field")
@@ -97,7 +97,7 @@ public class JDBCIndexer extends Indexer {
       .optionalList("deleteParams", PARAM_SPEC)
       .optionalList("retryableSqlStates", new TypeReference<List<String>>(){}).build();
 
-  private static final Logger log = LoggerFactory.getLogger(JDBCIndexer.class);
+  private static final Logger log = LoggerFactory.getLogger(DatabaseIndexer.class);
 
   // converts a document's JSON values to the Java types setObject and createArrayOf accept
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -119,33 +119,33 @@ public class JDBCIndexer extends Indexer {
 
   private Connection connection;
 
-  public JDBCIndexer(Config config, IndexerContext context) {
+  public DatabaseIndexer(Config config, IndexerContext context) {
     super(config, context);
 
-    this.driver = config.getString("jdbc.driver");
-    this.connectionString = config.getString("jdbc.connectionString");
-    this.jdbcUser = config.getString("jdbc.jdbcUser");
-    this.jdbcPassword = config.getString("jdbc.jdbcPassword");
-    this.sql = config.getString("jdbc.sql");
-    this.params = Param.listFromConfig(config.getConfigList("jdbc.params"));
-    this.deleteSql = ConfigUtils.getStringOrDefault(config, "jdbc.deleteSql", null);
-    this.deleteParams = config.hasPath("jdbc.deleteParams")
-        ? Param.listFromConfig(config.getConfigList("jdbc.deleteParams"))
+    this.driver = config.getString("database.driver");
+    this.connectionString = config.getString("database.connectionString");
+    this.jdbcUser = config.getString("database.jdbcUser");
+    this.jdbcPassword = config.getString("database.jdbcPassword");
+    this.sql = config.getString("database.sql");
+    this.params = Param.listFromConfig(config.getConfigList("database.params"));
+    this.deleteSql = ConfigUtils.getStringOrDefault(config, "database.deleteSql", null);
+    this.deleteParams = config.hasPath("database.deleteParams")
+        ? Param.listFromConfig(config.getConfigList("database.deleteParams"))
         : List.of(new Param(Document.ID_FIELD, null, null, null));
-    this.validateSql = ConfigUtils.getStringOrDefault(config, "jdbc.validateSql", null);
-    this.retryableSqlStates = config.hasPath("jdbc.retryableSqlStates")
-        ? config.getStringList("jdbc.retryableSqlStates") : DEFAULT_RETRYABLE_SQL_STATES;
+    this.validateSql = ConfigUtils.getStringOrDefault(config, "database.validateSql", null);
+    this.retryableSqlStates = config.hasPath("database.retryableSqlStates")
+        ? config.getStringList("database.retryableSqlStates") : DEFAULT_RETRYABLE_SQL_STATES;
 
     if (getDeletionMarkerField() != null && deleteSql == null) {
       // a document marked for deletion would otherwise be written by sql
-      throw new IllegalArgumentException("indexer.jdbc.deleteSql is required when indexer.deletionMarker is set.");
+      throw new IllegalArgumentException("indexer.database.deleteSql is required when indexer.deletionMarker is set.");
     }
     // settings that would otherwise be silently ignored
-    if (getDeletionMarkerField() == null && (deleteSql != null || config.hasPath("jdbc.deleteParams"))) {
-      throw new IllegalArgumentException("indexer.jdbc.deleteSql and deleteParams require indexer.deletionMarker to be set.");
+    if (getDeletionMarkerField() == null && (deleteSql != null || config.hasPath("database.deleteParams"))) {
+      throw new IllegalArgumentException("indexer.database.deleteSql and deleteParams require indexer.deletionMarker to be set.");
     }
-    if (config.hasPath("jdbc.retryableSqlStates") && !config.hasPath("maxRetries")) {
-      throw new IllegalArgumentException("indexer.jdbc.retryableSqlStates requires indexer.maxRetries to be set.");
+    if (config.hasPath("database.retryableSqlStates") && !config.hasPath("maxRetries")) {
+      throw new IllegalArgumentException("indexer.database.retryableSqlStates requires indexer.maxRetries to be set.");
     }
     boolean postgres = connectionString.startsWith("jdbc:postgresql:");
     checkPlaceholders("sql", sql, "params", params, postgres);
@@ -159,7 +159,7 @@ public class JDBCIndexer extends Indexer {
       boolean postgres) {
     int placeholders = countPlaceholders(statement, postgres);
     if (placeholders != statementParams.size()) {
-      throw new IllegalArgumentException("indexer.jdbc." + sqlName + " has " + placeholders + " ? placeholders but indexer.jdbc."
+      throw new IllegalArgumentException("indexer.database." + sqlName + " has " + placeholders + " ? placeholders but indexer.database."
           + paramsName + " has " + statementParams.size() + " entries.");
     }
   }
@@ -198,7 +198,7 @@ public class JDBCIndexer extends Indexer {
   }
 
   @Override
-  protected String getIndexerConfigKey() { return "jdbc"; }
+  protected String getIndexerConfigKey() { return "database"; }
 
   // params decide what is written, so a field filter has nothing to apply to; a table override and delete-by-query would
   // need SQL the user hasn't written
@@ -246,7 +246,7 @@ public class JDBCIndexer extends Indexer {
   protected List<IndexerFailure> sendToIndex(PendingSend send) throws IndexerException {
     List<Document> documents = send.documents();
     try {
-      return sendInBatches(documents);
+      return sendAsJdbcBatches(documents);
     } catch (SQLException e) {
       rollbackQuietly();
       if (hasRetryableState(e) || !supportsSavepoints()) {
@@ -257,14 +257,26 @@ public class JDBCIndexer extends Indexer {
           documents.size(), messageOf(e));
     }
     try {
-      return sendOneByOne(documents);
+      return sendWithSavepoints(documents);
     } catch (SQLException e) {
       rollbackQuietly();
       throw toIndexerException(e);
     }
   }
 
-  private List<IndexerFailure> sendInBatches(List<Document> documents) throws SQLException {
+  /**
+   * Sends the documents in one transaction, all or nothing: either every document that could be bound is committed, or
+   * the method throws and none is. Each run of consecutive writes or deletes is executed as one JDBC batch, so a write
+   * and a delete of the same id apply in document order. A document that can't be bound is reported as failed and left
+   * out. If a batch fails, the SQLException is thrown and the caller rolls back: a batch failure doesn't reliably say
+   * which row caused it, so the caller retries the send, or resends it with {@link #sendWithSavepoints} to find the
+   * failing documents.
+   *
+   * @return the failures of documents that couldn't be bound; empty if every document was sent
+   * @throws SQLException if a batch or the commit fails, or a document's bind fails with a retryable SQLState; nothing
+   *     has been committed
+   */
+  private List<IndexerFailure> sendAsJdbcBatches(List<Document> documents) throws SQLException {
     List<IndexerFailure> failures = new ArrayList<>();
     Connection conn = getOrOpenConnection();
     try (PreparedStatement write = conn.prepareStatement(sql);
@@ -294,11 +306,22 @@ public class JDBCIndexer extends Indexer {
   }
 
   /**
-   * Sends each document in its own savepoint within one transaction, so a failing row is rolled back alone: on
-   * PostgreSQL a failed statement otherwise aborts the whole transaction. A retryable failure is thrown, so the caller
-   * rolls back everything and the send is retried as a whole.
+   * Sends the documents in one transaction, one at a time, each in its own savepoint, so a document the database rejects
+   * is rolled back alone and reported as failed while the rest are committed. On PostgreSQL a failed statement otherwise
+   * aborts the whole transaction. Documents are executed in document order. A document that can't be bound is reported
+   * as failed and left out. Executing each document separately is slower than {@link #sendAsJdbcBatches}, so this is
+   * only the fallback for finding the failing documents after a batch fails. It requires a driver that supports
+   * savepoints.
+   *
+   * <p>A failure with a retryable SQLState isn't the document's own, so it is thrown instead: the caller rolls back the
+   * whole send, and it is retried as a whole.
+   *
+   * @return the failures of documents that couldn't be bound or that the database rejected; empty if every document
+   *     was sent
+   * @throws SQLException if a document fails with a retryable SQLState, including while it is bound, or setting a
+   *     savepoint or the commit fails; nothing has been committed
    */
-  private List<IndexerFailure> sendOneByOne(List<Document> documents) throws SQLException {
+  private List<IndexerFailure> sendWithSavepoints(List<Document> documents) throws SQLException {
     List<IndexerFailure> failures = new ArrayList<>();
     Connection conn = getOrOpenConnection();
     try (PreparedStatement write = conn.prepareStatement(sql);
