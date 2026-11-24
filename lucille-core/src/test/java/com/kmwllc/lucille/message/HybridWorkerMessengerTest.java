@@ -18,6 +18,7 @@ import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -25,7 +26,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 import org.apache.kafka.clients.consumer.CommitFailedException;
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.MockConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -501,5 +504,48 @@ public class HybridWorkerMessengerTest {
     assertNull(committed(P0));
     assertEquals(1, metrics.meter(PIPELINE + KafkaConsumerMetrics.WORKER_COMMIT_FAILURES_SUFFIX).getCount());
     assertEquals(1, metrics.timer(PIPELINE + KafkaConsumerMetrics.WORKER_COMMIT_TIME_SUFFIX).getCount());
+  }
+
+  // The consumer a messenger for the given kafka.sourceTopic subscribed: by name, in subscription(), or by pattern.
+  private static final class SubscriptionRecorder extends MockConsumer<String, KafkaDocument> {
+    private Pattern pattern;
+
+    private SubscriptionRecorder() {
+      super(OffsetResetStrategy.EARLIEST);
+    }
+
+    @Override
+    public synchronized void subscribe(Pattern pattern, ConsumerRebalanceListener listener) {
+      this.pattern = pattern;
+      super.subscribe(pattern, listener);
+    }
+  }
+
+  private SubscriptionRecorder subscribeTo(String sourceTopic) {
+    SubscriptionRecorder recorder = new SubscriptionRecorder();
+    Config config = config(300000).withValue("kafka.sourceTopic", ConfigValueFactory.fromAnyRef(sourceTopic));
+    new HybridWorkerMessenger(config, PIPELINE, new LinkedBlockingQueue<>(), recorder);
+    return recorder;
+  }
+
+  @Test
+  public void testLiteralSourceTopicIsSubscribedByName() {
+    // the default name, built from the pipeline name
+    assertEquals(Set.of(TOPIC), consumer.subscription());
+
+    for (String name : List.of("pipeline1_source", "a.b-c_d")) {
+      SubscriptionRecorder recorder = subscribeTo(name);
+      assertEquals(Set.of(name), recorder.subscription());
+      assertNull("a literal name must not be subscribed as a pattern", recorder.pattern);
+    }
+  }
+
+  @Test
+  public void testSourceTopicWithRegexCharactersIsSubscribedByPattern() {
+    for (String name : List.of("orders_.*_source", "src[12]")) {
+      SubscriptionRecorder recorder = subscribeTo(name);
+      assertEquals(name, recorder.pattern.pattern());
+      assertTrue("a pattern subscription names no topic until one matches", recorder.subscription().isEmpty());
+    }
   }
 }

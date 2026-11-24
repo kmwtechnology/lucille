@@ -45,7 +45,7 @@ public static String getEventTopicName(Config config, String pipelineName, Strin
 
 The event topic is **per-run** (includes the runId) because each run needs its own isolated event stream. The source, dest, and fail topics are per-pipeline and persist across runs.
 
-The source topic name is validated to contain only safe characters (`[A-Za-z\d._-]+`) since it may be used as a regex pattern for consumer subscription.
+The default source topic name is built from the pipeline name, which is validated to contain only safe characters (`[A-Za-z\d._-]+`). A name set with `kafka.sourceTopic` is checked only for length (at most 249 characters), because a `WorkerIndexer` accepts a regex there. A `WorkerIndexer` subscribes by name when the value is made only of letters, digits, `.`, `_` and `-`, and by pattern (a Java regex) otherwise; in a name subscribed by name, `.` is literal. A standalone Worker always subscribes by name.
 
 ## KafkaDocument: Carrying Kafka Metadata
 

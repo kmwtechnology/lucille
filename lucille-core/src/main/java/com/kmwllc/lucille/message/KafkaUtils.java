@@ -16,13 +16,16 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.CreateTopicsOptions;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -73,6 +76,9 @@ public class KafkaUtils {
       .optionalParent("admin", new TypeReference<Map<String, Object>>(){})
       // controls optional enrichment of lifecycle events with source-document fields; see EventFieldConfig
       .optionalParent("event", EventFieldConfig.SPEC).build();
+
+  // A name made only of the characters Kafka allows in a topic name. Any other name can't be a topic, so it is a regex.
+  static final Pattern LITERAL_TOPIC_NAME = Pattern.compile("[a-zA-Z0-9._-]+");
 
   /** Default for <code>kafka.pollIntervalMs</code>: how long a consumer poll blocks waiting for records. */
   public static final int DEFAULT_POLL_INTERVAL_MS = 2000;
@@ -402,6 +408,27 @@ public class KafkaUtils {
     }
 
     return topicName;
+  }
+
+  /**
+   * Subscribes a WorkerIndexer's consumer to its source topic: by name when the name is made only of letters, digits,
+   * <code>.</code>, <code>_</code> and <code>-</code>, and otherwise as a regular expression matched against the
+   * cluster's topics. A consumer subscribed by pattern requests metadata for every topic in the cluster and keeps
+   * refreshing it, which is a heavy load on the brokers of a cluster with many topics, so a pattern is only used for a
+   * name that can't be a topic name. In a name subscribed by name, <code>.</code> is literal.
+   *
+   * @param consumer The consumer to subscribe.
+   * @param topic The source topic name or pattern, as returned by {@link #getSourceTopicName}.
+   * @param listener The rebalance listener, registered either way.
+   */
+  static void subscribeToSource(Consumer<?, ?> consumer, String topic, ConsumerRebalanceListener listener) {
+    if (LITERAL_TOPIC_NAME.matcher(topic).matches()) {
+      log.info("Subscribing to source topic {} by name.", topic);
+      consumer.subscribe(List.of(topic), listener);
+    } else {
+      log.info("Subscribing to source topics by pattern {}.", topic);
+      consumer.subscribe(Pattern.compile(topic), listener);
+    }
   }
 
   public static String getDestTopicName(String pipelineName) {

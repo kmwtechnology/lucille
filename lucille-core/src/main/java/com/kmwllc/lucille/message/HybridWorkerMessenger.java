@@ -37,7 +37,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 
 /**
  * A WorkerMessenger for hybrid mode: reads documents from a Kafka source topic and hands them to a co-located Indexer
@@ -142,7 +141,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     this.consumerMetrics = KafkaConsumerMetrics.forWorker(pipelineName);
     this.offsetCommitTracker = new OffsetCommitTracker(sourceConsumer, consumerMetrics);
     this.trackerListener = offsetCommitTracker.rebalanceListener();
-    sourceConsumer.subscribe(Pattern.compile(KafkaUtils.getSourceTopicName(pipelineName, config)), new RebalanceListener());
+    KafkaUtils.subscribeToSource(sourceConsumer, KafkaUtils.getSourceTopicName(pipelineName, config), new RebalanceListener());
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.failTopicProducer = KafkaUtils.workerFailTopicEnabled(config) ? KafkaUtils.createDocumentProducer(config) : null;
     this.eventFieldConfig = EventFieldConfig.fromConfig(config);

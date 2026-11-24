@@ -37,7 +37,14 @@ External documents must be placed onto the topic named `{pipeline-name}_source` 
 
 ### Consuming from Multiple Topics with a Pattern
 
-When running a `WorkerIndexer` in streaming mode, `kafka.sourceTopic` is interpreted as a Java regex pattern rather than a literal topic name. This means a single `WorkerIndexer` process can consume from multiple Kafka topics simultaneously by setting `sourceTopic` to a pattern that matches all of them:
+When running a `WorkerIndexer` in streaming mode, `kafka.sourceTopic` can be a Java regex pattern instead of a topic name. Lucille decides which it is from the characters in the value:
+
+- A value made only of letters, digits, `.`, `_` and `-` is a literal topic name, and the `WorkerIndexer` subscribes to that one topic by name. In such a name `.` is a literal dot: `orders.v1` matches only the topic `orders.v1`, not `ordersXv1`.
+- Any other value is a Java regex, and the `WorkerIndexer` subscribes to every topic it matches.
+
+At startup the `WorkerIndexer` logs which form it used ("by name" or "by pattern").
+
+A single `WorkerIndexer` process can consume from multiple Kafka topics simultaneously by setting `sourceTopic` to a pattern that matches all of them:
 
 ```hocon
 kafka {
@@ -49,7 +56,11 @@ kafka {
 
 Kafka's consumer group protocol assigns partitions from all matching topics to the consumer. As new matching topics are created, the consumer group rebalances and picks them up automatically.
 
-Note: this behavior applies to `WorkerIndexer` only. A standalone `Worker` subscribes to a single exact topic name and does not support pattern matching.
+Prefer a literal name when one topic is enough. A consumer subscribed by pattern requests metadata for every topic in the cluster, and keeps refreshing it, so that it can match new topics. On a cluster with many topics and one consumer per worker thread, these requests put a heavy load on the brokers.
+
+As with a standalone `Worker`, a consumer subscribed by name can cause a broker running with `auto.create.topics.enable=true` to create the source topic if it does not exist. Set `kafka.consumer."allow.auto.create.topics": false` to prevent that.
+
+Note: pattern matching applies to `WorkerIndexer` only. A standalone `Worker` always subscribes to a single exact topic name.
 
 ### Configuration for Streaming Mode
 
