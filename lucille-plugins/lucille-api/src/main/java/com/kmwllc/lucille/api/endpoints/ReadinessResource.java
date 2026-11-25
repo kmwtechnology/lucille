@@ -18,7 +18,7 @@ import jakarta.ws.rs.core.Response;
  * Provides a simple endpoint to check if the Lucille API service is ready to receive traffic.
  * <ul>
  *   <li>endpoint: '/readyz'</li>
- *   <li>GET: returns 204 No Content if ready</li>
+ *   <li>GET: returns 200 OK if ready</li>
  * </ul>
  */
 @Path("/v1/readyz")
@@ -40,11 +40,12 @@ public class ReadinessResource {
   }
 
   /**
-   * Readiness check endpoint.
-   * @return HTTP 204 No Content if the service is ready
+   * Readiness check endpoint. Preset configs are loaded in {@code APIApplication.run} before the server starts,
+   * and a failure there stops startup, so a server that is serving requests is ready.
+   * @return HTTP 200 OK if the service is ready
    */
   @GET
-  @Operation(summary = "Readiness Check", description = "Returns 204 No Content to indicate the service is ready.")
+  @Operation(summary = "Readiness Check", description = "Returns 200 OK to indicate the service is ready.")
   public Response isReady() {
     log.debug("Readiness check endpoint accessed.");
     return Response.ok().build();
