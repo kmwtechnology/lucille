@@ -330,7 +330,7 @@ public class DatabaseIndexerTest {
   @Test
   public void testCheckConnection() {
     assertTrue(newIndexer(config).validateConnection());
-    assertFalse(newIndexer(with(config, "database.validateSql", "SELECT id FROM missing_table")).validateConnection());
+    assertFalse(newIndexer(with(config, "database.validationSql", "SELECT id FROM missing_table")).validateConnection());
     assertFalse(newIndexer(with(config, "database.connectionString", "jdbc:nonexistent:db")).validateConnection());
   }
 

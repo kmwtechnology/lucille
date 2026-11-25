@@ -75,7 +75,7 @@ import org.slf4j.LoggerFactory;
  *   Required when indexer.deletionMarker is set, and not allowed otherwise.</li>
  *   <li>deleteParams (List&lt;Map&gt;, Optional) : How each <code>?</code> in deleteSql is bound, as in params. Defaults
  *   to the document id.</li>
- *   <li>validateSql (String, Optional) : Statement run when the indexer connects, which must succeed, for example a
+ *   <li>validationSql (String, Optional) : Statement run when the indexer connects, which must succeed, for example a
  *   <code>SELECT ... LIMIT 0</code> on the target table.</li>
  *   <li>retryableSqlStates (List&lt;String&gt;, Optional) : SQLState prefixes of failures that may be transient, which are
  *   retried. Requires indexer.maxRetries. Defaults to <code>["08", "40"]</code> (connection exceptions and transaction
@@ -93,7 +93,7 @@ public class DatabaseIndexer extends Indexer {
   public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql")
       .requiredList("params", PARAM_SPEC)
-      .optionalString("deleteSql", "validateSql")
+      .optionalString("deleteSql", "validationSql")
       .optionalList("deleteParams", PARAM_SPEC)
       .optionalList("retryableSqlStates", new TypeReference<List<String>>(){}).build();
 
@@ -114,7 +114,7 @@ public class DatabaseIndexer extends Indexer {
   private final List<Param> params;
   private final String deleteSql;
   private final List<Param> deleteParams;
-  private final String validateSql;
+  private final String validationSql;
   private final List<String> retryableSqlStates;
 
   private Connection connection;
@@ -132,7 +132,7 @@ public class DatabaseIndexer extends Indexer {
     this.deleteParams = config.hasPath("database.deleteParams")
         ? Param.listFromConfig(config.getConfigList("database.deleteParams"))
         : List.of(new Param(Document.ID_FIELD, null, null, null));
-    this.validateSql = ConfigUtils.getStringOrDefault(config, "database.validateSql", null);
+    this.validationSql = ConfigUtils.getStringOrDefault(config, "database.validationSql", null);
     this.retryableSqlStates = config.hasPath("database.retryableSqlStates")
         ? config.getStringList("database.retryableSqlStates") : DEFAULT_RETRYABLE_SQL_STATES;
 
@@ -228,16 +228,16 @@ public class DatabaseIndexer extends Indexer {
   protected boolean checkConnection() {
     try {
       Connection conn = getOrOpenConnection();
-      if (validateSql != null) {
+      if (validationSql != null) {
         try (Statement statement = conn.createStatement()) {
-          statement.execute(validateSql);
+          statement.execute(validationSql);
         } finally {
           conn.rollback();
         }
       }
       return conn.isValid(VALID_TIMEOUT_SECONDS);
     } catch (SQLException e) {
-      log.error("Could not connect to {} or run validateSql.", connectionString, e);
+      log.error("Could not connect to {} or run validationSql.", connectionString, e);
       return false;
     }
   }

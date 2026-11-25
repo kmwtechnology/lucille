@@ -21,7 +21,7 @@ The Database Indexer runs a parameterized SQL statement for each document. The s
 | `params` | List\<Object\> | Yes | How each `?` in `sql` is bound, in order. See [Parameters](#parameters). |
 | `deleteSql` | String | No | Statement run for documents marked for deletion. Required when `indexer.deletionMarker` is set. |
 | `deleteParams` | List\<Object\> | No | How each `?` in `deleteSql` is bound. Default: the document ID. |
-| `validateSql` | String | No | Statement run at startup that must succeed, such as `SELECT ... LIMIT 0` on the target table, so a missing table or column fails the run early. |
+| `validationSql` | String | No | Statement run at startup that must succeed, such as `SELECT ... LIMIT 0` on the target table, so a missing table or column fails the run early. |
 | `retryableSqlStates` | List\<String\> | No | SQLState prefixes of transient failures, retried when `indexer.maxRetries` is set. Default: `["08", "40"]` (connection failures, deadlocks and serialization failures). |
 
 ```hocon
