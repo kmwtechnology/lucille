@@ -1,9 +1,23 @@
 /**
+ * Outcome of one connector within a run (ConnectorResult), including its own
+ * document counts.
+ */
+export interface ConnectorResult {
+  name: string
+  status: boolean
+  numSucceeded: number
+  numFailed: number
+  numDropped: number
+}
+
+/**
  * Outcome of a completed run (RunResult). `status` true means success;
- * `message` is the human-readable run summary.
+ * `message` is the human-readable run summary. `connectorResults` has one
+ * entry per connector that ran, in order.
  */
 export interface RunResult {
   status: boolean
+  connectorResults: ConnectorResult[]
   message: string
   runId: string
 }

@@ -2,9 +2,9 @@ import { useNavigate } from "react-router-dom"
 import { Link } from "@/components/ui/link/link"
 import { Link as LinkIcon, Play } from "lucide-react"
 import { useFetch } from "@/hooks/use-fetch"
-import { formatDuration, formatInstant, toEpochMs } from "@/lib/utils"
+import { formatDurationSeconds, formatInstant, toEpochMs } from "@/lib/utils"
 import { RUN_POLL_INTERVAL_MS } from "@/lib/constants"
-import type { Run } from "@/types/api"
+import type { ConnectorResult, Run } from "@/types/api"
 import { RunStatusBadge } from "@/components/run-status/run-status"
 import { LoadingText } from "@/components/loading-text/loading-text"
 import { ErrorState } from "@/components/error-state/error-state"
@@ -16,6 +16,14 @@ import styles from "./runs.module.css"
 function startTimeMs(run: Run): number {
   const ms = toEpochMs(run.startTime)
   return Number.isNaN(ms) ? 0 : ms
+}
+
+type DocCount = "numSucceeded" | "numFailed" | "numDropped"
+
+// Total of one document count across the run's connectors, or a dash if the run has no result yet.
+function totalDocs(run: Run, count: DocCount): number | string {
+  if (!run.runResult) return "—"
+  return run.runResult.connectorResults.reduce((sum: number, cr: ConnectorResult) => sum + cr[count], 0)
 }
 
 function StartRunLink() {
@@ -56,8 +64,11 @@ function RunRow({ run }: { run: Run }) {
         </span>
       </td>
       <td className={styles.nowrap}>{formatInstant(run.startTime)}</td>
-      <td className={styles.nowrap}>
-        {run.done ? formatDuration(run.startTime, run.endTime) : "In progress"}
+      <td className={styles.numeric}>{totalDocs(run, "numSucceeded")}</td>
+      <td className={styles.numeric}>{totalDocs(run, "numFailed")}</td>
+      <td className={styles.numeric}>{totalDocs(run, "numDropped")}</td>
+      <td className={styles.numeric}>
+        {run.done ? formatDurationSeconds(run.startTime, run.endTime) : "In progress"}
       </td>
     </tr>
   )
@@ -103,7 +114,10 @@ export default function Runs() {
                   <th className={styles.th}>Status</th>
                   <th className={styles.th}>Config</th>
                   <th className={styles.th}>Started</th>
-                  <th className={styles.th}>Duration</th>
+                  <th className={styles.thNumeric}>Succeeded</th>
+                  <th className={styles.thNumeric}>Failed</th>
+                  <th className={styles.thNumeric}>Dropped</th>
+                  <th className={styles.thNumeric}>Duration</th>
                 </tr>
               </thead>
               <tbody>

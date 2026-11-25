@@ -11,7 +11,7 @@ import {
 import { Play, Settings } from "lucide-react"
 import { useFetch } from "@/hooks/use-fetch"
 import { useStartRun } from "@/hooks/use-start-run"
-import { formatDuration, formatInstant } from "@/lib/utils"
+import { formatDurationSeconds, formatInstant } from "@/lib/utils"
 import { RUN_POLL_INTERVAL_MS } from "@/lib/constants"
 import type { ConfigMap, Run, RunError } from "@/types/api"
 import { RunStatusBadge } from "@/components/run-status/run-status"
@@ -168,7 +168,7 @@ function RunView({ id }: { id: string }) {
               <div className={styles.kvRow}>
                 <span className={styles.kvKey}>Duration</span>
                 <span className={styles.kvValue}>
-                  {run.data.done ? formatDuration(run.data.startTime, run.data.endTime) : "In progress"}
+                  {run.data.done ? formatDurationSeconds(run.data.startTime, run.data.endTime) : "In progress"}
                 </span>
               </div>
               {run.data.runType && (

@@ -5,6 +5,7 @@ import {
   errorMessageFrom,
   formatBytes,
   formatDuration,
+  formatDurationSeconds,
   formatInstant,
   toEpochMs,
 } from "@/lib/utils"
@@ -105,6 +106,35 @@ describe("formatDuration", () => {
   // An unparseable endpoint yields a dash instead of a bogus number.
   it("returns a dash when start or end cannot be parsed", () => {
     expect(formatDuration("bad", 1000)).toBe("—")
+  })
+})
+
+describe("formatDurationSeconds", () => {
+  // Sub-second precision is kept, to three decimal places.
+  it("formats fractional seconds", () => {
+    expect(formatDurationSeconds(1000, 1012.345)).toBe("12.345s")
+  })
+
+  // Long durations stay in seconds rather than rolling over into minutes.
+  it("does not roll over into minutes", () => {
+    expect(formatDurationSeconds(1000, 1090.5)).toBe("90.500s")
+  })
+
+  // ISO-8601 instants are parsed too.
+  it("handles ISO strings", () => {
+    expect(formatDurationSeconds("2023-12-20T14:48:00.000Z", "2023-12-20T14:48:01.250Z")).toBe("1.250s")
+  })
+
+  // An end before the start clamps to 0 rather than showing a negative duration.
+  it("clamps negative durations to zero", () => {
+    expect(formatDurationSeconds(1030, 1000)).toBe("0.000s")
+  })
+
+  // Either endpoint missing or unparseable yields a dash.
+  it("returns a dash when start or end is absent or invalid", () => {
+    expect(formatDurationSeconds(null, 1000)).toBe("—")
+    expect(formatDurationSeconds(1000, null)).toBe("—")
+    expect(formatDurationSeconds("bad", 1000)).toBe("—")
   })
 })
 

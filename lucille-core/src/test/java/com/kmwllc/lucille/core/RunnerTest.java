@@ -542,6 +542,10 @@ public class RunnerTest {
     assertTrue(result.getStatus());
     assertTrue(result.hasFailingDocs());
     assertTrue(result.getMessage().contains("Partial success."));
+    assertEquals(1, result.getConnectorResults().size());
+    assertEquals(2, result.getConnectorResults().get(0).getNumSucceeded());
+    assertEquals(1, result.getConnectorResults().get(0).getNumFailed());
+    assertEquals(0, result.getConnectorResults().get(0).getNumDropped());
 
     // failing run
     result =
