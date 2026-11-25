@@ -18,7 +18,7 @@ import jakarta.ws.rs.core.Response;
  * Provides a simple endpoint to check if the Lucille API service is running.
  * <ul>
  *   <li>endpoint: '/livez'</li>
- *   <li>GET: returns 204 No Content if live</li>
+ *   <li>GET: returns 200 OK if live</li>
  * </ul>
  */
 @Path("/v1/livez")
@@ -41,10 +41,10 @@ public class LivenessResource {
 
   /**
    * Liveness check endpoint.
-   * @return HTTP 204 No Content if the service is live
+   * @return HTTP 200 OK if the service is live
    */
   @GET
-  @Operation(summary = "Liveness Check", description = "Returns 204 No Content to indicate the service is live.")
+  @Operation(summary = "Liveness Check", description = "Returns 200 OK to indicate the service is live.")
   public Response isAlive() {
     log.debug("Liveness check endpoint accessed.");
     return Response.ok().build();
