@@ -37,7 +37,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 
 /**
  * A WorkerMessenger for hybrid mode: reads documents from a Kafka source topic and hands them to a co-located Indexer
@@ -96,6 +95,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   private final KafkaProducer<String, String> kafkaEventProducer;
   // only created when the fail topic is enabled, so a worker that doesn't use it needs no document producer config
   private final KafkaProducer<String, Document> failTopicProducer;
+  private final String failTopic;
   private final BlockingQueue<Document> pipelineDest;
   private final OffsetCommitTracker offsetCommitTracker;
   private final ConsumerRebalanceListener trackerListener;
@@ -142,8 +142,9 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     this.consumerMetrics = KafkaConsumerMetrics.forWorker(pipelineName);
     this.offsetCommitTracker = new OffsetCommitTracker(sourceConsumer, consumerMetrics);
     this.trackerListener = offsetCommitTracker.rebalanceListener();
-    sourceConsumer.subscribe(Pattern.compile(KafkaUtils.getSourceTopicName(pipelineName, config)), new RebalanceListener());
+    KafkaUtils.subscribeToSource(sourceConsumer, KafkaUtils.getSourceTopicName(pipelineName, config), new RebalanceListener());
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    this.failTopic = KafkaUtils.getFailTopicName(config, pipelineName);
     this.failTopicProducer = KafkaUtils.workerFailTopicEnabled(config) ? KafkaUtils.createDocumentProducer(config) : null;
     this.eventFieldConfig = EventFieldConfig.fromConfig(config);
     this.deserializationErrorHandler =
@@ -151,6 +152,20 @@ public class HybridWorkerMessenger implements WorkerMessenger {
 
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     this.indexerQueueFull = metrics.meter(pipelineName + INDEXER_QUEUE_FULL_SUFFIX);
+
+    if (failTopicProducer != null) {
+      try {
+        KafkaUtils.requireFailTopic(failTopicProducer, failTopic, config, KafkaUtils.workerFailTopicSettings(config));
+      } catch (RuntimeException e) {
+        // the caller gets no messenger to close
+        try {
+          close();
+        } catch (Exception closeException) {
+          e.addSuppressed(closeException);
+        }
+        throw e;
+      }
+    }
   }
 
   public HybridWorkerMessenger(Config config, String pipelineName, BlockingQueue<Document> pipelineDest) {
@@ -417,7 +432,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
 
   @Override
   public void sendFailed(Document document) throws MessengerException {
-    KafkaUtils.sendToFailTopic(failTopicProducer, pipelineName, document);
+    KafkaUtils.sendToFailTopic(failTopicProducer, failTopic, document);
   }
 
   @Override

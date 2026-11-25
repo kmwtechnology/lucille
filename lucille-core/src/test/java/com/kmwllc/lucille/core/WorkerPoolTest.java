@@ -6,6 +6,7 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -85,6 +86,28 @@ public class WorkerPoolTest {
 
     assertThrows(Exception.class, () -> { pool.start(); });
 
+    assertFalse(areLucilleThreadsRunning());
+  }
+
+  @Test
+  public void testThreadCleanupWhenAMessengerCannotBeCreated() throws Exception {
+    // as when a Kafka messenger finds its fail topic missing: the first worker has started by the time the second fails
+    Config config = ConfigFactory.load("WorkerPoolTest/config.conf");
+    AtomicInteger created = new AtomicInteger();
+    WorkerMessengerFactory factory = () -> {
+      if (created.incrementAndGet() > 1) {
+        throw new IllegalStateException("The fail topic \"pipeline3_fail\" could not be found");
+      }
+      return new TestMessenger();
+    };
+    WorkerPool pool = new WorkerPool(config, "pipeline3", null, factory, "");
+
+    IllegalStateException e = assertThrows(IllegalStateException.class, pool::start);
+    assertTrue(e.getMessage().contains("pipeline3_fail"));
+    pool.join();
+
+    assertEquals(2, created.get());
+    assertFalse(pool.isAlive());
     assertFalse(areLucilleThreadsRunning());
   }
 

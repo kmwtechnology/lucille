@@ -12,17 +12,23 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigUtil;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Pattern;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.CreateTopicsOptions;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -30,6 +36,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.RecordTooLargeException;
@@ -65,7 +72,7 @@ public class KafkaUtils {
       .optionalBoolean("events")
       .optionalString("documentSerializer", "documentDeserializer", "consumerPropertiesPath",
           "producerPropertiesPath", "adminPropertiesPath", "securityProtocol", "sourceTopic", "eventTopic",
-          "onDeserializationError")
+          "failTopic", "onDeserializationError")
       .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors",
           "eventTopicReplicationFactor", "eventTopicMinInsyncReplicas")
       .optionalParent("consumer", new TypeReference<Map<String, Object>>(){})
@@ -73,6 +80,13 @@ public class KafkaUtils {
       .optionalParent("admin", new TypeReference<Map<String, Object>>(){})
       // controls optional enrichment of lifecycle events with source-document fields; see EventFieldConfig
       .optionalParent("event", EventFieldConfig.SPEC).build();
+
+  // A name made only of the characters Kafka allows in a topic name. Any other name can't be a topic, so it is a regex.
+  static final Pattern LITERAL_TOPIC_NAME = Pattern.compile("[a-zA-Z0-9._-]+");
+
+  // The fail topics already found to exist, each with the cluster it is on, so that a topic is checked once per JVM
+  // rather than once per worker thread. Guarded by the class lock.
+  private static final Set<String> CONFIRMED_FAIL_TOPICS = new HashSet<>();
 
   /** Default for <code>kafka.pollIntervalMs</code>: how long a consumer poll blocks waiting for records. */
   public static final int DEFAULT_POLL_INTERVAL_MS = 2000;
@@ -404,12 +418,54 @@ public class KafkaUtils {
     return topicName;
   }
 
+  /**
+   * Subscribes a WorkerIndexer's consumer to its source topic: by name when the name is made only of letters, digits,
+   * <code>.</code>, <code>_</code> and <code>-</code>, and otherwise as a regular expression matched against the
+   * cluster's topics. A consumer subscribed by pattern requests metadata for every topic in the cluster and keeps
+   * refreshing it, which is a heavy load on the brokers of a cluster with many topics, so a pattern is only used for a
+   * name that can't be a topic name. In a name subscribed by name, <code>.</code> is literal.
+   *
+   * @param consumer The consumer to subscribe.
+   * @param topic The source topic name or pattern, as returned by {@link #getSourceTopicName}.
+   * @param listener The rebalance listener, registered either way.
+   */
+  static void subscribeToSource(Consumer<?, ?> consumer, String topic, ConsumerRebalanceListener listener) {
+    if (LITERAL_TOPIC_NAME.matcher(topic).matches()) {
+      log.info("Subscribing to source topic {} by name.", topic);
+      consumer.subscribe(List.of(topic), listener);
+    } else {
+      log.info("Subscribing to source topics by pattern {}.", topic);
+      consumer.subscribe(Pattern.compile(topic), listener);
+    }
+  }
+
   public static String getDestTopicName(String pipelineName) {
     return pipelineName + "_dest";
   }
 
-  public static String getFailTopicName(String pipelineName) {
-    return pipelineName + "_fail";
+  /**
+   * Returns the name of the fail topic, which Workers and Indexers running the given pipeline send failed documents to:
+   * <code>kafka.failTopic</code> when it is set, and otherwise <code>{pipelineName}_fail</code>.
+   *
+   * @param config The Lucille config.
+   * @param pipelineName The name of the pipeline.
+   * @return The fail topic name.
+   * @throws IllegalArgumentException if <code>kafka.failTopic</code> is not a literal topic name: letters, digits,
+   * <code>.</code>, <code>_</code> and <code>-</code> only, and at most 249 characters.
+   */
+  public static String getFailTopicName(Config config, String pipelineName) {
+    if (!config.hasPath("kafka.failTopic")) {
+      return pipelineName + "_fail";
+    }
+    String topicName = config.getString("kafka.failTopic");
+    if (!LITERAL_TOPIC_NAME.matcher(topicName).matches()) {
+      throw new IllegalArgumentException("Invalid kafka.failTopic \"" + topicName
+          + "\": a topic name may contain only letters, digits, '.', '_' and '-'.");
+    }
+    if (topicName.length() > 249) {
+      throw new IllegalArgumentException("Invalid kafka.failTopic because it is too long (max 249 characters): " + topicName);
+    }
+    return topicName;
   }
 
   /**
@@ -429,16 +485,81 @@ public class KafkaUtils {
   }
 
   /**
-   * Sends the document to the pipeline's fail topic, blocking until the broker acknowledges it so that the write is
-   * durable before the caller goes on to commit the document's offset.
+   * The settings in the given config that let a Worker send documents to the fail topic (see
+   * {@link #workerFailTopicEnabled}), for a message: "worker.maxRetries", "worker.sendFailedDocsToTopic", or both.
    */
-  static void sendToFailTopic(Producer<String, Document> producer, String pipelineName, Document document)
+  static String workerFailTopicSettings(Config config) {
+    List<String> settings = new ArrayList<>();
+    if (config.hasPath("worker.maxRetries")) {
+      settings.add("worker.maxRetries");
+    }
+    if (ConfigUtils.getBooleanOrDefault(config, "worker.sendFailedDocsToTopic", false)) {
+      settings.add("worker.sendFailedDocsToTopic");
+    }
+    return String.join(" and ", settings);
+  }
+
+  /** The setting that lets an Indexer send documents to the fail topic (see {@link #indexerFailTopicEnabled}). */
+  static String indexerFailTopicSettings() {
+    return "indexer.sendFailedDocsToTopic";
+  }
+
+  /**
+   * Checks that the fail topic exists, so that a missing topic stops a Worker or Indexer when it starts rather than
+   * when its first document fails, when that document would be written nowhere. Called by a messenger that may send to
+   * the fail topic, as it is constructed.
+   *
+   * <p>The check asks the given producer for the topic's partitions, so it uses the connection, credentials and
+   * permissions of the sends that follow, and needs no admin client. On a broker that creates topics automatically it
+   * does what the first send would have done: the topic is created. On any other broker a missing topic fails the check
+   * once the producer has waited <code>max.block.ms</code> (60 seconds unless configured) for its metadata.
+   *
+   * <p>A topic found to exist is not checked again in this JVM, so the worker threads of a pool check it once between
+   * them.
+   *
+   * @param producer The producer that will send to the fail topic.
+   * @param failTopic The fail topic's name, from {@link #getFailTopicName}.
+   * @param config The Lucille config.
+   * @param enabledBy The settings that enabled the fail topic, for the message.
+   * @throws IllegalStateException if the topic can't be found. It names the topic, the settings that enabled it and
+   * what to do.
+   */
+  static synchronized void requireFailTopic(Producer<?, ?> producer, String failTopic, Config config, String enabledBy) {
+    // the same topic name on another cluster is another topic
+    String cluster = ConfigUtils.getStringOrDefault(config, "kafka.producerPropertiesPath",
+        ConfigUtils.getStringOrDefault(config, "kafka.bootstrapServers", ""));
+    String key = cluster + "/" + failTopic;
+    if (CONFIRMED_FAIL_TOPICS.contains(key)) {
+      return;
+    }
+    try {
+      producer.partitionsFor(failTopic);
+    } catch (RuntimeException e) {
+      // not catch (KafkaException): the verifier resolves catch types when it links this class, and a local run reads
+      // SPEC from it without kafka-clients on the classpath (see KafkaIndependenceTest)
+      if (!(e instanceof KafkaException)) {
+        throw e;
+      }
+      throw new IllegalStateException("The fail topic \"" + failTopic + "\" could not be found (" + e.getMessage()
+          + "). It is enabled by " + enabledBy + ", and without it a document that fails would be written nowhere. "
+          + "Create the topic, or set kafka.failTopic to the name of an existing topic. Lucille does not create the "
+          + "fail topic; a broker with auto.create.topics.enable=true does.", e);
+    }
+    CONFIRMED_FAIL_TOPICS.add(key);
+    log.info("Fail topic {} exists.", failTopic);
+  }
+
+  /**
+   * Sends the document to the given fail topic (see {@link #getFailTopicName}), blocking until the broker acknowledges
+   * it so that the write is durable before the caller goes on to commit the document's offset.
+   */
+  static void sendToFailTopic(Producer<String, Document> producer, String failTopic, Document document)
       throws MessengerException {
     if (producer == null) {
       throw new IllegalStateException("Sending document " + document.getId() + " to the fail topic, which is not enabled");
     }
     ProducerRecord<String, Document> producerRecord =
-        new ProducerRecord<>(getFailTopicName(pipelineName), document.getId(), document);
+        new ProducerRecord<>(failTopic, document.getId(), document);
     try {
       producer.send(producerRecord).get();
     } catch (ExecutionException e) {

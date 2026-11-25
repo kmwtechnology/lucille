@@ -32,6 +32,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
   private final KafkaProducer<String, String> kafkaEventProducer;
   // only created when the fail topic is enabled, so an indexer that doesn't use it needs no document producer config
   private final KafkaProducer<String, Document> failTopicProducer;
+  private final String failTopic;
   private final String pipelineName;
   private final Config config;
   private final EventFieldConfig eventFieldConfig;
@@ -53,10 +54,25 @@ public class HybridIndexerMessenger implements IndexerMessenger {
     this.workerMessenger = workerMessenger;
     this.idSet = idSet;
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    this.failTopic = KafkaUtils.getFailTopicName(config, pipelineName);
     this.failTopicProducer = KafkaUtils.indexerFailTopicEnabled(config) ? KafkaUtils.createDocumentProducer(config) : null;
     this.pipelineName = pipelineName;
     this.config = config;
     this.eventFieldConfig = EventFieldConfig.fromConfig(config);
+
+    if (failTopicProducer != null) {
+      try {
+        KafkaUtils.requireFailTopic(failTopicProducer, failTopic, config, KafkaUtils.indexerFailTopicSettings());
+      } catch (RuntimeException e) {
+        // the caller gets no messenger to close
+        try {
+          close();
+        } catch (Exception closeException) {
+          e.addSuppressed(closeException);
+        }
+        throw e;
+      }
+    }
   }
 
   @Override
@@ -139,7 +155,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
 
   @Override
   public void sendFailed(Document document) throws MessengerException {
-    KafkaUtils.sendToFailTopic(failTopicProducer, pipelineName, document);
+    KafkaUtils.sendToFailTopic(failTopicProducer, failTopic, document);
   }
 
   @Override

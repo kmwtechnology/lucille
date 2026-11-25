@@ -143,7 +143,7 @@ This isolation is what makes concurrent runs possible. Worker and Indexer proces
 
 **Can a WorkerIndexer consume from multiple Kafka topics at once?**
 
-Yes, when running in streaming mode. `WorkerIndexer` interprets `kafka.sourceTopic` as a Java regex pattern, so setting it to a pattern like `"orders_.*_source"` causes the process to consume from all matching topics simultaneously. Kafka's consumer group protocol handles partition assignment across all matched topics and rebalances automatically as new matching topics appear. Note that standalone `Worker` processes subscribe to a single exact topic name and do not support pattern matching. See [Streaming Mode]({{< relref "docs/operations/deployment" >}}).
+Yes, when running in streaming mode. `WorkerIndexer` treats `kafka.sourceTopic` as a Java regex pattern when it contains any character other than letters, digits, `.`, `_` and `-`, so setting it to a pattern like `"orders_.*_source"` causes the process to consume from all matching topics simultaneously. A value made only of those characters is a literal topic name, subscribed by name, in which `.` is a literal dot. Kafka's consumer group protocol handles partition assignment across all matched topics and rebalances automatically as new matching topics appear. Note that standalone `Worker` processes subscribe to a single exact topic name and do not support pattern matching. See [Streaming Mode]({{< relref "docs/operations/deployment" >}}).
 
 **Can I use Lucille in streaming mode without a Runner?**
 

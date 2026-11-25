@@ -2,6 +2,7 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.util.EmbeddedKafkaUtils;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -424,7 +425,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
   @Test
   public void testRejectedDocumentReachesFailTopic() throws Exception {
     String pipeline = newPipeline(1);
-    String failTopic = KafkaUtils.getFailTopicName(pipeline);
+    String failTopic = KafkaUtils.getFailTopicName(ConfigFactory.empty(), pipeline);
     embeddedKafka.addTopics(new NewTopic(failTopic, 1, (short) 1));
     Config config = config(pipeline, 1, Map.of("indexer.batchTimeoutMs", 100, "indexer.sendFailedDocsToTopic", true));
     String id = produce(config, pipeline, 0, 1, "run").get(0);
@@ -488,7 +489,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
   @Test
   public void testHybridMessengersWriteToFailTopic() throws Exception {
     String pipeline = newPipeline(1);
-    String failTopic = KafkaUtils.getFailTopicName(pipeline);
+    String failTopic = KafkaUtils.getFailTopicName(ConfigFactory.empty(), pipeline);
     embeddedKafka.addTopics(new NewTopic(failTopic, 1, (short) 1));
 
     Config workerConfig = config(pipeline, 1, Map.of("worker.maxRetries", 1));
@@ -521,6 +522,98 @@ public class KafkaConcurrentIndexerEndToEndTest {
       }
     }
     assertEquals(List.of("fromWorker", "fromIndexer"), ids);
+  }
+
+  @Test
+  public void testConfiguredFailTopicIsUsedByEveryMessenger() throws Exception {
+    String pipeline = newPipeline(1);
+    String failTopic = "dead-letter." + pipeline;
+    embeddedKafka.addTopics(new NewTopic(failTopic, 1, (short) 1));
+    embeddedKafka.addTopics(new NewTopic(KafkaUtils.getSourceTopicName(pipeline, ConfigFactory.empty()), 1, (short) 1));
+
+    Config workerConfig = config(pipeline, 1, Map.of("worker.maxRetries", 1, "kafka.failTopic", failTopic));
+    Config indexerConfig = config(pipeline, 1, Map.of("indexer.sendFailedDocsToTopic", true, "kafka.failTopic", failTopic));
+
+    HybridWorkerMessenger hybridWorker = new HybridWorkerMessenger(workerConfig, pipeline, new LinkedBlockingQueue<>());
+    try {
+      hybridWorker.sendFailed(Document.create("fromHybridWorker", "run"));
+    } finally {
+      hybridWorker.close();
+    }
+    // sendFailed and close don't use the worker messenger
+    HybridIndexerMessenger hybridIndexer =
+        new HybridIndexerMessenger(indexerConfig, new LinkedBlockingQueue<>(), null, null, pipeline);
+    try {
+      hybridIndexer.sendFailed(Document.create("fromHybridIndexer", "run"));
+    } finally {
+      hybridIndexer.close();
+    }
+    KafkaWorkerMessenger worker = new KafkaWorkerMessenger(workerConfig, pipeline);
+    try {
+      worker.sendFailed(Document.create("fromWorker", "run"));
+    } finally {
+      worker.close();
+    }
+    KafkaIndexerMessenger indexer = new KafkaIndexerMessenger(indexerConfig, pipeline);
+    try {
+      indexer.sendFailed(Document.create("fromIndexer", "run"));
+    } finally {
+      indexer.close();
+    }
+
+    List<String> ids = new ArrayList<>();
+    try (KafkaConsumer<String, String> consumer = eventConsumer(indexerConfig)) {
+      consumer.subscribe(List.of(failTopic));
+      long deadline = System.currentTimeMillis() + TIMEOUT_MS;
+      while (ids.size() < 4 && System.currentTimeMillis() < deadline) {
+        for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofMillis(200))) {
+          ids.add(record.key());
+        }
+      }
+    }
+    assertEquals(List.of("fromHybridWorker", "fromHybridIndexer", "fromWorker", "fromIndexer"), ids);
+    // nothing went to the default name
+    assertFalse(topicExists(pipeline + "_fail"));
+  }
+
+  @Test
+  public void testStartupCheckLetsTheBrokerCreateTheFailTopic() throws Exception {
+    // this broker creates topics automatically, so the check does what the first failed document would have done
+    String pipeline = newPipeline(1);
+    String failTopic = "auto-created." + pipeline;
+    Config config = config(pipeline, 1, Map.of("indexer.sendFailedDocsToTopic", true, "kafka.failTopic", failTopic));
+
+    new HybridIndexerMessenger(config, new LinkedBlockingQueue<>(), null, null, pipeline).close();
+
+    waitFor(() -> topicExists(failTopic));
+  }
+
+  @Test
+  public void testIndexerFailureReachesConfiguredFailTopic() throws Exception {
+    String pipeline = newPipeline(1);
+    String failTopic = "dead-letter." + pipeline;
+    embeddedKafka.addTopics(new NewTopic(failTopic, 1, (short) 1));
+    Config config = config(pipeline, 1,
+        Map.of("indexer.batchTimeoutMs", 100, "indexer.sendFailedDocsToTopic", true, "kafka.failTopic", failTopic));
+    String id = produce(config, pipeline, 0, 1, "run").get(0);
+
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline);
+    RecordingIndexer indexer = new RecordingIndexer(config.getConfig("indexer"), messenger) {
+      @Override
+      protected List<IndexerFailure> sendToIndex(PendingSend send) {
+        return send.documents().stream().map(doc -> new IndexerFailure(doc, new IndexerException("rejected"))).toList();
+      }
+    };
+    Thread thread = new Thread(indexer);
+    thread.start();
+    try {
+      Document failed = readFailTopic(config, failTopic);
+      assertEquals(id, failed.getId());
+      assertEquals("indexer", failed.getString(Document.FAILURE_COMPONENT_FIELD));
+    } finally {
+      indexer.terminate();
+      thread.join(TIMEOUT_MS);
+    }
   }
 
   private static Document readFailTopic(Config config, String failTopic) throws Exception {
@@ -718,6 +811,14 @@ public class KafkaConcurrentIndexerEndToEndTest {
       return result;
     } catch (Exception e) {
       throw new RuntimeException(e);
+    }
+  }
+
+  private static boolean topicExists(String topic) {
+    try {
+      return admin.listTopics().names().get().contains(topic);
+    } catch (Exception e) {
+      throw new AssertionError("could not list topics", e);
     }
   }
 

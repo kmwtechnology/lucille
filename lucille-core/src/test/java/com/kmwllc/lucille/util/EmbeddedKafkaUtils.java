@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.util;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -43,8 +44,19 @@ public final class EmbeddedKafkaUtils {
    * Starts a single-node embedded KRaft broker whose group coordinator is ready for use. The caller destroys it.
    */
   public static EmbeddedKafkaBroker startBroker() {
+    return startBroker(Map.of());
+  }
+
+  /**
+   * Starts a broker as {@link #startBroker()} does, with the given broker properties as well, such as
+   * <code>auto.create.topics.enable</code>.
+   */
+  public static EmbeddedKafkaBroker startBroker(Map<String, String> extraBrokerProperties) {
     EmbeddedKafkaKraftBroker broker = new EmbeddedKafkaKraftBroker(1, 1);
-    broker.brokerProperties(Map.of("group.initial.rebalance.delay.ms", "0", "offsets.topic.num.partitions", "1"));
+    Map<String, String> brokerProperties = new HashMap<>(
+        Map.of("group.initial.rebalance.delay.ms", "0", "offsets.topic.num.partitions", "1"));
+    brokerProperties.putAll(extraBrokerProperties);
+    broker.brokerProperties(brokerProperties);
     broker.afterPropertiesSet();
     warmUpGroupCoordinator(broker);
     return broker;

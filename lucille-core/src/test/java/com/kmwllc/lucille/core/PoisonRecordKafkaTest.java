@@ -124,7 +124,7 @@ public class PoisonRecordKafkaTest {
    * record must never be copied there.
    */
   private static void assertFailTopicEmpty(String pipelineName) {
-    String failTopic = KafkaUtils.getFailTopicName(pipelineName);
+    String failTopic = KafkaUtils.getFailTopicName(ConfigFactory.empty(), pipelineName);
     List<ConsumerRecord<String, byte[]>> records = readFor(failTopic, Duration.ofSeconds(5));
     assertEquals("nothing should be sent to " + failTopic, 0, records.size());
   }

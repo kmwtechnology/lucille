@@ -150,7 +150,7 @@ A mechanism that prevents a fast Connector from overwhelming downstream componen
 A document that repeatedly causes a Worker process to crash (e.g., due to a bug in third-party code triggered by malformed input). Detected by a `RetryCounter` backed by ZooKeeper or Redis. After exceeding `worker.maxRetries`, the document is routed to the dead letter queue.
 
 **Dead Letter Queue (Fail Topic)**
-A Kafka topic (`{pipeline}_fail`) where poison-pill documents are sent after exceeding their retry limit. Documents here can be inspected, fixed, and replayed.
+A Kafka topic (`{pipeline}_fail`, or the name set with `kafka.failTopic`) where poison-pill documents are sent after exceeding their retry limit. Workers and Indexers also copy failed documents there when `worker.sendFailedDocsToTopic` or `indexer.sendFailedDocsToTopic` is set. Documents here can be inspected, fixed, and replayed.
 
 **At-Least-Once Delivery**
 Lucille's delivery guarantee in distributed mode. A document may be processed more than once if a crash occurs between processing and offset commit, but it will never be silently lost.

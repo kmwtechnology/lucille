@@ -37,6 +37,17 @@ import org.slf4j.MDC;
  * records the pool as failed; see {@link #getThrowable()} and {@link #setFailureListener}. The hosting component decides
  * what a failed pool means: a Runner fails the run, a standalone worker process exits non-zero. The pool itself never
  * exits the JVM.
+ *
+ * <p>An application that runs a pool itself, rather than through the Runner or the Worker launch, has to watch it:
+ * <ul>
+ *   <li>{@link #start()} throws if a worker can't be started, having stopped the workers it had already started. A
+ *   Kafka messenger whose fail topic is enabled and does not exist fails this way.</li>
+ *   <li>After that, check {@link #isFailed()}, or register a callback with {@link #setFailureListener}.
+ *   {@link #getThrowable()} gives the cause. A worker thread stops, for instance, when its messenger fails, such as when
+ *   a document can't be written to the fail topic.</li>
+ *   <li>{@link #isAlive()} alone is not enough: it stays true while any worker thread is running, so it misses one
+ *   dead thread among several.</li>
+ * </ul>
  */
 public class WorkerPool {
 
