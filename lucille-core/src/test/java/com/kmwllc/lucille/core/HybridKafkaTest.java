@@ -2,6 +2,7 @@ package com.kmwllc.lucille.core;
 
 import com.kmwllc.lucille.util.EmbeddedKafkaUtils;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -10,6 +11,8 @@ import static org.junit.Assert.fail;
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.HybridWorkerMessenger;
 import com.kmwllc.lucille.message.KafkaConsumerMetrics;
 import com.kmwllc.lucille.message.KafkaUtils;
@@ -26,7 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -522,6 +527,169 @@ public class HybridKafkaTest {
     String eventTopic = KafkaUtils.getEventTopicName(config, "pipeline1", RUN_ID);
 
     assertEquals("test_setting_event_topic", eventTopic);
+  }
+
+  /**
+   * A WorkerIndexer whose worker is blocked on a full indexer queue, because its indexer is stuck in a send, still stops
+   * within the time it was given, and the records that were not indexed are redelivered.
+   */
+  @Test
+  public void testStopReturnsWhenIndexerQueueIsFull() throws Exception {
+    Config config = loadTestConfig("HybridKafkaTest/blockingIndexerConfig.conf");
+    String topicName = config.getString("kafka.sourceTopic");
+    embeddedKafka.addTopics(new NewTopic(topicName, 1, (short) 1));
+
+    for (int i = 0; i < 5; i++) {
+      sendDoc("doc" + i, topicName);
+    }
+
+    BlockingIndexer.reset();
+    long queueFullBefore = queueFullCount("pipeline1");
+    WorkerIndexer workerIndexer = new WorkerIndexer();
+    try {
+      // doc0 is taken by the indexer, whose send blocks; doc1 fills the queue; the worker blocks adding doc2
+      workerIndexer.start(config, "pipeline1", new LinkedBlockingQueue<>(1), false, null);
+      awaitQueueFull("pipeline1", queueFullBefore + 1);
+      assertTrue(BlockingIndexer.sendsStarted.get() >= 1);
+
+      long timeoutMs = 1000;
+      long start = System.nanoTime();
+      workerIndexer.stop(timeoutMs);
+      long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+
+      // the wait for the indexer runs out, then the worker is freed and stops well within its own wait
+      assertTrue("stop took " + elapsedMs + " ms", elapsedMs < 2 * timeoutMs + 1000);
+      assertFalse(workerIndexer.getWorker().isAlive());
+    } finally {
+      BlockingIndexer.release.countDown();
+      // a second stop is safe, and now the indexer thread can end too
+      workerIndexer.stop();
+    }
+    assertFalse(workerIndexer.isAlive());
+
+    // nothing was indexed before the stop, so nothing was committed: the group is redelivered the first record
+    try (KafkaConsumer<String, KafkaDocument> redelivery = KafkaUtils.createDocumentConsumer(config, "test-client")) {
+      redelivery.subscribe(List.of(topicName));
+      ConsumerRecord<String, KafkaDocument> first = null;
+      long deadline = System.currentTimeMillis() + 20000;
+      while (first == null && System.currentTimeMillis() < deadline) {
+        ConsumerRecords<String, KafkaDocument> records = redelivery.poll(java.time.Duration.ofMillis(200));
+        if (!records.isEmpty()) {
+          first = records.iterator().next();
+        }
+      }
+      assertNotNull("no record was redelivered", first);
+      assertEquals(0, first.offset());
+      assertEquals("doc0", first.value().getId());
+    }
+  }
+
+  /**
+   * A pool of two WorkerIndexer pairs whose indexers are both stuck in a send stops after one wait for the indexers,
+   * rather than one per pair.
+   */
+  @Test
+  public void testPoolStopSharesItsDeadlineAcrossPairs() throws Exception {
+    Config config = loadTestConfig("HybridKafkaTest/blockingIndexerConfig.conf")
+        .withValue("kafka.sourceTopic", ConfigValueFactory.fromAnyRef("blocking_indexer_pool_topic"))
+        .withValue("worker.threads", ConfigValueFactory.fromAnyRef(2));
+    String topicName = config.getString("kafka.sourceTopic");
+    embeddedKafka.addTopics(new NewTopic(topicName, 2, (short) 1));
+
+    // each pair is assigned one partition
+    for (int partition = 0; partition < 2; partition++) {
+      for (int i = 0; i < 5; i++) {
+        String id = "doc" + partition + "_" + i;
+        producer.send(new ProducerRecord<>(topicName, partition, id, Document.create(id).toString()));
+      }
+    }
+
+    BlockingIndexer.reset();
+    WorkerIndexerPool pool = new WorkerIndexerPool(config, "pipeline1", false, null);
+    try {
+      pool.start();
+      // both indexers are blocked in a send
+      long startDeadline = System.currentTimeMillis() + 30000;
+      while (BlockingIndexer.sendsStarted.get() < 2) {
+        if (System.currentTimeMillis() > startDeadline) {
+          fail("Expected both indexers to start a send, but saw " + BlockingIndexer.sendsStarted.get());
+        }
+        Thread.sleep(50);
+      }
+
+      long timeoutMs = 2000;
+      long start = System.nanoTime();
+      pool.stop(timeoutMs);
+      long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+
+      // one wait for both blocked indexers, then both workers stop quickly; a wait per pair would take 4 seconds
+      assertTrue("stop took " + elapsedMs + " ms", elapsedMs < 2 * timeoutMs - 500);
+      assertFalse(pool.isAlive());
+    } finally {
+      BlockingIndexer.release.countDown();
+      pool.stop();
+    }
+  }
+
+  private static long queueFullCount(String pipelineName) {
+    return SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG)
+        .meter(pipelineName + HybridWorkerMessenger.INDEXER_QUEUE_FULL_SUFFIX).getCount();
+  }
+
+  // waits until the pipeline's "indexer queue full" meter has reached the given count: that many documents have found
+  // the queue full, and the workers sending them are waiting for space
+  private static void awaitQueueFull(String pipelineName, long expected) throws Exception {
+    long deadline = System.currentTimeMillis() + 30000;
+    while (queueFullCount(pipelineName) < expected) {
+      if (System.currentTimeMillis() > deadline) {
+        fail("Expected " + expected + " documents to find the indexer queue full, but saw " + queueFullCount(pipelineName));
+      }
+      Thread.sleep(50);
+    }
+  }
+
+  // An indexer whose every send blocks until the test counts down the release latch.
+  public static class BlockingIndexer extends Indexer {
+
+    public static final Spec SPEC = SpecBuilder.indexer().build();
+
+    static volatile CountDownLatch release = new CountDownLatch(1);
+    static final AtomicInteger sendsStarted = new AtomicInteger();
+
+    static void reset() {
+      release = new CountDownLatch(1);
+      sendsStarted.set(0);
+    }
+
+    public BlockingIndexer(Config config, IndexerContext context) {
+      super(config, context);
+    }
+
+    @Override
+    protected String getIndexerConfigKey() {
+      return null;
+    }
+
+    @Override
+    protected boolean checkConnection() {
+      return true;
+    }
+
+    @Override
+    public void closeConnection() {
+    }
+
+    @Override
+    protected List<IndexerFailure> sendToIndex(PendingSend send) throws IndexerException {
+      sendsStarted.incrementAndGet();
+      try {
+        release.await();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IndexerException("Interrupted while sending", e);
+      }
+      return List.of();
+    }
   }
 
   private Document sendDoc(String id, String topic) {

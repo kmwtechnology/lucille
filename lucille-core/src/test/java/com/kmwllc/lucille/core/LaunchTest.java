@@ -142,4 +142,38 @@ public class LaunchTest {
       assertEquals(List.of(1), exitCodes);
     }
   }
+
+  @Test
+  public void testWorkerIndexerBoundsItsStopOnBothPaths() throws Exception {
+    Config config = ConfigFactory.empty();
+    List<Integer> exitCodes = new ArrayList<>();
+
+    try (MockedStatic<Launch.SystemHelper> helper = Mockito.mockStatic(Launch.SystemHelper.class);
+        MockedStatic<ConfigFactory> configFactory = Mockito.mockStatic(ConfigFactory.class);
+        MockedConstruction<WorkerIndexerPool> pools = Mockito.mockConstruction(WorkerIndexerPool.class, (mock, context) -> {
+          // a pair has lost a thread
+          when(mock.isAlive()).thenReturn(false);
+        })) {
+      helper.when(() -> Launch.SystemHelper.exit(anyInt())).thenAnswer(invocation -> {
+        exitCodes.add(invocation.getArgument(0));
+        return null;
+      });
+      configFactory.when(ConfigFactory::load).thenReturn(config);
+
+      Launch.workerIndexer(new String[] {"foo"});
+
+      assertEquals(1, pools.constructed().size());
+      WorkerIndexerPool pool = pools.constructed().get(0);
+      verify(pool).start();
+      // the self-stop path stops the rest with a bound, so a pair blocked on a full queue cannot hang the exit
+      verify(pool).stop(Runner.DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
+      assertEquals(List.of(1), exitCodes);
+
+      // so does the shutdown hook
+      Launch.runShutdownActions();
+      verify(pool, times(2)).stop(Runner.DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
+      // neither path calls the no-argument form
+      verify(pool, never()).stop();
+    }
+  }
 }

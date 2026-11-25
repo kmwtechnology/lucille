@@ -19,6 +19,10 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.kmwllc.lucille.message.HybridWorkerMessenger;
 import com.kmwllc.lucille.message.KafkaConsumerMetrics;
 import com.kmwllc.lucille.util.LogUtils;
+import com.kmwllc.lucille.util.StoringAppender;
+import com.typesafe.config.ConfigValueFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -96,6 +100,49 @@ public class WorkerIndexerPoolTest {
       assertTrue(onStop, onStop.endsWith(" Indexer queue: 3 docs waited for space."));
     } finally {
       registry.removeMatching(MetricFilter.startsWith(pipeline + "."));
+    }
+  }
+
+  @Test
+  public void testWarnsOnceAboutWorkerSettingsThatHaveNoEffect() throws Exception {
+    // attach a StoringAppender to the pool's logger to capture the warning (see RunnerTest.testPublisherCountLogMessage)
+    StoringAppender appender = new StoringAppender();
+    appender.start();
+    Logger logger = (Logger) LogManager.getLogger(WorkerIndexerPool.class);
+    logger.addAppender(appender);
+    try {
+      // reuse basic config from WorkerPoolTest, which sets none of the three
+      Config base = ConfigFactory.load("WorkerPoolTest/config.conf");
+      new WorkerIndexerPool(base, "pipeline1", true, null);
+      assertEquals(List.of(), appender.getMessages());
+
+      Config heartbeat = base.withValue("worker.enableHeartbeat", ConfigValueFactory.fromAnyRef(true));
+      new WorkerIndexerPool(heartbeat, "pipeline1", true, null);
+      assertEquals(List.of("worker.enableHeartbeat is set but has no effect in a WorkerIndexer: this mode writes no "
+          + "heartbeat log and does not detect or interrupt a stuck worker."), appender.getMessages());
+      appender.clear();
+
+      Config maxProcessingSecs = base.withValue("worker.maxProcessingSecs", ConfigValueFactory.fromAnyRef(600));
+      new WorkerIndexerPool(maxProcessingSecs, "pipeline1", true, null);
+      assertEquals(1, appender.getMessages().size());
+      assertTrue(appender.getMessages().get(0).startsWith("worker.maxProcessingSecs is set but has no effect"));
+      appender.clear();
+
+      Config exitOnTimeout = base.withValue("worker.exitOnTimeout", ConfigValueFactory.fromAnyRef(true));
+      new WorkerIndexerPool(exitOnTimeout, "pipeline1", true, null);
+      assertEquals(1, appender.getMessages().size());
+      assertTrue(appender.getMessages().get(0).startsWith("worker.exitOnTimeout is set but has no effect"));
+      appender.clear();
+
+      // all three are named in one warning
+      Config all = heartbeat.withFallback(maxProcessingSecs).withFallback(exitOnTimeout);
+      new WorkerIndexerPool(all, "pipeline1", true, null);
+      assertEquals(1, appender.getMessages().size());
+      assertTrue(appender.getMessages().get(0).startsWith(
+          "worker.enableHeartbeat, worker.maxProcessingSecs, worker.exitOnTimeout are set but have no effect"));
+    } finally {
+      logger.removeAppender(appender);
+      appender.stop();
     }
   }
 }

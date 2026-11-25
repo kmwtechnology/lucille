@@ -211,7 +211,7 @@ public final class Launch {
       try {
         // stopping the WorkerIndexer closes the kafka client connection via workerThread.terminate(), which causes the
         // worker's run method to break out of its while loop and eventually call messenger.close()
-        pool.stop();
+        pool.stop(SHUTDOWN_JOIN_TIMEOUT_MS);
       } catch (Exception e) {
         log.error("Error stopping WorkerIndexer", e);
       }
@@ -225,7 +225,7 @@ public final class Launch {
       return;
     }
     log.error("A WorkerIndexer thread stopped without being asked to; stopping the rest and exiting.");
-    pool.stop();
+    pool.stop(SHUTDOWN_JOIN_TIMEOUT_MS);
     exitUnlessShuttingDown(1);
   }
 

@@ -61,6 +61,12 @@ The Runner stops on `SIGINT` (Ctrl+C) and `SIGTERM` through a JVM shutdown hook:
 
 This is not a drain. In a local run, documents still on the in-memory queues are not processed and no run summary is logged, so a stopped local run must be re-run. Do not send `SIGKILL` — it skips even these steps.
 
+A WorkerIndexer stops the same way, in two steps:
+1. Each Indexer is stopped and tries to send its current batch, with a 3-second wait shared by all the pairs.
+2. Each Worker is stopped, finishes its current document and commits the offsets of the batches its Indexer completed, with another 3-second wait.
+
+Documents still in the in-memory queue between a Worker and its Indexer are not indexed. Their offsets are not committed, so their records are redelivered on restart. The same applies to a batch that the Indexer was still sending when its wait ran out. A Worker that is waiting because the queue is full, which is normal when the search engine is slower than the pipeline, does not hold up the shutdown.
+
 ## Monitoring
 
 See [Logging]({{< relref "docs/operations/logging" >}}) for setting up log monitoring.

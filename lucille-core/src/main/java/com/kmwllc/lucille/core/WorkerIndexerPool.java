@@ -31,7 +31,11 @@ public class WorkerIndexerPool {
 
   public static final int DEFAULT_POOL_SIZE = 1;
 
-  private static final Logger log = LoggerFactory.getLogger(WorkerPool.class);
+  // worker settings that only WorkerPool's watcher thread acts on; a WorkerIndexerPool has no watcher
+  static final List<String> IGNORED_WORKER_SETTINGS =
+      List.of("worker.enableHeartbeat", "worker.maxProcessingSecs", "worker.exitOnTimeout");
+
+  private static final Logger log = LoggerFactory.getLogger(WorkerIndexerPool.class);
 
   private final List<WorkerIndexer> workerIndexers = new ArrayList<>();
   // the indexer queue of each pair, read by the remaining-capacity gauge and the status log line
@@ -41,6 +45,8 @@ public class WorkerIndexerPool {
   private final String pipelineName;
   private Integer numWorkers = null;
   private boolean started = false;
+  // whether stop() has logged its summary, which a second call does not repeat
+  private boolean stopped = false;
   private final int logSeconds;
   private Timer logTimer;
   private final boolean bypassSearchEngine;
@@ -61,6 +67,18 @@ public class WorkerIndexerPool {
     }
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.intervalSecs", LogUtils.DEFAULT_LOG_SECONDS);
     this.idSet = idSet;
+    warnAboutIgnoredWorkerSettings();
+  }
+
+  // The heartbeat and stuck-worker settings are read from the same worker block a WorkerIndexer uses, but do nothing
+  // here, so say so once rather than leave a liveness probe or a timeout that silently never fires.
+  private void warnAboutIgnoredWorkerSettings() {
+    List<String> present = IGNORED_WORKER_SETTINGS.stream().filter(config::hasPath).toList();
+    if (!present.isEmpty()) {
+      log.warn("{} {} set but {} no effect in a WorkerIndexer: this mode writes no heartbeat log and does not detect "
+          + "or interrupt a stuck worker.", String.join(", ", present), present.size() == 1 ? "is" : "are",
+          present.size() == 1 ? "has" : "have");
+    }
   }
 
   public void start() throws Exception {
@@ -100,31 +118,58 @@ public class WorkerIndexerPool {
 
   }
 
+  /**
+   * Stops the pool as {@link #stop(long)} does, waiting up to {@link Runner#DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT}
+   * milliseconds for the Indexers and then for the Workers.
+   */
   public void stop() throws Exception {
+    stop(Runner.DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
+  }
+
+  /**
+   * Stops every WorkerIndexer pair: all the Indexers first, then all the Workers, waiting up to the given time for each
+   * of the two groups. The wait is shared by the pairs, so the call returns within about twice that time however many
+   * pairs there are. See {@link WorkerIndexer#stop(long)} for what happens to documents that were still queued.
+   *
+   * <p>Safe to call more than once.
+   *
+   * @param timeoutMs How long to wait for the Indexers, and then for the Workers, to stop, in milliseconds.
+   */
+  public synchronized void stop(long timeoutMs) throws Exception {
     log.debug("Stopping {} worker threads", workerIndexers.size());
     if (logTimer != null) {
       logTimer.cancel();
     }
     // the gauge holds the pairs' queues; remove it so it does not report on (or keep) queues that are no longer in use
     SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).remove(indexerQueueGaugeName());
+    // make sure the indexers are stopped before the workers, so that each
+    // worker has a chance to commit the offsets of the batches its indexer
+    // completed right before it stopped
     for (WorkerIndexer workerIndexer : workerIndexers) {
-      // stop each WorkerIndexer, one at a time;
-      // make sure the indexer is stopped before the worker, so that the
-      // worker has a chance to commit the offsets of the batches the indexer
-      // completed right before it stopped
-      workerIndexer.stop();
+      workerIndexer.terminateIndexer();
     }
-    if (!workerIndexers.isEmpty()) {
-      // a final summary, after the last commits; the queues are no longer in use, so their capacity is left out
-      log.info("WorkerIndexerPool for pipeline {} stopped. {}", pipelineName, statusMessage(false));
+    long indexerDeadline = WorkerIndexer.deadlineAfter(timeoutMs);
+    for (WorkerIndexer workerIndexer : workerIndexers) {
+      workerIndexer.joinIndexer(indexerDeadline);
     }
+    for (WorkerIndexer workerIndexer : workerIndexers) {
+      workerIndexer.terminateWorker();
+    }
+    long workerDeadline = WorkerIndexer.deadlineAfter(timeoutMs);
+    for (WorkerIndexer workerIndexer : workerIndexers) {
+      workerIndexer.joinWorker(workerDeadline);
+    }
+    if (workerIndexers.isEmpty() || stopped) {
+      return;
+    }
+    stopped = true;
+    // a final summary, after the last commits; the queues are no longer in use, so their capacity is left out
+    log.info("WorkerIndexerPool for pipeline {} stopped. {}", pipelineName, statusMessage(false));
     // tell one of the threads to log its metrics;
     // the output should be the same for any thread;
     // all threads get their metrics via a shared registry using the same naming scheme,
     // so the metrics are collected across all the threads
-    if (!workerIndexers.isEmpty()) {
-      workerIndexers.get(0).getWorker().logMetrics();
-    }
+    workerIndexers.get(0).getWorker().logMetrics();
   }
 
   private String indexerQueueGaugeName() {
