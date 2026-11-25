@@ -534,7 +534,12 @@ public class KafkaUtils {
     }
     try {
       producer.partitionsFor(failTopic);
-    } catch (KafkaException e) {
+    } catch (RuntimeException e) {
+      // not catch (KafkaException): the verifier resolves catch types when it links this class, and a local run reads
+      // SPEC from it without kafka-clients on the classpath (see KafkaIndependenceTest)
+      if (!(e instanceof KafkaException)) {
+        throw e;
+      }
       throw new IllegalStateException("The fail topic \"" + failTopic + "\" could not be found (" + e.getMessage()
           + "). It is enabled by " + enabledBy + ", and without it a document that fails would be written nowhere. "
           + "Create the topic, or set kafka.failTopic to the name of an existing topic. Lucille does not create the "
