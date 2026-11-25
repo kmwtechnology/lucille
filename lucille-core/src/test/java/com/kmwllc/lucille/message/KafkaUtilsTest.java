@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.util.StoringAppender;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.time.Duration;
@@ -15,6 +16,8 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.TopicExistsException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
 import org.junit.Test;
 
 import java.util.Map;
@@ -378,6 +381,77 @@ public class KafkaUtilsTest {
         "kafka { bootstrapServers: \"localhost:9092\", maxPollIntervalMs: 300000, consumerGroupId: \"test\", "
         + "consumer { max.poll.records: 5 } }");
     assertThrows(IllegalArgumentException.class, () -> KafkaUtils.createDocumentConsumer(inOverride, "test-client"));
+  }
+
+  @Test
+  public void testOffsetResetDefaultsToEarliestWhenUnsetInPropertyFile() {
+    // kafka-clients defaults auto.offset.reset to latest, so a property file that omits it would make a new consumer
+    // group skip the records already in its topic
+    Config unsetInFile = ConfigFactory.parseString("kafka.consumerPropertiesPath: "
+        + "\"classpath:KafkaUtilsTest/consumer-conf/consumer-no-offset-reset.properties\"");
+    Properties props = KafkaUtils.createConsumerProps(unsetInFile, "test-client");
+    assertNull(props.get("auto.offset.reset"));
+
+    KafkaUtils.defaultOffsetResetToEarliest(props);
+    assertEquals("earliest", props.get("auto.offset.reset"));
+    // the Indexer's consumer is built from the same properties
+    Properties indexerProps = KafkaUtils.createIndexerConsumerProps(unsetInFile, "test-client");
+    KafkaUtils.defaultOffsetResetToEarliest(indexerProps);
+    assertEquals("earliest", indexerProps.get("auto.offset.reset"));
+    KafkaUtils.createDocumentConsumer(unsetInFile, "test-client").close();
+  }
+
+  @Test
+  public void testOffsetResetLatestInPropertyFileIsKeptWithAWarning() {
+    Config latestInFile = ConfigFactory.parseString("kafka.consumerPropertiesPath: "
+        + "\"classpath:KafkaUtilsTest/consumer-conf/consumer-offset-reset-latest.properties\"");
+    Properties props = KafkaUtils.createConsumerProps(latestInFile, "test-client");
+
+    List<String> warnings = offsetResetWarnings(props);
+    assertEquals("latest", props.get("auto.offset.reset"));
+    assertEquals(1, warnings.size());
+    assertTrue(warnings.get(0).contains("auto.offset.reset is set to latest"));
+  }
+
+  @Test
+  public void testOffsetResetOverrideIsKept() {
+    // kafka.consumer is merged over the property file, and over Lucille's own default on the non-property-file path
+    Config overriddenFile = ConfigFactory.parseString("kafka { consumerPropertiesPath: "
+        + "\"classpath:KafkaUtilsTest/consumer-conf/consumer-no-offset-reset.properties\", "
+        + "consumer { \"auto.offset.reset\": \"none\" } }");
+    Properties props = KafkaUtils.createConsumerProps(overriddenFile, "test-client");
+    assertTrue(offsetResetWarnings(props).isEmpty());
+    assertEquals("none", props.get("auto.offset.reset"));
+
+    Config overriddenInline = ConfigFactory.parseString(
+        "kafka { bootstrapServers: \"localhost:9092\", maxPollIntervalMs: 300000, consumerGroupId: \"test\", "
+        + "consumer { \"auto.offset.reset\": \"latest\" } }");
+    props = KafkaUtils.createConsumerProps(overriddenInline, "test-client");
+    assertEquals(1, offsetResetWarnings(props).size());
+    assertEquals("latest", props.get("auto.offset.reset"));
+  }
+
+  @Test
+  public void testOffsetResetEarliestIsNotWarnedAbout() {
+    Config inline = ConfigFactory.parseString(
+        "kafka { bootstrapServers: \"localhost:9092\", maxPollIntervalMs: 300000, consumerGroupId: \"test\" }");
+    Properties props = KafkaUtils.createConsumerProps(inline, "test-client");
+    assertTrue(offsetResetWarnings(props).isEmpty());
+    assertEquals("earliest", props.get("auto.offset.reset"));
+  }
+
+  // Applies the offset reset default to the given properties and returns what KafkaUtils logged while doing so.
+  private static List<String> offsetResetWarnings(Properties props) {
+    StoringAppender appender = new StoringAppender();
+    appender.start();
+    Logger logger = (Logger) LogManager.getLogger(KafkaUtils.class);
+    logger.addAppender(appender);
+    try {
+      KafkaUtils.defaultOffsetResetToEarliest(props);
+    } finally {
+      logger.removeAppender(appender);
+    }
+    return appender.getMessages();
   }
 
   @Test

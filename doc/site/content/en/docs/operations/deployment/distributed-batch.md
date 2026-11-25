@@ -60,6 +60,7 @@ kafka {
 
   # TLS/SASL — provide Java properties files for detailed Kafka client config.
   # consumer.properties must set enable.auto.commit=false and leave max.poll.records unset or 1.
+  # If it leaves auto.offset.reset unset, Workers and Indexers use earliest, as they do without a file.
   securityProtocol: "SSL"
   consumerPropertiesPath: "/path/to/consumer.properties"
   producerPropertiesPath: "/path/to/producer.properties"
