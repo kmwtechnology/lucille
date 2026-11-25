@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.api;
 
 import com.typesafe.config.Config;
+import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +40,6 @@ import io.dropwizard.jetty.ConnectorFactory;
 import io.dropwizard.jetty.HttpsConnectorFactory;
 import io.federecio.dropwizard.swagger.SwaggerBundle;
 import io.federecio.dropwizard.swagger.SwaggerBundleConfiguration;
-import jdk.jfr.Experimental;
 
 /**
  * Main entry point for the Lucille API.
@@ -48,7 +48,7 @@ import jdk.jfr.Experimental;
  * <p>
  * Usage:
  * <pre>
- *   java -jar lucille-api.jar server conf/config.yml
+ *   java -jar lucille-api.jar server conf/api.yml
  * </pre>
  * @see com.kmwllc.lucille.api.config.LucilleAPIConfiguration
  */
@@ -264,19 +264,37 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
     log.info("Admin UI is being served at /admin (unauthenticated).");
   }
 
+  /** The config file used when the API is started with no arguments. */
+  static final String DEFAULT_CONFIG_PATH = "conf/api.yml";
+
   /**
-   * Main method for launching the Lucille API server. If no args are provided, defaults to 'server conf/default-config.yml'.
+   * Returns the arguments to start with. Arguments that were given are returned unchanged; with no arguments, returns
+   * {@code server conf/api.yml}.
+   */
+  static String[] withDefaultArgs(String[] args) {
+    if (args.length == 0) {
+      return new String[] {"server", DEFAULT_CONFIG_PATH};
+    }
+    return args;
+  }
+
+  /**
+   * Main method for launching the Lucille API server. If no args are provided, defaults to 'server conf/api.yml'.
+   * If that file does not exist, prints a message and exits.
    * @param args command-line arguments (expects Dropwizard {@code server <config.yml>})
    * @throws Exception if startup fails
    */
   public static void main(String[] args) throws Exception {
     log.info("starting lucille-api from {} args {}", System.getProperty("user.dir"), Arrays.toString(args));
 
-    // Use default config if no arguments are provided
     if (args.length == 0) {
-      args = new String[] {"server", "conf/default-config.yml"}; // Specify the default config file
-      log.info("No config file supplied. Using default: default-config.yml");
+      if (!new File(DEFAULT_CONFIG_PATH).isFile()) {
+        System.err.println("No config file supplied and the default " + DEFAULT_CONFIG_PATH + " was not found in "
+            + System.getProperty("user.dir") + ". Usage: server <config.yml>");
+        System.exit(1);
+      }
+      log.info("No config file supplied. Using default: {}", DEFAULT_CONFIG_PATH);
     }
-    new APIApplication().run(args);
+    new APIApplication().run(withDefaultArgs(args));
   }
 }
