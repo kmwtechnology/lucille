@@ -1,0 +1,9 @@
+id,title,body,tags,meta,embedding,deleted
+1,Wolves of Yellowstone,Wolf packs returned to the park and changed how elk graze along the rivers.,animals|ecology,"{""source"": ""field-notes"", ""year"": 2021}","[0.92, 0.05, 0.02, 0.01]",
+2,Octopus intelligence,Octopuses solve puzzles and escape tanks; their arms process much of what they sense.,animals|ocean,"{""source"": ""journal"", ""year"": 2023}","[0.88, 0.02, 0.06, 0.04]",
+3,Landing on Mars,The rover used a sky crane to lower itself onto the crater floor after entering the atmosphere.,space|engineering,"{""source"": ""agency"", ""year"": 2021}","[0.03, 0.94, 0.01, 0.02]",
+4,Exoplanet atmospheres,Telescopes read starlight filtered through a planet's atmosphere to find water vapor.,space|astronomy,"{""source"": ""journal"", ""year"": 2024}","[0.04, 0.90, 0.03, 0.03]",
+5,Sourdough basics,A starter of flour and water ferments for days before it can raise a loaf of bread.,cooking|baking,"{""source"": ""blog"", ""year"": 2020}","[0.05, 0.01, 0.91, 0.03]",
+6,Bees and honey,Honey bees forage nectar from flowers and turn it into honey that bakers prize.,animals|cooking,"{""source"": ""field-notes"", ""year"": 2022}","[0.55, 0.01, 0.42, 0.02]",
+7,Index funds,Low-cost index funds track a market rather than trying to beat it.,finance|investing,"{""source"": ""blog"", ""year"": 2019}","[0.01, 0.02, 0.02, 0.95]",
+8,Retired article,This row is marked for deletion and removed from the table if it was indexed before.,finance,"{""source"": ""blog"", ""year"": 2015}","[0.02, 0.01, 0.01, 0.96]",true
