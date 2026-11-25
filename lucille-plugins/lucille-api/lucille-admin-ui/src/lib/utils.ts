@@ -79,3 +79,15 @@ export function formatDuration(
   const hours = Math.floor(minutes / 60)
   return `${hours}h ${minutes % 60}m`
 }
+
+/**
+ * Format the time between two API instants as fractional seconds, e.g. "12.345s". Unlike
+ * {@link formatDuration} this does not round to whole seconds. Returns a dash when either
+ * instant is absent or unparseable.
+ */
+export function formatDurationSeconds(start: ApiInstant, end: ApiInstant): string {
+  const startMs = toEpochMs(start)
+  const endMs = toEpochMs(end)
+  if (Number.isNaN(startMs) || Number.isNaN(endMs)) return "—"
+  return `${(Math.max(0, endMs - startMs) / 1000).toFixed(3)}s`
+}

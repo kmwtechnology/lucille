@@ -35,6 +35,10 @@
     bg-primary-50/50 whitespace-nowrap;
 }
 
+.thNumeric {
+  @apply font-semibold text-primary-800 px-4 py-2.5 border-b border-primary-100
+    bg-primary-50/50 whitespace-nowrap text-right;
+}
 .row {
   @apply border-b border-primary-100 last:border-0 cursor-pointer hover:bg-primary-50 transition-colors;
 }
@@ -65,4 +69,7 @@
 
 .nowrap {
   @apply whitespace-nowrap text-primary-800;
+}
+.numeric {
+  @apply whitespace-nowrap text-primary-800 text-right tabular-nums;
 }

@@ -15,6 +15,7 @@ public class RunResult {
   private final boolean status;
   // true if any connector reported a failed document
   private final boolean failingDocs;
+  private final List<ConnectorResult> connectorResults;
   private final String message;
   private Map<String, TestMessenger> history = null;
   private final String runId;
@@ -23,6 +24,7 @@ public class RunResult {
     this.runId = runId;
     this.status = status;
     this.failingDocs = connectorResults.stream().anyMatch(cr -> cr.hasFailingDocs());
+    this.connectorResults = List.copyOf(connectorResults);
     this.message = formatMessage(status, failingDocs, connectors, connectorResults);
   }
 
@@ -47,6 +49,14 @@ public class RunResult {
   @JsonProperty("hasFailingDocs")
   public boolean hasFailingDocs() {
     return failingDocs;
+  }
+
+  /**
+   * Returns the result of each connector that ran, in the order they ran. Each includes its own succeeded, failed,
+   * and dropped document counts.
+   */
+  public List<ConnectorResult> getConnectorResults() {
+    return connectorResults;
   }
 
   public String getMessage() {

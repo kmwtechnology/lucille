@@ -26,13 +26,13 @@ describe("runStatus", () => {
 
   // Done with a result status of true -> Succeeded.
   it("is Succeeded when done with a successful result", () => {
-    const r = run({ done: true, runResult: { status: true, message: "ok", runId: "r1" } })
+    const r = run({ done: true, runResult: { status: true, connectorResults: [], message: "ok", runId: "r1" } })
     expect(runStatus(r)).toEqual({ label: "Succeeded", tone: "success" })
   })
 
   // Done with a result status of false -> Failed.
   it("is Failed when done with a failed result", () => {
-    const r = run({ done: true, runResult: { status: false, message: "err", runId: "r1" } })
+    const r = run({ done: true, runResult: { status: false, connectorResults: [], message: "err", runId: "r1" } })
     expect(runStatus(r)).toEqual({ label: "Failed", tone: "failure" })
   })
 
@@ -54,7 +54,7 @@ describe("RunStatusBadge", () => {
 
   // A successful completed run renders the Succeeded badge.
   it("renders Succeeded for a successful completed run", () => {
-    render(<RunStatusBadge run={run({ done: true, runResult: { status: true, message: "", runId: "r1" } })} />)
+    render(<RunStatusBadge run={run({ done: true, runResult: { status: true, connectorResults: [], message: "", runId: "r1" } })} />)
     expect(screen.getByText("Succeeded")).toBeInTheDocument()
   })
 })

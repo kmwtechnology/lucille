@@ -46,6 +46,25 @@ describe("RunDetail page", () => {
     expect(screen.getByText("all good")).toBeInTheDocument()
   })
 
+  // A sub-second run shows its fractional duration instead of rounding to 0s.
+  it("shows the duration in fractional seconds", async () => {
+    mockFetch({
+      "/v1/run/": {
+        json: {
+          runId: "run-7",
+          configId: "cfg-1",
+          startTime: 1_700_000_000,
+          endTime: 1_700_000_000.25,
+          runResult: { status: true, connectorResults: [], message: "ok", runId: "run-7" },
+          runType: "LOCAL",
+          done: true,
+        },
+      },
+    })
+    renderAt("run-7")
+    expect(await screen.findByText("0.250s")).toBeInTheDocument()
+  })
+
   // An in-progress run (not done, no result) shows the Running badge.
   it("shows a Running badge for an in-progress run", async () => {
     mockFetch({

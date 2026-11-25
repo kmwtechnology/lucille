@@ -29,6 +29,7 @@ import com.kmwllc.lucille.api.objects.RunDetailsResponse;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorResult;
 import com.kmwllc.lucille.core.RunDetails;
+import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.core.RunResult;
 import com.kmwllc.lucille.core.RunnerManager;
 
@@ -227,10 +228,11 @@ public class LucilleResourceTest {
     // a run whose connector had failing documents, so that hasFailingDocs() is true
     Connector connector = mock(Connector.class);
     when(connector.getName()).thenReturn("connector1");
-    ConnectorResult connectorResult = mock(ConnectorResult.class);
-    when(connectorResult.getStatus()).thenReturn(true);
-    when(connectorResult.hasFailingDocs()).thenReturn(true);
-    when(connectorResult.hasDocs()).thenReturn(true);
+    PublisherImpl publisher = mock(PublisherImpl.class);
+    when(publisher.numSucceeded()).thenReturn(7L);
+    when(publisher.numFailed()).thenReturn(2L);
+    when(publisher.numDropped()).thenReturn(1L);
+    ConnectorResult connectorResult = new ConnectorResult(connector, publisher, true, null);
     RunResult runResult = new RunResult(true, List.of(connector), List.of(connectorResult), "run1");
     assertTrue(runResult.hasFailingDocs());
 
@@ -244,11 +246,24 @@ public class LucilleResourceTest {
     JsonNode json = Jackson.newObjectMapper().valueToTree(RunDetailsResponse.from(details));
     Set<String> fields = new HashSet<>();
     json.get("runResult").fieldNames().forEachRemaining(fields::add);
-    assertEquals(Set.of("runId", "status", "hasFailingDocs", "message", "history"), fields);
+    assertEquals(Set.of("runId", "status", "hasFailingDocs", "connectorResults", "message", "history"), fields);
     assertEquals("run1", json.get("runResult").get("runId").asText());
     assertTrue(json.get("runResult").get("status").asBoolean());
     assertTrue(json.get("runResult").get("hasFailingDocs").asBoolean());
+    JsonNode connectorJson = json.get("runResult").get("connectorResults").get(0);
+    assertEquals(Set.of("name", "status", "numSucceeded", "numFailed", "numDropped"), fieldNames(connectorJson));
+    assertEquals("connector1", connectorJson.get("name").asText());
+    assertTrue(connectorJson.get("status").asBoolean());
+    assertEquals(7, connectorJson.get("numSucceeded").asLong());
+    assertEquals(2, connectorJson.get("numFailed").asLong());
+    assertEquals(1, connectorJson.get("numDropped").asLong());
     assertTrue(json.get("runResult").get("message").asText().contains("Partial success."));
+  }
+
+  private static Set<String> fieldNames(JsonNode node) {
+    Set<String> fields = new HashSet<>();
+    node.fieldNames().forEachRemaining(fields::add);
+    return fields;
   }
 
   @Test
